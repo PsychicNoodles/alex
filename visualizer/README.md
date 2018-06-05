@@ -1,4 +1,4 @@
-# perf-analyzer
+# visualizer
 ## Dependencies
 * [npm](https://www.npmjs.com/)
 ## Setup
