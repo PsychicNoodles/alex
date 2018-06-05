@@ -6,6 +6,7 @@ FILE * writef;
 int fd;
 size_t init_time;
 static main_fn_t real_main;
+bool synced = false; // used by the parent, true when child is ready
 
 /*               EXITS                     */
 // kill failure. Not really a fail but a security hazard.
@@ -142,6 +143,7 @@ setup_inst(int period, pid_t pid)
 int
 analyzer(int pid, char * event, size_t accuracy)
 {
+  DEBUG("analyzing " << pid);
   pfm_initialize();
   // Setting up cache miss counter
   struct perf_event_attr attr;
@@ -189,27 +191,20 @@ exit_please(int sig, siginfo_t *info, void *ucontext)
   } // if
 }
 
-// pretty DANGROUS and STUPID
-FILE *
-file_find ()
-{
-  char path[128] = "/home/builinh/scrambler/analyzer/normal/runspec_results/result0.txt";
-  FILE * ret = fopen( path, "r");
-  for (int i = 1; ret != NULL; i++)
-  {
-    fclose (ret);
-    sprintf(path, "/home/builinh/scrambler/analyzer/normal/runspec_results/result%d.txt", i);
-    ret = fopen(path, "r");
-  } // for
-  ret = fopen (path, "a");
-  return ret;
-} // file_find
+void child_ready_handler(int signum) {
+  if(signum == SIGUSR2) {
+    DEBUG("synced with child, starting");
+    synced = true;
+  }
+}
+
 // last argument is the file to write
 // second to last argument is the frequency of instructions to report
 // third to loast is the type of event we wish to record
 static int
 wrapped_main (int argc, char** argv, char** env)
 {
+  DEBUG("in wrapped main");
   int result;
   ppid = getpid ();
   // FORKING
@@ -218,8 +213,20 @@ wrapped_main (int argc, char** argv, char** env)
   if (pid > 0)
   {
     // parent process
+    DEBUG("in parent, waiting for child to be ready (" << ppid << ")");
+    
+    // disable default behavior, which is to terminate
+    struct sigaction handler_action;
+    handler_action.sa_handler = child_ready_handler;
+    sigemptyset(&handler_action.sa_mask);
+    handler_action.sa_flags = 0;
+    sigaction(SIGUSR2, &handler_action, NULL);
+
+    while(!synced) {}
+
     result = real_main (argc, argv, env);
     // killing the kid
+    DEBUG("finished, killing child");
     if (kill (cpid, SIGTERM))
     {
       // KILL CHILD
@@ -228,8 +235,14 @@ wrapped_main (int argc, char** argv, char** env)
   } // if
   else if (pid == 0)
   {
+    DEBUG("in child, opening result file for writing (" << pid << ", ppid: " << ppid << ")");
     // opening file
-    writef = file_find ();
+    char* env_res = getenv("PERF_ANALYZER_RESULT_FILE");
+    if(env_res == NULL) {
+      writef = fopen("result.txt", "w");
+    } else {
+      writef = fopen(env_res, "w");
+    }
     if (writef == NULL)
     {
       perror("failed to write to file");
@@ -242,6 +255,9 @@ wrapped_main (int argc, char** argv, char** env)
     sa.sa_sigaction = &exit_please;
     sigaction (SIGTERM, &sa, NULL);
     char event[32] = "MEM_LOAD_RETIRED.L3_MISS";
+    DEBUG("child ready, sending signal");
+    kill(ppid, SIGUSR2);
+
     result = analyzer (ppid, event, 1000000);
   } // else if
   else

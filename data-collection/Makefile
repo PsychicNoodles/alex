@@ -13,8 +13,14 @@ endif
 
 all: alex.$(SHLIB_SUFFIX)
 
+nolog: DEBUG = -D NDEBUG
+nolog: all
+
+minlog: DEBUG = -D MINDEBUG
+minlog: all
+
 clean:
 	@rm -f alex.$(SHLIB_SUFFIX) testprog
 
 alex.$(SHLIB_SUFFIX): alex.cpp
-	$(CXXLIB) -I../../include --std=c++11 -g -o $@ $< -ldl -lpfm -pthread
+	$(CXXLIB) $(DEBUG) -I../../include --std=c++11 -g -o $@ $< -ldl -lpfm -pthread
