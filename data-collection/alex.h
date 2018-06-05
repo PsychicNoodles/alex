@@ -15,7 +15,6 @@
 #include <pthread.h>
 #include <fcntl.h>
 #include <assert.h>
-#include <pagemap.hh>
 #include <sys/time.h>
 #include <sys/syscall.h>
 
