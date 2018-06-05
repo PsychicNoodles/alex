@@ -1,0 +1,35 @@
+{
+  "datapoint": {
+    "time": 5,
+    "function": {
+      "name": "foo",
+      "params": {
+        "param": [
+          {"name": "counter", "value": 50},
+          {"name": "cur", "value": "0x7FFFF58485"}
+        ]
+      }
+    },
+    "location": {
+      "file": "foo.c",
+      "lineNumber": "5"
+    },
+    "threadID": 93,
+    "stackTrace": {
+      "stackFrame": [
+        {
+          "function": "bar",
+          "file" : "bar.c",
+          "lineNumber": "54"
+        },
+        {
+          "function": "baz",
+          "file": "baz.c",
+          "lineNumber": "485"
+        }
+      ]
+    },
+    "hit": 50,
+    "miss": 5,
+  }
+}
