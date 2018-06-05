@@ -18,6 +18,8 @@
 #include <sys/time.h>
 #include <sys/syscall.h>
 
+#include "debug.h"
+
 #define SAMPLE_ADDR_AND_IP (PERF_SAMPLE_ADDR | PERF_SAMPLE_IP)
 
 typedef int (*main_fn_t)(int, char**, char**);
