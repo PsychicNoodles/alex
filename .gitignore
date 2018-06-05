@@ -1,0 +1,13 @@
+# Ignore temporary files from NFS, emacs, and vim
+.nfs*
+*~
+\#*\#
+.\#*
+*.out
+.RData
+.Rhistory
+*.exe
+policy.o
+masks.o
+scrambler.so
+perf_sampler.o
