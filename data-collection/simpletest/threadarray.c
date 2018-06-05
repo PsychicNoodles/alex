@@ -22,7 +22,7 @@ void* calculate_sum(void* args)
 			int sum = 0;		
 			for(int k = i-1; k <= i+1; k++) {
 				for (int h = j-1; h <= j+1; h++) {
-					if (k < 0 || h < 0) break;
+					if (k < 0 || h < 0) continue;
 					sum += dimensional_array[h][j];
 				}
 			}
@@ -43,7 +43,7 @@ int main(void) {
 
 	for(int i = 0; i <= N-1; i++) {
 		for (int j = 0; j <= M-1; j++) {		
-	 		printf("%5d", dimensional_array[i][j]);
+	 		printf("%10d", dimensional_array[i][j]);
 		}
 	printf("\n");
 	}
@@ -57,9 +57,12 @@ int main(void) {
 	for(j=0; j < NTHREADS; j++) {
 		pthread_join( thread_id[j], NULL);
 	}
+
+	printf("\n\n\n");
+
 	for(int i = 0; i <= N-1; i++) {
 		for (int j = 0; j <= M-1; j++) {		
-	 		printf("%5d", dimensional_array[i][j]);
+	 		printf("%10d", dimensional_array[i][j]);
 		}
 	printf("\n");
 	}	
