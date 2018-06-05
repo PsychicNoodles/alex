@@ -1,0 +1,26 @@
+[
+	{
+	    "time": 5,
+	    "missRate": 0.3
+	},
+
+	{
+	    "time": 10,
+	    "missRate": 0.5
+	},
+
+	{
+	    "time": 15,
+	    "missRate": 0.7
+	},
+
+	{
+	    "time": 20,
+	    "missRate": 0.1
+	},
+
+	{
+	    "time": 25,
+	    "missRate": 0.4
+	}
+]
