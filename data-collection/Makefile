@@ -11,10 +11,10 @@ PRELOAD_VAR  := LD_PRELOAD
 CXXLIB       := $(CXX) -shared -fPIC -Wl,-soname,interposer.so
 endif
 
-all: analyzer.$(SHLIB_SUFFIX)
+all: alex.$(SHLIB_SUFFIX)
 
 clean:
-	@rm -f analyzer.$(SHLIB_SUFFIX) testprog
+	@rm -f alex.$(SHLIB_SUFFIX) testprog
 
-analyzer.$(SHLIB_SUFFIX): runspec_analyzer.cpp
+alex.$(SHLIB_SUFFIX): alex.cpp
 	$(CXXLIB) -I../../include --std=c++11 -g -o $@ $< -ldl -lpfm -pthread
