@@ -1,4 +1,4 @@
-#include "analyzer.h"
+#include "alex.h"
 
 int ppid;
 int cpid;
