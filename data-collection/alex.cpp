@@ -1,32 +1,16 @@
 #include "alex.h"
+#include "debug.h"
 
-int ppid;
-int cpid;
-FILE * writef;
-int fd;
-size_t init_time;
-static main_fn_t real_main;
-bool synced = false; // used by the parent, true when child is ready
-
-/*               EXITS                     */
-// kill failure. Not really a fail but a security hazard.
-#define KILLERROR 1               // Cannot kill child
-#define FORKERROR 2               // Cannot fork
-#define OPENERROR 3               // Cannot open file=
-#define PERFERROR 4               // Cannot make perf_even
-#define INSTERROR 5               // Cannot make fd for inst counter
-#define ASYNERROR 6               // Cannot set file to async mode
-#define FISGERROR 7               // Cannot set signal to file
-#define OWNERROR  8               // Cannot set file to owner
-#define SETERROR  9               // Cannot empty sigset
-#define ADDERROR  10              // Cannot add to sigset
-/*            END OF EXITS                  */
-
-void
-create_raw_event_attr(perf_event_attr *attr, const char *event_name, __u64 sample_type, __u64 sample_period)
+/*
+ * Creates a raw encoding of desired event_name.
+ * sample_type is the type of samples we wish to have reported back and
+ * sample_period is how frequent we want the samples to be.
+ */
+void create_raw_event_attr(perf_event_attr *attr, const char *event_name,
+                           __u64 sample_type, __u64 sample_period)
 {
   // setting up pfm raw encoding
-  memset(attr, 0, sizeof( perf_event_attr));
+  memset(attr, 0, sizeof(perf_event_attr));
   pfm_perf_encode_arg_t pfm;
   pfm.attr = attr;
   pfm.fstr = 0;
@@ -45,236 +29,295 @@ create_raw_event_attr(perf_event_attr *attr, const char *event_name, __u64 sampl
   attr->disabled = true;
   attr->size = sizeof(perf_event_attr);
   attr->exclude_kernel = true;
-  attr->precise_ip = 3;
   attr->read_format = 0;
   attr->wakeup_events = 1;
-}
+  attr->inherit = 0;
+} // create_raw_event_attr
 
-size_t
-time_ms()
+/*
+ * Reports time since epoch in milliseconds.
+ */
+size_t time_ms()
 {
   struct timeval tv;
-  if(gettimeofday(&tv, NULL) == -1)
+  if (gettimeofday(&tv, NULL) == -1)
   {
     perror("gettimeofday");
     exit(2);
   } // if
-       // Convert timeval values to milliseconds
-  return tv.tv_sec*1000 + tv.tv_usec/1000;
-}
+  // Convert timeval values to milliseconds
+  return tv.tv_sec * 1000 + tv.tv_usec / 1000;
+} // time_ms
 
-void
-set_ready_signal(int sig, int fd)
+/*
+ * Sets a file descriptor to send a signal everytime an event is recorded.
+ */
+void set_ready_signal(int sig, int fd)
 {
   // Set the perf_event file to async
   if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_ASYNC))
   {
-    perror("failed to set perf_event file to async");
-    kill (ppid, SIGKILL);
-    fclose (writef);
-    exit (ASYNERROR);
-  }
+    perror("couldn't set perf_event file to async");
+    kill(cpid, SIGKILL);
+    fclose(writef);
+    exit(ASYNERROR);
+  } // if
   // Set the notification signal for the perf file
   if (fcntl(fd, F_SETSIG, sig))
   {
-    perror("failed to set notification signal for the perf file");
-    kill (ppid, SIGKILL);
-    fclose (writef);
+    perror("couldn't set notification signal for perf file");
+    kill(cpid, SIGKILL);
+    fclose(writef);
     exit(FISGERROR);
-  }
+  } // if
   pid_t tid = syscall(SYS_gettid);
   // Set the current thread as the owner of the file (to target signal delivery)
   if (fcntl(fd, F_SETOWN, tid))
   {
-    perror("failed to set the current thread as the owner of the file");
-    kill (ppid, SIGKILL);
-    fclose (writef);
+    perror("couldn't set the current thread as the owner of the file");
+    kill(cpid, SIGKILL);
+    fclose(writef);
     exit(OWNERROR);
-  }
-}
+  } // if
+} // set_ready_signal
 
-int
-setup_sigset(int signum, sigset_t * sigset)
+/*
+ * Preps the system for using sigset.
+ */
+int setup_sigset(int signum, sigset_t *sigset)
 {
   // emptying the set
   if (sigemptyset(sigset))
   {
-    perror("failed to empty sigset");
-    kill (ppid, SIGKILL);
-    fclose (writef);
-    exit (SETERROR);
-  }
+    perror("couldn't empty the signal set");
+    kill(cpid, SIGKILL);
+    fclose(writef);
+    exit(SETERROR);
+  } // if
   // adding signum to sigset
   if (sigaddset(sigset, SIGUSR1))
   {
-    perror("failed to add signum to sigset");
-    kill (ppid, SIGKILL);
-    fclose (writef);
-    exit (ADDERROR);
+    perror("couldn't add to signal set");
+    kill(cpid, SIGKILL);
+    fclose(writef);
+    exit(ADDERROR);
   }
   // blocking signum
   return pthread_sigmask(SIG_BLOCK, sigset, NULL);
-}
+} // setup_sigset
 
-inline int
-setup_inst(int period, pid_t pid)
+/*
+ * Sets up instruction counter
+ */
+int setup_inst(int period, pid_t pid)
 {
   // setting up the instruction file descriptor
   struct perf_event_attr attr_inst;
   memset(&attr_inst, 0, sizeof(struct perf_event_attr));
   attr_inst.type = PERF_TYPE_HARDWARE;
   attr_inst.config = PERF_COUNT_HW_INSTRUCTIONS;
+  attr_inst.sample_type = SAMPLE;
   attr_inst.sample_period = period;
   attr_inst.disabled = true;
   attr_inst.size = sizeof(perf_event_attr);
   attr_inst.exclude_kernel = true;
   attr_inst.wakeup_events = 1;
+  attr_inst.precise_ip = 0;
+  attr_inst.read_format = 0;
   int fd_inst = perf_event_open(&attr_inst, pid, -1, -1, 0);
   if (fd_inst == -1)
   {
-    perror("failed to perf_event_open");
-    kill (ppid, SIGKILL);
-    fclose (writef);
-    exit (INSTERROR);
-   }
+    perror("couldn't perf_event_open instruction count");
+    kill(cpid, SIGKILL);
+    fclose(writef);
+    exit(INSTERROR);
+  } // if
   return fd_inst;
 }
 
-int
-analyzer(int pid, char * event, size_t accuracy)
+// TODO: MAY NOT WRAP AROUND FIX
+sample *get_ips(perf_buffer *buf, int &type)
 {
-  DEBUG("analyzing " << pid);
+  sample *result = (sample *)((char *)buf->data +
+                              (buf->info->data_tail % buf->info->data_size));
+  buf->info->data_tail += result->header.size;
+  type = result->header.type;
+  return result;
+} // get_ip
+
+/*
+ * The most important function. Sets up the required events and records
+ * intended data.
+ */
+int analyzer(int pid)
+{
   pfm_initialize();
-  // Setting up cache miss counter
-  struct perf_event_attr attr;
-  memset(&attr, 0, sizeof(struct perf_event_attr));
-  create_raw_event_attr(&attr, event, 0, 1000000);
-  fd = perf_event_open(&attr, pid, -1, -1, 0);
-  // getting instruction file descriptor
-  int fd_inst = setup_inst(accuracy, pid);
-  // setting up the connection between fd_inst and SIGUSR1
+  // Setting up event counters
+  int number = atoi(getenv("number"));
+  char *events[number];
+  char e[8] = "event0";
+  fprintf(writef, "instructions");
+  for (int i = 0; i < number; i++)
+  {
+    events[i] = getenv(e);
+    fprintf(writef, ",%s", events[i]);
+    e[5]++;
+  } // for
+  fprintf(writef, ",n_call_chain\n");
+  int fd[number];
+  for (int i = 0; i < number; i++)
+  {
+    struct perf_event_attr attr;
+    memset(&attr, 0, sizeof(struct perf_event_attr));
+    create_raw_event_attr(&attr, events[i], 0, EVENT_ACCURACY);
+    fd[i] = perf_event_open(&attr, pid, -1, -1, 0);
+    if (fd[i] == -1)
+    {
+      perror("couldn't perf_event_open for event");
+      kill(cpid, SIGKILL);
+      fclose(writef);
+      exit(PERFERROR);
+    }
+  } // for
+
+  long long frequency = atoi(getenv("frequency"));
+  int fd_inst = setup_inst(frequency, pid);
+  uint64_t buf_size = (1 + NUM_DATA_PAGES) * PAGE_SIZE;
+  buffer = mmap(0, buf_size, PROT_READ | PROT_WRITE,
+                // v-- has to be MAP_SHARED! wasted hours :"(
+                MAP_SHARED, fd_inst, 0);
+  if (buffer == MAP_FAILED)
+  {
+    perror("mmap");
+    kill(cpid, SIGKILL);
+    fclose(writef);
+    exit(BUFFERROR);
+  }
+  perf_buffer inst_buff;
+  inst_buff.fd = fd_inst;
+  inst_buff.info = (perf_event_mmap_page *)buffer;
+  inst_buff.data = (char *)buffer + PAGE_SIZE;
+  inst_buff.data_size = buf_size - PAGE_SIZE;
+
   set_ready_signal(SIGUSR1, fd_inst);
   sigset_t signal_set;
-  // setting up for sigwait
   setup_sigset(SIGUSR1, &signal_set);
-  // resetting and starting our fds
-  ioctl(fd, PERF_EVENT_IOC_RESET, 0);
-  ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
+
   ioctl(fd_inst, PERF_EVENT_IOC_RESET, 0);
   ioctl(fd_inst, PERF_EVENT_IOC_ENABLE, 0);
+
+  for (int i = 0; i < number; i++)
+  {
+    ioctl(fd[i], PERF_EVENT_IOC_RESET, 0);
+    ioctl(fd[i], PERF_EVENT_IOC_ENABLE, 0);
+  } // for
 
   int sig;
   long long inst = 0;
   long long count = 0;
-  long long old_count = 0;
+  int event_type = 0;
+  sample *s;
   while (true)
   {
-    // waits until it recieves SIGUSR1
+    // waits until it receives SIGUSR1
     sigwait(&signal_set, &sig);
-    read(fd, &count, sizeof(long long));
     read(fd_inst, &inst, sizeof(long long));
-   // if (count-old_count > 281474975662080)
-   //   fprintf(stderr, "%lld,%llu \t\tffffff\n", inst, (count - old_count) % 281474975662080);
-   fprintf(writef, "%lld,%llu\n", inst, count - old_count);
-   old_count = count;
+    fprintf(writef, "%lld", inst);
+    s = get_ips(&inst_buff, event_type);
+    for (int i = 0; i < number; i++)
+    {
+      count = 0;
+      read(fd[i], &count, sizeof(long long));
+      ioctl(fd[i], PERF_EVENT_IOC_RESET, 0);
+      fprintf(writef, ",%lld", count);
+    } // for
+    if (event_type == PERF_RECORD_SAMPLE)
+    {
+      fprintf(writef, ",%ld", s->nr);
+      for (int i = 0; i < s->nr; i++)
+      {
+        fprintf(writef, ",%p",
+                (((void **)&(s->ips)))[i]);
+      }
+      fprintf(writef, "\n");
+    }
+    else
+    {
+      fprintf(writef, "NA\n");
+    }
   } // while
   return 0;
-}
+} // analyzer
 
-void
-exit_please(int sig, siginfo_t *info, void *ucontext)
+/*
+ * Exit function for SIGTERM
+ * As for the naming convention, we were bored. You can judge.
+ */
+void exit_please(int sig, siginfo_t *info, void *ucontext)
 {
   if (sig == SIGTERM)
   {
-    fclose (writef);
-    exit (0);
+    munmap(buffer, (1 + NUM_DATA_PAGES) * PAGE_SIZE);
+    fclose(writef);
+    exit(0);
   } // if
 }
 
-void child_ready_handler(int signum) {
-  if(signum == SIGUSR2) {
-    DEBUG("synced with child, starting");
-    synced = true;
-  }
-}
+/*
+ *
+ */
 
-// last argument is the file to write
-// second to last argument is the frequency of instructions to report
-// third to loast is the type of event we wish to record
-static int
-wrapped_main (int argc, char** argv, char** env)
+static int wrapped_main(int argc, char **argv, char **env)
 {
-  DEBUG("in wrapped main");
+  /*
+	char * exe_path = getenv("exe_path");
+	std::map<char *, void *> functions;
+	get_function_addrs(exe_path, functions);
+	*/
   int result;
-  ppid = getpid ();
-  // FORKING
-  int pid = fork ();
-  cpid = pid;
-  if (pid > 0)
+  ppid = getpid();
+  cpid = fork();
+  if (cpid == 0)
+  {
+    // child process
+    result = real_main(argc, argv, env);
+    // killing the parent
+    if (kill(ppid, SIGTERM))
+    {
+      exit(KILLERROR);
+    } // if
+  }
+  else if (cpid > 0)
   {
     // parent process
-    DEBUG("in parent, waiting for child to be ready (" << ppid << ")");
-    
-    // disable default behavior, which is to terminate
-    struct sigaction handler_action;
-    handler_action.sa_handler = child_ready_handler;
-    sigemptyset(&handler_action.sa_mask);
-    handler_action.sa_flags = 0;
-    sigaction(SIGUSR2, &handler_action, NULL);
-
-    while(!synced) {}
-
-    result = real_main (argc, argv, env);
-    // killing the kid
-    DEBUG("finished, killing child");
-    if (kill (cpid, SIGTERM))
-    {
-      // KILL CHILD
-      exit (KILLERROR);
-    } // if
-  } // if
-  else if (pid == 0)
-  {
-    DEBUG("in child, opening result file for writing (" << pid << ", ppid: " << ppid << ")");
-    // opening file
-    char* env_res = getenv("PERF_ANALYZER_RESULT_FILE");
-    if(env_res == NULL) {
-      writef = fopen("result.txt", "w");
-    } else {
-      writef = fopen(env_res, "w");
-    }
+    char *destination = getenv("destination");
+    writef = fopen(destination, "w");
     if (writef == NULL)
     {
-      perror("failed to write to file");
-      kill (ppid, SIGKILL);
-      exit (OPENERROR);
+      perror("couldnt' open destination file");
+      kill(cpid, SIGKILL);
+      exit(OPENERROR);
     } // if
-    fprintf (writef, "instruction, count\n");
-    // seting up sig handler
     struct sigaction sa;
     sa.sa_sigaction = &exit_please;
-    sigaction (SIGTERM, &sa, NULL);
-    char event[32] = "MEM_LOAD_RETIRED.L3_MISS";
-    DEBUG("child ready, sending signal");
-    kill(ppid, SIGUSR2);
-
-    result = analyzer (ppid, event, 1000000);
-  } // else if
+    sigaction(SIGTERM, &sa, NULL);
+    result = analyzer(cpid);
+  }
   else
   {
-    exit (FORKERROR);
+    exit(FORKERROR);
   } // else
-  return result;
+  return 0;
 } // wrapped_main
 
-extern "C" int
-__libc_start_main (main_fn_t main_fn, int argc, char** argv, void (*init)(),
-                  void (*fini)(), void (*rtld_fini)(), void* stack_end)
+extern "C" int __libc_start_main(main_fn_t main_fn, int argc, char **argv,
+                                 void (*init)(), void (*fini)(),
+                                 void (*rtld_fini)(), void *stack_end)
 {
-  auto real_libc_start_main = (decltype (__libc_start_main)*) dlsym (RTLD_NEXT,
-                              "__libc_start_main");
+  auto real_libc_start_main = (decltype(__libc_start_main) *)
+      dlsym(RTLD_NEXT, "__libc_start_main");
   real_main = main_fn;
-  int result = real_libc_start_main (wrapped_main, argc, argv, init, fini,
-                                   rtld_fini, stack_end);
+  int result = real_libc_start_main(wrapped_main, argc, argv, init, fini,
+                                    rtld_fini, stack_end);
   return result;
 } // __libc_start_main
