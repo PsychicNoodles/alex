@@ -11,19 +11,21 @@ var svg = d3.select("#plot")
     .attr("height", height);
 
 // Load the data from the JSON file
-d3.json("./data/many-time-slices.json", function(results) {
+d3.json("./data/percentageTest.json", function(results) {
 
   var dataset = results.timeslice;
 
   var firstElem = dataset[0];
-  firstElem.hitsTemp = firstElem.events.cache.hit;
+  firstElem.hitsTemp = firstElem.events.cache.hits;
+  //console.log(firstElem.events.cache.hits)
+  console.log(firstElem.hitsTemp);
   firstElem.missesTemp = firstElem.events.cache.misses;
   firstElem.hitsPerc = firstElem.hitsTemp / (firstElem.missesTemp + firstElem.hitsTemp);
   firstElem.missesPerc = firstElem.missesTemp / (firstElem.missesTemp + firstElem.hitsTemp);
 
   for(i = 1; i < dataset.length; i++) {
     var cur = dataset[i];
-    cur.hitsTemp = cur.events.cache.hit - dataset[i - 1].events.cache.hit;
+    cur.hitsTemp = cur.events.cache.hits - dataset[i - 1].events.cache.hits;
     cur.missesTemp = cur.events.cache.misses - dataset[i - 1].events.cache.misses;
     cur.hitsPerc = cur.hitsTemp / (cur.missesTemp + cur.hitsTemp);
     cur.missesPerc = cur.missesTemp / (cur.missesTemp + cur.hitsTemp);
@@ -35,7 +37,7 @@ d3.json("./data/many-time-slices.json", function(results) {
   });
 
   // Create functions to scale objects vertically and horizontally according to the size of the graph
-  var x = d3.scale.linear().domain([1528227773, xAxisRange]).range([left_pad, width - pad]),
+  var x = d3.scale.linear().domain([0, xAxisRange]).range([left_pad, width - pad]),
       y = d3.scale.linear().domain([1, 0]).range([pad, height - pad * 2]);
 
   // Create axes and format the ticks on the y-axis as percentages
@@ -69,6 +71,6 @@ d3.json("./data/many-time-slices.json", function(results) {
       
       return y(d.missesPerc);
     })
-    .attr("r", 1);
+    .attr("r", 3);
   
 });
