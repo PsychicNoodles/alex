@@ -3,21 +3,21 @@
     "programVersion": 0.0
   },
   "timeslice": [{
-    "time": 1528227774,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+      "time": 1528227774,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -28,37 +28,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 50,
+          "misses": 5
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 50,
-        "misses": 5
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-{
-    "time": 1528227775,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227775,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -69,37 +68,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 548,
+          "misses": 210
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 548,
-        "misses": 210
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-{
-    "time": 1528227776,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227776,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -110,37 +108,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 1390,
+          "misses": 442
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 1390,
-        "misses": 442
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-{
-    "time": 1528227777,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227777,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -151,37 +148,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 1789,
+          "misses": 700
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 1789,
-        "misses": 700
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-{
-    "time": 1528227778,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227778,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -192,37 +188,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 2049,
+          "misses": 789
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 2049,
-        "misses": 789
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-{
-    "time": 1528227779,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227779,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -233,37 +228,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 4930,
+          "misses": 1234
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 4930,
-        "misses": 1234
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-{
-    "time": 1528227780,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227780,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -274,37 +268,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 6048,
+          "misses": 2345
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 6048,
-        "misses": 2345
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-{
-    "time": 1528227781,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227781,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -315,37 +308,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 7491,
+          "misses": 3445
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 7491,
-        "misses": 3445
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-{
-    "time": 1528227782,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227782,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -356,37 +348,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 9422,
+          "misses": 4556
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 9422,
-        "misses": 4556
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-{
-    "time": 1528227783,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227783,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -397,37 +388,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 12010,
+          "misses": 5885
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 12010,
-        "misses": 5885
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-{
-    "time": 1528227784,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227784,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -438,37 +428,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 14560,
+          "misses": 6888
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 14560,
-        "misses": 6888
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-{
-    "time": 1528227785,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227785,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -479,37 +468,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 18585,
+          "misses": 7894
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 18585,
-        "misses": 7894
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-{
-    "time": 1528227786,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227786,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -520,37 +508,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 23449,
+          "misses": 7999
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 23449,
-        "misses": 7999
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-{
-    "time": 1528227787,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227787,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -561,37 +548,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 27588,
+          "misses": 7999
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 27588,
-        "misses": 7999
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-{
-    "time": 1528227788,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227788,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -602,37 +588,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 34940,
+          "misses": 8444
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 34940,
-        "misses": 8444
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-  {
-    "time": 1528227789,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227789,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -643,37 +628,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 35689,
+          "misses": 8585
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 35689,
-        "misses": 8585
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-{
-    "time": 1528227790,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227790,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -684,37 +668,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 38970,
+          "misses": 9888
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 38970,
-        "misses": 9888
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-  {
-    "time": 1528227791,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227791,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -725,37 +708,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 45678,
+          "misses": 10999
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 45678,
-        "misses": 10999
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-  {
-    "time": 1528227792,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227792,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -766,37 +748,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 47850,
+          "misses": 11000
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 47850,
-        "misses": 11000
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-  {
-    "time": 1528227793,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227793,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -807,37 +788,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 50480,
+          "misses": 12929
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 50480,
-        "misses": 12929
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-  {
-    "time": 1528227794,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227794,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -848,37 +828,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 54949,
+          "misses": 13444
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 54949,
-        "misses": 13444
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-  {
-    "time": 1528227795,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227795,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -889,37 +868,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 58935,
+          "misses": 13558
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 58935,
-        "misses": 13558
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-  {
-    "time": 1528227796,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227796,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -930,37 +908,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 63043,
+          "misses": 14599
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 63043,
-        "misses": 14599
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-  {
-    "time": 1528227797,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227797,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -971,37 +948,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 67988,
+          "misses": 13988
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 67988,
-        "misses": 13988
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-  {
-    "time": 1528227798,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227798,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -1012,37 +988,36 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
+      ],
+      "events": {
+        "cache": {
+          "hits": 74923,
+          "misses": 14112
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
+      }
     },
-    "events": {
-      "cache": {
-        "hits": 74923,
-        "misses": 14112
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
-      }
-    }
-  },
-  {
-    "time": 1528227799,
-    "function": "foo",
-    "param": [{
-        "name": "counter",
-        "value": 50
-      },
-      {
-        "name": "cur",
-        "value": "0x7FFFF58485"
-      }
-    ],
-    "file": "foo.c",
-    "lineNumber": 15,
-    "threadID": 93,
-    "stackTrace": {
+    {
+      "time": 1528227799,
+      "function": "foo",
+      "param": [{
+          "name": "counter",
+          "value": 50
+        },
+        {
+          "name": "cur",
+          "value": "0x7FFFF58485"
+        }
+      ],
+      "file": "foo.c",
+      "lineNumber": 15,
+      "threadID": 93,
+
       "stackFrame": [{
           "address": "0x7FFFFF9584848",
           "function": "bar",
@@ -1053,19 +1028,19 @@
           "function": "baz",
           "file": "baz.c",
         }
-      ]
-    },
-    "events": {
-      "cache": {
-        "hits": 75843,
-        "misses": 14888
-      },
-      "power": {
-        "joules": 500,
-      },
-      "branchPredictor": {
-        "success": true,
+      ],
+      "events": {
+        "cache": {
+          "hits": 75843,
+          "misses": 14888
+        },
+        "power": {
+          "joules": 500,
+        },
+        "branchPredictor": {
+          "success": true,
+        }
       }
     }
-  }]
+  ]
 }
