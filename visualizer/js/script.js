@@ -11,7 +11,7 @@ var svg = d3.select("#plot")
     .attr("height", height);
 
 // Load the data from the JSON file
-d3.json("./data/percentageTest.json", function(results) {
+d3.json("./data/percentageTest.json").then(function(results) {
 
   var dataset = results.timeslice;
 
@@ -37,13 +37,13 @@ d3.json("./data/percentageTest.json", function(results) {
   });
 
   // Create functions to scale objects vertically and horizontally according to the size of the graph
-  var x = d3.scale.linear().domain([0, xAxisRange]).range([left_pad, width - pad]),
-      y = d3.scale.linear().domain([1, 0]).range([pad, height - pad * 2]);
+  var x = d3.scaleLinear().domain([0, xAxisRange]).range([left_pad, width - pad]),
+      y = d3.scaleLinear().domain([1, 0]).range([pad, height - pad * 2]);
 
   // Create axes and format the ticks on the y-axis as percentages
   var formatAsPercentage = d3.format(".1%");
-  var xAxis = d3.svg.axis().scale(x).orient("bottom"),
-      yAxis = d3.svg.axis().scale(y).orient("left").tickFormat(formatAsPercentage);
+  var xAxis = d3.axisBottom(x),
+      yAxis = d3.axisLeft(y).tickFormat(formatAsPercentage);
 
   // Add the axes to the svg object
   svg.append("g")
