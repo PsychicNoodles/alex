@@ -1,6 +1,8 @@
 #include "alex.h"
 #include "debug.h"
 
+#define ALEX_VERSION "1.0"
+
 /*
  * Creates a raw encoding of desired event_name.
  * sample_type is the type of samples we wish to have reported back and
@@ -156,14 +158,11 @@ int analyzer(int pid)
   int number = atoi(getenv("number"));
   char *events[number];
   char e[8] = "event0";
-  fprintf(writef, "instructions");
   for (int i = 0; i < number; i++)
   {
     events[i] = getenv(e);
-    fprintf(writef, ",%s", events[i]);
     e[5]++;
   } // for
-  fprintf(writef, ",n_call_chain\n");
   int fd[number];
   for (int i = 0; i < number; i++)
   {
@@ -217,34 +216,53 @@ int analyzer(int pid)
   long long count = 0;
   int event_type = 0;
   sample *s;
+  fprintf(
+    writef,
+    R"({
+      "header": {
+        "programVersion": )" ALEX_VERSION R"(
+      },
+      "timeslices": [
+    )"
+  );
+
   while (true)
   {
     // waits until it receives SIGUSR1
     sigwait(&signal_set, &sig);
     read(fd_inst, &inst, sizeof(long long));
-    fprintf(writef, "%lld", inst);
+    fprintf(
+      writef,
+      R"(
+        {
+          "num_instructions": %lld,
+          "events": [
+      )",
+      inst
+    );
     s = get_ips(&inst_buff, event_type);
     for (int i = 0; i < number; i++)
     {
       count = 0;
       read(fd[i], &count, sizeof(long long));
       ioctl(fd[i], PERF_EVENT_IOC_RESET, 0);
-      fprintf(writef, ",%lld", count);
-    } // for
-    if (event_type == PERF_RECORD_SAMPLE)
-    {
-      fprintf(writef, ",%ld", s->nr);
-      for (int i = 0; i < s->nr; i++)
-      {
-        fprintf(writef, ",%p",
-                (((void **)&(s->ips)))[i]);
+      fprintf(writef, R"(
+        {
+          "name": "%s",
+          "count": %lld
+        }
+      )", events[i], count);
+      if (i < number - 1) {
+        fprintf(writef, ",");
       }
-      fprintf(writef, "\n");
-    }
-    else
-    {
-      fprintf(writef, "NA\n");
-    }
+    } // for
+    fprintf(
+      writef,
+      R"(
+          ]
+        },
+      )"
+    );
   } // while
   return 0;
 } // analyzer
@@ -258,6 +276,13 @@ void exit_please(int sig, siginfo_t *info, void *ucontext)
   if (sig == SIGTERM)
   {
     munmap(buffer, (1 + NUM_DATA_PAGES) * PAGE_SIZE);
+
+    fprintf(
+      writef,
+      R"(
+        ]
+      })"
+    );
     fclose(writef);
     exit(0);
   } // if
