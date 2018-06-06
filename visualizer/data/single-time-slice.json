@@ -34,20 +34,17 @@
             ],
             "events": [
                 {
-                    "cache": {
-                        "hits": 50,
-                        "misses": 5
-                    }
+                    "name": "cache",
+                    "hits": 50,
+                    "misses": 5
                 },
                 {
-                    "power": {
-                        "joules": 500
-                    }
+                    "name": "power",
+                    "joules": 50
                 },
                 {
-                    "branchPredictor": {
-                        "success": true
-                    }
+                    "name": "branchPredictor",
+                    "success": true
                 }
             ]
         }
