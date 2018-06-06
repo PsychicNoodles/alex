@@ -17,19 +17,17 @@
     "file": "foo.c",
     "lineNumber": 15,
     "threadID": 93,
-    "stackTrace": {
-      "stackFrame": [{
-          "address": "0x7FFFFF9584848",
-          "function": "bar",
-          "file": "bar.c"
-        },
-        {
-          "address": "0x7FFFFF9584848",
-          "function": "baz",
-          "file": "baz.c",
-        }
-      ]
-    },
+    "stackFrame": [{
+        "address": "0x7FFFFF9584848",
+        "function": "bar",
+        "file": "bar.c"
+      },
+      {
+        "address": "0x7FFFFF9584848",
+        "function": "baz",
+        "file": "baz.c",
+      }
+    ],
     "events": {
       "cache": {
         "hits": 50,
