@@ -32,9 +32,9 @@ create_raw_event_attr(perf_event_attr *attr, const char *event_name, __u64 sampl
   pfm.fstr = 0;
   pfm.size = sizeof(pfm_perf_encode_arg_t);
   int pfm_result = pfm_get_os_event_encoding(event_name, PFM_PLM3, PFM_OS_PERF_EVENT_EXT, &pfm);
-  if(pfm_result != 0)
+  if(pfm_result != PFM_SUCCESS)
   {
-    perror("bad pfm result");
+    fprintf(stderr, "pfm encoding error: %s", pfm_strerror(pfm_result));
     kill (ppid, SIGKILL);
     fclose (writef);
     exit (PERFERROR);
