@@ -19,7 +19,7 @@ void* calculate_sum(void* args)
 	for(int i = 0; i <= N-1; i++) {
 		if (i % NTHREADS != threadindex) continue;
 		for (int j = 0; j <= M-1; j++) {
-			int sum = 0;		
+			int sum = 0;
 			for(int k = i-1; k <= i+1; k++) {
 				for (int h = j-1; h <= j+1; h++) {
 					if (k < 0 || h < 0) continue;
@@ -29,6 +29,8 @@ void* calculate_sum(void* args)
 			dimensional_array[i][j] = sum;
 		}
 	}
+
+	return NULL;
 }
 
 int main(void) {
@@ -42,7 +44,7 @@ int main(void) {
 		}
 
 	for(int i = 0; i <= N-1; i++) {
-		for (int j = 0; j <= M-1; j++) {		
+		for (int j = 0; j <= M-1; j++) {
 	 		printf("%10d", dimensional_array[i][j]);
 		}
 	printf("\n");
@@ -53,7 +55,6 @@ int main(void) {
 		pthread_create( &thread_id[i], NULL, calculate_sum, &thread_args[i]);
 	}
 
-	int sum = 0;
 	for(j=0; j < NTHREADS; j++) {
 		pthread_join( thread_id[j], NULL);
 	}
@@ -61,11 +62,11 @@ int main(void) {
 	printf("\n\n\n");
 
 	for(int i = 0; i <= N-1; i++) {
-		for (int j = 0; j <= M-1; j++) {		
+		for (int j = 0; j <= M-1; j++) {
 	 		printf("%10d", dimensional_array[i][j]);
 		}
 	printf("\n");
-	}	
-	
+	}
+
 }
 
