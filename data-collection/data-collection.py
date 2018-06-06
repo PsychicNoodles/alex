@@ -45,7 +45,13 @@ print("Running %s with args %s" % (args.test_program, args.test_program_args))
 sub = subprocess.Popen([args.test_program] + args.test_program_args, stdout=out, stderr=err, stdin=args.input,
                        env={'LD_PRELOAD': args.alex.name, 'PERF_ANALYZER_RESULT_FILE': args.res})
 sub.communicate()
-print("Finished!")
+print("Test program finished")
+if sub.returncode == 0:
+  print("Finished successfully!")
+elif sub.returncode < 0:
+  print("Exited by signal %s" % (sub.returncode * -1))
+else:
+  print("Exited with error code %s" % sub.returncode)
 
 args.out.close()
 args.err.close()
