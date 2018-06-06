@@ -11,31 +11,15 @@ var svg = d3.select("#plot")
     .attr("height", height);
 
 // Load the data from the JSON file
-d3.json("./data/many-time-slices.json", function(results) {
-
-  var dataset = results.timeslice;
-
-  var firstElem = dataset[0];
-  firstElem.hitsTemp = firstElem.events.cache.hit;
-  firstElem.missesTemp = firstElem.events.cache.misses;
-  firstElem.hitsPerc = firstElem.hitsTemp / (firstElem.missesTemp + firstElem.hitsTemp);
-  firstElem.missesPerc = firstElem.missesTemp / (firstElem.missesTemp + firstElem.hitsTemp);
-
-  for(i = 1; i < dataset.length; i++) {
-    var cur = dataset[i];
-    cur.hitsTemp = cur.events.cache.hit - dataset[i - 1].events.cache.hit;
-    cur.missesTemp = cur.events.cache.misses - dataset[i - 1].events.cache.misses;
-    cur.hitsPerc = cur.hitsTemp / (cur.missesTemp + cur.hitsTemp);
-    cur.missesPerc = cur.missesTemp / (cur.missesTemp + cur.hitsTemp);
-  }
+d3.json("./data/3-objects.json", function(d) {
 
   // Calculate size of x-axis based on number of data points
-  var xAxisRange = d3.max(dataset, function(d) {
-    return d.time;
+  var xAxisRange = d3.max(d, function(d) {
+    return d.instruction;
   });
 
   // Create functions to scale objects vertically and horizontally according to the size of the graph
-  var x = d3.scale.linear().domain([1528227773, xAxisRange]).range([left_pad, width - pad]),
+  var x = d3.scale.linear().domain([0, xAxisRange]).range([left_pad, width - pad]),
       y = d3.scale.linear().domain([1, 0]).range([pad, height - pad * 2]);
 
   // Create axes and format the ticks on the y-axis as percentages
@@ -54,20 +38,18 @@ d3.json("./data/many-time-slices.json", function(results) {
     .attr("transform", "translate(" + (left_pad - pad) + ", 0)")
     .call(yAxis);
 
-  var prevHit = 0;
-  var prevMiss = 0;
-
   // Create the points and position them in the graph
   svg.selectAll("circle")
-    .data(dataset)
+    .data(d)
     .enter()
     .append("circle")
-    .attr("cx", function(d) {
-      return x(d.time);
+    .attr("cx", function(p, i) {
+      return x(d[i].instruction);
     })
-    .attr("cy", function(d) {
-      
-      return y(d.missesPerc);
+    .attr("cy", function(p, i) {
+      //var changeInHit = d[i - 1].hit - d[i].hit;
+      //var changeInMiss = d[i - 1].miss - d[i].miss;
+      return y(d[i].miss / (d[i].hit + d[i].miss));
     })
     .attr("r", 1);
   
