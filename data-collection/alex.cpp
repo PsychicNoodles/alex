@@ -34,7 +34,7 @@ create_raw_event_attr(perf_event_attr *attr, const char *event_name, __u64 sampl
   int pfm_result = pfm_get_os_event_encoding(event_name, PFM_PLM3, PFM_OS_PERF_EVENT_EXT, &pfm);
   if(pfm_result != 0)
   {
-    perror("pad pfm result");
+    perror("bad pfm result");
     kill (ppid, SIGKILL);
     fclose (writef);
     exit (PERFERROR);
