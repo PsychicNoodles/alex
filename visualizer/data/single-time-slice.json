@@ -32,18 +32,24 @@
                     "file": "baz.c"
                 }
             ],
-            "events": {
-                "cache": {
-                    "hits": 50,
-                    "misses": 5
+            "events": [
+                {
+                    "cache": {
+                        "hits": 50,
+                        "misses": 5
+                    }
                 },
-                "power": {
-                    "joules": 500
+                {
+                    "power": {
+                        "joules": 500
+                    }
                 },
-                "branchPredictor": {
-                    "success": true
+                {
+                    "branchPredictor": {
+                        "success": true
+                    }
                 }
-            }
+            ]
         }
     ]
 }
