@@ -1,0 +1,49 @@
+{
+    "header": {
+        "programVersion": 0.0
+    },
+    "timeslice": [
+        {
+            "time": 1528227774,
+            "function": "foo",
+            "param": [
+                {
+                    "name": "counter",
+                    "value": 50
+                },
+                {
+                    "name": "cur",
+                    "value": "0x7FFFF58485"
+                }
+            ],
+            "file": "foo.c",
+            "lineNumber": 15,
+            "threadID": 93,
+            "instructions": 138489409,
+            "stackFrame": [
+                {
+                    "address": "0x7FFFFF9584848",
+                    "function": "bar",
+                    "file": "bar.c"
+                },
+                {
+                    "address": "0x7FFFFF9584848",
+                    "function": "baz",
+                    "file": "baz.c"
+                }
+            ],
+            "events": {
+                "cache": {
+                    "hits": 50,
+                    "misses": 5
+                },
+                "power": {
+                    "joules": 500
+                },
+                "branchPredictor": {
+                    "success": true
+                }
+            }
+        }
+    ]
+}
