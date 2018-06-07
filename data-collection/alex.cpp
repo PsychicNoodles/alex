@@ -212,7 +212,7 @@ int analyzer(int pid)
   } // for
 
   int sig;
-  long long inst = 0;
+  long long num_instructions = 0;
   long long count = 0;
   int event_type = 0;
   sample *s;
@@ -226,19 +226,29 @@ int analyzer(int pid)
     )"
   );
 
+  bool is_first_timeslice = true;
+
   while (true)
   {
     // waits until it receives SIGUSR1
     sigwait(&signal_set, &sig);
-    read(fd_inst, &inst, sizeof(long long));
+    num_instructions = 0;
+    read(fd_inst, &num_instructions, sizeof(num_instructions));
+
+    if (is_first_timeslice) {
+      is_first_timeslice = false;
+    } else {
+      fprintf(writef, ",");
+    }
+
     fprintf(
       writef,
       R"(
         {
-          "num_instructions": %lld,
+          "numInstructions": %lld,
           "events": [
       )",
-      inst
+      num_instructions
     );
     s = get_ips(&inst_buff, event_type);
     for (int i = 0; i < number; i++)
@@ -260,7 +270,7 @@ int analyzer(int pid)
       writef,
       R"(
           ]
-        },
+        }
       )"
     );
   } // while
