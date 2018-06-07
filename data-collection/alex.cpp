@@ -200,7 +200,7 @@ int analyzer(int pid)
   } // for
 
   DEBUG("anlz: setting up frequency from env var");
-  long long frequency = atoll(getenv("FREQUENCY"));
+  long long frequency = atoll(getenv("ALEX_FREQUENCY"));
   int fd_inst = setup_inst(frequency, pid);
   uint64_t buf_size = (1 + NUM_DATA_PAGES) * PAGE_SIZE;
   DEBUG("anlz: mmapping ring buffer");
