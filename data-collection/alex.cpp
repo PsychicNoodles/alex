@@ -1,7 +1,7 @@
 #include "alex.h"
 #include "debug.hpp"
 
-#define ALEX_VERSION "1.0"
+#define ALEX_VERSION "0.0.1"
 
 /*
  * Reports time since epoch in milliseconds.
@@ -193,7 +193,7 @@ int analyzer(int pid) {
   fprintf(writef,
           R"({
             "header": {
-              "programVersion": )" ALEX_VERSION R"(
+              "programVersion": ")" ALEX_VERSION R"("
             },
             "timeslices": [
           )");
