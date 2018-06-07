@@ -174,16 +174,21 @@ vector<string> get_events() {
  */
 int analyzer(int pid)
 {
+  DEBUG("anlz: initializing pfm");
   pfm_initialize();
   // Setting up event counters
+  DEBUG("anlz: getting events from env var");
   vector<string> evts = get_events();
   int number = evts.size();
   int fd[number];
+  DEBUG("anlz: setting up perf events");
   for (int i = 0; i < number; i++)
   {
     struct perf_event_attr attr;
     memset(&attr, 0, sizeof(struct perf_event_attr));
+    DEBUG("anlz: creating event attr for " << evts.at(i));
     create_raw_event_attr(&attr, evts.at(i).c_str(), 0, EVENT_ACCURACY);
+    DEBUG("anlz: opening event");
     fd[i] = perf_event_open(&attr, pid, -1, -1, 0);
     if (fd[i] == -1)
     {
@@ -194,9 +199,11 @@ int analyzer(int pid)
     }
   } // for
 
+  DEBUG("anlz: setting up frequency from env var");
   long long frequency = atoll(getenv("FREQUENCY"));
   int fd_inst = setup_inst(frequency, pid);
   uint64_t buf_size = (1 + NUM_DATA_PAGES) * PAGE_SIZE;
+  DEBUG("anlz: mmapping ring buffer");
   buffer = mmap(0, buf_size, PROT_READ | PROT_WRITE,
                 // v-- has to be MAP_SHARED! wasted hours :"(
                 MAP_SHARED, fd_inst, 0);
@@ -213,10 +220,12 @@ int analyzer(int pid)
   inst_buff.data = (char *)buffer + PAGE_SIZE;
   inst_buff.data_size = buf_size - PAGE_SIZE;
 
+  DEBUG("anlz: setting ready signal for SIGUSR1");
   set_ready_signal(SIGUSR1, fd_inst);
   sigset_t signal_set;
   setup_sigset(SIGUSR1, &signal_set);
 
+  DEBUG("anlz: setting up ioctl for reset and enable");
   ioctl(fd_inst, PERF_EVENT_IOC_RESET, 0);
   ioctl(fd_inst, PERF_EVENT_IOC_ENABLE, 0);
 
@@ -231,6 +240,7 @@ int analyzer(int pid)
   long long count = 0;
   int event_type = 0;
   sample *s;
+  DEBUG("anlz: printing result header");
   fprintf(
     writef,
     R"({
@@ -243,12 +253,16 @@ int analyzer(int pid)
 
   bool is_first_timeslice = true;
 
+  DEBUG("anlz: entering SIGUSR1 ready loop");
   while (true)
   {
     // waits until it receives SIGUSR1
+    DEBUG("anlz: waiting for SIGUSR1");
     sigwait(&signal_set, &sig);
+    DEBUG("anlz: received SIGUSR1");
     num_instructions = 0;
     read(fd_inst, &num_instructions, sizeof(num_instructions));
+    DEBUG("anlz: read in num of inst: " << num_instructions);
 
     if (is_first_timeslice) {
       is_first_timeslice = false;
@@ -265,7 +279,9 @@ int analyzer(int pid)
       )",
       num_instructions
     );
+    DEBUG("anlz: getting ips");
     s = get_ips(&inst_buff, event_type);
+    DEBUG("anlz: reading from each fd");
     for (int i = 0; i < number; i++)
     {
       count = 0;
@@ -288,6 +304,7 @@ int analyzer(int pid)
         }
       )"
     );
+    DEBUG("anlz: finished a loop");
   } // while
   return 0;
 } // analyzer
