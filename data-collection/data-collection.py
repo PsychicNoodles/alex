@@ -72,7 +72,7 @@ if sub.returncode == 0:
 elif sub.returncode < 0:
   print("Exited by signal %s" % (sub.returncode * -1))
 else:
-  print("Exited with error code %s: %s" % (sub.returncode, error[sub.returncode]))
+  print("Exited with error code %s: %s" % (sub.returncode, error.get(sub.returncode, "undefined")))
 
 args.out.close()
 args.err.close()
