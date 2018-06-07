@@ -279,6 +279,8 @@ void exit_please(int sig, siginfo_t *info, void *ucontext) {
         ]
       })");
     fclose(writef);
+    // sem_close(child_sem);
+    // sem_close(parent_sem);
     exit(0);
   }  // if
 }
@@ -310,12 +312,12 @@ static int wrapped_main(int argc, char **argv, char **env) {
   // }
 
   // // then, create new semaphores
-  // sem_t *child_sem = sem_open("/alex_child", O_CREAT | O_EXCL, 0644, 0);
+  // child_sem = sem_open("/alex_child", O_CREAT | O_EXCL, 0644, 0);
   // if (child_sem == SEM_FAILED) {
   //   perror("failed to open child semaphore");
   //   exit(SEMERROR);
   // }
-  // sem_t *parent_sem = sem_open("/alex_parent", O_CREAT | O_EXCL, 0644, 0);
+  // parent_sem = sem_open("/alex_parent", O_CREAT | O_EXCL, 0644, 0);
   // if (parent_sem == SEM_FAILED) {
   //   perror("failed to open parent semaphore");
   //   exit(SEMERROR);
@@ -331,6 +333,13 @@ static int wrapped_main(int argc, char **argv, char **env) {
 
     DEBUG("received parent ready signal, starting child/real main");
     result = real_main(argc, argv, env);
+
+    // sem_close(child_sem);
+    // sem_close(parent_sem);
+
+    // sem_unlink(child_sem);
+    // sem_unlink(parent_sem);
+
     // killing the parent
     if (kill(ppid, SIGTERM)) {
       exit(KILLERROR);
@@ -358,6 +367,9 @@ static int wrapped_main(int argc, char **argv, char **env) {
     DEBUG("result file opened, sending ready (SIGUSR2) signal to child");
     // sem_post(child_sem);
     // sem_wait(parent_sem);
+
+    // sem_close(child_sem);
+    // sem_close(parent_sem);
 
     DEBUG("received child ready signal, starting analyzer");
     result = analyzer(cpid);
