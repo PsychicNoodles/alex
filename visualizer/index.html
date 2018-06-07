@@ -1,9 +1,17 @@
 <!DOCTYPE html>
-<head>
-	<link rel="stylesheet" type="text/css" href="css/style.css" />
-</head>
-<meta charset="utf-8">
+<html lang="en-US">
 
-<div id="plot"></div>
-<script src="http://d3js.org/d3.v5.min.js"  charset="utf-8"></script>
-<script src="./js/script.js"></script>
+<head>
+	<title>perf-analyzer</title>
+	<meta charset="utf-8">
+	<link rel="stylesheet" type="text/css" href="css/style.css" />
+	<script src="http://d3js.org/d3.v5.min.js"></script>
+</head>
+
+<body>
+	<div id="plot"></div>
+	<input id="data-input" type="file" accept=".json,application/json" required onchange="loadFile()">
+	<script src="./js/script.js"></script>
+</body>
+
+</html>

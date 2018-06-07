@@ -6,12 +6,31 @@ var width = 1500,
 
 // Create an svg object for the graph
 var svg = d3.select("#plot")
-    .append("svg")
-    .attr("width", width)
-    .attr("height", height);
+  .append("svg")
+  .attr("width", width)
+  .attr("height", height);
 
-// Load the data from the JSON file
-d3.json("./result.json").then(function(results) {
+var reader = new FileReader();
+
+function loadFile() {
+  var file = document.getElementById("data-input").files[0];
+  console.log("got here");
+  reader.addEventListener("load", parseFile, false);
+  if (file) {
+    reader.readAsText(file);
+  }
+}
+
+function parseFile() {
+  var data = JSON.parse(reader.result);
+  dataCrunch(data);
+}
+
+function dataCrunch(results) {
+
+  /* Make sure the graph before drawing (prevents new input getting layered on
+    old input) */
+  svg.selectAll("*").remove();
 
   var timeslices = results.timeslices;
   console.log(timeslices.length);
@@ -61,7 +80,8 @@ d3.json("./result.json").then(function(results) {
     return d.numInstructions;
   });
 
-  // Create functions to scale objects vertically and horizontally according to the size of the graph
+  /* Create functions to scale objects vertically and horizontally according to
+  the size of the graph */
   var x = d3.scaleLinear().domain([0, xAxisRange]).range([left_pad, width - pad]),
       y = d3.scaleLinear().domain([1, 0]).range([pad, height - pad * 3]);
 
@@ -76,7 +96,7 @@ d3.json("./result.json").then(function(results) {
     .attr("class", "axis")
     .attr("transform", "translate(0, " + (height - pad * 2) + ")")
     .call(xAxis);
- 
+
   svg.append("g")
     .attr("class", "axis")
     .attr("transform", "translate(" + (left_pad - pad) + ", 0)")
@@ -112,7 +132,7 @@ d3.json("./result.json").then(function(results) {
     })
     .attr("r", 2);
   
-});
+};
 
 // Tests to make sure the switch statement was working
 function cache(timeslices, i) {
