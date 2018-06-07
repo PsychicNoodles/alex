@@ -21,6 +21,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include <vector>
+#include <string>
+using std::vector;
+using std::string;
+
 #ifndef ELF_PARSER
 #include <elf.h>
 #include <map>
