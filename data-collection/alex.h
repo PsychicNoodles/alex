@@ -1,31 +1,29 @@
+#include <assert.h>
+#include <dlfcn.h>
+#include <fcntl.h>
+#include <linux/perf_event.h>
+#include <perfmon/perf_event.h>
+#include <perfmon/pfmlib.h>
+#include <perfmon/pfmlib_perf_event.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <linux/perf_event.h>
-#include <perfmon/pfmlib.h>
-#include <perfmon/perf_event.h>
-#include <perfmon/pfmlib_perf_event.h>
 #include <sys/mman.h>
-#include <dlfcn.h>
-#include <signal.h>
+#include <sys/syscall.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <unistd.h>
 #include <unordered_map>
-#include <pthread.h>
-#include <fcntl.h>
-#include <assert.h>
-#include <sys/time.h>
-#include <sys/syscall.h>
-#include <assert.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <semaphore.h>
 
-#include <vector>
 #include <string>
-using std::vector;
+#include <vector>
 using std::string;
+using std::vector;
 
 #ifndef ELF_PARSER
 #include <elf.h>
@@ -36,37 +34,35 @@ using std::string;
 // this needs to be a power of two :'( (an hour was spent here)
 #define NUM_DATA_PAGES 256
 #define EVENT_ACCURACY 10000000
-#define SAMPLE_TYPE 0 // (PERF_SAMPLE_CALLCHAIN)
+#define SAMPLE_TYPE 0  // (PERF_SAMPLE_CALLCHAIN)
 
 /*			EXITS			*/
 // kill failure. Not really a fail but a security hazard.
-#define KILLERROR  1 // Cannot kill parent
-#define FORKERROR  2 // Cannot fork
-#define OPENERROR  3 // Cannot open file
-#define PERFERROR  4 // Cannot make perf_event
-#define INSTERROR  5 // Cannot make fd for inst counter
-#define ASYNERROR  6 // Cannot set file to async mode
-#define FISGERROR  7 // Cannot set signal to file
-#define OWNERROR   8 // Cannot set file to owner
-#define SETERROR   9 // Cannot empty sigset
-#define ADDERROR  10 // Cannot add to sigset
-#define BUFFERROR 11 // Cannot open buffer
-#define SEMERROR  12 // Cannot open semaphore
+#define KILLERROR 1   // Cannot kill parent
+#define FORKERROR 2   // Cannot fork
+#define OPENERROR 3   // Cannot open file
+#define PERFERROR 4   // Cannot make perf_event
+#define INSTERROR 5   // Cannot make fd for inst counter
+#define ASYNERROR 6   // Cannot set file to async mode
+#define FISGERROR 7   // Cannot set signal to file
+#define OWNERROR 8    // Cannot set file to owner
+#define SETERROR 9    // Cannot empty sigset
+#define ADDERROR 10   // Cannot add to sigset
+#define BUFFERROR 11  // Cannot open buffer
+#define SEMERROR 12   // Cannot open semaphore
 /*			END OF EXIT			*/
 
-struct sample
-{
-	perf_event_header header;
-	uint64_t num_instruction_pointers;
-	uint64_t instruction_pointers[];
+struct sample {
+  perf_event_header header;
+  uint64_t num_instruction_pointers;
+  uint64_t instruction_pointers[];
 };
 
-struct perf_buffer
-{
-	int fd;
-	perf_event_mmap_page *info;
-	void *data;
-	uint64_t data_size;
+struct perf_buffer {
+  int fd;
+  perf_event_mmap_page *info;
+  void *data;
+  uint64_t data_size;
 };
 
 typedef int (*main_fn_t)(int, char **, char **);
@@ -83,7 +79,7 @@ int setup_sigset(int signum, sigset_t *sigset);
 void set_ready_signal(int sig, int fd);
 
 void create_raw_event_attr(perf_event_attr *attr, const char *event_name,
-						   __u64 sample_type, __u64 sample_period);
+                           __u64 sample_type, __u64 sample_period);
 
 size_t time_ms();
 

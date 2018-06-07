@@ -1,4 +1,5 @@
 {
   "editor.formatOnSave": false,
-  "editor.formatOnPaste": true
+  "editor.formatOnPaste": true,
+  "C_Cpp.clang_format_style": "Google"
 }
