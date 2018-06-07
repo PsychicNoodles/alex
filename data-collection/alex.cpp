@@ -313,25 +313,6 @@ void exit_please(int sig, siginfo_t *info, void *ucontext)
   } // if
 }
 
-void ready_handler(int signum) {
-  if(signum == SIGUSR2) {
-    DEBUG("received ready signal from other process, starting");
-    ready = true;
-  }
-}
-
-void set_ready(pid_t other_process) {
-  struct sigaction handler_action;
-  handler_action.sa_handler = ready_handler;
-  sigemptyset(&handler_action.sa_mask);
-  handler_action.sa_flags = 0;
-  sigaction(SIGUSR2, &handler_action, NULL);
-
-  if(kill(other_process, SIGUSR2)) {
-    perror("couldn't signal other process");
-    exit(KILLERROR);
-  }
-}
 
 /*
  *
@@ -345,14 +326,16 @@ static int wrapped_main(int argc, char **argv, char **env)
 	get_function_addrs(exe_path, functions);
 	*/
   int result;
+  sem_t *child_sem = sem_open("/alex_child", O_CREAT | O_EXCL, O_RDWR, 0),
+        *parent_sem = sem_open("/alex_parent", O_CREAT | O_EXCL, O_RDWR, 0);
   ppid = getpid();
   cpid = fork();
   if (cpid == 0)
   {
     // child process
     DEBUG("in child process, waiting for parent to be ready (pid: " << getpid() << ")");
-    set_ready(ppid);
-    while(!ready) {}
+    sem_post(parent_sem);
+    sem_wait(child_sem);
 
     DEBUG("received parent ready signal, starting child/real main");
     result = real_main(argc, argv, env);
@@ -383,8 +366,8 @@ static int wrapped_main(int argc, char **argv, char **env)
     sigaction(SIGTERM, &sa, NULL);
 
     DEBUG("result file opened, sending ready (SIGUSR2) signal to child");
-    set_ready(cpid);
-    while(!ready) {}
+    sem_post(child_sem);
+    sem_wait(parent_sem);
     
     DEBUG("received child ready signal, starting analyzer");
     result = analyzer(cpid);

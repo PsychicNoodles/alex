@@ -20,6 +20,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <semaphore.h>
 
 #include <vector>
 #include <string>
@@ -75,7 +76,6 @@ FILE *writef;
 size_t init_time;
 static main_fn_t real_main;
 void *buffer;
-bool ready = false; // if the other (parent/child) process is ready
 
 int setup_sigset(int signum, sigset_t *sigset);
 
