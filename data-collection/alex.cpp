@@ -313,10 +313,23 @@ void exit_please(int sig, siginfo_t *info, void *ucontext)
   } // if
 }
 
-void child_ready_handler(int signum) {
+void ready_handler(int signum) {
   if(signum == SIGUSR2) {
-    DEBUG("synced with child, starting");
-    synced = true;
+    DEBUG("received ready signal from other process, starting");
+    ready = true;
+  }
+}
+
+void set_ready(pid_t other_process) {
+  struct sigaction handler_action;
+  handler_action.sa_handler = ready_handler;
+  sigemptyset(&handler_action.sa_mask);
+  handler_action.sa_flags = 0;
+  sigaction(SIGUSR2, &handler_action, NULL);
+
+  if(kill(other_process, SIGUSR2)) {
+    perror("couldn't signal other process");
+    exit(KILLERROR);
   }
 }
 
@@ -338,14 +351,8 @@ static int wrapped_main(int argc, char **argv, char **env)
   {
     // child process
     DEBUG("in child process, waiting for parent to be ready (pid: " << getpid() << ")");
-
-    struct sigaction handler_action;
-    handler_action.sa_handler = child_ready_handler;
-    sigemptyset(&handler_action.sa_mask);
-    handler_action.sa_flags = 0;
-    sigaction(SIGUSR2, &handler_action, NULL);
-
-    while(!synced) {}
+    set_ready(ppid);
+    while(!ready) {}
 
     DEBUG("received parent ready signal, starting child/real main");
     result = real_main(argc, argv, env);
@@ -376,10 +383,10 @@ static int wrapped_main(int argc, char **argv, char **env)
     sigaction(SIGTERM, &sa, NULL);
 
     DEBUG("result file opened, sending ready (SIGUSR2) signal to child");
-    if(kill(cpid, SIGUSR2)) {
-      perror("couldn't signal child");
-      exit(KILLERROR);
-    }
+    set_ready(cpid);
+    while(!ready) {}
+    
+    DEBUG("received child ready signal, starting analyzer");
     result = analyzer(cpid);
   }
   else
