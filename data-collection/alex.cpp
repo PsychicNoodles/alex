@@ -147,6 +147,27 @@ sample *get_ips(perf_buffer *buf, int &type)
   return result;
 } // get_ip
 
+// https://stackoverflow.com/a/14267455
+vector<string> str_split(string str, string delim) {
+  vector<string> split;
+  auto start = 0U;
+  auto end = str.find(delim);
+  while (end != std::string::npos)
+  {
+      split.push_back(str.substr(start, end - start));
+      start = end + delim.length();
+      end = str.find(delim, start);
+  }
+
+  split.push_back(str.substr(start, end));
+  return split;
+}
+
+vector<string> get_events() {
+  auto events_env = string(getenv("ALEX_EVENTS"));
+  return str_split(events_env, ",");
+}
+
 /*
  * The most important function. Sets up the required events and records
  * intended data.
@@ -155,20 +176,14 @@ int analyzer(int pid)
 {
   pfm_initialize();
   // Setting up event counters
-  int number = atoi(getenv("number"));
-  char *events[number];
-  char e[8] = "event0";
-  for (int i = 0; i < number; i++)
-  {
-    events[i] = getenv(e);
-    e[5]++;
-  } // for
+  vector<string> evts = get_events();
+  int number = evts.size();
   int fd[number];
   for (int i = 0; i < number; i++)
   {
     struct perf_event_attr attr;
     memset(&attr, 0, sizeof(struct perf_event_attr));
-    create_raw_event_attr(&attr, events[i], 0, EVENT_ACCURACY);
+    create_raw_event_attr(&attr, evts.at(i).c_str(), 0, EVENT_ACCURACY);
     fd[i] = perf_event_open(&attr, pid, -1, -1, 0);
     if (fd[i] == -1)
     {
@@ -261,7 +276,7 @@ int analyzer(int pid)
           "name": "%s",
           "count": %lld
         }
-      )", events[i], count);
+      )", evts.at(i).c_str(), count);
       if (i < number - 1) {
         fprintf(writef, ",");
       }
