@@ -31,18 +31,21 @@
         }
       ]
     },
-    "events": {
-      "cache": {
+    "events": [
+      {
+        "name": "cache",
         "hits": 2,
         "misses": 1
       },
-      "power": {
+      {
+        "name": "power",
         "joules": 500
       },
-      "branchPredictor": {
+      {
+        "name": "branchPredictor",
         "success": true
       }
-    }
+    ]
   },
   {
     "time": 2,
@@ -72,18 +75,21 @@
         }
       ]
     },
-    "events": {
-      "cache": {
+    "events": [
+      {
+        "name": "cache",
         "hits": 4,
         "misses": 2
       },
-      "power": {
+      {
+        "name": "power",
         "joules": 500
       },
-      "branchPredictor": {
+      {
+        "name": "branchPredictor",
         "success": true
       }
-    }
+    ]
   },
   {
     "time": 3,
@@ -113,18 +119,21 @@
         }
       ]
     },
-    "events": {
-      "cache": {
+    "events": [
+      {
+        "name": "cache",
         "hits": 6,
         "misses": 3
       },
-      "power": {
+      {
+        "name": "power",
         "joules": 500
       },
-      "branchPredictor": {
+      {
+        "name": "branchPredictor",
         "success": true
       }
-    }
+    ]
   },
   {
     "time": 4,
@@ -154,18 +163,21 @@
         }
       ]
     },
-    "events": {
-      "cache": {
+    "events": [
+      {
+        "name": "cache",
         "hits": 8,
         "misses": 4
       },
-      "power": {
+      {
+        "name": "power",
         "joules": 500
       },
-      "branchPredictor": {
+      {
+        "name": "branchPredictor",
         "success": true
       }
-    }
+    ]
   }
 ]
 }
