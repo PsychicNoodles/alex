@@ -245,7 +245,7 @@ int analyzer(int pid)
       writef,
       R"(
         {
-          "num_instructions": %lld,
+          "numInstructions": %lld,
           "events": [
       )",
       num_instructions
