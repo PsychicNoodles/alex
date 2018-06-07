@@ -4,38 +4,6 @@
 #define ALEX_VERSION "1.0"
 
 /*
- * Creates a raw encoding of desired event_name.
- * sample_type is the type of samples we wish to have reported back and
- * sample_period is how frequent we want the samples to be.
- */
-void create_raw_event_attr(perf_event_attr *attr, const char *event_name,
-                           __u64 sample_type, __u64 sample_period) {
-  // setting up pfm raw encoding
-  memset(attr, 0, sizeof(perf_event_attr));
-  pfm_perf_encode_arg_t pfm;
-  pfm.attr = attr;
-  pfm.fstr = 0;
-  pfm.size = sizeof(pfm_perf_encode_arg_t);
-  int pfm_result = pfm_get_os_event_encoding(event_name, PFM_PLM3,
-                                             PFM_OS_PERF_EVENT_EXT, &pfm);
-  if (pfm_result != PFM_SUCCESS) {
-    fprintf(stderr, "pfm encoding error: %s", pfm_strerror(pfm_result));
-    kill(ppid, SIGKILL);
-    fclose(writef);
-    exit(PERFERROR);
-  }  // if
-  // setting up the rest of attr
-  attr->sample_type = sample_type;
-  attr->sample_period = sample_period;
-  attr->disabled = true;
-  attr->size = sizeof(perf_event_attr);
-  attr->exclude_kernel = true;
-  attr->read_format = 0;
-  attr->wakeup_events = 1;
-  attr->inherit = 0;
-}  // create_raw_event_attr
-
-/*
  * Reports time since epoch in milliseconds.
  */
 size_t time_ms() {
@@ -98,42 +66,6 @@ int setup_sigset(int signum, sigset_t *sigset) {
   return pthread_sigmask(SIG_BLOCK, sigset, NULL);
 }  // setup_sigset
 
-/*
- * Sets up instruction counter
- */
-int setup_inst(int period, pid_t pid) {
-  // setting up the instruction file descriptor
-  struct perf_event_attr attr_inst;
-  memset(&attr_inst, 0, sizeof(struct perf_event_attr));
-  attr_inst.type = PERF_TYPE_HARDWARE;
-  attr_inst.config = PERF_COUNT_HW_INSTRUCTIONS;
-  attr_inst.sample_type = SAMPLE_TYPE;
-  attr_inst.sample_period = period;
-  attr_inst.disabled = true;
-  attr_inst.size = sizeof(perf_event_attr);
-  attr_inst.exclude_kernel = true;
-  attr_inst.wakeup_events = 1;
-  attr_inst.precise_ip = 0;
-  attr_inst.read_format = 0;
-  int fd_inst = perf_event_open(&attr_inst, pid, -1, -1, 0);
-  if (fd_inst == -1) {
-    perror("couldn't perf_event_open instruction count");
-    kill(cpid, SIGKILL);
-    fclose(writef);
-    exit(INSTERROR);
-  }  // if
-  return fd_inst;
-}
-
-// TODO: MAY NOT WRAP AROUND FIX
-sample *get_ips(perf_buffer *buf, int &type) {
-  sample *result = (sample *)((char *)buf->data +
-                              (buf->info->data_tail % buf->info->data_size));
-  buf->info->data_tail += result->header.size;
-  type = result->header.type;
-  return result;
-}  // get_ip
-
 // https://stackoverflow.com/a/14267455
 vector<string> str_split(string str, string delim) {
   vector<string> split;
@@ -161,69 +93,106 @@ vector<string> get_events() {
 int analyzer(int pid) {
   DEBUG("anlz: initializing pfm");
   pfm_initialize();
-  // Setting up event counters
+
+  // Set up event counters
   DEBUG("anlz: getting events from env var");
-  vector<string> evts = get_events();
-  int number = evts.size();
-  int fd[number];
+  vector<string> events = get_events();
+  int number = events.size();
   DEBUG("anlz: setting up perf events");
+  int event_fds[number];
   for (int i = 0; i < number; i++) {
-    struct perf_event_attr attr;
-    memset(&attr, 0, sizeof(struct perf_event_attr));
-    DEBUG("anlz: creating event attr for " << evts.at(i));
-    create_raw_event_attr(&attr, evts.at(i).c_str(), 0, EVENT_ACCURACY);
-    DEBUG("anlz: opening event");
-    fd[i] = perf_event_open(&attr, pid, -1, -1, 0);
-    if (fd[i] == -1) {
+    perf_event_attr attr;
+    memset(&attr, 0, sizeof(perf_event_attr));
+
+    // Parse out event name with PFM.  Must be done first.
+    pfm_perf_encode_arg_t pfm;
+    pfm.attr = &attr;
+    pfm.fstr = 0;
+    pfm.size = sizeof(pfm_perf_encode_arg_t);
+    int pfm_result = pfm_get_os_event_encoding(events.at(i).c_str(), PFM_PLM3, PFM_OS_PERF_EVENT_EXT, &pfm);
+    if (pfm_result != PFM_SUCCESS) {
+      fprintf(stderr, "pfm encoding error: %s", pfm_strerror(pfm_result));
+      kill(ppid, SIGKILL);
+      fclose(writef);
+      exit(PERFERROR);
+    }
+
+    attr.disabled = true;
+    attr.size = sizeof(perf_event_attr);
+    attr.exclude_kernel = true;
+    attr.read_format = 0;
+    attr.precise_ip = 0;
+
+    event_fds[i] = perf_event_open(&attr, pid, -1, -1, 0);
+    if (event_fds[i] == -1)
+    {
       perror("couldn't perf_event_open for event");
       kill(cpid, SIGKILL);
       fclose(writef);
       exit(PERFERROR);
     }
-  }  // for
+  }
 
   DEBUG("anlz: setting up period from env var");
   long long period = atoll(getenv("ALEX_PERIOD"));
-  int fd_inst = setup_inst(period, pid);
+
+  // set up the instruction file descriptor
+  perf_event_attr instruction_count_attr;
+  memset(&instruction_count_attr, 0, sizeof(perf_event_attr));
+  instruction_count_attr.disabled = true;
+  instruction_count_attr.size = sizeof(perf_event_attr);
+  instruction_count_attr.exclude_kernel = true;
+  instruction_count_attr.read_format = 0;
+  instruction_count_attr.type = PERF_TYPE_HARDWARE;
+  instruction_count_attr.config = PERF_COUNT_HW_INSTRUCTIONS;
+  instruction_count_attr.sample_type = SAMPLE_TYPE;
+  instruction_count_attr.sample_period = period;
+  instruction_count_attr.wakeup_events = 1;
+  instruction_count_attr.precise_ip = 0;
+  int instruction_count_fd = perf_event_open(&instruction_count_attr, pid, -1, -1, 0);
+  if (instruction_count_fd == -1)
+  {
+    perror("couldn't perf_event_open instruction count");
+    kill(cpid, SIGKILL);
+    fclose(writef);
+    exit(INSTERROR);
+  }
+
   uint64_t buf_size = (1 + NUM_DATA_PAGES) * PAGE_SIZE;
   DEBUG("anlz: mmapping ring buffer");
   buffer = mmap(0, buf_size, PROT_READ | PROT_WRITE,
                 // v-- has to be MAP_SHARED! wasted hours :"(
-                MAP_SHARED, fd_inst, 0);
+                MAP_SHARED, instruction_count_fd, 0);
   if (buffer == MAP_FAILED) {
     perror("mmap");
     kill(cpid, SIGKILL);
     fclose(writef);
     exit(BUFFERROR);
   }
-  perf_buffer inst_buff;
-  inst_buff.fd = fd_inst;
-  inst_buff.info = (perf_event_mmap_page *)buffer;
-  inst_buff.data = (char *)buffer + PAGE_SIZE;
-  inst_buff.data_size = buf_size - PAGE_SIZE;
 
   DEBUG("anlz: setting ready signal for SIGUSR1");
-  set_ready_signal(SIGUSR1, fd_inst);
+  set_ready_signal(SIGUSR1, instruction_count_fd);
   sigset_t signal_set;
   setup_sigset(SIGUSR1, &signal_set);
 
   DEBUG("anlz: setting up ioctl for reset and enable");
-  ioctl(fd_inst, PERF_EVENT_IOC_RESET, 0);
-  ioctl(fd_inst, PERF_EVENT_IOC_ENABLE, 0);
+  ioctl(instruction_count_fd, PERF_EVENT_IOC_RESET, 0);
+  ioctl(instruction_count_fd, PERF_EVENT_IOC_ENABLE, 0);
 
   for (int i = 0; i < number; i++) {
-    ioctl(fd[i], PERF_EVENT_IOC_RESET, 0);
-    ioctl(fd[i], PERF_EVENT_IOC_ENABLE, 0);
-  }  // for
+    ioctl(event_fds[i], PERF_EVENT_IOC_RESET, 0);
+    ioctl(event_fds[i], PERF_EVENT_IOC_ENABLE, 0);
+  }
 
   int sig;
   long long num_instructions = 0;
   long long count = 0;
   int event_type = 0;
-  sample *s;
+
   DEBUG("anlz: printing result header");
-  fprintf(writef,
-          R"({
+  fprintf(
+      writef,
+      R"({
       "header": {
         "programVersion": )" ALEX_VERSION R"(
       },
@@ -239,41 +208,51 @@ int analyzer(int pid) {
     sigwait(&signal_set, &sig);
     DEBUG("anlz: received SIGUSR1");
     num_instructions = 0;
-    read(fd_inst, &num_instructions, sizeof(num_instructions));
+    read(instruction_count_fd, &num_instructions, sizeof(num_instructions));
     DEBUG("anlz: read in num of inst: " << num_instructions);
+    ioctl(instruction_count_fd, PERF_EVENT_IOC_RESET, 0);
 
-    if (is_first_timeslice) {
+    if (is_first_timeslice)
+    {
       is_first_timeslice = false;
-    } else {
+    }
+    else
+    {
       fprintf(writef, ",");
     }
 
-    fprintf(writef,
-            R"(
+    fprintf(
+        writef,
+        R"(
         {
           "numInstructions": %lld,
           "events": [
       )",
-            num_instructions);
+        num_instructions);
 
-    DEBUG("anlz: getting ips");
-    s = get_ips(&inst_buff, event_type);
     DEBUG("anlz: reading from each fd");
     for (int i = 0; i < number; i++) {
       count = 0;
-      read(fd[i], &count, sizeof(long long));
-      ioctl(fd[i], PERF_EVENT_IOC_RESET, 0);
+      read(event_fds[i], &count, sizeof(long long));
+      ioctl(event_fds[i], PERF_EVENT_IOC_RESET, 0);
       fprintf(writef, R"(
         {
           "name": "%s",
           "count": %lld
         }
       )",
-              evts.at(i).c_str(), count);
+              events.at(i).c_str(), count);
       if (i < number - 1) {
         fprintf(writef, ",");
       }
-    }  // for
+    }
+
+    fprintf(
+        writef,
+        R"(
+          ],
+          "stackFrames": [
+      )");
 
     fprintf(writef,
             R"(
@@ -281,9 +260,10 @@ int analyzer(int pid) {
         }
       )");
     DEBUG("anlz: finished a loop");
-  }  // while
+  }
+
   return 0;
-}  // analyzer
+}
 
 /*
  * Exit function for SIGTERM
@@ -293,8 +273,9 @@ void exit_please(int sig, siginfo_t *info, void *ucontext) {
   if (sig == SIGTERM) {
     munmap(buffer, (1 + NUM_DATA_PAGES) * PAGE_SIZE);
 
-    fprintf(writef,
-            R"(
+    fprintf(
+        writef,
+        R"(
         ]
       })");
     fclose(writef);
@@ -317,32 +298,36 @@ static int wrapped_main(int argc, char **argv, char **env) {
 
   // Semaphores
   // first, unlink it in case it was created before and the program crashed
-  if (sem_unlink("/alex_child") == 0) {
-    DEBUG("unlinked existing child semaphore");
-  }
-  if (sem_unlink("/alex_parent") == 0) {
-    DEBUG("unlinked existing adult semaphore");
-  }
+  // if (sem_unlink("/alex_child") == 0) {
+  //   DEBUG("unlinked existing child semaphore");
+  // } else {
+  //   perror("sem_unlink for child");
+  // }
+  // if (sem_unlink("/alex_parent") == 0) {
+  //   DEBUG("unlinked existing adult semaphore");
+  // } else {
+  //   perror("sem_unlink for parent");
+  // }
 
-  // then, create new semaphores
-  sem_t *child_sem = sem_open("/alex_child", O_CREAT | O_EXCL, 0644, 0);
-  if (child_sem == SEM_FAILED) {
-    perror("failed to open child semaphore");
-    exit(SEMERROR);
-  }
-  sem_t *parent_sem = sem_open("/alex_parent", O_CREAT | O_EXCL, 0644, 0);
-  if (parent_sem == SEM_FAILED) {
-    perror("failed to open parent semaphore");
-    exit(SEMERROR);
-  }
+  // // then, create new semaphores
+  // sem_t *child_sem = sem_open("/alex_child", O_CREAT | O_EXCL, 0644, 0);
+  // if (child_sem == SEM_FAILED) {
+  //   perror("failed to open child semaphore");
+  //   exit(SEMERROR);
+  // }
+  // sem_t *parent_sem = sem_open("/alex_parent", O_CREAT | O_EXCL, 0644, 0);
+  // if (parent_sem == SEM_FAILED) {
+  //   perror("failed to open parent semaphore");
+  //   exit(SEMERROR);
+  // }
   ppid = getpid();
   cpid = fork();
   if (cpid == 0) {
     // child process
     DEBUG("in child process, waiting for parent to be ready (pid: " << getpid()
                                                                     << ")");
-    sem_post(parent_sem);
-    sem_wait(child_sem);
+    // sem_post(parent_sem);
+    // sem_wait(child_sem);
 
     DEBUG("received parent ready signal, starting child/real main");
     result = real_main(argc, argv, env);
@@ -355,6 +340,7 @@ static int wrapped_main(int argc, char **argv, char **env) {
     DEBUG("in parent process, opening result file for writing (pid: " << ppid
                                                                       << ")");
     char *env_res = getenv("ALEX_RESULT_FILE");
+    DEBUG("result file " << env_res);
     if (env_res == NULL) {
       writef = fopen("result.txt", "w");
     } else {
@@ -370,8 +356,8 @@ static int wrapped_main(int argc, char **argv, char **env) {
     sigaction(SIGTERM, &sa, NULL);
 
     DEBUG("result file opened, sending ready (SIGUSR2) signal to child");
-    sem_post(child_sem);
-    sem_wait(parent_sem);
+    // sem_post(child_sem);
+    // sem_wait(parent_sem);
 
     DEBUG("received child ready signal, starting analyzer");
     result = analyzer(cpid);

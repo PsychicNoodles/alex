@@ -38,22 +38,21 @@ using std::vector;
 
 /*			EXITS			*/
 // kill failure. Not really a fail but a security hazard.
-#define KILLERROR 1   // Cannot kill parent
-#define FORKERROR 2   // Cannot fork
-#define OPENERROR 3   // Cannot open file
-#define PERFERROR 4   // Cannot make perf_event
-#define INSTERROR 5   // Cannot make fd for inst counter
-#define ASYNERROR 6   // Cannot set file to async mode
-#define FISGERROR 7   // Cannot set signal to file
-#define OWNERROR 8    // Cannot set file to owner
-#define SETERROR 9    // Cannot empty sigset
-#define ADDERROR 10   // Cannot add to sigset
-#define BUFFERROR 11  // Cannot open buffer
-#define SEMERROR 12   // Cannot open semaphore
+#define KILLERROR 1  // Cannot kill parent
+#define FORKERROR 2  // Cannot fork
+#define OPENERROR 3  // Cannot open file
+#define PERFERROR 4  // Cannot make perf_event
+#define INSTERROR 5  // Cannot make fd for inst counter
+#define ASYNERROR 6  // Cannot set file to async mode
+#define FISGERROR 7  // Cannot set signal to file
+#define OWNERROR 8   // Cannot set file to owner
+#define SETERROR 9   // Cannot empty sigset
+#define ADDERROR 10  // Cannot add to sigset
+#define BUFFERROR 11 // Cannot open buffer
+#define SEMERROR 12  // Semaphor failed
 /*			END OF EXIT			*/
 
 struct sample {
-  perf_event_header header;
   uint64_t num_instruction_pointers;
   uint64_t instruction_pointers[];
 };
@@ -77,9 +76,6 @@ void *buffer;
 int setup_sigset(int signum, sigset_t *sigset);
 
 void set_ready_signal(int sig, int fd);
-
-void create_raw_event_attr(perf_event_attr *attr, const char *event_name,
-                           __u64 sample_type, __u64 sample_period);
 
 size_t time_ms();
 
