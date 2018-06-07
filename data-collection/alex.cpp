@@ -285,7 +285,7 @@ int analyzer(int pid) {
             R"(
               {
                 "numInstructions": %lld,
-                "events": [
+                "events": {
             )",
             num_instructions);
 
@@ -300,10 +300,7 @@ int analyzer(int pid) {
       }
 
       fprintf(writef,
-              R"({
-                "name": "%s",
-                "count": %lld
-              })",
+              R"("%s": %lld)",
               events.at(i).c_str(), count);
       if (i < number - 1) {
         fprintf(writef, ",");
@@ -312,7 +309,7 @@ int analyzer(int pid) {
 
     fprintf(writef,
             R"(
-                ],
+                },
                 "stackFrames": [
             )");
 
