@@ -57,7 +57,7 @@ else:
   err = args.err
 
 env = {
-  'ALEX_PERIOD': args.period,
+  'ALEX_PERIOD': str(10 ** int(args.period)),
   'ALEX_EVENTS': ','.join(map(lambda x: x[0], args.event)),
   'LD_PRELOAD': args.alex.name,
   'ALEX_RESULT_FILE': args.res
