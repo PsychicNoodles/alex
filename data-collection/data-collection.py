@@ -22,6 +22,8 @@ TIMESTAMP = int(time.time())
 parser = argparse.ArgumentParser(description="Run the alex data collection tool on a program")
 parser.add_argument('test_program', help="the test program")
 parser.add_argument('test_program_args', nargs=argparse.REMAINDER, help="args for the test program")
+parser.add_argument('-e', '--event', nargs=1, action='append', required=True, dest="event", help="events to be traced from `perf list`")
+parser.add_argument('-f', '--frequency', metavar='freq', default='7', choices=[str(i) for i in range(6, 13)], help="frequency of instructions (ten to the power of freq)")
 parser.add_argument('-a', '--alex', type=argparse.FileType(), default="./alex.so", help="the location of the alex shared object")
 parser.add_argument('-o', '--out', type=argparse.FileType('w'), default="out-%s" % TIMESTAMP, help="the file for stdout of the test program")
 parser.add_argument('-e', '--err', type=argparse.FileType('w'), default="err-%s" % TIMESTAMP, help="the file for stderr of the test program")
@@ -53,9 +55,16 @@ if args.echo_err:
 else:
   err = args.err
 
+env = {
+  'ALEX_FREQUENCY': args.freq,
+  'ALEX_EVENTS': args.event.join(','),
+  'LD_PRELOAD': args.alex.name,
+  'ALEX_RESULT_FILE': args.res
+}
+
 print("Running %s with args %s" % (args.test_program, args.test_program_args))
 sub = subprocess.Popen([args.test_program] + args.test_program_args, stdout=out, stderr=err, stdin=args.input,
-                       env={'LD_PRELOAD': args.alex.name, 'PERF_ANALYZER_RESULT_FILE': args.res})
+                       env=dict(os.environ.items() + env.items()))
 sub.communicate()
 print("Test program finished")
 if sub.returncode == 0:
