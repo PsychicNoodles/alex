@@ -70,7 +70,7 @@ print("Test program finished")
 if sub.returncode == 0:
   print("Finished successfully!")
 elif sub.returncode < 0:
-  print("Exited by signal %s" % sub.returncode * -1)
+  print("Exited by signal %s" % (sub.returncode * -1))
 else:
   print("Exited with error code %s: %s" % (sub.returncode, error[sub.returncode]))
 
