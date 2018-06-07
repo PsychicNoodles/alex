@@ -194,7 +194,7 @@ int analyzer(int pid)
     }
   } // for
 
-  long long frequency = atoi(getenv("frequency"));
+  long long frequency = atoll(getenv("FREQUENCY"));
   int fd_inst = setup_inst(frequency, pid);
   uint64_t buf_size = (1 + NUM_DATA_PAGES) * PAGE_SIZE;
   buffer = mmap(0, buf_size, PROT_READ | PROT_WRITE,
