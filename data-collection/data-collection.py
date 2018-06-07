@@ -5,6 +5,18 @@ import sys
 import os
 import time
 
+error = {1: "Could not kill parent.",
+         2: "Could not fork.",
+         3: "Could not open file to write results.",
+         4: "Could not open perf event.",
+         5: "Could not make file descriptor for instruction counter.",
+         6: "Could not set file descriptor to ASYNC mode.",
+         7: "Could not set signal to file descriptor.",
+         8: "Could not set file descriptor to owner.",
+         9: "Could not empty sigset.",
+         10: "Could not add to sigset.",
+         11: "Could not open file descriptor buffer."}
+
 TIMESTAMP = int(time.time())
 
 parser = argparse.ArgumentParser(description="Run the alex data collection tool on a program")
@@ -49,7 +61,7 @@ print("Test program finished")
 if sub.returncode == 0:
   print("Finished successfully!")
 elif sub.returncode < 0:
-  print("Exited by signal %s" % (sub.returncode * -1))
+  print("Exited by signal %s: %s" % (sub.returncode * -1, error[sub.returncode]))
 else:
   print("Exited with error code %s" % sub.returncode)
 
