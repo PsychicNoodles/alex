@@ -118,7 +118,7 @@ int setup_inst(int period, pid_t pid)
   memset(&attr_inst, 0, sizeof(struct perf_event_attr));
   attr_inst.type = PERF_TYPE_HARDWARE;
   attr_inst.config = PERF_COUNT_HW_INSTRUCTIONS;
-  attr_inst.sample_type = SAMPLE;
+  attr_inst.sample_type = SAMPLE_TYPE;
   attr_inst.sample_period = period;
   attr_inst.disabled = true;
   attr_inst.size = sizeof(perf_event_attr);
@@ -136,16 +136,6 @@ int setup_inst(int period, pid_t pid)
   } // if
   return fd_inst;
 }
-
-// TODO: MAY NOT WRAP AROUND FIX
-sample *get_ips(perf_buffer *buf, int &type)
-{
-  sample *result = (sample *)((char *)buf->data +
-                              (buf->info->data_tail % buf->info->data_size));
-  buf->info->data_tail += result->header.size;
-  type = result->header.type;
-  return result;
-} // get_ip
 
 /*
  * The most important function. Sets up the required events and records
@@ -215,7 +205,7 @@ int analyzer(int pid)
   long long num_instructions = 0;
   long long count = 0;
   int event_type = 0;
-  sample *s;
+
   fprintf(
     writef,
     R"({
@@ -250,7 +240,7 @@ int analyzer(int pid)
       )",
       num_instructions
     );
-    s = get_ips(&inst_buff, event_type);
+
     for (int i = 0; i < number; i++)
     {
       count = 0;
@@ -266,6 +256,7 @@ int analyzer(int pid)
         fprintf(writef, ",");
       }
     } // for
+
     fprintf(
       writef,
       R"(
