@@ -325,9 +325,18 @@ static int wrapped_main(int argc, char **argv, char **env)
 	std::map<char *, void *> functions;
 	get_function_addrs(exe_path, functions);
 	*/
+  enable_segfault_trace();
   int result;
-  sem_t *child_sem = sem_open("/alex_child", O_CREAT | O_EXCL, O_RDWR, 0),
-        *parent_sem = sem_open("/alex_parent", O_CREAT | O_EXCL, O_RDWR, 0);
+  sem_t *child_sem = sem_open("/alex_child", O_CREAT | O_EXCL, 0644, 0);
+  if(child_sem == SEM_FAILED) {
+    perror("failed to open child semaphore");
+    exit(SEMERROR);
+  }
+  sem_t *parent_sem = sem_open("/alex_parent", O_CREAT | O_EXCL, 0644, 0);
+  if(parent_sem == SEM_FAILED) {
+    perror("failed to open parent semaphore");
+    exit(SEMERROR);
+  }
   ppid = getpid();
   cpid = fork();
   if (cpid == 0)
