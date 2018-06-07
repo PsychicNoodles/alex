@@ -30,7 +30,7 @@
 // this needs to be a power of two :'( (an hour was spent here)
 #define NUM_DATA_PAGES 256
 #define EVENT_ACCURACY 10000000
-#define SAMPLE (PERF_SAMPLE_CALLCHAIN)
+#define SAMPLE_TYPE 0 // (PERF_SAMPLE_CALLCHAIN)
 
 /*			EXITS			*/
 // kill failure. Not really a fail but a security hazard.
@@ -50,8 +50,8 @@
 struct sample
 {
 	perf_event_header header;
-	uint64_t nr;
-	uint64_t ips;
+	uint64_t num_instruction_pointers;
+	uint64_t instruction_pointers[];
 };
 
 struct perf_buffer
