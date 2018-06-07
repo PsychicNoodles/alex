@@ -57,7 +57,7 @@ else:
 
 env = {
   'ALEX_FREQUENCY': args.frequency,
-  'ALEX_EVENTS': args.event.join(','),
+  'ALEX_EVENTS': ','.join(args.event),
   'LD_PRELOAD': args.alex.name,
   'ALEX_RESULT_FILE': args.res
 }
