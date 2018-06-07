@@ -1,5 +1,5 @@
 #include "alex.h"
-#include "debug.h"
+#include "debug.hpp"
 
 #define ALEX_VERSION "1.0"
 
