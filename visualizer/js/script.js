@@ -1,6 +1,6 @@
 // Set size and margins of graph
-var width = 1000,
-    height = 500,
+var width = 600,
+    height = 300,
     pad = 20,
     left_pad = 100;
 
@@ -13,8 +13,14 @@ var svg = d3.select("#plot")
 // Load the data from the JSON file
 d3.json("./data/percentageTest.json").then(function(results) {
 
-  var dataset = results.timeslice;
+  var dataset = results.timeslices;
 
+  var density = new Array(300);
+  for(var i = 0; i < density.length; i++) {
+    density[i] = new Array(150);
+  }
+
+  // This is the start of an idea of how to handle different types of events, postponed to a later goal
   for(var i = 0; i < dataset.length; i++) {
     var cur = dataset[i];
     for(var j = 0; j < cur.events.length; j++) {
@@ -34,17 +40,18 @@ d3.json("./data/percentageTest.json").then(function(results) {
 
   // Calculate counts and percentages of cache hits and misses and add them to new fields in the array (calculate the first element separately)
   var firstElem = dataset[0];
-  firstElem.hitsTemp = firstElem.events[0].hits;
-  firstElem.missesTemp = firstElem.events[0].misses;
-  firstElem.hitsPerc = firstElem.hitsTemp / (firstElem.missesTemp + firstElem.hitsTemp);
-  firstElem.missesPerc = firstElem.missesTemp / (firstElem.missesTemp + firstElem.hitsTemp);
+  firstElem.hitsTotal = firstElem.hits;
+  firstElem.missesTotal = firstElem.misses;
+  firstElem.hitsPerc = firstElem.hits / (firstElem.misses + firstElem.hits);
+  firstElem.missesPerc = firstElem.misses / (firstElem.misses + firstElem.hits);
   
   for(var i = 1; i < dataset.length; i++) {
     var cur = dataset[i];
-    cur.hitsTemp = cur.events[0].hits - dataset[i - 1].events[0].hits;
-    cur.missesTemp = cur.events[0].misses - dataset[i - 1].events[0].misses;
-    cur.hitsPerc = cur.hitsTemp / (cur.missesTemp + cur.hitsTemp);
-    cur.missesPerc = cur.missesTemp / (cur.missesTemp + cur.hitsTemp);
+    cur.hitsTotal = cur.events[0].hits + dataset[i - 1].events[0].hitsTotal;
+    cur.missesTotal = cur.events[0].misses + dataset[i - 1].events[0].missesTotal;
+    cur.hitsPerc = cur.hits / (cur.misses + cur.hits);
+    cur.missesPerc = cur.misses / (cur.misses + cur.hits);
+    var yBucket
   }
 
   // Calculate size of x-axis based on number of data points
@@ -57,7 +64,7 @@ d3.json("./data/percentageTest.json").then(function(results) {
       y = d3.scaleLinear().domain([1, 0]).range([pad, height - pad * 2]);
 
   // Create axes and format the ticks on the y-axis as percentages
-  var formatAsPercentage = d3.format("%");
+  var formatAsPercentage = d3.format(".0%");
   var xAxis = d3.axisBottom(x),
       yAxis = d3.axisLeft(y).tickFormat(formatAsPercentage);
 
@@ -81,13 +88,13 @@ d3.json("./data/percentageTest.json").then(function(results) {
       return x(d.time);
     })
     .attr("cy", function(d) {
-      
       return y(d.missesPerc);
     })
     .attr("r", 3);
   
 });
 
+// Tests to make sure the switch statement was working
 function cache(dataset, i) {
   console.log("In cache function, i: ", i)
 }
