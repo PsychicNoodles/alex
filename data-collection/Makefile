@@ -22,5 +22,5 @@ minlog: all
 clean:
 	@rm -f alex.$(SHLIB_SUFFIX) testprog
 
-alex.$(SHLIB_SUFFIX): alex.cpp
-	$(CXXLIB) $(DEBUG) -I../../include --std=c++11 -g -o $@ $< -ldl -lpfm -pthread
+alex.$(SHLIB_SUFFIX): alex.cpp debug.cpp
+	$(CXXLIB) $(DEBUG) -I../../include --std=c++11 -g -o $@ $^ -ldl -lpfm -pthread -rdynamic
