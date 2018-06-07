@@ -327,6 +327,17 @@ static int wrapped_main(int argc, char **argv, char **env)
 	*/
   enable_segfault_trace();
   int result;
+  
+  // Semaphores
+  // first, unlink it in case it was created before and the program crashed
+  if(sem_unlink("/alex_child") == 0) {
+    DEBUG("unlinked existing child semaphore");
+  }
+  if(sem_unlink("/alex_parent") == 0) {
+    DEBUG("unlinked existing adult semaphore");
+  }
+
+  // then, create new semaphores
   sem_t *child_sem = sem_open("/alex_child", O_CREAT | O_EXCL, 0644, 0);
   if(child_sem == SEM_FAILED) {
     perror("failed to open child semaphore");
