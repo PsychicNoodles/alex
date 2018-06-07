@@ -1,5 +1,5 @@
 #include "alex.h"
-#include "debug.h"
+#include "debug.hpp"
 
 #define ALEX_VERSION "1.0"
 
@@ -137,28 +137,58 @@ int setup_inst(int period, pid_t pid)
   return fd_inst;
 }
 
+// TODO: MAY NOT WRAP AROUND FIX
+sample *get_ips(perf_buffer *buf, int &type)
+{
+  sample *result = (sample *)((char *)buf->data +
+                              (buf->info->data_tail % buf->info->data_size));
+  buf->info->data_tail += result->header.size;
+  type = result->header.type;
+  return result;
+} // get_ip
+
+// https://stackoverflow.com/a/14267455
+vector<string> str_split(string str, string delim) {
+  vector<string> split;
+  auto start = 0U;
+  auto end = str.find(delim);
+  while (end != std::string::npos)
+  {
+      split.push_back(str.substr(start, end - start));
+      start = end + delim.length();
+      end = str.find(delim, start);
+  }
+
+  split.push_back(str.substr(start, end));
+  return split;
+}
+
+vector<string> get_events() {
+  auto events_env = string(getenv("ALEX_EVENTS"));
+  return str_split(events_env, ",");
+}
+
 /*
  * The most important function. Sets up the required events and records
  * intended data.
  */
 int analyzer(int pid)
 {
+  DEBUG("anlz: initializing pfm");
   pfm_initialize();
   // Setting up event counters
-  int number = atoi(getenv("number"));
-  char *events[number];
-  char e[8] = "event0";
-  for (int i = 0; i < number; i++)
-  {
-    events[i] = getenv(e);
-    e[5]++;
-  } // for
+  DEBUG("anlz: getting events from env var");
+  vector<string> evts = get_events();
+  int number = evts.size();
   int fd[number];
+  DEBUG("anlz: setting up perf events");
   for (int i = 0; i < number; i++)
   {
     struct perf_event_attr attr;
     memset(&attr, 0, sizeof(struct perf_event_attr));
-    create_raw_event_attr(&attr, events[i], 0, EVENT_ACCURACY);
+    DEBUG("anlz: creating event attr for " << evts.at(i));
+    create_raw_event_attr(&attr, evts.at(i).c_str(), 0, EVENT_ACCURACY);
+    DEBUG("anlz: opening event");
     fd[i] = perf_event_open(&attr, pid, -1, -1, 0);
     if (fd[i] == -1)
     {
@@ -169,9 +199,11 @@ int analyzer(int pid)
     }
   } // for
 
-  long long frequency = atoi(getenv("frequency"));
+  DEBUG("anlz: setting up frequency from env var");
+  long long frequency = atoll(getenv("ALEX_FREQUENCY"));
   int fd_inst = setup_inst(frequency, pid);
   uint64_t buf_size = (1 + NUM_DATA_PAGES) * PAGE_SIZE;
+  DEBUG("anlz: mmapping ring buffer");
   buffer = mmap(0, buf_size, PROT_READ | PROT_WRITE,
                 // v-- has to be MAP_SHARED! wasted hours :"(
                 MAP_SHARED, fd_inst, 0);
@@ -188,10 +220,12 @@ int analyzer(int pid)
   inst_buff.data = (char *)buffer + PAGE_SIZE;
   inst_buff.data_size = buf_size - PAGE_SIZE;
 
+  DEBUG("anlz: setting ready signal for SIGUSR1");
   set_ready_signal(SIGUSR1, fd_inst);
   sigset_t signal_set;
   setup_sigset(SIGUSR1, &signal_set);
 
+  DEBUG("anlz: setting up ioctl for reset and enable");
   ioctl(fd_inst, PERF_EVENT_IOC_RESET, 0);
   ioctl(fd_inst, PERF_EVENT_IOC_ENABLE, 0);
 
@@ -205,7 +239,8 @@ int analyzer(int pid)
   long long num_instructions = 0;
   long long count = 0;
   int event_type = 0;
-
+  sample *s;
+  DEBUG("anlz: printing result header");
   fprintf(
     writef,
     R"({
@@ -218,12 +253,16 @@ int analyzer(int pid)
 
   bool is_first_timeslice = true;
 
+  DEBUG("anlz: entering SIGUSR1 ready loop");
   while (true)
   {
     // waits until it receives SIGUSR1
+    DEBUG("anlz: waiting for SIGUSR1");
     sigwait(&signal_set, &sig);
+    DEBUG("anlz: received SIGUSR1");
     num_instructions = 0;
     read(fd_inst, &num_instructions, sizeof(num_instructions));
+    DEBUG("anlz: read in num of inst: " << num_instructions);
 
     if (is_first_timeslice) {
       is_first_timeslice = false;
@@ -241,6 +280,9 @@ int analyzer(int pid)
       num_instructions
     );
 
+    DEBUG("anlz: getting ips");
+    s = get_ips(&inst_buff, event_type);
+    DEBUG("anlz: reading from each fd");
     for (int i = 0; i < number; i++)
     {
       count = 0;
@@ -251,7 +293,7 @@ int analyzer(int pid)
           "name": "%s",
           "count": %lld
         }
-      )", events[i], count);
+      )", evts.at(i).c_str(), count);
       if (i < number - 1) {
         fprintf(writef, ",");
       }
@@ -264,6 +306,7 @@ int analyzer(int pid)
         }
       )"
     );
+    DEBUG("anlz: finished a loop");
   } // while
   return 0;
 } // analyzer
@@ -289,6 +332,7 @@ void exit_please(int sig, siginfo_t *info, void *ucontext)
   } // if
 }
 
+
 /*
  *
  */
@@ -300,12 +344,39 @@ static int wrapped_main(int argc, char **argv, char **env)
 	std::map<char *, void *> functions;
 	get_function_addrs(exe_path, functions);
 	*/
+  enable_segfault_trace();
   int result;
+  
+  // Semaphores
+  // first, unlink it in case it was created before and the program crashed
+  if(sem_unlink("/alex_child") == 0) {
+    DEBUG("unlinked existing child semaphore");
+  }
+  if(sem_unlink("/alex_parent") == 0) {
+    DEBUG("unlinked existing adult semaphore");
+  }
+
+  // then, create new semaphores
+  sem_t *child_sem = sem_open("/alex_child", O_CREAT | O_EXCL, 0644, 0);
+  if(child_sem == SEM_FAILED) {
+    perror("failed to open child semaphore");
+    exit(SEMERROR);
+  }
+  sem_t *parent_sem = sem_open("/alex_parent", O_CREAT | O_EXCL, 0644, 0);
+  if(parent_sem == SEM_FAILED) {
+    perror("failed to open parent semaphore");
+    exit(SEMERROR);
+  }
   ppid = getpid();
   cpid = fork();
   if (cpid == 0)
   {
     // child process
+    DEBUG("in child process, waiting for parent to be ready (pid: " << getpid() << ")");
+    sem_post(parent_sem);
+    sem_wait(child_sem);
+
+    DEBUG("received parent ready signal, starting child/real main");
     result = real_main(argc, argv, env);
     // killing the parent
     if (kill(ppid, SIGTERM))
@@ -316,17 +387,28 @@ static int wrapped_main(int argc, char **argv, char **env)
   else if (cpid > 0)
   {
     // parent process
-    char *destination = getenv("destination");
-    writef = fopen(destination, "w");
+    DEBUG("in parent process, opening result file for writing (pid: " << ppid << ")");
+    char* env_res = getenv("ALEX_RESULT_FILE");
+    if(env_res == NULL) {
+      writef = fopen("result.txt", "w");
+    } else {
+      writef = fopen(env_res, "w");
+    }
     if (writef == NULL)
     {
-      perror("couldnt' open destination file");
+      perror("couldn't open result file");
       kill(cpid, SIGKILL);
       exit(OPENERROR);
     } // if
     struct sigaction sa;
     sa.sa_sigaction = &exit_please;
     sigaction(SIGTERM, &sa, NULL);
+
+    DEBUG("result file opened, sending ready (SIGUSR2) signal to child");
+    sem_post(child_sem);
+    sem_wait(parent_sem);
+    
+    DEBUG("received child ready signal, starting analyzer");
     result = analyzer(cpid);
   }
   else

@@ -20,6 +20,12 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <semaphore.h>
+
+#include <vector>
+#include <string>
+using std::vector;
+using std::string;
 
 #ifndef ELF_PARSER
 #include <elf.h>
@@ -45,6 +51,7 @@
 #define SETERROR   9 // Cannot empty sigset
 #define ADDERROR  10 // Cannot add to sigset
 #define BUFFERROR 11 // Cannot open buffer
+#define SEMERROR  12 // Cannot open semaphore
 /*			END OF EXIT			*/
 
 struct sample
