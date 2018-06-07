@@ -14,6 +14,8 @@
 #include <unistd.h>
 #include <stdbool.h>
 
+#include "debug.h"
+
 /* This structure mirrors the one found in /usr/include/asm/ucontext.h */
 typedef struct _sig_ucontext {
   unsigned long uc_flags;
@@ -62,6 +64,7 @@ void crit_err_hdlr(int sig_num, siginfo_t *info, void *ucontext) {
 }
 
 bool enable_segfault_trace() {
+  DEBUG("enabling segfault trace");
   struct sigaction sigact;
   sigact.sa_sigaction = crit_err_hdlr;
   sigact.sa_flags = SA_RESTART | SA_SIGINFO;
@@ -69,5 +72,6 @@ bool enable_segfault_trace() {
 }
 
 void disable_segfault_trace() {
+  DEBUG("disabling segfault trace");
   signal(SIGSEGV, SIG_DFL);
 }
