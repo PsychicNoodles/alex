@@ -313,6 +313,13 @@ void exit_please(int sig, siginfo_t *info, void *ucontext)
   } // if
 }
 
+void child_ready_handler(int signum) {
+  if(signum == SIGUSR2) {
+    DEBUG("synced with child, starting");
+    synced = true;
+  }
+}
+
 /*
  *
  */
@@ -330,6 +337,17 @@ static int wrapped_main(int argc, char **argv, char **env)
   if (cpid == 0)
   {
     // child process
+    DEBUG("in child process, waiting for parent to be ready (pid: " << getpid() << ")");
+
+    struct sigaction handler_action;
+    handler_action.sa_handler = child_ready_handler;
+    sigemptyset(&handler_action.sa_mask);
+    handler_action.sa_flags = 0;
+    sigaction(SIGUSR2, &handler_action, NULL);
+
+    while(!synced) {}
+
+    DEBUG("received parent ready signal, starting child/real main");
     result = real_main(argc, argv, env);
     // killing the parent
     if (kill(ppid, SIGTERM))
@@ -340,17 +358,28 @@ static int wrapped_main(int argc, char **argv, char **env)
   else if (cpid > 0)
   {
     // parent process
-    char *destination = getenv("destination");
-    writef = fopen(destination, "w");
+    DEBUG("in parent process, opening result file for writing (pid: " << ppid << ")");
+    char* env_res = getenv("ALEX_RESULT_FILE");
+    if(env_res == NULL) {
+      writef = fopen("result.txt", "w");
+    } else {
+      writef = fopen(env_res, "w");
+    }
     if (writef == NULL)
     {
-      perror("couldnt' open destination file");
+      perror("couldn't open result file");
       kill(cpid, SIGKILL);
       exit(OPENERROR);
     } // if
     struct sigaction sa;
     sa.sa_sigaction = &exit_please;
     sigaction(SIGTERM, &sa, NULL);
+
+    DEBUG("result file opened, sending ready (SIGUSR2) signal to child");
+    if(kill(cpid, SIGUSR2)) {
+      perror("couldn't signal child");
+      exit(KILLERROR);
+    }
     result = analyzer(cpid);
   }
   else
