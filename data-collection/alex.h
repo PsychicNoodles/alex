@@ -51,6 +51,7 @@ using std::string;
 #define SETERROR   9 // Cannot empty sigset
 #define ADDERROR  10 // Cannot add to sigset
 #define BUFFERROR 11 // Cannot open buffer
+#define SEMERROR  12 // Cannot open semaphore
 /*			END OF EXIT			*/
 
 struct sample
