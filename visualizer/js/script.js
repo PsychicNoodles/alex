@@ -1,6 +1,6 @@
 // Set size and margins of graph
-var width = 600,
-    height = 300,
+var width = 1500,
+    height = 720,
     pad = 20,
     left_pad = 100;
 
@@ -11,67 +11,70 @@ var svg = d3.select("#plot")
     .attr("height", height);
 
 // Load the data from the JSON file
-d3.json("./data/percentageTest.json").then(function(results) {
+d3.json("./result.json").then(function(results) {
 
-  var dataset = results.timeslices;
-
-  var density = new Array(300);
-  for(var i = 0; i < density.length; i++) {
-    density[i] = new Array(150);
-  }
+  var timeslices = results.timeslices;
+  console.log(timeslices.length);
 
   // This is the start of an idea of how to handle different types of events, postponed to a later goal
-  for(var i = 0; i < dataset.length; i++) {
-    var cur = dataset[i];
+  for(var i = 0; i < timeslices.length; i++) {
+    var cur = timeslices[i];
     for(var j = 0; j < cur.events.length; j++) {
       switch(cur.events[j].name) {
         case "cache":
-          cache(dataset, i);
+          cache(timeslices, i);
           break;
         case "power":
-          power(dataset, i);
+          power(timeslices, i);
           break;
         case "branchPredictor":
-          branchPredictor(dataset, i);
+          branchPredictor(timeslices, i);
           break;
       }
     }
   }
 
+  var missRates = new Array(timeslices.length);
+
   // Calculate counts and percentages of cache hits and misses and add them to new fields in the array (calculate the first element separately)
-  var firstElem = dataset[0];
-  firstElem.hitsTotal = firstElem.hits;
-  firstElem.missesTotal = firstElem.misses;
-  firstElem.hitsPerc = firstElem.hits / (firstElem.misses + firstElem.hits);
-  firstElem.missesPerc = firstElem.misses / (firstElem.misses + firstElem.hits);
+  var firstElem = timeslices[0];
+
+  // From old data format, could be useful as reference
+  //firstElem.hitsTotal = firstElem.hits;
+  //firstElem.missesTotal = firstElem.misses;
+  //firstElem.hitsPerc = firstElem.hits / (firstElem.misses + firstElem.hits);
+  //firstElem.missesPerc = firstElem.misses / (firstElem.misses + firstElem.hits);
   
-  for(var i = 1; i < dataset.length; i++) {
-    var cur = dataset[i];
-    cur.hitsTotal = cur.events[0].hits + dataset[i - 1].events[0].hitsTotal;
-    cur.missesTotal = cur.events[0].misses + dataset[i - 1].events[0].missesTotal;
-    cur.hitsPerc = cur.hits / (cur.misses + cur.hits);
-    cur.missesPerc = cur.misses / (cur.misses + cur.hits);
-    var yBucket
+  for(var i = 0; i < timeslices.length; i++) {
+    var cur = timeslices[i];
+    missRates[i] = cur.events[0].count / (cur.events[0].count + cur.events[1].count);
+
+    // From old data format, could be useful as reference
+    //cur.hitsTotal = cur.events[0].hits + timeslices[i - 1].events[0].hitsTotal;
+    //cur.missesTotal = cur.events[0].misses + timeslices[i - 1].events[0].missesTotal;
+    //cur.hitsPerc = cur.hits / (cur.misses + cur.hits);
+    //cur.missesPerc = cur.misses / (cur.misses + cur.hits);
   }
 
   // Calculate size of x-axis based on number of data points
-  var xAxisRange = d3.max(dataset, function(d) {
-    return d.time;
+  var xAxisRange = d3.max(timeslices, function(d) {
+    return d.numInstructions;
   });
 
   // Create functions to scale objects vertically and horizontally according to the size of the graph
   var x = d3.scaleLinear().domain([0, xAxisRange]).range([left_pad, width - pad]),
-      y = d3.scaleLinear().domain([1, 0]).range([pad, height - pad * 2]);
+      y = d3.scaleLinear().domain([1, 0]).range([pad, height - pad * 3]);
 
   // Create axes and format the ticks on the y-axis as percentages
   var formatAsPercentage = d3.format(".0%");
-  var xAxis = d3.axisBottom(x),
+  var abbrev = d3.format(".0s");
+  var xAxis = d3.axisBottom(x).tickFormat(abbrev),
       yAxis = d3.axisLeft(y).tickFormat(formatAsPercentage);
 
   // Add the axes to the svg object
   svg.append("g")
     .attr("class", "axis")
-    .attr("transform", "translate(0, " + (height - pad) + ")")
+    .attr("transform", "translate(0, " + (height - pad * 2) + ")")
     .call(xAxis);
  
   svg.append("g")
@@ -79,30 +82,47 @@ d3.json("./data/percentageTest.json").then(function(results) {
     .attr("transform", "translate(" + (left_pad - pad) + ", 0)")
     .call(yAxis);
 
+  // Add labels to the axes
+  svg.append("text")
+    .attr("class", "x label")
+    .attr("text-anchor", "end")
+    .attr("x", width / 2 + left_pad)
+    .attr("y", height)
+    .text("Instructions");
+
+  svg.append("text")
+    .attr("class", "y label")
+    .attr("text-anchor", "end")
+    .attr("y", 6)
+    .attr("x", -1 * (height - pad) / 2)
+    .attr("dy", ".75em")
+    .attr("transform", "rotate(-90)")
+    .text("Cache miss rate");
+
   // Create the points and position them in the graph
   svg.selectAll("circle")
-    .data(dataset)
+    .data(timeslices)
     .enter()
     .append("circle")
     .attr("cx", function(d) {
-      return x(d.time);
+      return x(d.numInstructions);
     })
-    .attr("cy", function(d) {
-      return y(d.missesPerc);
+    .attr("cy", function(d, i) {
+      return y(missRates[i]);
     })
-    .attr("r", 3);
+    .attr("r", 2);
   
 });
 
 // Tests to make sure the switch statement was working
-function cache(dataset, i) {
+function cache(timeslices, i) {
   console.log("In cache function, i: ", i)
 }
 
-function power(dataset, i) {
+function power(timeslices, i) {
   console.log("In power function, i: ", i)
 }
 
-function branchPredictor(dataset, i) {
+function branchPredictor(timeslices, i) {
   console.log("In branchPredictor function, i: ", i)
 }
