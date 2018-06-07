@@ -56,7 +56,7 @@ else:
   err = args.err
 
 env = {
-  'ALEX_FREQUENCY': args.freq,
+  'ALEX_FREQUENCY': args.frequency,
   'ALEX_EVENTS': args.event.join(','),
   'LD_PRELOAD': args.alex.name,
   'ALEX_RESULT_FILE': args.res
