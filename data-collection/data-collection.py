@@ -16,7 +16,8 @@ error = {1: "Could not kill parent.",
          9: "Could not empty sigset.",
          10: "Could not add to sigset.",
          11: "Could not open file descriptor buffer.",
-         12: "Could not open semaphores."}
+         12: "Could not open semaphores.",
+         13: "Could not control perf event."}
 
 TIMESTAMP = int(time.time())
 
