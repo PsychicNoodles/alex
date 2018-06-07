@@ -109,7 +109,8 @@ int analyzer(int pid) {
     pfm.attr = &attr;
     pfm.fstr = 0;
     pfm.size = sizeof(pfm_perf_encode_arg_t);
-    int pfm_result = pfm_get_os_event_encoding(events.at(i).c_str(), PFM_PLM3, PFM_OS_PERF_EVENT_EXT, &pfm);
+    int pfm_result = pfm_get_os_event_encoding(events.at(i).c_str(), PFM_PLM3,
+                                               PFM_OS_PERF_EVENT_EXT, &pfm);
     if (pfm_result != PFM_SUCCESS) {
       fprintf(stderr, "pfm encoding error: %s", pfm_strerror(pfm_result));
       kill(ppid, SIGKILL);
@@ -124,8 +125,7 @@ int analyzer(int pid) {
     attr.precise_ip = 0;
 
     event_fds[i] = perf_event_open(&attr, pid, -1, -1, 0);
-    if (event_fds[i] == -1)
-    {
+    if (event_fds[i] == -1) {
       perror("couldn't perf_event_open for event");
       kill(cpid, SIGKILL);
       fclose(writef);
@@ -149,9 +149,9 @@ int analyzer(int pid) {
   instruction_count_attr.sample_period = period;
   instruction_count_attr.wakeup_events = 1;
   instruction_count_attr.precise_ip = 0;
-  int instruction_count_fd = perf_event_open(&instruction_count_attr, pid, -1, -1, 0);
-  if (instruction_count_fd == -1)
-  {
+  int instruction_count_fd =
+      perf_event_open(&instruction_count_attr, pid, -1, -1, 0);
+  if (instruction_count_fd == -1) {
     perror("couldn't perf_event_open instruction count");
     kill(cpid, SIGKILL);
     fclose(writef);
@@ -190,14 +190,13 @@ int analyzer(int pid) {
   int event_type = 0;
 
   DEBUG("anlz: printing result header");
-  fprintf(
-      writef,
-      R"({
-      "header": {
-        "programVersion": )" ALEX_VERSION R"(
-      },
-      "timeslices": [
-    )");
+  fprintf(writef,
+          R"({
+            "header": {
+              "programVersion": )" ALEX_VERSION R"(
+            },
+            "timeslices": [
+          )");
 
   bool is_first_timeslice = true;
 
@@ -212,53 +211,47 @@ int analyzer(int pid) {
     DEBUG("anlz: read in num of inst: " << num_instructions);
     ioctl(instruction_count_fd, PERF_EVENT_IOC_RESET, 0);
 
-    if (is_first_timeslice)
-    {
+    if (is_first_timeslice) {
       is_first_timeslice = false;
-    }
-    else
-    {
+    } else {
       fprintf(writef, ",");
     }
 
-    fprintf(
-        writef,
-        R"(
-        {
-          "numInstructions": %lld,
-          "events": [
-      )",
-        num_instructions);
+    fprintf(writef,
+            R"(
+              {
+                "numInstructions": %lld,
+                "events": [
+            )",
+            num_instructions);
 
     DEBUG("anlz: reading from each fd");
     for (int i = 0; i < number; i++) {
       count = 0;
       read(event_fds[i], &count, sizeof(long long));
       ioctl(event_fds[i], PERF_EVENT_IOC_RESET, 0);
-      fprintf(writef, R"(
-        {
-          "name": "%s",
-          "count": %lld
-        }
-      )",
+      fprintf(writef,
+              R"({
+                "name": "%s",
+                "count": %lld
+              })",
               events.at(i).c_str(), count);
       if (i < number - 1) {
         fprintf(writef, ",");
       }
     }
 
-    fprintf(
-        writef,
-        R"(
-          ],
-          "stackFrames": [
-      )");
+    fprintf(writef,
+            R"(
+                ],
+                "stackFrames": [
+            )");
 
     fprintf(writef,
             R"(
-          ]
-        }
-      )");
+                ]
+              }
+            )");
     DEBUG("anlz: finished a loop");
   }
 
@@ -273,11 +266,10 @@ void exit_please(int sig, siginfo_t *info, void *ucontext) {
   if (sig == SIGTERM) {
     munmap(buffer, (1 + NUM_DATA_PAGES) * PAGE_SIZE);
 
-    fprintf(
-        writef,
-        R"(
-        ]
-      })");
+    fprintf(writef,
+            R"(
+              ]
+            })");
     fclose(writef);
     exit(0);
   }  // if
