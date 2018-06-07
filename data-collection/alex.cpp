@@ -118,7 +118,7 @@ int setup_inst(int period, pid_t pid)
   memset(&attr_inst, 0, sizeof(struct perf_event_attr));
   attr_inst.type = PERF_TYPE_HARDWARE;
   attr_inst.config = PERF_COUNT_HW_INSTRUCTIONS;
-  attr_inst.sample_type = SAMPLE;
+  attr_inst.sample_type = SAMPLE_TYPE;
   attr_inst.sample_period = period;
   attr_inst.disabled = true;
   attr_inst.size = sizeof(perf_event_attr);
@@ -274,11 +274,12 @@ int analyzer(int pid)
       writef,
       R"(
         {
-          "num_instructions": %lld,
+          "numInstructions": %lld,
           "events": [
       )",
       num_instructions
     );
+
     DEBUG("anlz: getting ips");
     s = get_ips(&inst_buff, event_type);
     DEBUG("anlz: reading from each fd");
@@ -297,6 +298,7 @@ int analyzer(int pid)
         fprintf(writef, ",");
       }
     } // for
+
     fprintf(
       writef,
       R"(
