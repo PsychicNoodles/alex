@@ -72,6 +72,7 @@ FILE *writef;
 size_t init_time;
 static main_fn_t real_main;
 void *buffer;
+sem_t *child_sem, *parent_sem;
 
 int setup_sigset(int signum, sigset_t *sigset);
 
