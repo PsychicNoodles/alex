@@ -1,7 +1,7 @@
 // Set size and margins of graph
 var width = 1500,
   height = 720,
-  verticalPad = 60,
+  verticalPad = 20,
   horizontalPad = 100;
 
 
@@ -47,10 +47,21 @@ function chooseResource() {
 /* This function will take the raw array and a string of the specified resource and categorized them into cache, power, branchPredictor, etc */
 function categorizeEvents(timeslices, resourse) {
   switch (resourse) {
+    case "numInstructions" :
+    timeslices[0].instructionsAcc = timeslices[0].numInstructions;
+    for (var i = 1; i < timeslices.length; i++) {
+      var cur = timeslices[i];
+      cur.instructionsAcc = cur.numInstructions + timeslices[i - 1].instructionsAcc;
+    }
     case "cache":
       for (var i = 0; i < timeslices.length; i++) {
         var cur = timeslices[i];
-        cur.events.missRates = cur.events.MEM_LOAD_RETIRED.L3_MISS / (cur.events.MEM_LOAD_RETIRED.L3_MISS + MEM_LOAD_RETIRED.L3_HIT);
+        var total = cur.events["MEM_LOAD_RETIRED.L3_MISS"] + cur.events["MEM_LOAD_RETIRED.L3_HIT"];
+        if (total == 0) {
+          cur.events.missRates = 0;
+        } else {
+        cur.events.missRates = cur.events["MEM_LOAD_RETIRED.L3_MISS"] / total;
+        }
       }
       break;
     case "power":
@@ -80,16 +91,7 @@ function findMax(timeslices, attr) {
   }
 }
 
-function drawAxes() {
-  // Calculate size of x-axis based on number of data points
-  var xAxisMax = findMax(timeslices, chooseXAxis());
-  var yAxisMax = findMax(timeslices, chooseResource());
-
-  /* Create functions to scale objects vertically and horizontally according to
-  the size of the graph */
-  var xScale = d3.scaleLinear().domain([0, xAxisMax]).range([horizontalPad, width - horizontalPad]),
-    yScale = d3.scaleLinear().domain([yAxisMax, 0]).range([verticalPad, height - verticalPad]);
-
+function drawAxes(timeslices, xScale, yScale) {
   // Create axes and format the ticks on the y-axis as percentages
   var formatAsPercentage = d3.format(".0%");
   var abbrev = d3.format(".0s");
@@ -131,19 +133,39 @@ function drawAxes() {
 
 function scatterPlot(timeslices) {
   categorizeEvents(timeslices, chooseResource());
-  drawAxes();
+  categorizeEvents(timeslices, chooseXAxis());
+
+
+  // Calculate size of x-axis based on number of data points
+  var xAxisMax = timeslices[timeslices.length - 1].instructionsAcc;
+  var yAxisMax = findMax(timeslices, chooseResource());
+
+  /* Create functions to scale objects vertically and horizontally according to
+  the size of the graph */
+  var xScale = d3.scaleLinear().domain([0, xAxisMax]).range([horizontalPad, width - verticalPad]),
+      yScale = d3.scaleLinear().domain([yAxisMax, 0]).range([verticalPad, height - verticalPad * 3]);
+
+  drawAxes(timeslices, xScale, yScale);
 
   // Create the points and position them in the graph
   svg.selectAll("circle")
     .data(timeslices)
     .enter()
     .append("circle")
-    .attr("cx", function (d) {
-      return x(d.numInstructions);
+    .attr("cx",
+     function (d) {
+     // console.log(xScale(d.numInstructions));
+      return xScale(d.instructionsAcc);
+    }) 
+    .attr("cy",
+    
+    function (d) {
+      if (isNaN(yScale(d.events.missRates))) {
+        console.log("XXXXXXXX ", d.numInstructions);
+      }
+      return yScale(d.events.missRates);
     })
-    .attr("cy", function (d, i) {
-      return y(d.events.missRates);
-    })
+    
     .attr("r", 2);
 
 }
