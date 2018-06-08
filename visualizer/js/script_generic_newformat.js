@@ -15,7 +15,6 @@ var reader = new FileReader();
 
 function loadFile() {
   var file = document.getElementById("data-input").files[0];
-  console.log("got here");
   reader.addEventListener("load", parseFile, false);
   if (file) {
     reader.readAsText(file);
@@ -131,6 +130,30 @@ function drawAxes(timeslices, xScale, yScale) {
     .text("Cache miss rate");
 }
 
+// Re-center brush when the user clicks somewhere in the graph
+function brushcentered() {
+  var dx = x(1) - x(0), // Use a fixed width when recentering.
+      cx = d3.mouse(this)[0],
+      x0 = cx - dx / 2,
+      x1 = cx + dx / 2;
+  d3.select(this.parentNode).call(brush.move, x1 > width ? [width - dx, width] : x0 < 0 ? [0, dx] : [x0, x1]);
+}
+
+// Select the region that was selected by the user
+function brushed() {
+  var extent = d3.event.selection.map(x.invert, x);
+  circle.classed("selected", function(d) { return extent[0] <= d[0] && d[0] <= extent[1]; });
+}
+
+var x = d3.scaleLinear()
+    .domain([0, 10])
+    .range([0, width]);
+
+var y = d3.scaleLinear()
+    .range([height, 0]);
+
+var circle;
+
 function scatterPlot(timeslices) {
   categorizeEvents(timeslices, chooseResource());
   categorizeEvents(timeslices, chooseXAxis());
@@ -148,24 +171,37 @@ function scatterPlot(timeslices) {
   drawAxes(timeslices, xScale, yScale);
 
   // Create the points and position them in the graph
-  svg.selectAll("circle")
+  circle = svg.selectAll("circle")
     .data(timeslices)
     .enter()
     .append("circle")
     .attr("cx",
      function (d) {
-     // console.log(xScale(d.numInstructions));
       return xScale(d.instructionsAcc);
     }) 
     .attr("cy",
     
     function (d) {
-      if (isNaN(yScale(d.events.missRates))) {
-        console.log("XXXXXXXX ", d.numInstructions);
-      }
       return yScale(d.events.missRates);
     })
     
     .attr("r", 2);
+
+  // Creates brush
+  var brush = d3.brushX()
+    .extent([[0, 0], [width, height]])
+    .on("start brush", brushed);
+
+  // Adds brush to svg object
+  svg.append("g")
+    .attr("class", "brush")
+    .call(d3.brush().on("brush", brushed));
+
+  svg.append("g")
+      .call(brush)
+      .call(brush.move, [3, 5].map(x))
+    .selectAll(".overlay")
+      .each(function(d) { d.type = "selection"; })
+      .on("mousedown touchstart", brushcentered);
 
 }
