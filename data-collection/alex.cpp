@@ -556,60 +556,62 @@ int analyzer(int pid) {
 
       fprintf(writef,
               R"(
-                { "address": "%p" }
-              )",
+                { "address": "%p")",
               (void *)perf_sample->instruction_pointers[i]);
 			int fd_new = open("./simpletest/matrixmultiplier", O_RDONLY);
       if (fd_new < 0) {
                 fprintf(stderr, "%s: %s\n","matrixmultiplier", strerror(errno));
                 return 1;
-        } 
-				dwarf::taddr pc = perf_sample->instruction_pointers[i];
-       
+			} 
+			dwarf::taddr pc = perf_sample->instruction_pointers[i];
 
-        elf::elf ef(elf::create_mmap_loader(fd_new));
-        dwarf::dwarf dw(dwarf::elf::create_loader(ef));
 
-        // Find the CU containing pc
-        // XXX Use .debug_aranges
-        for (auto &cu : dw.compilation_units()) {
-                if (die_pc_range(cu.root()).contains(pc)) {
-                        // Map PC to a line
-                        auto &lt = cu.get_line_table();
-                        auto it = lt.find_address(pc);
-                        if (it == lt.end())
-                                fprintf(writef,"UNKNOWN\n");
-                        else
-                                fprintf(writef,"%s\n",
-                                       it->get_description().c_str());
+			elf::elf ef(elf::create_mmap_loader(fd_new));
+			dwarf::dwarf dw(dwarf::elf::create_loader(ef));
 
-                        // Map PC to an object
-                        // XXX Index/helper/something for looking up PCs
-                        // XXX DW_AT_specification and DW_AT_abstract_origin
-                        vector<dwarf::die> stack;
-                        if (find_pc(cu.root(), pc, &stack)) {
-                                bool first = true;
-                                for (auto &d : stack) {
-                                        if (!first)
-                                                fprintf(writef,"\nInlined in:\n");
-                                        first = false;
-                                        dump_die(d);
-                                }
-                        }
-                        break;
-                }
-        }
-    }
+			// Find the CU containing pc
+			// XXX Use .debug_aranges
+			for (auto &cu : dw.compilation_units()) {
+							if (die_pc_range(cu.root()).contains(pc)) {
+											// Map PC to a line
+											auto &lt = cu.get_line_table();
+											auto it = lt.find_address(pc);
+											if (it == lt.end())
+															fprintf(writef,"UNKNOWN\n");
+											else {
+															fprintf(writef,",");
+															fprintf(writef,R"(
+					 		    "filepath & lineNumber": "%s")", it->get_description().c_str());
+											}
+											
+											// Map PC to an object
+											// XXX Index/helper/something for looking up PCs
+											// XXX DW_AT_specification and DW_AT_abstract_origin
+											vector<dwarf::die> stack;
+											if (find_pc(cu.root(), pc, &stack)) {
+															bool first = true;
+															for (auto &d : stack) {
+																			if (!first)
+																							fprintf(writef,"\nInlined in:\n");
+																			first = false;
+																			dump_die(d);
+															}
+											}
+											break;
+											}
+							}
+			fprintf(writef,"}");
+			}
 
-    fprintf(writef,
-            R"(
+			fprintf(writef,
+											R"(
                 ]
               }
             )");
-    DEBUG("anlz: finished a loop");
-  }  
-  return 0;
-}
+							DEBUG("anlz: finished a loop");
+		}  
+		return 0;
+	}
 
 /*
  * Exit function for SIGTERM
