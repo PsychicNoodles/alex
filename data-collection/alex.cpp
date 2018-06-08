@@ -24,6 +24,11 @@
 #include <unordered_map>
 #include <vector>
 
+#include "elf/elf++.hh"
+#include "dwarf/dwarf++.hh"
+#include <fcntl.h>
+#include <inttypes.h>
+
 #include "debug.hpp"
 #include "perf_sampler.hpp"
 
@@ -67,6 +72,57 @@ size_t init_time;
 static main_fn_t real_main;
 void *buffer;
 bool ready = false;
+
+
+
+using namespace std;
+void
+dump_line_table(const dwarf::line_table &lt)
+{
+        for (auto &line : lt) {
+                if (line.end_sequence)
+                        printf("\n");
+                else
+                        printf("%-40s%8d%#20" PRIx64 "\n", line.file->path.c_str(),
+                               line.line, line.address);
+        }
+}
+
+int dump_line_address(const dwarf::line_table &lt, unsigned target)
+{
+  int realline = 0;
+  for (auto &line : lt) {
+    if (line.end_sequence){
+      printf("line out of bounds\n");
+      return -1;
+    }else if(line.address > target){
+      return realline;
+    }
+    realline = line.line;
+  }
+  return -1;
+}
+
+extern "C" {
+  int get_line(char* file,  unsigned address)
+  {
+
+    int fd = open(file, O_RDONLY);
+    if (fd < 0) {
+      fprintf(stderr, "%s: %s\n", file, strerror(errno));
+      return -1;
+    }
+
+    elf::elf ef(elf::create_mmap_loader(fd));
+    dwarf::dwarf dw(dwarf::elf::create_loader(ef));
+
+    for (auto cu : dw.compilation_units()) {
+      return dump_line_address(cu.get_line_table(), address);
+    }
+
+    return -1;
+  }
+}
 
 /*
  * Reports time since epoch in milliseconds.
@@ -156,6 +212,20 @@ vector<string> get_events() {
  * intended data.
  */
 int analyzer(int pid) {
+  int fd = open("./simpletest/matrixmultiplier", O_RDONLY);
+        if (fd < 0) {
+                fprintf(stderr, "%s: %s\n", "matrixmultiplier", strerror(errno));
+                return 1;
+        }
+
+        elf::elf ef(elf::create_mmap_loader(fd));
+        dwarf::dwarf dw(dwarf::elf::create_loader(ef));
+
+        for (auto cu : dw.compilation_units()) {
+                printf("--- <%x>\n", (unsigned int)cu.get_section_offset());
+                dump_line_table(cu.get_line_table());
+                printf("\n");
+        }
   DEBUG("anlz: initializing pfm");
   pfm_initialize();
 
@@ -319,8 +389,7 @@ int analyzer(int pid) {
               }
             )");
     DEBUG("anlz: finished a loop");
-  }
-
+  }  
   return 0;
 }
 
