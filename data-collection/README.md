@@ -2,11 +2,16 @@
 
 ## Generating results
 
-First, built the test program: `cd simpletest` and `make`.
+First, build the test program in `simpletest`: `make -C simpletest`.
 
-To create some cache hit/miss results in result.json, run the following from
-the `data-collection` directory.
+Then, build alex: `make`.
+
+Finally, run the test program with alex preloaded in. The simplest way to do this is with the `data-collection.py` script. For example, this will run `simpletest/matrixmultiplier` with `simpletest/thousand.in` as the input and monitors `MEM_LOAD_RETIRED.L3_MISS` and `MEM_LOAD_RETIRED.L3_HIT` performance events:
 
 ```
-python run_alex.py simpletest/matrixmultiplier -n 2 -e MEM_LOAD_RETIRED.L3_MISS -e MEM_LOAD_RETIRED.L3_HIT -d ./result.json < simpletest/thousand.in
+python data-collection.py -e MEM_LOAD_RETIRED.L3_MISS -e MEM_LOAD_RETIRED.L3_HIT -i simpletest/thousand.in simpletest/matrixmultiplier
 ```
+
+This will produce output, error, and alex result logs in files starting with `out-`, `err-`, and `res-` respectively followed by a timestamp and `.log`.
+
+The process of re-making, removing old logs, and running the above script can be automated by running `rerun-alex`.
