@@ -309,6 +309,7 @@ int analyzer(int pid) {
     int sample_size;
     sample *perf_sample =
         (sample *)get_next_sample(&cpu_cycles_perf, &sample_type, &sample_size);
+    assert(sample_type == PERF_RECORD_SAMPLE);
     while (has_next_sample(&cpu_cycles_perf)) {
       int temp_type, temp_size;
       get_next_sample(&cpu_cycles_perf, &temp_type, &temp_size);
