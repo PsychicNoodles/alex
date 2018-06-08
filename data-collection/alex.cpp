@@ -66,7 +66,7 @@ FILE *writef;
 size_t init_time;
 static main_fn_t real_main;
 void *buffer;
-sem_t *child_sem, *parent_sem;
+bool ready = false;
 
 /*
  * Reports time since epoch in milliseconds.
@@ -343,6 +343,12 @@ void exit_please(int sig, siginfo_t *info, void *ucontext) {
   }  // if
 }
 
+void ready_handler(int signum) {
+  if (signum == SIGUSR2) {
+    ready = true;
+  }
+}
+
 /*
  *
  */
@@ -356,47 +362,24 @@ static int wrapped_main(int argc, char **argv, char **env) {
   enable_segfault_trace();
   int result;
 
-  // Semaphores
-  // first, unlink it in case it was created before and the program crashed
-  // if (sem_unlink("/alex_child") == 0) {
-  //   DEBUG("unlinked existing child semaphore");
-  // } else {
-  //   perror("sem_unlink for child");
-  // }
-  // if (sem_unlink("/alex_parent") == 0) {
-  //   DEBUG("unlinked existing adult semaphore");
-  // } else {
-  //   perror("sem_unlink for parent");
-  // }
+  struct sigaction ready_act;
+  ready_act.sa_handler = ready_handler;
+  sigemptyset(&ready_act.sa_mask);
+  ready_act.sa_flags = 0;
+  sigaction(SIGUSR2, &ready_act, NULL);
 
-  // // then, create new semaphores
-  // child_sem = sem_open("/alex_child", O_CREAT | O_EXCL, 0644, 0);
-  // if (child_sem == SEM_FAILED) {
-  //   perror("failed to open child semaphore");
-  //   exit(SEMERROR);
-  // }
-  // parent_sem = sem_open("/alex_parent", O_CREAT | O_EXCL, 0644, 0);
-  // if (parent_sem == SEM_FAILED) {
-  //   perror("failed to open parent semaphore");
-  //   exit(SEMERROR);
-  // }
   ppid = getpid();
   cpid = fork();
   if (cpid == 0) {
     // child process
     DEBUG("in child process, waiting for parent to be ready (pid: " << getpid()
                                                                     << ")");
-    // sem_post(parent_sem);
-    // sem_wait(child_sem);
+
+    kill(ppid, SIGUSR2);
+    while(!ready) {}
 
     DEBUG("received parent ready signal, starting child/real main");
     result = real_main(argc, argv, env);
-
-    // sem_close(child_sem);
-    // sem_close(parent_sem);
-
-    // sem_unlink(child_sem);
-    // sem_unlink(parent_sem);
 
     // killing the parent
     if (kill(ppid, SIGTERM)) {
@@ -423,11 +406,9 @@ static int wrapped_main(int argc, char **argv, char **env) {
     sigaction(SIGTERM, &sa, NULL);
 
     DEBUG("result file opened, sending ready (SIGUSR2) signal to child");
-    // sem_post(child_sem);
-    // sem_wait(parent_sem);
-
-    // sem_close(child_sem);
-    // sem_close(parent_sem);
+    
+    kill(cpid, SIGUSR2);
+    while(!ready) {}
 
     DEBUG("received child ready signal, starting analyzer");
     result = analyzer(cpid);
