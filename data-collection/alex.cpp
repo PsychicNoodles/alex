@@ -51,7 +51,7 @@ using std::vector;
 
 #define ALEX_VERSION "0.0.1"
 
-#define SAMPLE_TYPE PERF_SAMPLE_TIME
+#define SAMPLE_TYPE (PERF_SAMPLE_TIME | PERF_SAMPLE_CALLCHAIN)
 struct sample {
   uint64_t time;
   uint64_t num_instruction_pointers;
@@ -309,7 +309,10 @@ int analyzer(int pid) {
     int sample_size;
     sample *perf_sample =
         (sample *)get_next_sample(&cpu_cycles_perf, &sample_type, &sample_size);
-    assert(!has_next_sample(&cpu_cycles_perf));
+    while (has_next_sample(&cpu_cycles_perf)) {
+      int temp_type, temp_size;
+      get_next_sample(&cpu_cycles_perf, &temp_type, &temp_size);
+    }
 
     fprintf(writef,
             R"(
@@ -323,6 +326,10 @@ int analyzer(int pid) {
 
     DEBUG("anlz: reading from each fd");
     for (int i = 0; i < number; i++) {
+      if (i > 0) {
+        fprintf(writef, ",");
+      }
+
       long long count = 0;
       read(event_fds[i], &count, sizeof(long long));
       if (reset_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
@@ -332,9 +339,6 @@ int analyzer(int pid) {
       }
 
       fprintf(writef, R"("%s": %lld)", events.at(i).c_str(), count);
-      if (i < number - 1) {
-        fprintf(writef, ",");
-      }
     }
 
     fprintf(writef,
@@ -342,6 +346,18 @@ int analyzer(int pid) {
                 },
                 "stackFrames": [
             )");
+
+    for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
+      if (i > 0) {
+        fprintf(writef, ",");
+      }
+
+      fprintf(writef,
+              R"(
+                { "address": "%p" }
+              )",
+              (void *)perf_sample->instruction_pointers[i]);
+    }
 
     fprintf(writef,
             R"(
