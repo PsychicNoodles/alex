@@ -51,8 +51,9 @@ using std::vector;
 
 #define ALEX_VERSION "0.0.1"
 
-#define SAMPLE_TYPE 0
+#define SAMPLE_TYPE PERF_SAMPLE_TIME
 struct sample {
+  uint64_t time;
   uint64_t num_instruction_pointers;
   uint64_t instruction_pointers[];
 };
@@ -303,14 +304,22 @@ int analyzer(int pid) {
       exit(IOCTLERROR);
     }
 
+    assert(has_next_sample(&cpu_cycles_perf));
+    int sample_type;
+    int sample_size;
+    sample *perf_sample =
+        (sample *)get_next_sample(&cpu_cycles_perf, &sample_type, &sample_size);
+    assert(!has_next_sample(&cpu_cycles_perf));
+
     fprintf(writef,
             R"(
               {
+                "time": %lu,
                 "numCPUCycles": %lld,
                 "numInstructions": %lld,
                 "events": {
             )",
-            num_cycles, num_instructions);
+            perf_sample->time, num_cycles, num_instructions);
 
     DEBUG("anlz: reading from each fd");
     for (int i = 0; i < number; i++) {
