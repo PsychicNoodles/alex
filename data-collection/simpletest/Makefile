@@ -1,4 +1,7 @@
-all: matrixmultiplier.c
+
+all: matrixmultiplier threadarray
+
+matrixmultiplier: matrixmultiplier.c
 	clang -g -Wall -o matrixmultiplier matrixmultiplier.c
 
 threadarray: threadarray.c
