@@ -17,7 +17,7 @@
 #define SAMPLER_MONITOR_SUCCESS 0
 #define SAMPLER_MONITOR_ERROR 1
 
-struct Perf_Buffer {
+struct perf_buffer {
   int fd;
   perf_event_mmap_page *info;
   void *data;
@@ -25,7 +25,7 @@ struct Perf_Buffer {
 };
 
 // Configure the perf buffer
-int setup_monitoring(Perf_Buffer *perf, perf_event_attr *attr, int pid);
+int setup_monitoring(perf_buffer *perf, perf_event_attr *attr, int pid);
 
 // Control monitoring
 int reset_monitoring(int fd);
@@ -34,7 +34,7 @@ int stop_monitoring(int fd);
 int resume_monitoring(int fd);
 
 /* does the perf_event buffer have any new records? */
-bool has_next_sample(Perf_Buffer *perf);
+bool has_next_sample(perf_buffer *perf);
 
 /* get the next record */
-void *get_next_sample(Perf_Buffer *perf, int *type, int *size);
+void *get_next_sample(perf_buffer *perf, int *type, int *size);

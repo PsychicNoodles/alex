@@ -33,8 +33,6 @@ using std::vector;
 #define PAGE_SIZE 0x1000LL
 // this needs to be a power of two :'( (an hour was spent here)
 #define NUM_DATA_PAGES 256
-#define EVENT_ACCURACY 10000000
-#define SAMPLE_TYPE 0  // (PERF_SAMPLE_CALLCHAIN)
 
 // kill failure. Not really a fail but a security hazard.
 #define KILLERROR 1    // Cannot kill parent
@@ -53,6 +51,7 @@ using std::vector;
 
 #define ALEX_VERSION "0.0.1"
 
+#define SAMPLE_TYPE 0
 struct sample {
   uint64_t num_instruction_pointers;
   uint64_t instruction_pointers[];
@@ -159,6 +158,52 @@ int analyzer(int pid) {
   DEBUG("anlz: initializing pfm");
   pfm_initialize();
 
+  DEBUG("anlz: setting up period from env var");
+  long long period = atoll(getenv("ALEX_PERIOD"));
+
+  // set up the cpu cycles perf buffer
+  perf_event_attr cpu_cycles_attr;
+  memset(&cpu_cycles_attr, 0, sizeof(cpu_cycles_attr));
+  cpu_cycles_attr.disabled = true;
+  cpu_cycles_attr.size = sizeof(cpu_cycles_attr);
+  cpu_cycles_attr.exclude_kernel = true;
+  cpu_cycles_attr.type = PERF_TYPE_HARDWARE;
+  cpu_cycles_attr.config = PERF_COUNT_HW_CPU_CYCLES;
+  cpu_cycles_attr.sample_type = SAMPLE_TYPE;
+  cpu_cycles_attr.sample_period = period;
+  cpu_cycles_attr.wakeup_events = 1;
+
+  perf_buffer cpu_cycles_perf;
+  if (setup_monitoring(&cpu_cycles_perf, &cpu_cycles_attr, pid) !=
+      SAMPLER_MONITOR_SUCCESS) {
+    kill(cpid, SIGKILL);
+    fclose(writef);
+    exit(INSTERROR);
+  }
+
+  DEBUG("anlz: setting ready signal for SIGUSR1");
+  set_ready_signal(SIGUSR1, cpu_cycles_perf.fd);
+  sigset_t signal_set;
+  setup_sigset(SIGUSR1, &signal_set);
+
+  // set up the instruction file descriptor
+  perf_event_attr instruction_count_attr;
+  memset(&instruction_count_attr, 0, sizeof(instruction_count_attr));
+  instruction_count_attr.disabled = true;
+  instruction_count_attr.size = sizeof(instruction_count_attr);
+  instruction_count_attr.exclude_kernel = true;
+  instruction_count_attr.type = PERF_TYPE_HARDWARE;
+  instruction_count_attr.config = PERF_COUNT_HW_INSTRUCTIONS;
+
+  int instruction_count_fd =
+      perf_event_open(&instruction_count_attr, pid, -1, -1, 0);
+  if (instruction_count_fd == -1) {
+    perror("couldn't perf_event_open for instruction count");
+    kill(cpid, SIGKILL);
+    fclose(writef);
+    exit(PERFERROR);
+  }
+
   // Set up event counters
   DEBUG("anlz: getting events from env var");
   vector<string> events = get_events();
@@ -186,8 +231,6 @@ int analyzer(int pid) {
     attr.disabled = true;
     attr.size = sizeof(perf_event_attr);
     attr.exclude_kernel = true;
-    attr.read_format = 0;
-    attr.precise_ip = 0;
 
     event_fds[i] = perf_event_open(&attr, pid, -1, -1, 0);
     if (event_fds[i] == -1) {
@@ -198,37 +241,13 @@ int analyzer(int pid) {
     }
   }
 
-  DEBUG("anlz: setting up period from env var");
-  long long period = atoll(getenv("ALEX_PERIOD"));
-
-  // set up the instruction file descriptor
-  perf_event_attr instruction_count_attr;
-  memset(&instruction_count_attr, 0, sizeof(perf_event_attr));
-  instruction_count_attr.disabled = true;
-  instruction_count_attr.size = sizeof(perf_event_attr);
-  instruction_count_attr.exclude_kernel = true;
-  instruction_count_attr.read_format = 0;
-  instruction_count_attr.type = PERF_TYPE_HARDWARE;
-  instruction_count_attr.config = PERF_COUNT_HW_INSTRUCTIONS;
-  instruction_count_attr.sample_type = SAMPLE_TYPE;
-  instruction_count_attr.sample_period = period;
-  instruction_count_attr.wakeup_events = 1;
-  instruction_count_attr.precise_ip = 0;
-
-  Perf_Buffer instruction_count_perf;
-  if (setup_monitoring(&instruction_count_perf, &instruction_count_attr, pid) !=
-      SAMPLER_MONITOR_SUCCESS) {
+  if (start_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
     kill(cpid, SIGKILL);
     fclose(writef);
-    exit(INSTERROR);
+    exit(IOCTLERROR);
   }
 
-  DEBUG("anlz: setting ready signal for SIGUSR1");
-  set_ready_signal(SIGUSR1, instruction_count_perf.fd);
-  sigset_t signal_set;
-  setup_sigset(SIGUSR1, &signal_set);
-
-  if (start_monitoring(instruction_count_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
+  if (start_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS) {
     kill(cpid, SIGKILL);
     fclose(writef);
     exit(IOCTLERROR);
@@ -241,11 +260,6 @@ int analyzer(int pid) {
       exit(IOCTLERROR);
     }
   }
-
-  int sig;
-  long long num_instructions = 0;
-  long long count = 0;
-  int event_type = 0;
 
   DEBUG("anlz: printing result header");
   fprintf(writef,
@@ -262,18 +276,9 @@ int analyzer(int pid) {
   while (true) {
     // waits until it receives SIGUSR1
     DEBUG("anlz: waiting for SIGUSR1");
+    int sig;
     sigwait(&signal_set, &sig);
     DEBUG("anlz: received SIGUSR1");
-    num_instructions = 0;
-    read(instruction_count_perf.fd, &num_instructions,
-         sizeof(num_instructions));
-    DEBUG("anlz: read in num of inst: " << num_instructions);
-    if (reset_monitoring(instruction_count_perf.fd) !=
-        SAMPLER_MONITOR_SUCCESS) {
-      kill(cpid, SIGKILL);
-      fclose(writef);
-      exit(IOCTLERROR);
-    }
 
     if (is_first_timeslice) {
       is_first_timeslice = false;
@@ -281,17 +286,35 @@ int analyzer(int pid) {
       fprintf(writef, ",");
     }
 
+    long long num_cycles = 0;
+    read(cpu_cycles_perf.fd, &num_cycles, sizeof(num_cycles));
+    if (reset_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
+      kill(cpid, SIGKILL);
+      fclose(writef);
+      exit(IOCTLERROR);
+    }
+
+    long long num_instructions = 0;
+    read(instruction_count_fd, &num_instructions, sizeof(num_instructions));
+    DEBUG("anlz: read in num of inst: " << num_instructions);
+    if (reset_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS) {
+      kill(cpid, SIGKILL);
+      fclose(writef);
+      exit(IOCTLERROR);
+    }
+
     fprintf(writef,
             R"(
               {
+                "numCPUCycles": %lld,
                 "numInstructions": %lld,
                 "events": {
             )",
-            num_instructions);
+            num_cycles, num_instructions);
 
     DEBUG("anlz: reading from each fd");
     for (int i = 0; i < number; i++) {
-      count = 0;
+      long long count = 0;
       read(event_fds[i], &count, sizeof(long long));
       if (reset_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
         kill(cpid, SIGKILL);
@@ -299,9 +322,7 @@ int analyzer(int pid) {
         exit(IOCTLERROR);
       }
 
-      fprintf(writef,
-              R"("%s": %lld)",
-              events.at(i).c_str(), count);
+      fprintf(writef, R"("%s": %lld)", events.at(i).c_str(), count);
       if (i < number - 1) {
         fprintf(writef, ",");
       }
@@ -330,8 +351,6 @@ int analyzer(int pid) {
  */
 void exit_please(int sig, siginfo_t *info, void *ucontext) {
   if (sig == SIGTERM) {
-    munmap(buffer, (1 + NUM_DATA_PAGES) * PAGE_SIZE);
-
     fprintf(writef,
             R"(
               ]
@@ -376,7 +395,8 @@ static int wrapped_main(int argc, char **argv, char **env) {
                                                                     << ")");
 
     kill(ppid, SIGUSR2);
-    while(!ready) {}
+    while (!ready)
+      ;
 
     DEBUG("received parent ready signal, starting child/real main");
     result = real_main(argc, argv, env);
@@ -406,9 +426,10 @@ static int wrapped_main(int argc, char **argv, char **env) {
     sigaction(SIGTERM, &sa, NULL);
 
     DEBUG("result file opened, sending ready (SIGUSR2) signal to child");
-    
+
     kill(cpid, SIGUSR2);
-    while(!ready) {}
+    while (!ready)
+      ;
 
     DEBUG("received child ready signal, starting analyzer");
     result = analyzer(cpid);
