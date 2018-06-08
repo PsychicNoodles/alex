@@ -16,7 +16,8 @@ error = {1: "Could not kill parent.",
          9: "Could not empty sigset.",
          10: "Could not add to sigset.",
          11: "Could not open file descriptor buffer.",
-         12: "Could not open semaphores."}
+         12: "Could not open semaphores.",
+         13: "Could not control perf event."}
 
 TIMESTAMP = int(time.time())
 
@@ -26,9 +27,9 @@ parser.add_argument('test_program_args', nargs=argparse.REMAINDER, help="args fo
 parser.add_argument('-e', '--event', nargs=1, action='append', required=True, dest="event", help="events to be traced from `perf list`")
 parser.add_argument('-p', '--period', default='7', choices=[str(i) for i in range(6, 13)], help="period of instructions (ten to the power of period)")
 parser.add_argument('-a', '--alex', type=argparse.FileType(), default="./alex.so", help="the location of the alex shared object")
-parser.add_argument('--out', type=argparse.FileType('w'), default="out-%s" % TIMESTAMP, help="the file for stdout of the test program")
-parser.add_argument('--err', type=argparse.FileType('w'), default="err-%s" % TIMESTAMP, help="the file for stderr of the test program")
-parser.add_argument('-r', '--res', default="res-%s" % TIMESTAMP, help="the file for results of perf analyzer")
+parser.add_argument('--out', type=argparse.FileType('w'), default="out-%s.log" % TIMESTAMP, help="the file for stdout of the test program")
+parser.add_argument('--err', type=argparse.FileType('w'), default="err-%s.log" % TIMESTAMP, help="the file for stderr of the test program")
+parser.add_argument('-r', '--res', default="res-%s.json" % TIMESTAMP, help="the file for results of perf analyzer")
 parser.add_argument('--echo-out', action='store_true', help="echo the stdout of the test program")
 parser.add_argument('--echo-err', action='store_true', help="echo the stderr of the test program")
 parser.add_argument('-i', '--input', metavar="in", type=argparse.FileType(), default=PIPE, help="a file that should be piped into stdin of the test program")
@@ -57,7 +58,7 @@ else:
   err = args.err
 
 env = {
-  'ALEX_PERIOD': args.period,
+  'ALEX_PERIOD': str(10 ** int(args.period)),
   'ALEX_EVENTS': ','.join(map(lambda x: x[0], args.event)),
   'LD_PRELOAD': args.alex.name,
   'ALEX_RESULT_FILE': args.res
