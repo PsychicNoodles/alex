@@ -76,6 +76,74 @@ bool ready = false;
 
 
 using namespace std;
+
+void
+usage(const char *cmd) 
+{
+        fprintf(stderr, "usage: %s elf-file pc\n", cmd);
+        exit(2);
+}
+
+bool
+find_pc(const dwarf::die &d, dwarf::taddr pc, vector<dwarf::die> *stack)
+{
+        using namespace dwarf;
+
+        // Scan children first to find most specific DIE
+        bool found = false;
+        for (auto &child : d) {
+                if ((found = find_pc(child, pc, stack)))
+                        break;
+        }
+        switch (d.tag) {
+        case DW_TAG::subprogram:
+        case DW_TAG::inlined_subroutine:
+                try {
+                        if (found || die_pc_range(d).contains(pc)) {
+                                found = true;
+                                stack->push_back(d);
+                        }
+                } catch (out_of_range &e) {
+                } catch (value_type_mismatch &e) {
+                }
+                break;
+        default:
+                break;
+        }
+        return found;
+}
+
+void
+dump_die(const dwarf::die &node)
+{
+        printf("<%" PRIx64 "> %s\n",
+               node.get_section_offset(),
+               to_string(node.tag).c_str());
+        for (auto &attr : node.attributes())
+                printf("      %s %s\n",
+                       to_string(attr.first).c_str(),
+                       to_string(attr.second).c_str());
+}
+
+
+
+
+
+/*void* dump_line_table(const dwarf::line_table &lt, int target)
+{
+  for (auto &line : lt) {
+    if (line.end_sequence){
+      printf("line out of bounds\n");
+      return NULL;
+    }else if(line.line >= target){
+	    printf("%-40s%8d%#20" PRIx64 "\n", line.file->path.c_str(),
+                               line.line, line.address);
+      return (void*) line.address;
+    }
+  }
+  return NULL;
+}*/
+
 void
 dump_line_table(const dwarf::line_table &lt)
 {
@@ -88,6 +156,8 @@ dump_line_table(const dwarf::line_table &lt)
         }
 }
 
+
+/*
 int dump_line_address(const dwarf::line_table &lt, unsigned target)
 {
   int realline = 0;
@@ -123,6 +193,30 @@ extern "C" {
     return -1;
   }
 }
+
+extern "C" {
+  // Function that stores the lines and addresses of a program into a table and then returns the address of a given line using the dump_line_table function
+  void* print_lines(char* file, int line_num)
+  {
+
+    int fd = open(file, O_RDONLY);
+    if (fd < 0) {
+      fprintf(stderr, "%s: %s\n", file, strerror(errno));
+      return NULL;
+    }
+
+    elf::elf ef(elf::create_mmap_loader(fd));
+    dwarf::dwarf dw(dwarf::elf::create_loader(ef));
+
+    for (auto cu : dw.compilation_units()) {
+      return dump_line_table(cu.get_line_table(), line_num);
+    }
+
+    return NULL;
+  }
+}
+*/
+
 
 /*
  * Reports time since epoch in milliseconds.
@@ -207,25 +301,63 @@ vector<string> get_events() {
   return str_split(events_env, ",");
 }
 
-/*
- * The most important function. Sets up the required events and records
- * intended data.
- */
-int analyzer(int pid) {
-  int fd = open("./simpletest/matrixmultiplier", O_RDONLY);
+
+int  dump_table_and_symbol(char * path) {
+ int fd = open(path, O_RDONLY);
+				if (fd < 0) {
+								fprintf(stderr, "%s: %s\n", path, strerror(errno));
+								return 1;
+				}
+
+				elf::elf ef(elf::create_mmap_loader(fd));
+				dwarf::dwarf dw(dwarf::elf::create_loader(ef));
+ 				DEBUG("dump_line_table");
+
+				close(fd);
+fd = open(path, O_RDONLY);
         if (fd < 0) {
                 fprintf(stderr, "%s: %s\n", "matrixmultiplier", strerror(errno));
                 return 1;
         }
 
-        elf::elf ef(elf::create_mmap_loader(fd));
-        dwarf::dwarf dw(dwarf::elf::create_loader(ef));
+				for (auto cu : dw.compilation_units()) {
+								printf("--- <%x>\n", (unsigned int)cu.get_section_offset());
+								dump_line_table(cu.get_line_table());
+								printf("\n");
+				} 
+        printf("loading symbols");
+				elf::elf f(elf::create_mmap_loader(fd));
+				for (auto &sec : f.sections()) {
+								if (sec.get_hdr().type != elf::sht::symtab && sec.get_hdr().type != elf::sht::dynsym)
+												continue;
 
-        for (auto cu : dw.compilation_units()) {
-                printf("--- <%x>\n", (unsigned int)cu.get_section_offset());
-                dump_line_table(cu.get_line_table());
-                printf("\n");
-        }
+								printf("Symbol table '%s':\n", sec.get_name().c_str());
+								printf("%6s: %-16s %-5s %-7s %-7s %-5s %s\n",
+																"Num", "Value", "Size", "Type", "Binding", "Index",
+																"Name");
+								int i = 0;
+								for (auto sym : sec.as_symtab()) {
+												auto &d = sym.get_data();
+												printf("%6d: %016" PRIx64 " %5" PRId64 " %-7s %-7s %5s %s\n",
+																				i++, d.value, d.size,
+																				to_string(d.type()).c_str(),
+																				to_string(d.binding()).c_str(),
+																				to_string(d.shnxd).c_str(),
+																				sym.get_name().c_str());
+								}
+				}
+				return 0;
+				DEBUG("dump symbol table");
+}
+
+
+
+/*
+ * The most important function. Sets up the required events and records
+ * intended data.
+ */
+int analyzer(int pid) {
+
   DEBUG("anlz: initializing pfm");
   pfm_initialize();
 
@@ -427,6 +559,46 @@ int analyzer(int pid) {
                 { "address": "%p" }
               )",
               (void *)perf_sample->instruction_pointers[i]);
+			int fd_new = open("./simpletest/matrixmultiplier", O_RDONLY);
+      if (fd_new < 0) {
+                fprintf(stderr, "%s: %s\n","matrixmultiplier", strerror(errno));
+                return 1;
+        } 
+				dwarf::taddr pc = perf_sample->instruction_pointers[i];
+       
+
+        elf::elf ef(elf::create_mmap_loader(fd_new));
+        dwarf::dwarf dw(dwarf::elf::create_loader(ef));
+
+        // Find the CU containing pc
+        // XXX Use .debug_aranges
+        for (auto &cu : dw.compilation_units()) {
+                if (die_pc_range(cu.root()).contains(pc)) {
+                        // Map PC to a line
+                        auto &lt = cu.get_line_table();
+                        auto it = lt.find_address(pc);
+                        if (it == lt.end())
+                                fprintf(writef,"UNKNOWN\n");
+                        else
+                                fprintf(writef,"%s\n",
+                                       it->get_description().c_str());
+
+                        // Map PC to an object
+                        // XXX Index/helper/something for looking up PCs
+                        // XXX DW_AT_specification and DW_AT_abstract_origin
+                        vector<dwarf::die> stack;
+                        if (find_pc(cu.root(), pc, &stack)) {
+                                bool first = true;
+                                for (auto &d : stack) {
+                                        if (!first)
+                                                fprintf(writef,"\nInlined in:\n");
+                                        first = false;
+                                        dump_die(d);
+                                }
+                        }
+                        break;
+                }
+        }
     }
 
     fprintf(writef,
@@ -474,6 +646,8 @@ static int wrapped_main(int argc, char **argv, char **env) {
         */
   enable_segfault_trace();
   int result;
+char * path = "./simpletest/matrixmultiplier";
+dump_table_and_symbol(path);
 
   struct sigaction ready_act;
   ready_act.sa_handler = ready_handler;
