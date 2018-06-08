@@ -1,6 +1,6 @@
 #include "perf_sampler.hpp"
 
-int setup_monitoring(Perf_Buffer *result, perf_event_attr *attr, int pid = 0) {
+int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
   int fd = perf_event_open(attr, pid, -1, -1, 0);
 
   if (fd == -1) {
@@ -24,7 +24,7 @@ int setup_monitoring(Perf_Buffer *result, perf_event_attr *attr, int pid = 0) {
   return SAMPLER_MONITOR_SUCCESS;
 }
 
-void *get_next_sample(Perf_Buffer *perf, int *type, int *size) {
+void *get_next_sample(perf_buffer *perf, int *type, int *size) {
   perf_event_header *event_header =
       (perf_event_header *)((char *)perf->data +
                             (perf->info->data_tail % perf->info->data_size));
@@ -36,7 +36,7 @@ void *get_next_sample(Perf_Buffer *perf, int *type, int *size) {
   return event_data;
 }
 
-bool has_next_sample(Perf_Buffer *perf) {
+bool has_next_sample(perf_buffer *perf) {
   return (perf->info->data_head != perf->info->data_tail);
 }
 
