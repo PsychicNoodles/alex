@@ -21,7 +21,10 @@ minlog: DEBUG = -D MINDEBUG
 minlog: all
 
 clean:
-	@rm -f alex.$(SHLIB_SUFFIX) testprog
+	@rm -f alex.$(SHLIB_SUFFIX)
+
+clean-res:
+	@rm -f err-* out-* res-*
 
 alex.$(SHLIB_SUFFIX): alex.cpp debug.cpp perf_sampler.cpp
 	$(CXXLIB) $(CFLAGS) $(DEBUG) -I../../include --std=c++11 -g -o $@ $^ -ldl -lpfm -pthread -rdynamic
