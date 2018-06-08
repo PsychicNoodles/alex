@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <dlfcn.h>
+#include <elf.h>
 #include <fcntl.h>
 #include <linux/perf_event.h>
 #include <perfmon/perf_event.h>
@@ -18,13 +19,13 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <unordered_map>
-#include <elf.h>
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "debug.hpp"
+#include "perf_sampler.hpp"
 
 using std::string;
 using std::vector;
@@ -36,18 +37,19 @@ using std::vector;
 #define SAMPLE_TYPE 0  // (PERF_SAMPLE_CALLCHAIN)
 
 // kill failure. Not really a fail but a security hazard.
-#define KILLERROR 1  // Cannot kill parent
-#define FORKERROR 2  // Cannot fork
-#define OPENERROR 3  // Cannot open file
-#define PERFERROR 4  // Cannot make perf_event
-#define INSTERROR 5  // Cannot make fd for inst counter
-#define ASYNERROR 6  // Cannot set file to async mode
-#define FISGERROR 7  // Cannot set signal to file
-#define OWNERROR 8   // Cannot set file to owner
-#define SETERROR 9   // Cannot empty sigset
-#define ADDERROR 10  // Cannot add to sigset
-#define BUFFERROR 11 // Cannot open buffer
-#define SEMERROR 12  // Semaphore failed
+#define KILLERROR 1    // Cannot kill parent
+#define FORKERROR 2    // Cannot fork
+#define OPENERROR 3    // Cannot open file
+#define PERFERROR 4    // Cannot make perf_event
+#define INSTERROR 5    // Cannot make fd for inst counter
+#define ASYNERROR 6    // Cannot set file to async mode
+#define FISGERROR 7    // Cannot set signal to file
+#define OWNERROR 8     // Cannot set file to owner
+#define SETERROR 9     // Cannot empty sigset
+#define ADDERROR 10    // Cannot add to sigset
+#define BUFFERROR 11   // Cannot open buffer
+#define SEMERROR 12    // Semaphore failed
+#define IOCTLERROR 13  // Cannot control perf_event
 
 #define ALEX_VERSION "0.0.1"
 
@@ -212,39 +214,32 @@ int analyzer(int pid) {
   instruction_count_attr.sample_period = period;
   instruction_count_attr.wakeup_events = 1;
   instruction_count_attr.precise_ip = 0;
-  int instruction_count_fd =
-      perf_event_open(&instruction_count_attr, pid, -1, -1, 0);
-  if (instruction_count_fd == -1) {
-    perror("couldn't perf_event_open instruction count");
+
+  Perf_Buffer instruction_count_perf;
+  if (setup_monitoring(&instruction_count_perf, &instruction_count_attr, pid) !=
+      SAMPLER_MONITOR_SUCCESS) {
     kill(cpid, SIGKILL);
     fclose(writef);
     exit(INSTERROR);
   }
 
-  uint64_t buf_size = (1 + NUM_DATA_PAGES) * PAGE_SIZE;
-  DEBUG("anlz: mmapping ring buffer");
-  buffer = mmap(0, buf_size, PROT_READ | PROT_WRITE,
-                // v-- has to be MAP_SHARED! wasted hours :"(
-                MAP_SHARED, instruction_count_fd, 0);
-  if (buffer == MAP_FAILED) {
-    perror("mmap");
-    kill(cpid, SIGKILL);
-    fclose(writef);
-    exit(BUFFERROR);
-  }
-
   DEBUG("anlz: setting ready signal for SIGUSR1");
-  set_ready_signal(SIGUSR1, instruction_count_fd);
+  set_ready_signal(SIGUSR1, instruction_count_perf.fd);
   sigset_t signal_set;
   setup_sigset(SIGUSR1, &signal_set);
 
-  DEBUG("anlz: setting up ioctl for reset and enable");
-  ioctl(instruction_count_fd, PERF_EVENT_IOC_RESET, 0);
-  ioctl(instruction_count_fd, PERF_EVENT_IOC_ENABLE, 0);
+  if (start_monitoring(instruction_count_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
+    kill(cpid, SIGKILL);
+    fclose(writef);
+    exit(IOCTLERROR);
+  }
 
   for (int i = 0; i < number; i++) {
-    ioctl(event_fds[i], PERF_EVENT_IOC_RESET, 0);
-    ioctl(event_fds[i], PERF_EVENT_IOC_ENABLE, 0);
+    if (start_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
+      kill(cpid, SIGKILL);
+      fclose(writef);
+      exit(IOCTLERROR);
+    }
   }
 
   int sig;
@@ -270,9 +265,15 @@ int analyzer(int pid) {
     sigwait(&signal_set, &sig);
     DEBUG("anlz: received SIGUSR1");
     num_instructions = 0;
-    read(instruction_count_fd, &num_instructions, sizeof(num_instructions));
+    read(instruction_count_perf.fd, &num_instructions,
+         sizeof(num_instructions));
     DEBUG("anlz: read in num of inst: " << num_instructions);
-    ioctl(instruction_count_fd, PERF_EVENT_IOC_RESET, 0);
+    if (reset_monitoring(instruction_count_perf.fd) !=
+        SAMPLER_MONITOR_SUCCESS) {
+      kill(cpid, SIGKILL);
+      fclose(writef);
+      exit(IOCTLERROR);
+    }
 
     if (is_first_timeslice) {
       is_first_timeslice = false;
@@ -284,7 +285,7 @@ int analyzer(int pid) {
             R"(
               {
                 "numInstructions": %lld,
-                "events": [
+                "events": {
             )",
             num_instructions);
 
@@ -292,12 +293,14 @@ int analyzer(int pid) {
     for (int i = 0; i < number; i++) {
       count = 0;
       read(event_fds[i], &count, sizeof(long long));
-      ioctl(event_fds[i], PERF_EVENT_IOC_RESET, 0);
+      if (reset_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
+        kill(cpid, SIGKILL);
+        fclose(writef);
+        exit(IOCTLERROR);
+      }
+
       fprintf(writef,
-              R"({
-                "name": "%s",
-                "count": %lld
-              })",
+              R"("%s": %lld)",
               events.at(i).c_str(), count);
       if (i < number - 1) {
         fprintf(writef, ",");
@@ -306,7 +309,7 @@ int analyzer(int pid) {
 
     fprintf(writef,
             R"(
-                ],
+                },
                 "stackFrames": [
             )");
 
