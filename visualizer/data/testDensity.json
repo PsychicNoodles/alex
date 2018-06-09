@@ -1,0 +1,13 @@
+{
+    "header": {
+        "programVersion": "0.0.1"
+    },
+    "timeslices": [
+        {
+            "instructionsAcc": 1,
+            "events": {
+                "missRates": 0.5
+            }
+        }
+    ]
+}
