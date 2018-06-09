@@ -137,6 +137,7 @@ function drawAxes(timeslices, xScale, yScale) {
   //   .text("Cache miss rate");
 }
 
+<<<<<<< HEAD
 function quadTreeX(d) {
   return d.instructionsAcc;
 }
@@ -159,12 +160,82 @@ function nodes(quadtree) {
     for (; i < nodes.length; i++) {
       if (nodes[i]) {
         nodes[i].depth = node.depth + 1;
+=======
+// Re-center brush when the user clicks somewhere in the graph
+function brushcentered() {
+  var dx = x(1) - x(0), // Use a fixed width when recentering.
+      cx = d3.mouse(this)[0],
+      x0 = cx - dx / 2,
+      x1 = cx + dx / 2;
+  d3.select(this.parentNode).call(brush.move, x1 > width ? [width - dx, width] : x0 < 0 ? [0, dx] : [x0, x1]);
+}
+
+// Select the region that was selected by the user
+function brushed() {
+  var extent = d3.event.selection.map(x.invert, x);
+  circle.classed("selected", function(d) { return extent[0] <= d[0] && d[0] <= extent[1]; });
+}
+
+var x = d3.scaleLinear()
+    .domain([0, 10])
+    .range([0, width]);
+
+var y = d3.scaleLinear()
+    .range([height, 0]);
+
+var circle;
+
+function scatterPlot(timeslices) {
+  categorizeEvents(timeslices, chooseResource());
+  categorizeEvents(timeslices, chooseXAxis());
+
+  // Calculate size of x-axis based on number of data points
+  var xAxisMax = timeslices[timeslices.length - 1].instructionsAcc;
+  var yAxisMax = findMax(timeslices, chooseResource());
+
+  /* Create functions to scale objects vertically and horizontally according to
+  the size of the graph */
+  var xScale = d3
+      .scaleLinear()
+      .domain([0, xAxisMax])
+      .range([horizontalPad, width - verticalPad]),
+    yScale = d3
+      .scaleLinear()
+      .domain([yAxisMax, 0])
+      .range([verticalPad, height - verticalPad * 3]);
+
+  drawAxes(timeslices, xScale, yScale);
+
+  // Create the points and position them in the graph
+  circle = svg.selectAll("circle")
+    .data(timeslices)
+    .enter()
+    .append("circle")
+    .attr("cx",
+     function (d) {
+      return xScale(d.instructionsAcc);
+    }) 
+    .attr("cy",
+    
+    function (d) {
+      return yScale(d.events.missRates);
+    })
+    .attr(
+      "cy",
+
+      function(d) {
+        if (isNaN(yScale(d.events.missRates))) {
+          console.log("XXXXXXXX ", d.numInstructions);
+        }
+        return yScale(d.events.missRates);
+>>>>>>> f436b036dd2a589031f1dabb60c44d8a4a436a6b
       }
     }
   });
   return true;
 }
 
+<<<<<<< HEAD
 //This function calculate how many points are in this node
 function getDensity(cur, density) {
   if (!cur.length) {
@@ -250,4 +321,23 @@ function scatterPlot(timeslices) {
   //   )
 
   //   .attr("r", 2);
+=======
+  // Creates brush
+  var brush = d3.brushX()
+    .extent([[0, 0], [width, height]])
+    .on("start brush", brushed);
+
+  // Adds brush to svg object
+  svg.append("g")
+    .attr("class", "brush")
+    .call(d3.brush().on("brush", brushed));
+
+  svg.append("g")
+      .call(brush)
+      .call(brush.move, [3, 5].map(x))
+    .selectAll(".overlay")
+      .each(function(d) { d.type = "selection"; })
+      .on("mousedown touchstart", brushcentered);
+
+>>>>>>> f436b036dd2a589031f1dabb60c44d8a4a436a6b
 }
