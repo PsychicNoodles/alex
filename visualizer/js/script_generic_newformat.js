@@ -1,6 +1,6 @@
 // Set size and margins of graph
-var width = 1,
-  height = 1,
+var width = 1500,
+  height = 720,
   verticalPad = 20,
   horizontalPad = 100;
 
@@ -21,15 +21,13 @@ function loadFile() {
   }
 }
 
-/* Make sure the graph before drawing (prevents new input getting layered on
-    old input) */
-svg.selectAll("*").remove();
-
 /* converse the file into the array we use for visualization */
 function parseFile() {
   var timeslices = JSON.parse(reader.result).timeslices;
+  /* Make sure the graph is empty before drawing (prevents new input getting
+  layered on old input) */
+  svg.selectAll("*").remove();
   densityInfo(timeslices);
-
   //scatterPlot(timeslices);
 }
 
@@ -94,47 +92,47 @@ function findMax(timeslices, attr) {
 }
 
 function drawAxes(timeslices, xScale, yScale) {
-  // // Create axes and format the ticks on the y-axis as percentages
-  // var formatAsPercentage = d3.format(".0%");
-  // var abbrev = d3.format(".0s");
-  // var xAxis = d3.axisBottom(xScale).tickFormat(abbrev),
-  //   yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage);
+  // Create axes and format the ticks on the y-axis as percentages
+  var formatAsPercentage = d3.format(".0%");
+  var abbrev = d3.format(".0s");
+  var xAxis = d3.axisBottom(xScale).tickFormat(abbrev),
+    yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage);
 
-  // // Add the axes to the svg object
-  // svg
-  //   .append("g")
-  //   .attr("id", "xAxis")
-  //   .attr("class", "axis")
-  //   .attr("transform", "translate(0, " + (height - verticalPad * 2) + ")")
-  //   .call(xAxis);
+  // Add the axes to the svg object
+  svg
+    .append("g")
+    .attr("id", "xAxis")
+    .attr("class", "axis")
+    .attr("transform", "translate(0, " + (height - verticalPad * 2) + ")")
+    .call(xAxis);
 
-  // svg
-  //   .append("g")
-  //   .attr("id", "yAxis")
-  //   .attr("class", "axis")
-  //   .attr("transform", "translate(" + (horizontalPad - verticalPad) + ", 0)")
-  //   .call(yAxis);
+  svg
+    .append("g")
+    .attr("id", "yAxis")
+    .attr("class", "axis")
+    .attr("transform", "translate(" + (horizontalPad - verticalPad) + ", 0)")
+    .call(yAxis);
 
-  // // Add labels to the axes
-  // svg
-  //   .select("xAxis")
-  //   .append("text")
-  //   .attr("class", "x label")
-  //   .attr("text-anchor", "end")
-  //   .attr("x", width / 2 + horizontalPad)
-  //   .attr("y", height)
-  //   .text(chooseXAxis());
+  // Add labels to the axes
+  svg
+    .select("xAxis")
+    .append("text")
+    .attr("class", "x label")
+    .attr("text-anchor", "end")
+    .attr("x", width / 2 + horizontalPad)
+    .attr("y", height)
+    .text(chooseXAxis());
 
-  // svg
-  //   .select("yAxis")
-  //   .append("text")
-  //   .attr("class", "y label")
-  //   .attr("text-anchor", "end")
-  //   .attr("y", 6)
-  //   .attr("x", (-1 * (height - verticalPad)) / 2)
-  //   .attr("dy", ".75em")
-  //   .attr("transform", "rotate(-90)")
-  //   .text("Cache miss rate");
+  svg
+    .select("yAxis")
+    .append("text")
+    .attr("class", "y label")
+    .attr("text-anchor", "end")
+    .attr("y", 6)
+    .attr("x", (-1 * (height - verticalPad)) / 2)
+    .attr("dy", ".75em")
+    .attr("transform", "rotate(-90)")
+    .text("Cache miss rate");
 }
 
 
@@ -142,48 +140,48 @@ function drawAxes(timeslices, xScale, yScale) {
 
 
 function scatterPlot(timeslices) {
-  // categorizeEvents(timeslices, chooseResource());
-  // categorizeEvents(timeslices, chooseXAxis());
+  categorizeEvents(timeslices, chooseResource());
+  categorizeEvents(timeslices, chooseXAxis());
 
-  // // Calculate size of x-axis based on number of data points
-  // var xAxisMax = timeslices[timeslices.length - 1].instructionsAcc;
-  // var yAxisMax = findMax(timeslices, chooseResource());
+  // Calculate size of x-axis based on number of data points
+  var xAxisMax = timeslices[timeslices.length - 1].instructionsAcc;
+  var yAxisMax = findMax(timeslices, chooseResource());
 
-  // /* Create functions to scale objects vertically and horizontally according to
-  // the size of the graph */
-  // var xScale = d3
-  //   .scaleLinear()
-  //   .domain([0, xAxisMax])
-  //   .range([horizontalPad, width - verticalPad]),
-  //   yScale = d3
-  //     .scaleLinear()
-  //     .domain([yAxisMax, 0])
-  //     .range([verticalPad, height - verticalPad * 3]);
+  /* Create functions to scale objects vertically and horizontally according to
+  the size of the graph */
+  var xScale = d3
+    .scaleLinear()
+    .domain([0, xAxisMax])
+    .range([horizontalPad, width - verticalPad]),
+    yScale = d3
+      .scaleLinear()
+      .domain([yAxisMax, 0])
+      .range([verticalPad, height - verticalPad * 3]);
 
-  // drawAxes(timeslices, xScale, yScale);
+  drawAxes(timeslices, xScale, yScale);
 
-  // // Create the points and position them in the graph
-  // svg
-  //   .selectAll("circle")
-  //   .data(timeslices)
-  //   .enter()
-  //   .append("circle")
-  //   .attr("cx", function (d) {
-  //     // console.log(xScale(d.numInstructions));
-  //     return xScale(d.instructionsAcc);
-  //   })
-  //   .attr(
-  //     "cy",
+  // Create the points and position them in the graph
+  svg
+    .selectAll("circle")
+    .data(timeslices)
+    .enter()
+    .append("circle")
+    .attr("cx", function (d) {
+      // console.log(xScale(d.numInstructions));
+      return xScale(d.instructionsAcc);
+    })
+    .attr(
+      "cy",
 
-  //     function (d) {
-  //       if (isNaN(yScale(d.events.missRates))) {
-  //         console.log("XXXXXXXX ", d.numInstructions);
-  //       }
-  //       return yScale(d.events.missRates);
-  //     }
-  //   )
+      function (d) {
+        if (isNaN(yScale(d.events.missRates))) {
+          console.log("XXXXXXXX ", d.numInstructions);
+        }
+        return yScale(d.events.missRates);
+      }
+    )
 
-  //   .attr("r", 2);
+    .attr("r", 2);
   
 
 
