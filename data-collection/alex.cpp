@@ -35,8 +35,6 @@
 #include "perf_sampler.hpp"
 
 using namespace std;
-using std::string;
-using std::vector;
 
 #define PAGE_SIZE 0x1000LL
 // this needs to be a power of two :'( (an hour was spent here)
