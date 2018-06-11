@@ -1,5 +1,6 @@
 {
   "editor.formatOnSave": false,
   "editor.formatOnPaste": true,
-  "C_Cpp.clang_format_style": "Google"
+  "C_Cpp.clang_format_style": "Google",
+  "prettier.semi": true
 }
