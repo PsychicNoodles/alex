@@ -1,4 +1,3 @@
-#include <fstream>
 #include <assert.h>
 #include <dlfcn.h>
 #include <elf.h>
@@ -20,18 +19,19 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <fstream>
 #include <map>
 #include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#include "elf/elf++.hh"
-#include "dwarf/dwarf++.hh"
 #include <fcntl.h>
 #include <inttypes.h>
 #include <link.h>
 #include "debug.hpp"
+#include "dwarf/dwarf++.hh"
+#include "elf/elf++.hh"
 #include "perf_sampler.hpp"
 
 using namespace std;
@@ -77,9 +77,7 @@ static main_fn_t real_main;
 void *buffer;
 bool ready = false;
 
-  void
-usage(const char *cmd) 
-{
+void usage(const char *cmd) {
   fprintf(stderr, "usage: %s elf-file pc\n", cmd);
   exit(2);
 }
@@ -88,15 +86,13 @@ usage(const char *cmd)
    find program counter
    */
 
-bool find_pc(const dwarf::die &d, dwarf::taddr pc, vector<dwarf::die> *stack)
-{
+bool find_pc(const dwarf::die &d, dwarf::taddr pc, vector<dwarf::die> *stack) {
   using namespace dwarf;
 
   // Scan children first to find most specific DIE
   bool found = false;
   for (auto &child : d) {
-    if ((found = find_pc(child, pc, stack)))
-      break;
+    if ((found = find_pc(child, pc, stack))) break;
   }
   switch (d.tag) {
     case DW_TAG::subprogram:
@@ -116,28 +112,23 @@ bool find_pc(const dwarf::die &d, dwarf::taddr pc, vector<dwarf::die> *stack)
   return found;
 }
 
-void dump_die(const dwarf::die &node)
-{
-  printf("<%" PRIx64 "> %s\n",
-      node.get_section_offset(),
-      to_string(node.tag).c_str());
+void dump_die(const dwarf::die &node) {
+  printf("<%" PRIx64 "> %s\n", node.get_section_offset(),
+         to_string(node.tag).c_str());
   for (auto &attr : node.attributes())
-    printf("      %s %s\n",
-        to_string(attr.first).c_str(),
-        to_string(attr.second).c_str());
+    printf("      %s %s\n", to_string(attr.first).c_str(),
+           to_string(attr.second).c_str());
 }
 
-void dump_line_table(const dwarf::line_table &lt)
-{
+void dump_line_table(const dwarf::line_table &lt) {
   for (auto &line : lt) {
     if (line.end_sequence)
       printf("\n");
     else
-      printf("%-40s%8d%#20" PRIx64 "\n", line.file->path.c_str(),
-          line.line, line.address);
+      printf("%-40s%8d%#20" PRIx64 "\n", line.file->path.c_str(), line.line,
+             line.address);
   }
 }
-
 
 /*
  * Reports time since epoch in milliseconds.
@@ -222,8 +213,7 @@ vector<string> get_events() {
   return str_split(events_env, ",");
 }
 
-
-int  dump_table_and_symbol(char * path) {
+int dump_table_and_symbol(char *path) {
   int fd = open(path, O_RDONLY);
   if (fd < 0) {
     fprintf(stderr, "%s: %s\n", path, strerror(errno));
@@ -245,53 +235,46 @@ int  dump_table_and_symbol(char * path) {
     printf("--- <%x>\n", (unsigned int)cu.get_section_offset());
     dump_line_table(cu.get_line_table());
     printf("\n");
-  } 
+  }
   printf("loading symbols");
   elf::elf f(elf::create_mmap_loader(fd));
   for (auto &sec : f.sections()) {
-    if (sec.get_hdr().type != elf::sht::symtab && sec.get_hdr().type != elf::sht::dynsym)
+    if (sec.get_hdr().type != elf::sht::symtab &&
+        sec.get_hdr().type != elf::sht::dynsym)
       continue;
 
     printf("Symbol table '%s':\n", sec.get_name().c_str());
-    printf("%6s: %-16s %-5s %-7s %-7s %-5s %s\n",
-        "Num", "Value", "Size", "Type", "Binding", "Index",
-        "Name");
+    printf("%6s: %-16s %-5s %-7s %-7s %-5s %s\n", "Num", "Value", "Size",
+           "Type", "Binding", "Index", "Name");
     int i = 0;
     for (auto sym : sec.as_symtab()) {
       auto &d = sym.get_data();
-      printf("%6d: %016" PRIx64 " %5" PRId64 " %-7s %-7s %5s %s\n",
-          i++, d.value, d.size,
-          to_string(d.type()).c_str(),
-          to_string(d.binding()).c_str(),
-          to_string(d.shnxd).c_str(),
-          sym.get_name().c_str());
+      printf("%6d: %016" PRIx64 " %5" PRId64 " %-7s %-7s %5s %s\n", i++,
+             d.value, d.size, to_string(d.type()).c_str(),
+             to_string(d.binding()).c_str(), to_string(d.shnxd).c_str(),
+             sym.get_name().c_str());
     }
   }
-  printf("  %-16s  %-16s   %-16s   %s\n",
-      "Type", "Offset", "VirtAddr", "PhysAddr");
-  printf("  %-16s  %-16s   %-16s  %6s %5s\n",
-      " ", "FileSiz", "MemSiz", "Flags", "Align");
+  printf("  %-16s  %-16s   %-16s   %s\n", "Type", "Offset", "VirtAddr",
+         "PhysAddr");
+  printf("  %-16s  %-16s   %-16s  %6s %5s\n", " ", "FileSiz", "MemSiz", "Flags",
+         "Align");
   for (auto &seg : f.segments()) {
     auto &hdr = seg.get_hdr();
     printf("   %-16s 0x%016" PRIx64 " 0x%016" PRIx64 " 0x%016" PRIx64 "\n",
-        to_string(hdr.type).c_str(), hdr.offset,
-        hdr.vaddr, hdr.paddr);
-    printf("   %-16s 0x%016" PRIx64 " 0x%016" PRIx64 " %-5s %-5" PRIx64 "\n", "",
-        hdr.filesz, hdr.memsz,
-        to_string(hdr.flags).c_str(), hdr.align);
+           to_string(hdr.type).c_str(), hdr.offset, hdr.vaddr, hdr.paddr);
+    printf("   %-16s 0x%016" PRIx64 " 0x%016" PRIx64 " %-5s %-5" PRIx64 "\n",
+           "", hdr.filesz, hdr.memsz, to_string(hdr.flags).c_str(), hdr.align);
   }
   return 0;
   DEBUG("dump symbol table");
 }
-
-
 
 /*
  * The most important function. Sets up the required events and records
  * intended data.
  */
 int analyzer(int pid) {
-
   DEBUG("anlz: initializing pfm");
   pfm_initialize();
 
@@ -333,7 +316,7 @@ int analyzer(int pid) {
   instruction_count_attr.config = PERF_COUNT_HW_INSTRUCTIONS;
 
   int instruction_count_fd =
-    perf_event_open(&instruction_count_attr, pid, -1, -1, 0);
+      perf_event_open(&instruction_count_attr, pid, -1, -1, 0);
   if (instruction_count_fd == -1) {
     perror("couldn't perf_event_open for instruction count");
     kill(cpid, SIGKILL);
@@ -357,7 +340,7 @@ int analyzer(int pid) {
     pfm.fstr = 0;
     pfm.size = sizeof(pfm_perf_encode_arg_t);
     int pfm_result = pfm_get_os_event_encoding(events.at(i).c_str(), PFM_PLM3,
-        PFM_OS_PERF_EVENT_EXT, &pfm);
+                                               PFM_OS_PERF_EVENT_EXT, &pfm);
     if (pfm_result != PFM_SUCCESS) {
       fprintf(stderr, "pfm encoding error: %s", pfm_strerror(pfm_result));
       kill(ppid, SIGKILL);
@@ -400,14 +383,14 @@ int analyzer(int pid) {
 
   DEBUG("anlz: printing result header");
   fprintf(writef,
-      R"({
+          R"({
             "header": {
               "programVersion": ")" ALEX_VERSION R"("
             },
             "timeslices": [
           )");
 
-    bool is_first_timeslice = true;
+  bool is_first_timeslice = true;
 
   DEBUG("anlz: entering SIGUSR1 ready loop");
   while (true) {
@@ -444,7 +427,7 @@ int analyzer(int pid) {
     int sample_type;
     int sample_size;
     sample *perf_sample =
-      (sample *)get_next_sample(&cpu_cycles_perf, &sample_type, &sample_size);
+        (sample *)get_next_sample(&cpu_cycles_perf, &sample_type, &sample_size);
     assert(sample_type == PERF_RECORD_SAMPLE);
     while (has_next_sample(&cpu_cycles_perf)) {
       int temp_type, temp_size;
@@ -452,14 +435,14 @@ int analyzer(int pid) {
     }
 
     fprintf(writef,
-        R"(
+            R"(
               {
                 "time": %lu,
                 "numCPUCycles": %lld,
                 "numInstructions": %lld,
                 "events": {
             )",
-        perf_sample->time, num_cycles, num_instructions);
+            perf_sample->time, num_cycles, num_instructions);
 
     DEBUG("anlz: reading from each fd");
     for (int i = 0; i < number; i++) {
@@ -479,90 +462,90 @@ int analyzer(int pid) {
     }
 
     fprintf(writef,
-        R"(
+            R"(
                 },
                 "stackFrames": [
             )");
 
-      for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
-        if (i > 0) {
-          fprintf(writef, ",");
-        }
-
-        fprintf(writef,
-            R"(
-                { "address": "%p")",
-            (void *)perf_sample->instruction_pointers[i]);
-        int fd_new = open((char *)"/proc/self/exe", O_RDONLY);
-        if (fd_new < 0) {
-          fprintf(stderr, "%s: %s\n","cannot open executable", strerror(errno));
-          return 1;
-        } 
-        dwarf::taddr pc = perf_sample->instruction_pointers[i] -1;
-        elf::elf ef(elf::create_mmap_loader(fd_new));
-        dwarf::dwarf dw(dwarf::elf::create_loader(ef));
-
-        // Find the CU containing pc
-        // XXX Use .debug_aranges
-        for (auto &cu : dw.compilation_units()) {
-          if (die_pc_range(cu.root()).contains(pc)) {
-            // Map PC to a line
-            auto &lt = cu.get_line_table();
-            auto it = lt.find_address(pc);
-            if (it == lt.end())
-              fprintf(writef,"UNKNOWN\n");
-            else {
-              fprintf(writef,",");
-              fprintf(writef,R"(
-					 		    "filepath & lineNumber": "%s")", it->get_description().c_str());
-
-              // Map PC to an object
-              // XXX Index/helper/something for looking up PCs
-              // XXX DW_AT_specification and DW_AT_abstract_origin
-              vector<dwarf::die> stack;
-              if (find_pc(cu.root(), pc, &stack)) {
-                bool first = true;
-                for (auto &d : stack) {
-                  if (!first)
-                    fprintf(writef,"\nInlined in:\n");
-                  first = false;
-                  dump_die(d);
-                }
-              }
-              break;
-            }
-            //potentially print out name of function but right now cannot map to anything
-            for (auto &sec : ef.sections()) {
-              if (sec.get_hdr().type != elf::sht::symtab && sec.get_hdr().type != elf::sht::dynsym)
-                continue;
-              int i = 0;
-              for (auto sym : sec.as_symtab()) {
-                auto &d = sym.get_data();
-                if (pc == d.value) {
-                  fprintf(writef,"%6d: %016" PRIx64 " %5" PRId64 " %-7s %-7s %5s %s\n",
-                      i++, d.value, d.size,
-                      to_string(d.type()).c_str(),
-                      to_string(d.binding()).c_str(),
-                      to_string(d.shnxd).c_str(),
-                      sym.get_name().c_str());
-                }
-              }
-            }
-
-          }
-          fprintf(writef,"}");
-        }
+    for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
+      if (i > 0) {
+        fprintf(writef, ",");
       }
 
       fprintf(writef,
-          R"(
+              R"(
+                { "address": "%p")",
+              (void *)perf_sample->instruction_pointers[i]);
+      int fd_new = open((char *)"/proc/self/exe", O_RDONLY);
+      if (fd_new < 0) {
+        fprintf(stderr, "%s: %s\n", "cannot open executable", strerror(errno));
+        return 1;
+      }
+      dwarf::taddr pc = perf_sample->instruction_pointers[i] - 1;
+      elf::elf ef(elf::create_mmap_loader(fd_new));
+      dwarf::dwarf dw(dwarf::elf::create_loader(ef));
+
+      // Find the CU containing pc
+      // XXX Use .debug_aranges
+      for (auto &cu : dw.compilation_units()) {
+        if (die_pc_range(cu.root()).contains(pc)) {
+          // Map PC to a line
+          auto &lt = cu.get_line_table();
+          auto it = lt.find_address(pc);
+          if (it == lt.end())
+            fprintf(writef, "UNKNOWN\n");
+          else {
+            fprintf(writef, ",");
+            fprintf(writef, R"(
+					 		    "filepath & lineNumber": "%s")",
+                    it->get_description().c_str());
+
+            // Map PC to an object
+            // XXX Index/helper/something for looking up PCs
+            // XXX DW_AT_specification and DW_AT_abstract_origin
+            vector<dwarf::die> stack;
+            if (find_pc(cu.root(), pc, &stack)) {
+              bool first = true;
+              for (auto &d : stack) {
+                if (!first) fprintf(writef, "\nInlined in:\n");
+                first = false;
+                dump_die(d);
+              }
+            }
+            break;
+          }
+          // potentially print out name of function but right now cannot map to
+          // anything
+          for (auto &sec : ef.sections()) {
+            if (sec.get_hdr().type != elf::sht::symtab &&
+                sec.get_hdr().type != elf::sht::dynsym)
+              continue;
+            int i = 0;
+            for (auto sym : sec.as_symtab()) {
+              auto &d = sym.get_data();
+              if (pc == d.value) {
+                fprintf(writef,
+                        "%6d: %016" PRIx64 " %5" PRId64 " %-7s %-7s %5s %s\n",
+                        i++, d.value, d.size, to_string(d.type()).c_str(),
+                        to_string(d.binding()).c_str(),
+                        to_string(d.shnxd).c_str(), sym.get_name().c_str());
+              }
+            }
+          }
+        }
+        fprintf(writef, "}");
+      }
+    }
+
+    fprintf(writef,
+            R"(
                 ]
               }
             )");
-        DEBUG("anlz: finished a loop");
-  }  
-  return 0;
+    DEBUG("anlz: finished a loop");
   }
+  return 0;
+}
 
 /*
  * Exit function for SIGTERM
@@ -599,8 +582,8 @@ static int wrapped_main(int argc, char **argv, char **env) {
         */
   enable_segfault_trace();
   int result;
-	char * path = (char *) "/proc/self/exe";
-	dump_table_and_symbol(path);
+  char *path = (char *)"/proc/self/exe";
+  dump_table_and_symbol(path);
 
   struct sigaction ready_act;
   ready_act.sa_handler = ready_handler;
