@@ -78,4 +78,5 @@ else:
 
 args.out.close()
 args.err.close()
-args.input.close()
+if  isinstance(args.input, file):
+    args.input.close()
