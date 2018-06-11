@@ -27,8 +27,8 @@ function parseFile() {
   /* Make sure the graph is empty before drawing (prevents new input getting
   layered on old input) */
   svg.selectAll("*").remove();
-  densityInfo(timeslices);
-  //scatterPlot(timeslices);
+  //densityInfo(timeslices);
+  scatterPlot(timeslices);
 }
 
 /*Lets users to choose which resource they want the tool to present and analyze on */
