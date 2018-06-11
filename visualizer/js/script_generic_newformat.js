@@ -1,13 +1,12 @@
 // Set size and margins of graph
-var width = 1000,
-  height = 500,
+var width = d3.select("#plot").attr("width"),
+  height = d3.select("#plot").attr("height"),
   verticalPad = 20,
   horizontalPad = 100;
 
 // Create an svg object for the graph
 var svg = d3
   .select("#plot")
-  .append("svg")
   .attr("width", width)
   .attr("height", height);
 
@@ -21,14 +20,13 @@ function loadFile() {
   }
 }
 
-/* Make sure the graph before drawing (prevents new input getting layered on
-    old input) */
-svg.selectAll("*").remove();
-
 /* converse the file into the array we use for visualization */
 function parseFile() {
   var timeslices = JSON.parse(reader.result).timeslices;
-
+  /* Make sure the graph is empty before drawing (prevents new input getting
+  layered on old input) */
+  svg.selectAll("*").remove();
+  //densityInfo(timeslices);
   scatterPlot(densityInfo(timeslices));
 }
 
@@ -97,47 +95,47 @@ function findMax(timeslices, attr) {
 }
 
 function drawAxes(timeslices, xScale, yScale) {
-  // // Create axes and format the ticks on the y-axis as percentages
-  // var formatAsPercentage = d3.format(".0%");
-  // var abbrev = d3.format(".0s");
-  // var xAxis = d3.axisBottom(xScale).tickFormat(abbrev),
-  //   yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage);
+  // Create axes and format the ticks on the y-axis as percentages
+  var formatAsPercentage = d3.format(".0%");
+  var abbrev = d3.format(".0s");
+  var xAxis = d3.axisBottom(xScale).tickFormat(abbrev),
+    yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage);
 
-  // // Add the axes to the svg object
-  // svg
-  //   .append("g")
-  //   .attr("id", "xAxis")
-  //   .attr("class", "axis")
-  //   .attr("transform", "translate(0, " + (height - verticalPad * 2) + ")")
-  //   .call(xAxis);
+  // Add the axes to the svg object
+  svg
+    .append("g")
+    .attr("id", "xAxis")
+    .attr("class", "axis")
+    .attr("transform", "translate(0, " + (height - verticalPad * 2) + ")")
+    .call(xAxis);
 
-  // svg
-  //   .append("g")
-  //   .attr("id", "yAxis")
-  //   .attr("class", "axis")
-  //   .attr("transform", "translate(" + (horizontalPad - verticalPad) + ", 0)")
-  //   .call(yAxis);
+  svg
+    .append("g")
+    .attr("id", "yAxis")
+    .attr("class", "axis")
+    .attr("transform", "translate(" + (horizontalPad - verticalPad) + ", 0)")
+    .call(yAxis);
 
-  // // Add labels to the axes
-  // svg
-  //   .select("xAxis")
-  //   .append("text")
-  //   .attr("class", "x label")
-  //   .attr("text-anchor", "end")
-  //   .attr("x", width / 2 + horizontalPad)
-  //   .attr("y", height)
-  //   .text(chooseXAxis());
+  // Add labels to the axes
+  svg
+    .select("xAxis")
+    .append("text")
+    .attr("class", "x label")
+    .attr("text-anchor", "end")
+    .attr("x", width / 2 + horizontalPad)
+    .attr("y", height)
+    .text(chooseXAxis());
 
-  // svg
-  //   .select("yAxis")
-  //   .append("text")
-  //   .attr("class", "y label")
-  //   .attr("text-anchor", "end")
-  //   .attr("y", 6)
-  //   .attr("x", (-1 * (height - verticalPad)) / 2)
-  //   .attr("dy", ".75em")
-  //   .attr("transform", "rotate(-90)")
-  //   .text("Cache miss rate");
+  svg
+    .select("yAxis")
+    .append("text")
+    .attr("class", "y label")
+    .attr("text-anchor", "end")
+    .attr("y", 6)
+    .attr("x", (-1 * (height - verticalPad)) / 2)
+    .attr("dy", ".75em")
+    .attr("transform", "rotate(-90)")
+    .text("Cache miss rate");
 }
 
 
