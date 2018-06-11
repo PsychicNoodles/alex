@@ -1,13 +1,12 @@
 // Set size and margins of graph
-var width = 1500,
-  height = 720,
+var width = d3.select("#plot").attr("width"),
+  height = d3.select("#plot").attr("height"),
   verticalPad = 20,
   horizontalPad = 100;
 
 // Create an svg object for the graph
 var svg = d3
   .select("#plot")
-  .append("svg")
   .attr("width", width)
   .attr("height", height);
 
