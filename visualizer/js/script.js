@@ -119,6 +119,8 @@ function dataCrunch(results) {
     .attr("transform", "rotate(-90)")
     .text("Cache miss rate");
 
+  var color = d3.interpolateHclLong("#FF3333", "#000066");
+
   // Create the points and position them in the graph
   svg.selectAll("circle")
     .data(timeslices)
@@ -130,7 +132,10 @@ function dataCrunch(results) {
     .attr("cy", function(d, i) {
       return y(missRates[i]);
     })
-    .attr("r", 2);
+    .attr("r", 2)
+    .attr("fill", function(d, i) {
+      return color(missRates[i]);
+    });
   
 };
 

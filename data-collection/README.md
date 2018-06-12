@@ -1,5 +1,12 @@
 # Data Collection
 
+## Dependencies
+
+Alex is dependant on:
+
+* `libpfm4`: for performance event analysis, events must be supported (ie. `MEM_LOAD_RETIRED.L3_MISS`)
+* `libelfin`: for elf file analysis
+
 ## Generating results
 
 First, build the test program in `simpletest`: `make -C simpletest`.
