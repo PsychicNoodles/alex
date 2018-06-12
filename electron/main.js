@@ -51,6 +51,7 @@ const dataCollector = spawn(executable, executableArgs, {
   }
 });
 
+// Keep track so we can wait on this before quitting
 const dataCollectorDone = Promise.all([
   new Promise(resolve => dataCollector.stdout.on("end", resolve)),
   new Promise(resolve => dataCollector.stderr.on("end", resolve))
