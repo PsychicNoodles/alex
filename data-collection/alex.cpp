@@ -7,7 +7,6 @@
 #include <perfmon/pfmlib.h>
 #include <perfmon/pfmlib_perf_event.h>
 #include <pthread.h>
-#include <semaphore.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -19,6 +18,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <exception>
 #include <map>
 #include <string>
 #include <unordered_map>
@@ -46,10 +46,17 @@ using std::vector;
 #define SETERROR 9     // Cannot empty sigset
 #define ADDERROR 10    // Cannot add to sigset
 #define BUFFERROR 11   // Cannot open buffer
-#define SEMERROR 12    // Semaphore failed
 #define IOCTLERROR 13  // Cannot control perf_event
 
 #define ALEX_VERSION "0.0.1"
+
+// https://godoc.org/github.com/aclements/go-perf/perffile#pkg-constants
+#define CALLCHAIN_HYPERVISOR 0xffffffffffffffe0
+#define CALLCHAIN_KERNEL 0xffffffffffffff80
+#define CALLCHAIN_USER 0xfffffffffffffe00
+#define CALLCHAIN_GUEST 0xfffffffffffff800
+#define CALLCHAIN_GUESTKERNEL 0xfffffffffffff780
+#define CALLCHAIN_GUESTUSER 0xfffffffffffff600
 
 #define SAMPLE_TYPE (PERF_SAMPLE_TIME | PERF_SAMPLE_CALLCHAIN)
 struct sample {
@@ -80,6 +87,12 @@ size_t time_ms() {
   // Convert timeval values to milliseconds
   return tv.tv_sec * 1000 + tv.tv_usec / 1000;
 }  // time_ms
+
+inline string ptr_fmt(void* ptr) {
+  char buf[128];
+  snprintf(buf, 128, "%p", ptr);
+  return string(buf);
+}
 
 /*
  * Sets a file descriptor to send a signal everytime an event is recorded.
@@ -147,7 +160,7 @@ vector<string> str_split(string str, string delim) {
 }
 
 vector<string> get_events() {
-  auto events_env = string(getenv("ALEX_EVENTS"));
+  auto events_env = getenv_safe("ALEX_EVENTS");
   return str_split(events_env, ",");
 }
 
@@ -160,7 +173,7 @@ int analyzer(int pid) {
   pfm_initialize();
 
   DEBUG("anlz: setting up period from env var");
-  long long period = atoll(getenv("ALEX_PERIOD"));
+  long long period = stoll(getenv_safe("ALEX_PERIOD", "10000000"));
 
   // set up the cpu cycles perf buffer
   perf_event_attr cpu_cycles_attr;
@@ -382,8 +395,6 @@ void exit_please(int sig, siginfo_t *info, void *ucontext) {
               ]
             })");
     fclose(writef);
-    // sem_close(child_sem);
-    // sem_close(parent_sem);
     exit(0);
   }  // if
 }
@@ -405,7 +416,7 @@ static int wrapped_main(int argc, char **argv, char **env) {
         get_function_addrs(exe_path, functions);
         */
   enable_segfault_trace();
-  int result;
+  int result = 0;
 
   struct sigaction ready_act;
   ready_act.sa_handler = ready_handler;
@@ -435,13 +446,10 @@ static int wrapped_main(int argc, char **argv, char **env) {
     // parent process
     DEBUG("in parent process, opening result file for writing (pid: " << ppid
                                                                       << ")");
-    char *env_res = getenv("ALEX_RESULT_FILE");
+    string env_res = getenv_safe("ALEX_RESULT_FILE", "result.txt");
     DEBUG("result file " << env_res);
-    if (env_res == NULL) {
-      writef = fopen("result.txt", "w");
-    } else {
-      writef = fopen(env_res, "w");
-    }
+    writef = fopen(env_res.c_str(), "w");
+
     if (writef == NULL) {
       perror("couldn't open result file");
       kill(cpid, SIGKILL);
@@ -458,11 +466,16 @@ static int wrapped_main(int argc, char **argv, char **env) {
       ;
 
     DEBUG("received child ready signal, starting analyzer");
-    result = analyzer(cpid);
+    try {
+      result = analyzer(cpid);
+    } catch (std::exception &e) {
+      DEBUG("uncaught error in parent: " << e.what());
+      result = 1;
+    }
   } else {
     exit(FORKERROR);
   }  // else
-  return 0;
+  return result;
 }  // wrapped_main
 
 extern "C" int __libc_start_main(main_fn_t main_fn, int argc, char **argv,
