@@ -88,7 +88,7 @@ size_t time_ms() {
   return tv.tv_sec * 1000 + tv.tv_usec / 1000;
 }  // time_ms
 
-inline string ptr_fmt(void* ptr) {
+inline string ptr_fmt(void *ptr) {
   char buf[128];
   snprintf(buf, 128, "%p", ptr);
   return string(buf);
@@ -155,12 +155,17 @@ vector<string> str_split(string str, string delim) {
     end = str.find(delim, start);
   }
 
-  split.push_back(str.substr(start, end));
+  auto last_substr = str.substr(start, end);
+  if (last_substr != "") {
+    split.push_back(last_substr);
+  }
+
   return split;
 }
 
 vector<string> get_events() {
   auto events_env = getenv_safe("ALEX_EVENTS");
+  DEBUG("events: '" << events_env << "'");
   return str_split(events_env, ",");
 }
 
@@ -294,12 +299,6 @@ int analyzer(int pid) {
     sigwait(&signal_set, &sig);
     DEBUG("anlz: received SIGUSR1");
 
-    if (is_first_timeslice) {
-      is_first_timeslice = false;
-    } else {
-      fprintf(writef, ",");
-    }
-
     long long num_cycles = 0;
     read(cpu_cycles_perf.fd, &num_cycles, sizeof(num_cycles));
     if (reset_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
@@ -317,68 +316,77 @@ int analyzer(int pid) {
       exit(IOCTLERROR);
     }
 
-    assert(has_next_sample(&cpu_cycles_perf));
-    int sample_type;
-    int sample_size;
-    sample *perf_sample =
-        (sample *)get_next_sample(&cpu_cycles_perf, &sample_type, &sample_size);
-    assert(sample_type == PERF_RECORD_SAMPLE);
-    while (has_next_sample(&cpu_cycles_perf)) {
-      int temp_type, temp_size;
-      get_next_sample(&cpu_cycles_perf, &temp_type, &temp_size);
-    }
-
-    fprintf(writef,
-            R"(
-              {
-                "time": %lu,
-                "numCPUCycles": %lld,
-                "numInstructions": %lld,
-                "events": {
-            )",
-            perf_sample->time, num_cycles, num_instructions);
-
-    DEBUG("anlz: reading from each fd");
-    for (int i = 0; i < number; i++) {
-      if (i > 0) {
+    if (!has_next_sample(&cpu_cycles_perf)) {
+      DEBUG("SKIPPED SAMPLE PERIOD");
+    } else {
+      if (is_first_timeslice) {
+        is_first_timeslice = false;
+      } else {
         fprintf(writef, ",");
       }
 
-      long long count = 0;
-      read(event_fds[i], &count, sizeof(long long));
-      if (reset_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
-        kill(cpid, SIGKILL);
-        fclose(writef);
-        exit(IOCTLERROR);
-      }
-
-      fprintf(writef, R"("%s": %lld)", events.at(i).c_str(), count);
-    }
-
-    fprintf(writef,
-            R"(
-                },
-                "stackFrames": [
-            )");
-
-    for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
-      if (i > 0) {
-        fprintf(writef, ",");
+      int sample_type;
+      int sample_size;
+      sample *perf_sample = (sample *)get_next_sample(
+          &cpu_cycles_perf, &sample_type, &sample_size);
+      assert(sample_type == PERF_RECORD_SAMPLE);
+      while (has_next_sample(&cpu_cycles_perf)) {
+        int temp_type, temp_size;
+        get_next_sample(&cpu_cycles_perf, &temp_type, &temp_size);
       }
 
       fprintf(writef,
               R"(
-                { "address": "%p" }
+                {
+                  "time": %lu,
+                  "numCPUCycles": %lld,
+                  "numInstructions": %lld,
+                  "events": {
               )",
-              (void *)perf_sample->instruction_pointers[i]);
-    }
+              perf_sample->time, num_cycles, num_instructions);
 
-    fprintf(writef,
-            R"(
-                ]
-              }
-            )");
-    DEBUG("anlz: finished a loop");
+      DEBUG("anlz: reading from each fd");
+      for (int i = 0; i < number; i++) {
+        if (i > 0) {
+          fprintf(writef, ",");
+        }
+
+        long long count = 0;
+        read(event_fds[i], &count, sizeof(long long));
+        if (reset_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
+          kill(cpid, SIGKILL);
+          fclose(writef);
+          exit(IOCTLERROR);
+        }
+
+        fprintf(writef, R"("%s": %lld)", events.at(i).c_str(), count);
+      }
+
+      fprintf(writef,
+              R"(
+                  },
+                  "stackFrames": [
+              )");
+
+      for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
+        if (i > 0) {
+          fprintf(writef, ",");
+        }
+
+        fprintf(writef,
+                R"(
+                  { "address": "%p" }
+                )",
+                (void *)perf_sample->instruction_pointers[i]);
+      }
+
+      fprintf(writef,
+              R"(
+                  ]
+                }
+              )");
+      DEBUG("anlz: finished a loop");
+    }
   }
 
   return 0;
