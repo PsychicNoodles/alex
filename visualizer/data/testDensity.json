@@ -4,10 +4,453 @@
     },
     "timeslices": [
         {
-            "instructionsAcc": 1,
+            "numInstructions": 9978912,
             "events": {
-                "missRates": 0.5
-            }
-        }
+        "MEM_LOAD_RETIRED.L3_MISS": 319,"MEM_LOAD_RETIRED.L3_HIT": 17384
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9965623,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 101,"MEM_LOAD_RETIRED.L3_HIT": 17515
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9974078,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 266,"MEM_LOAD_RETIRED.L3_HIT": 17725
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9984990,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 57,"MEM_LOAD_RETIRED.L3_HIT": 18570
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9957013,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 104,"MEM_LOAD_RETIRED.L3_HIT": 22359
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9990553,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 67,"MEM_LOAD_RETIRED.L3_HIT": 22243
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9953994,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 107,"MEM_LOAD_RETIRED.L3_HIT": 17385
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9986787,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 102,"MEM_LOAD_RETIRED.L3_HIT": 17673
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9957430,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 100,"MEM_LOAD_RETIRED.L3_HIT": 17279
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9971920,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 77,"MEM_LOAD_RETIRED.L3_HIT": 17641
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9970732,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 73,"MEM_LOAD_RETIRED.L3_HIT": 17412
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9980758,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 54,"MEM_LOAD_RETIRED.L3_HIT": 17709
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9972987,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 63,"MEM_LOAD_RETIRED.L3_HIT": 17371
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9969064,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 37,"MEM_LOAD_RETIRED.L3_HIT": 17716
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9963651,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 25,"MEM_LOAD_RETIRED.L3_HIT": 17496
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9980332,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 5,"MEM_LOAD_RETIRED.L3_HIT": 17627
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9973570,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 15,"MEM_LOAD_RETIRED.L3_HIT": 17707
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9957265,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 10,"MEM_LOAD_RETIRED.L3_HIT": 17474
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9975174,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 39,"MEM_LOAD_RETIRED.L3_HIT": 17621
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9983443,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 43,"MEM_LOAD_RETIRED.L3_HIT": 17593
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9960955,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 28,"MEM_LOAD_RETIRED.L3_HIT": 17547
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9964843,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 34,"MEM_LOAD_RETIRED.L3_HIT": 17695
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9990106,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 24,"MEM_LOAD_RETIRED.L3_HIT": 18866
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9961304,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 92,"MEM_LOAD_RETIRED.L3_HIT": 19020
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9967374,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 187,"MEM_LOAD_RETIRED.L3_HIT": 21268
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9977881,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 176,"MEM_LOAD_RETIRED.L3_HIT": 20905
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9956439,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 60,"MEM_LOAD_RETIRED.L3_HIT": 17299
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9977770,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 395,"MEM_LOAD_RETIRED.L3_HIT": 17405
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9966235,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 393,"MEM_LOAD_RETIRED.L3_HIT": 17100
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 10011747,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 178,"MEM_LOAD_RETIRED.L3_HIT": 17668
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9935731,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 138,"MEM_LOAD_RETIRED.L3_HIT": 17372
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9981283,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 73,"MEM_LOAD_RETIRED.L3_HIT": 17649
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9963091,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 105,"MEM_LOAD_RETIRED.L3_HIT": 17403
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9973946,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 234,"MEM_LOAD_RETIRED.L3_HIT": 17479
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9966730,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 298,"MEM_LOAD_RETIRED.L3_HIT": 17173
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9986182,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 228,"MEM_LOAD_RETIRED.L3_HIT": 17884
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9951395,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 128,"MEM_LOAD_RETIRED.L3_HIT": 21090
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9979102,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 98,"MEM_LOAD_RETIRED.L3_HIT": 21580
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9967150,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 121,"MEM_LOAD_RETIRED.L3_HIT": 19147
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9986341,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 94,"MEM_LOAD_RETIRED.L3_HIT": 19097
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9962132,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 137,"MEM_LOAD_RETIRED.L3_HIT": 17574
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9969023,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 114,"MEM_LOAD_RETIRED.L3_HIT": 17526
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9979970,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 116,"MEM_LOAD_RETIRED.L3_HIT": 17623
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9960849,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 93,"MEM_LOAD_RETIRED.L3_HIT": 17454
+            },
+            "stackFrames": [
+        
+            ]
+          }
+        ,
+          {
+            "numInstructions": 9983009,
+            "events": {
+        "MEM_LOAD_RETIRED.L3_MISS": 70,"MEM_LOAD_RETIRED.L3_HIT": 17597
+            },
+            "stackFrames": [
+        
+            ]
+          }
     ]
 }
