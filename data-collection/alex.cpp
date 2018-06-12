@@ -7,7 +7,6 @@
 #include <perfmon/pfmlib.h>
 #include <perfmon/pfmlib_perf_event.h>
 #include <pthread.h>
-#include <semaphore.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -46,7 +45,6 @@ using std::vector;
 #define SETERROR 9     // Cannot empty sigset
 #define ADDERROR 10    // Cannot add to sigset
 #define BUFFERROR 11   // Cannot open buffer
-#define SEMERROR 12    // Semaphore failed
 #define IOCTLERROR 13  // Cannot control perf_event
 
 #define ALEX_VERSION "0.0.1"
@@ -382,8 +380,6 @@ void exit_please(int sig, siginfo_t *info, void *ucontext) {
               ]
             })");
     fclose(writef);
-    // sem_close(child_sem);
-    // sem_close(parent_sem);
     exit(0);
   }  // if
 }
