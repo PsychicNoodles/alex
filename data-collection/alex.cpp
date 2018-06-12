@@ -155,12 +155,17 @@ vector<string> str_split(string str, string delim) {
     end = str.find(delim, start);
   }
 
-  split.push_back(str.substr(start, end));
+  auto last_substr = str.substr(start, end);
+  if (last_substr != "") {
+    split.push_back(last_substr);
+  }
+
   return split;
 }
 
 vector<string> get_events() {
   auto events_env = getenv_safe("ALEX_EVENTS");
+  DEBUG("events: '" << events_env << "'");
   return str_split(events_env, ",");
 }
 
