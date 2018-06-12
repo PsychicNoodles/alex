@@ -22,16 +22,7 @@ tr:nth-child(even) {
     font-family: sans-serif;
     font-size: 11px;
 }
-<<<<<<< HEAD
  
-=======
-
-.loading {
-    font-family: sans-serif;
-    font-size: 15px;
-}
-
->>>>>>> b69cb0fc17808c15ea18fe869b59940de1980cf4
 .circle {
     fill: #222;
 }
