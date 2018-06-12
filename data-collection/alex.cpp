@@ -531,18 +531,6 @@ int analyzer(int pid) {
             fprintf(writef, R"(
 					 		    "filepath & lineNumber": "%s"})",
                     it->get_description().c_str());
-            // Map PC to an object
-            // XXX Index/helper/something for looking up PCs
-            // XXX DW_AT_specification and DW_AT_abstract_origin
-            vector<dwarf::die> stack;
-            if (find_pc(cu.root(), pc, &stack)) {
-              bool first = true;
-              for (auto &d : stack) {
-                if (!first) fprintf(writef, "\nInlined in:\n");
-                first = false;
-                dump_die(d);
-              }
-            }
             break;
           }
         }
