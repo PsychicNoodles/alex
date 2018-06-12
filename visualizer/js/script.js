@@ -305,7 +305,7 @@ function densityInfo(timeslices) {//for now, just take in missRates, and Instrus
   getDepth(quadtree.root(), -1);
   
   //making sure that the max depth level goes down to pixels 
-  var depthStd = Math.round(Math.log(width * height) / Math.log(4)); //round up!
+  var depthStd = Math.round(Math.log(width * height) / Math.log(4))/2; //round up!
 
   //now go to the depthStd deep node and count the density and record the information to result[]
   quadtree.visit(function (node, x1, y1, x2, y2) {
