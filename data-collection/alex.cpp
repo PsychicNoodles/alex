@@ -519,7 +519,7 @@ int analyzer(int pid) {
           else {
             fprintf(writef,
                     R"(,
-					 		    "line": %d,
+                  "line": %d,
                   "col": %d,
                   "fullLocation: "%s"})",
                     it->line, it->column, it->get_description().c_str());
