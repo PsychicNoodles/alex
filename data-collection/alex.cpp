@@ -77,6 +77,21 @@ static main_fn_t real_main;
 void *buffer;
 bool ready = false;
 
+int dump_line_address(const dwarf::line_table &lt, unsigned target)
+{
+  int realline = 0;
+  for (auto &line : lt) {
+    if (line.end_sequence){
+      printf("line out of bounds\n");
+      return -1;
+    }else if(line.address > target){
+      return realline;
+    }
+    realline = line.line;
+  }
+  return -1;
+}
+
   void
 usage(const char *cmd) 
 {
@@ -291,7 +306,8 @@ int  dump_table_and_symbol(char * path) {
  * intended data.
  */
 int analyzer(int pid) {
-
+  //struct user_regs_struct regs;
+  //ptrace(PTRACE_GETREGS, pid, 0, &regs);
   DEBUG("anlz: initializing pfm");
   pfm_initialize();
 
@@ -492,11 +508,30 @@ int analyzer(int pid) {
             R"(
                 { "address": "%p")",
             (void *)perf_sample->instruction_pointers[i]);
+       Dl_info  DlInfo;
+        int  nRet;
+        char * file_name;
+        char * func_name;
+        // Lookup the name of the function given the function pointer
+        if (dladdr((void*)perf_sample->instruction_pointers[i], &DlInfo) == 0) {
+          file_name = NULL;
+          func_name = NULL;
+        } else {
+          func_name = (char *) DlInfo.dli_sname;
+          file_name = (char *) DlInfo.dli_fname;
+        }
+        fprintf(writef,",");
+        fprintf(writef,
+            R"(
+                  "FunctionName": "%s",
+                  "SourceFile": "%s")", func_name, file_name);
+ 
         int fd_new = open((char *)"/proc/self/exe", O_RDONLY);
         if (fd_new < 0) {
           fprintf(stderr, "%s: %s\n","cannot open executable", strerror(errno));
           return 1;
         } 
+        // Need to subtract one. PC is the return address, but we're looking for the callsite.
         dwarf::taddr pc = perf_sample->instruction_pointers[i] -1;
         elf::elf ef(elf::create_mmap_loader(fd_new));
         dwarf::dwarf dw(dwarf::elf::create_loader(ef));
@@ -513,8 +548,7 @@ int analyzer(int pid) {
             else {
               fprintf(writef,",");
               fprintf(writef,R"(
-					 		    "filepath & lineNumber": "%s")", it->get_description().c_str());
-
+					 		    "filepath & lineNumber": "%s"})", it->get_description().c_str());
               // Map PC to an object
               // XXX Index/helper/something for looking up PCs
               // XXX DW_AT_specification and DW_AT_abstract_origin
@@ -528,26 +562,9 @@ int analyzer(int pid) {
                   dump_die(d);
                 }
               }
-              break;
+             break;
             }
-            //potentially print out name of function but right now cannot map to anything
-            for (auto &sec : ef.sections()) {
-              if (sec.get_hdr().type != elf::sht::symtab && sec.get_hdr().type != elf::sht::dynsym)
-                continue;
-              int i = 0;
-              for (auto sym : sec.as_symtab()) {
-                auto &d = sym.get_data();
-                if (pc == d.value) {
-                  fprintf(writef,"%6d: %016" PRIx64 " %5" PRId64 " %-7s %-7s %5s %s\n",
-                      i++, d.value, d.size,
-                      to_string(d.type()).c_str(),
-                      to_string(d.binding()).c_str(),
-                      to_string(d.shnxd).c_str(),
-                      sym.get_name().c_str());
-                }
-              }
-            }
-
+          
           }
           fprintf(writef,"}");
         }
@@ -559,7 +576,7 @@ int analyzer(int pid) {
               }
             )");
         DEBUG("anlz: finished a loop");
-  }  
+  }   
   return 0;
   }
 

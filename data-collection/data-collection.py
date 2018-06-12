@@ -25,7 +25,7 @@ parser = argparse.ArgumentParser(description="Run the alex data collection tool 
 parser.add_argument('test_program', help="the test program")
 parser.add_argument('test_program_args', nargs=argparse.REMAINDER, help="args for the test program")
 parser.add_argument('-e', '--event', nargs=1, action='append', required=True, dest="event", help="events to be traced from `perf list`")
-parser.add_argument('-p', '--period', default='7', choices=[str(i) for i in range(6, 13)], help="period of instructions (ten to the power of period)")
+parser.add_argument('-p', '--period', default='8', choices=[str(i) for i in range(6, 13)], help="period of instructions (ten to the power of period)")
 parser.add_argument('-a', '--alex', type=argparse.FileType(), default="./alex.so", help="the location of the alex shared object")
 parser.add_argument('--out', type=argparse.FileType('w'), default="out-%s.log" % TIMESTAMP, help="the file for stdout of the test program")
 parser.add_argument('--err', type=argparse.FileType('w'), default="err-%s.log" % TIMESTAMP, help="the file for stderr of the test program")
