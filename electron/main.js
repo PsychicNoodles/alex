@@ -51,6 +51,11 @@ const dataCollector = spawn(executable, executableArgs, {
   }
 });
 
+const dataCollectorDone = Promise.all([
+  new Promise(resolve => dataCollector.stdout.on("end", resolve)),
+  new Promise(resolve => dataCollector.stderr.on("end", resolve))
+]);
+
 // Pipe through inputs and outputs
 
 if (argv.in) {
@@ -78,6 +83,13 @@ if (argv.err) {
   });
 } else {
   dataCollector.stderr.pipe(process.stderr);
+}
+
+function exit() {
+  console.info("Exiting gracefully, please wait...");
+  dataCollectorDone.then(() => {
+    app.quit();
+  });
 }
 
 dataCollector.on("exit", code => {
@@ -108,12 +120,10 @@ dataCollector.on("exit", code => {
     } else if (argv.visualize === "ask") {
       const interface = readline.createInterface(process.stdin, process.stdout);
       interface.question(
-        "Would you like to see a visualization of the results (yes/no)? ",
+        "Would you like to see a visualization of the results ([yes]/no)? ",
         answer => {
           if (answer === "no") {
-            console.info("Exiting.");
-            app.quit();
-            process.exit();
+            exit();
           } else {
             createWindow();
           }
@@ -121,6 +131,8 @@ dataCollector.on("exit", code => {
           interface.close();
         }
       );
+    } else {
+      exit();
     }
   }
 });
@@ -151,14 +163,4 @@ async function createWindow() {
 }
 
 // Quit when all windows are closed.
-app.on("window-all-closed", () => {
-  app.quit();
-});
-
-app.on("activate", () => {
-  // On macOS it's common to re-create a window in the app when the
-  // dock icon is clicked and there are no other windows open.
-  if (win === null) {
-    createWindow();
-  }
-});
+app.on("window-all-closed", exit);
