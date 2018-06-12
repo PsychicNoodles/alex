@@ -521,12 +521,12 @@ int analyzer(int pid) {
                     R"(,
                   "line": %d,
                   "col": %d,
-                  "fullLocation: "%s"})",
+                  "fullLocation: "%s" })",
                     it->line, it->column, it->get_description().c_str());
             break;
           }
         }
-        fprintf(writef, "}");
+        fprintf(writef, " }");
       }
     }
 
