@@ -14,6 +14,9 @@ endif
 
 all: alex.$(SHLIB_SUFFIX)
 
+pedantic: WARN = -Werror
+pedantic: all
+
 nolog: DEBUG = -D NDEBUG
 nolog: all
 
@@ -27,4 +30,4 @@ clean-res:
 	@rm -f err-* out-* res-*
 
 alex.$(SHLIB_SUFFIX): alex.cpp debug.cpp perf_sampler.cpp
-	$(CXXLIB) $(CFLAGS) $(DEBUG) -I../../include --std=c++11 -g -o $@ $^ -ldl -lpfm -pthread -rdynamic
+  $(CXXLIB) $(CFLAGS) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -ldl -lpfm -pthread -rdynamic
