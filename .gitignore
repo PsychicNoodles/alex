@@ -256,6 +256,3 @@ tags
 !.vscode/launch.json
 !.vscode/extensions.json
 .history
-
-### ESLint ###
-.eslintrc.js
