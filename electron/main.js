@@ -6,6 +6,17 @@ const readline = require("readline");
 
 const { argv } = yargs
   .usage("usage: alex [OPTIONS] -- EXECUTABLE [EXECUTABLE_ARGS...]")
+  .option("preset", {
+    alias: "p",
+    description: "Sensible performance metrics.",
+    choices: ["cpu", "cache", "power"],
+    default: "cpu"
+  })
+  .option("events", {
+    alias: "e",
+    description: "A list of events to count.",
+    type: "array"
+  })
   .describe("in", "The file to pipe into the stdin of EXECUTABLE.")
   .option("out", {
     description: "The file to pipe the stdout of EXECUTABLE into.",
@@ -28,12 +39,6 @@ const { argv } = yargs
     description: "The period in CPU cycles",
     type: "number",
     default: 1000000
-  })
-  .option("events", {
-    alias: "e",
-    description: "A list of events to count.",
-    type: "array",
-    demandOption: true
   });
 
 // Create child process
@@ -41,11 +46,20 @@ const { argv } = yargs
 const executable = argv._[0];
 const executableArgs = argv._.slice(1);
 
+let presetEvents = [];
+if (argv.preset === "cpu") {
+  presetEvents = [];
+} else if (argv.preset === "cache") {
+  presetEvents = ["MEM_LOAD_RETIRED.L3_MISS", "MEM_LOAD_RETIRED.L3_HIT"];
+} else {
+  console.error("Invalid preset:", preset);
+}
+
 const dataCollector = spawn(executable, executableArgs, {
   env: {
     ...process.env,
     ALEX_PERIOD: argv.period,
-    ALEX_EVENTS: argv.events.join(","),
+    ALEX_EVENTS: [...presetEvents, ...(argv.events || [])].join(","),
     ALEX_RESULT_FILE: argv.result,
     LD_PRELOAD: "../data-collection/alex.so"
   }
