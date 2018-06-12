@@ -1,8 +1,12 @@
 // Set size and margins of graph
-var width = d3.select('#plot').attr('width')
-var height = d3.select('#plot').attr('height')
+var width = window.innerWidth
+var height = width * .7
 var verticalPad = 20
-var horizontalPad = 100
+var horizontalPad = 50
+var xScale
+var yScale
+var xAxis
+var yAxis
 
 // Create an svg object for the graph
 var svg = d3
@@ -12,7 +16,9 @@ var svg = d3
 
 
 /* ******************************** LOADING ********************************* */
-document.getElementById('data-input').onchange = function() {
+document.getElementById('data-input').addEventListener('change', loadFile, false)
+
+function loadFile() {
   var reader = new FileReader()
   reader.onload = function(event) {
     if (event.target.readyState != 2 || event.target.error) return
@@ -25,6 +31,37 @@ document.getElementById('data-input').onchange = function() {
   if (file) {
     reader.readAsText(file)
   }
+}
+
+/* ******************************** RESIZING ******************************** */
+
+window.addEventListener('resize', resizeGraph, false)
+function resizeGraph () {
+  width = window.innerWidth - horizontalPad * 2
+  height = .7 * width
+  
+  xScale.range([horizontalPad, width - verticalPad])
+  yScale.range([verticalPad, height - verticalPad * 3])
+
+  
+  svg.attr('width', width + horizontalPad * 2)
+    .attr('height', height + verticalPad * 2)
+  
+  xAxis.scale(xScale)
+  yAxis.scale(yScale)
+
+  svg.select('#xAxis.axis').attr('transform','translate(0,' + height + ')').call(xAxis)
+
+  svg.select('#yAxis.axis').call(yAxis)
+
+  svg.selectAll('circle')
+    .attr('cx', function (d) {
+      return xScale(d.instructionsAcc)
+    })
+    .attr('cy', function (d) {
+      return yScale(d.events.missRates)
+    })
+
 }
 
 /* ****************************** DRAWING *********************************** */
@@ -104,8 +141,8 @@ function drawAxes (timeslices, xScale, yScale) {
   // Create axes and format the ticks on the y-axis as percentages
   var formatAsPercentage = d3.format('.0%')
   var abbrev = d3.format('.0s')
-  var xAxis = d3.axisBottom(xScale).tickFormat(abbrev)
-  var yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage)
+  xAxis = d3.axisBottom(xScale).tickFormat(abbrev)
+  yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage)
 
   // Add the axes to the svg object
   svg
@@ -153,11 +190,11 @@ function scatterPlot (timeslices) {
 
   /* Create functions to scale objects vertically and horizontally according to
   the size of the graph */
-  var xScale = d3
+  xScale = d3
     .scaleLinear()
     .domain([0, xAxisMax])
     .range([horizontalPad, width - verticalPad])
-  var yScale = d3
+  yScale = d3
     .scaleLinear()
     .domain([yAxisMax, 0])
     .range([verticalPad, height - verticalPad * 3])
@@ -175,8 +212,6 @@ function scatterPlot (timeslices) {
       return xScale(d.instructionsAcc)
     })
     .attr('cy', function (d) {
-      if (isNaN(yScale(d.events.missRates))) {
-      }
       return yScale(d.events.missRates)
     }
     )
@@ -198,6 +233,7 @@ function brushcentered () {
 
 // Select the region that was selected by the user
 function brushed () {
+  var circle
   var extent = d3.event.selection.map(x.invert, x)
   circle.classed('selected', function (d) { return extent[0] <= d[0] && d[0] <= extent[1] })
 }
@@ -205,8 +241,6 @@ function brushed () {
 var x = d3.scaleLinear()
   .domain([0, 10])
   .range([0, width])
-
-var circle
 
 // Creates brush
 var brush = d3.brushX()
@@ -256,7 +290,7 @@ function getDensity (cur) {
 }
 
 // Used for finding a data representing the whole node in one unit square
-function findJustOneLeaf (node, check) {
+function findJustOneLeaf (node) {
   if (node !== undefined) {
     if (!node.length) { // Is a leaf
       return node
@@ -297,7 +331,7 @@ function densityInfo (timeslices) { // for now, just take in missRates, and Inst
   var depthStd = Math.round(Math.log(width * height) / Math.log(4)) // round up!
 
   // now go to the depthStd deep node and count the density and record the information to result[]
-  quadtree.visit(function (node, x1, y1, x2, y2) {
+  quadtree.visit(function (node) {
     if (node === undefined) {
       return true
     }
