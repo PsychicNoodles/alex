@@ -26,7 +26,12 @@ function parseFile() {
   /* Make sure the graph is empty before drawing (prevents new input getting
   layered on old input) */
   svg.selectAll("*").remove();
-  //densityInfo(timeslices);
+  draw(timeslices);
+}
+
+function draw(timeslices) {
+  processData(timeslices, chooseResource());
+  processData(timeslices, chooseXAxis());
   scatterPlot(densityInfo(timeslices));
 }
 
@@ -42,8 +47,8 @@ function chooseResource() {
   return "cache";
 }
 
-/* This function will take the raw array and a string of the specified resource and categorized them into cache, power, branchPredictor, etc */
-function categorizeEvents(timeslices, resourse) {
+/* This function will take the raw array and a string of a specified property and process the related datum, etc */
+function processData(timeslices, resourse) {
   switch (resourse) {
     case "numInstructions":
       timeslices[0].instructionsAcc = timeslices[0].numInstructions;
@@ -72,13 +77,9 @@ function categorizeEvents(timeslices, resourse) {
       branchPredictor(timeslices, i);
       break;
   }
-
-  for (var i = 0; i < timeslices.length; i++) {
-    var cur = timeslices[i];
-    for (var j = 0; j < cur.events.length; j++) { }
-  }
 }
 
+/* This function helps prepare for the scale, finding the max using attr, a string */
 function findMax(timeslices, attr) {
   switch (attr) {
     case "numInstructions":
@@ -98,6 +99,7 @@ function findMax(timeslices, attr) {
   }
 }
 
+//This func will draw the axes
 function drawAxes(timeslices, xScale, yScale) {
   // Create axes and format the ticks on the y-axis as percentages
   var formatAsPercentage = d3.format(".0%");
@@ -145,7 +147,7 @@ function drawAxes(timeslices, xScale, yScale) {
 
 
 
-
+/* This func makes the scatter plot */
 function scatterPlot(timeslices) {
   // Calculate size of x-axis based on number of data points
   var xAxisMax = timeslices[timeslices.length - 1].instructionsAcc;
@@ -194,61 +196,52 @@ function scatterPlot(timeslices) {
 
 
 /******************************************* selector selector selector************************************************************/
-// Re-center brush when the user clicks somewhere in the graph
-// function brushcentered() {
-//   var dx = x(1) - x(0), // Use a fixed width when recentering.
-//     cx = d3.mouse(this)[0],
-//     x0 = cx - dx / 2,
-//     x1 = cx + dx / 2;
-//   d3.select(this.parentNode).call(brush.move, x1 > width ? [width - dx, width] : x0 < 0 ? [0, dx] : [x0, x1]);
-// }
+//Re-center brush when the user clicks somewhere in the graph
+function brushcentered() {
+  var dx = x(1) - x(0), // Use a fixed width when recentering.
+    cx = d3.mouse(this)[0],
+    x0 = cx - dx / 2,
+    x1 = cx + dx / 2;
+  d3.select(this.parentNode).call(brush.move, x1 > width ? [width - dx, width] : x0 < 0 ? [0, dx] : [x0, x1]);
+}
 
-// // Select the region that was selected by the user
-// function brushed() {
-//   var extent = d3.event.selection.map(x.invert, x);
-//   circle.classed("selected", function (d) { return extent[0] <= d[0] && d[0] <= extent[1]; });
-// }
+// Select the region that was selected by the user
+function brushed() {
+  var extent = d3.event.selection.map(x.invert, x);
+  circle.classed("selected", function (d) { return extent[0] <= d[0] && d[0] <= extent[1]; });
+}
 
-// var x = d3.scaleLinear()
-//   .domain([0, 10])
-//   .range([0, width]);
+var x = d3.scaleLinear()
+  .domain([0, 10])
+  .range([0, width]);
 
-// var y = d3.scaleLinear()
-//   .range([height, 0]);
+var y = d3.scaleLinear()
+  .range([height, 0]);
 
-// var circle;
+var circle;
 
-// // Creates brush
-// var brush = d3.brushX()
-//   .extent([[0, 0], [width, height]])
-//   .on("start brush", brushed);
+// Creates brush
+var brush = d3.brushX()
+  .extent([[0, 0], [width, height]])
+  .on("start brush", brushed);
 
-// // Adds brush to svg object
-// svg.append("g")
-//   .attr("class", "brush")
-//   .call(d3.brush().on("brush", brushed));
+// Adds brush to svg object
+svg.append("g")
+  .attr("class", "brush")
+  .call(d3.brush().on("brush", brushed));
 
-// svg.append("g")
-//   .call(brush)
-//   .call(brush.move, [3, 5].map(x))
-//   .selectAll(".overlay")
-//   .each(function (d) { d.type = "selection"; })
-//   .on("mousedown touchstart", brushcentered);
+svg.append("g")
+  .call(brush)
+  .call(brush.move, [3, 5].map(x))
+  .selectAll(".overlay")
+  .each(function (d) { d.type = "selection"; })
+  .on("mousedown touchstart", brushcentered);
 
 
 
 /*************************************** coloring coloring coloring ************************************************************* */
 
-function quadTreeX(d) {
-  return d.instructionsAcc;
-}
-
-function quadTreeY(d) {
-  return d.events.missRates;
-}
-
-
-// PDS Collect a list of nodes to draw rectangles, adding extent and depth data
+// Collects a list of nodes to draw rectangles, adding extent and depth data
 function getDepth(cur, depth) {
   if (cur != undefined) {
     if (!cur.length) {//this is a leaf 
@@ -277,54 +270,11 @@ function getDensity(cur) {
     var b = getDensity(cur[1]);
     var c = getDensity(cur[2]);
     var d = getDensity(cur[3]);
-    return (a + b + c + d);
+    return (getDensity(cur[0]) + getDensity(cur[1]) + getDensity(cur[2]) + getDensity(cur[3]));
   }
 }
 
-//This function will make a array of the density information and the "fake" xAxis and yAxis information
-function densityInfo(timeslices) {//for now, just take in missRates, and InstrustionsAcc
-  categorizeEvents(timeslices, chooseResource());
-  categorizeEvents(timeslices, chooseXAxis());
-  var quadtree = d3.quadtree().x(quadTreeX).y(quadTreeY);
-  for (var i = 0, n = timeslices.length; i < n; ++i) {
-    quadtree.add(timeslices[i]);
-  }
-  // var quadtree = d3.quadtree(timeslices, quadTreeX, quadTreeY); //build a quadtree with all datum
-  var result = [];
-  //var singles = [];
-
-  //add depth information into the datum
-  getDepth(quadtree.root(), -1);
-
-  var depthStd = Math.round(Math.log(width * height) / Math.log(4)); //round up!
-
-  //now go to the depthStd deep node and count the density and record the information to result[]
-  quadtree.visit(function (node, x1, y1, x2, y2) {
-    if (node == undefined) {
-      return true;
-    }
-    if (!node.length) { //is a leaf
-      if (node.data != null) {
-        node.data.density = 1;
-        result.push(data);
-      }
-      return true; //stop traverse
-    } else {
-      if (node.depth < depthStd) {
-        return false; //keep searching the children
-      } else {
-        var density = getDensity(node);
-        var fakeData = findJustOneLeaf(node);
-        fakeData.data.density = density;
-        result.push(fakeData.data);
-        return true;  //stop searching the children
-      }
-    }
-  });
-  return result;
-  console.log("result", result);
-}
-
+//Used for finding a data representing the whole node in one unit square
 function findJustOneLeaf(node, check) {
   if (node != undefined) {
     if (!node.length) { //it is a leaf
@@ -353,3 +303,42 @@ function findJustOneLeaf(node, check) {
     return null;
   }
 }
+
+//This function will make a array of the density information and the "fake" xAxis and yAxis information
+function densityInfo(timeslices) {//for now, just take in missRates, and InstrustionsAcc
+  var quadtree = d3.quadtree(timeslices, function (d) { return d.instructionsAcc; }, function (d) { return d.events.missRates; }); //build a quadtree with all datum
+  var result = []; //the array used for holding the "picked" datum with their density
+
+  //add depth information into the datum
+  getDepth(quadtree.root(), -1);
+  
+  //making sure that the max depth level goes down to pixels 
+  var depthStd = Math.round(Math.log(width * height) / Math.log(4)); //round up!
+
+  //now go to the depthStd deep node and count the density and record the information to result[]
+  quadtree.visit(function (node, x1, y1, x2, y2) {
+    if (node == undefined) {
+      return true;
+    }
+    if (!node.length) { //is a leaf
+      if (node.data != null) {
+        node.data.density = 1;
+        result.push(data);
+      }
+      return true; //stop traverse
+    } else {
+      if (node.depth < depthStd) {
+        return false; //keep searching the children
+      } else {
+        var density = getDensity(node);
+        var fakeData = findJustOneLeaf(node);
+        fakeData.data.density = density;
+        result.push(fakeData.data);
+        return true;  //stop searching the children
+      }
+    }
+  });
+  return result;
+}
+
+
