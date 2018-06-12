@@ -10,26 +10,26 @@ var svg = d3
   .attr('width', width)
   .attr('height', height)
 
-var reader = new FileReader()
 
-function loadFile () {
+/* ******************************** LOADING ********************************* */
+document.getElementById('data-input').onchange = function() {
+  var reader = new FileReader()
+  reader.onload = function(event) {
+    if (event.target.readyState != 2 || event.target.error) return
+    var timeslices = JSON.parse(this.result).timeslices
+    svg.selectAll('*').remove()
+    draw(timeslices)
+  }
+
   var file = document.getElementById('data-input').files[0]
-  reader.addEventListener('load', parseFile, false)
   if (file) {
     reader.readAsText(file)
   }
 }
 
-/* converse the file into the array we use for visualization */
-function parseFile () {
-  var timeslices = JSON.parse(reader.result).timeslices
-  /* Make sure the graph is empty before drawing (prevents new input getting
-  layered on old input) */
-  svg.selectAll('*').remove()
-  draw(timeslices)
-}
-
+/* ****************************** DRAWING *********************************** */
 function draw (timeslices) {
+  svg.selectAll('*').remove()
   processData(timeslices, chooseResource())
   processData(timeslices, chooseXAxis())
   scatterPlot(densityInfo(timeslices))
