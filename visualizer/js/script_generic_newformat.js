@@ -86,7 +86,11 @@ function findMax(timeslices, attr) {
         return d.numInstructions;
       });
     case "cache":
-      return 1;
+      var max = d3.max(timeslices, function (d) {
+        return d.events.missRates;
+      });
+      return max;
+      
     case "density":
       return d3.max(timeslices,function (d) {
         return d.density;
@@ -180,7 +184,7 @@ function scatterPlot(timeslices) {
     )
     .attr("r", 2)
     .style("fill", function (d) {
-      return rainbow(Math.log(d.density/densityMax) * 40)
+      return rainbow(Math.log(d.density/densityMax) * 35)
     });
 }
 
