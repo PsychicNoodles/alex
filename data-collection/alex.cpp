@@ -473,26 +473,26 @@ int analyzer(int pid) {
 
       fprintf(writef,
               R"(
-                { "address": "%p")",
+                { "address": "%p",)",
               (void *)perf_sample->instruction_pointers[i]);
-      Dl_info DlInfo;
-      int nRet;
-      char *file_name;
-      char *func_name;
+
+      Dl_info info;
+      const char *sym_name = NULL, *file_name = NULL;
+      void *file_base, = NULL *sym_addr = NULL;
       // Lookup the name of the function given the function pointer
-      if (dladdr((void *)perf_sample->instruction_pointers[i], &DlInfo) == 0) {
-        file_name = NULL;
-        func_name = NULL;
-      } else {
-        func_name = (char *)DlInfo.dli_sname;
-        file_name = (char *)DlInfo.dli_fname;
+      if (dladdr((void *)perf_sample->instruction_pointers[i], &info) != 0) {
+        sym_name = info.dli_sname;
+        file_name = info.dli_fname;
+        file_base = info.dli_fbase;
+        sym_addr = info.dli_saddr;
       }
-      fprintf(writef, ",");
       fprintf(writef,
               R"(
-                  "FunctionName": "%s",
-                  "SourceFile": "%s")",
-              func_name, file_name);
+                  "name": "%s",
+                  "file": "%s",
+                  "base": "%p",
+                  "addr": "%p")",
+              sym_name, file_name, file_base, sym_addr);
 
       int fd_new = open((char *)"/proc/self/exe", O_RDONLY);
       if (fd_new < 0) {
@@ -580,7 +580,7 @@ static int wrapped_main(int argc, char **argv, char **env) {
         get_function_addrs(exe_path, functions);
         */
   enable_segfault_trace();
-  
+
   int result = 0;
 
   struct sigaction ready_act;
