@@ -18,11 +18,11 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <exception>
 #include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <exception>
 
 #include "debug.hpp"
 #include "perf_sampler.hpp"
@@ -49,6 +49,14 @@ using std::vector;
 #define IOCTLERROR 13  // Cannot control perf_event
 
 #define ALEX_VERSION "0.0.1"
+
+// https://godoc.org/github.com/aclements/go-perf/perffile#pkg-constants
+#define CALLCHAIN_HYPERVISOR 0xffffffffffffffe0
+#define CALLCHAIN_KERNEL 0xffffffffffffff80
+#define CALLCHAIN_USER 0xfffffffffffffe00
+#define CALLCHAIN_GUEST 0xfffffffffffff800
+#define CALLCHAIN_GUESTKERNEL 0xfffffffffffff780
+#define CALLCHAIN_GUESTUSER 0xfffffffffffff600
 
 #define SAMPLE_TYPE (PERF_SAMPLE_TIME | PERF_SAMPLE_CALLCHAIN)
 struct sample {
@@ -454,7 +462,7 @@ static int wrapped_main(int argc, char **argv, char **env) {
     DEBUG("received child ready signal, starting analyzer");
     try {
       result = analyzer(cpid);
-    } catch(std::exception& e) {
+    } catch (std::exception &e) {
       DEBUG("uncaught error in parent: " << e.what());
       result = 1;
     }
