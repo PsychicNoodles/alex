@@ -478,7 +478,7 @@ int analyzer(int pid) {
 
       Dl_info info;
       const char *sym_name = NULL, *file_name = NULL;
-      void *file_base, = NULL *sym_addr = NULL;
+      void *file_base = NULL, *sym_addr = NULL;
       // Lookup the name of the function given the function pointer
       if (dladdr((void *)perf_sample->instruction_pointers[i], &info) != 0) {
         sym_name = info.dli_sname;
