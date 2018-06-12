@@ -7,18 +7,15 @@ var xScale
 var yScale
 var xAxis
 var yAxis
+var timeslices
+var circles
+var brush
 
 // Create an svg object for the graph
 var svg = d3
   .select('#plot')
   .attr('width', width)
   .attr('height', height)
-
-// Declare global variables
-var timeslices;
-var xScale, yScale;
-var circles;
-var brush;
 
 /* ******************************** LOADING ********************************* */
 document.getElementById('data-input').addEventListener('change', loadFile, false)
@@ -61,11 +58,15 @@ function resizeGraph () {
 
   svg.selectAll('circle')
     .attr('cx', function (d) {
-      return xScale(d.instructionsAcc)
+      return xScale(d.totalCycles)
     })
     .attr('cy', function (d) {
+      if (isNaN(yScale(d.events.missRates))) {
+        return 0
+      }
       return yScale(d.events.missRates)
-    })
+    }
+    )
 
 }
 
@@ -94,32 +95,32 @@ function processData (timeslices, resource) {
   switch (resource) {
     case 'numInstructions':
       timeslices[0].instructionsAcc = timeslices[0].numInstructions
-      timeslices[0].totalCycles = timeslices[0].numCPUCycles;
+      timeslices[0].totalCycles = timeslices[0].numCPUCycles
       for (var i = 1; i < timeslices.length; i++) {
         var cur = timeslices[i]
-        cur.totalCycles = cur.numCPUCycles + timeslices[i - 1].totalCycles;
+        cur.totalCycles = cur.numCPUCycles + timeslices[i - 1].totalCycles
         cur.instructionsAcc = cur.numInstructions + timeslices[i - 1].instructionsAcc
-        cur.selected = false;
+        cur.selected = false
       }
       break
     case 'cache':
-      timeslices[0].totalCycles = timeslices[0].numCPUCycles;
-      var total = timeslices[0].events['MEM_LOAD_RETIRED.L3_MISS'] + timeslices[0].events['MEM_LOAD_RETIRED.L3_HIT'];
+      timeslices[0].totalCycles = timeslices[0].numCPUCycles
+      var total = timeslices[0].events['MEM_LOAD_RETIRED.L3_MISS'] + timeslices[0].events['MEM_LOAD_RETIRED.L3_HIT']
       if(total == 0) {
-        timeslices[0].missRates = 0;
+        timeslices[0].missRates = 0
       } else {
-        timeslices[0].missRates = timeslices[0].events['MEM_LOAD_RETIRED.L3_MISS'] / total;
+        timeslices[0].missRates = timeslices[0].events['MEM_LOAD_RETIRED.L3_MISS'] / total
       }
       for (let i = 1; i < timeslices.length; i++) {
         let cur = timeslices[i]
-        var total = cur.events['MEM_LOAD_RETIRED.L3_MISS'] + cur.events['MEM_LOAD_RETIRED.L3_HIT']
+        total = cur.events['MEM_LOAD_RETIRED.L3_MISS'] + cur.events['MEM_LOAD_RETIRED.L3_HIT']
         if (total === 0) {
           cur.events.missRates = 0
         } else {
           cur.events.missRates = cur.events['MEM_LOAD_RETIRED.L3_MISS'] / total
         }
-        cur.totalCycles = cur.numCPUCycles + timeslices[i - 1].totalCycles;
-        cur.selected = false;
+        cur.totalCycles = cur.numCPUCycles + timeslices[i - 1].totalCycles
+        cur.selected = false
       }
       break
     case 'power':
@@ -227,7 +228,7 @@ function scatterPlot (timeslices) {
     })
     .attr('cy', function (d) {
       if(isNaN(yScale(d.events.missRates))) {
-        return 0;
+        return 0
       }
       return yScale(d.events.missRates)
     }
@@ -238,87 +239,84 @@ function scatterPlot (timeslices) {
     })
 
     // Create brush
-    brush = d3.brushX()
-      .extent([[0, 0], [width, height]])
-      .on("brush", brushed)
-      .on("end", createTable);
+  brush = d3.brushX()
+    .extent([[0, 0], [width, height]])
+    .on('brush', brushed)
+    .on('end', createTable)
 
     // Add brush to svg object
-    svg.append("g")
-      .call(brush)
-      .call(brush.move, [3, 5].map(x))
-      .selectAll(".overlay")
-      .each(function(d) { d.type = "selection"; })
-      .on("mousedown touchstart", brushcentered);
+  svg.append('g')
+    .call(brush)
+    .call(brush.move, [3, 5].map(x))
+    .selectAll('.overlay')
+    .each(function(d) { d.type = 'selection' })
+    .on('mousedown touchstart', brushcentered)
 }
 
 /** *************************selector selector selector ********************************************************** */
 // Re-center brush when the user clicks somewhere in the graph
 function brushcentered() {
   var dx = x(1) - x(0), // Use a fixed width when recentering.
-      cx = d3.mouse(this)[0],
-      x0 = cx - dx / 2,
-      x1 = cx + dx / 2;
-  d3.select(this.parentNode).call(brush.move, x1 > width ? [width - dx, width] : x0 < 0 ? [0, dx] : [x0, x1]);
+    cx = d3.mouse(this)[0],
+    x0 = cx - dx / 2,
+    x1 = cx + dx / 2
+  d3.select(this.parentNode).call(brush.move, x1 > width ? [width - dx, width] : x0 < 0 ? [0, dx] : [x0, x1])
 }
 
 // Create a table of the points selected by the brush
 function createTable() {
-  d3.selectAll(".row_data").remove();
-  d3.select("table").style("visibility", "visible");
+  d3.selectAll('.row_data').remove()
+  d3.select('table').style('visibility', 'visible')
 
-  var circlesSelected = d3.selectAll(".brushed").data();
+  var circlesSelected = d3.selectAll('.brushed').data()
 
   if(circlesSelected.length > 0) {
     timeslices.forEach(function(d) {
       if(d.selected) {
-        var formatRate = d3.format(".1%");
-        var data = [d.totalCycles, d.events["MEM_LOAD_RETIRED.L3_MISS"], d.events["MEM_LOAD_RETIRED.L3_HIT"], formatRate(d.events.missRates)];
+        var formatRate = d3.format('.1%')
+        var data = [d.totalCycles, d.events['MEM_LOAD_RETIRED.L3_MISS'], d.events['MEM_LOAD_RETIRED.L3_HIT'], formatRate(d.events.missRates)]
       
-        d3.select("table")
-          .append("tr")
-          .attr("class", "row_data")
-          .selectAll("td")
+        d3.select('table')
+          .append('tr')
+          .attr('class', 'row_data')
+          .selectAll('td')
           .data(data)
           .enter()
-          .append("td")
-          .attr("align", (d, i) => i == 0 ? "left" : "right")
-          .text(d => d);
+          .append('td')
+          .attr('align', (d, i) => i == 0 ? 'left' : 'right')
+          .text(d => d)
       }
-    });
+    })
   }
 }
 
 // Re-color the circles in the region that was selected by the user
 function brushed() {
   if(d3.event.selection != null) {
-    circles.attr("class", "circle");
-    var brushArea = d3.brushSelection(this);
+    circles.attr('class', 'circle')
+    var brushArea = d3.brushSelection(this)
 
     circles.filter(function () {
-      var cx = d3.select(this).attr("cx");
-      return brushArea[0] <= cx && cx <= brushArea[1]; 
+      var cx = d3.select(this).attr('cx')
+      return brushArea[0] <= cx && cx <= brushArea[1] 
     })
-    .attr("class", "brushed");
+      .attr('class', 'brushed')
 
     for(var i = 0; i < timeslices.length; i++) {
-      timeslices[i].selected = false;
+      timeslices[i].selected = false
     }
     
     timeslices.map(function (d) {
       if(brushArea[0] <= xScale(d.totalCycles) && xScale(d.totalCycles) <= brushArea[1]) {
-        d.selected = true;
+        d.selected = true
       }
-    });
+    })
   }
 }
 
 var x = d3.scaleLinear()
   .domain([0, 10])
   .range([0, width])
-
-var y = d3.scaleLinear()
-  .range([height, 0]);
 
 // Collect a list of nodes to draw rectangles, adding extent and depth data
 function getDepth (cur, depth) {
@@ -414,5 +412,5 @@ function densityInfo (timeslices) { // for now, just take in missRates, and Inst
       }
     }
   })
-  return result;
+  return result
 }
