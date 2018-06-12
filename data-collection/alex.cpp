@@ -88,6 +88,12 @@ size_t time_ms() {
   return tv.tv_sec * 1000 + tv.tv_usec / 1000;
 }  // time_ms
 
+inline string ptr_fmt(void* ptr) {
+  char buf[128];
+  snprintf(buf, 128, "%p", ptr);
+  return string(buf);
+}
+
 /*
  * Sets a file descriptor to send a signal everytime an event is recorded.
  */
