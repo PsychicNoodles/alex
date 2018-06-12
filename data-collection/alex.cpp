@@ -466,6 +466,15 @@ int analyzer(int pid) {
                 "stackFrames": [
             )");
 
+    int fd = open((char *)"/proc/self/exe", O_RDONLY);
+    if (fd < 0) {
+      perror("cannot open executable (/proc/self/exe)");
+      return OPENERROR;
+    }
+
+    elf::elf ef(elf::create_mmap_loader(fd));
+    dwarf::dwarf dw(dwarf::elf::create_loader(ef));
+
     for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
       if (i > 0) {
         fprintf(writef, ",");
@@ -494,16 +503,9 @@ int analyzer(int pid) {
                   "addr": "%p")",
               sym_name, file_name, file_base, sym_addr);
 
-      int fd_new = open((char *)"/proc/self/exe", O_RDONLY);
-      if (fd_new < 0) {
-        fprintf(stderr, "%s: %s\n", "cannot open executable", strerror(errno));
-        return 1;
-      }
       // Need to subtract one. PC is the return address, but we're looking for
       // the callsite.
       dwarf::taddr pc = perf_sample->instruction_pointers[i] - 1;
-      elf::elf ef(elf::create_mmap_loader(fd_new));
-      dwarf::dwarf dw(dwarf::elf::create_loader(ef));
 
       // Find the CU containing pc
       // XXX Use .debug_aranges
@@ -515,10 +517,12 @@ int analyzer(int pid) {
           if (it == lt.end())
             fprintf(writef, "UNKNOWN\n");
           else {
-            fprintf(writef, ",");
-            fprintf(writef, R"(
-					 		    "filepath & lineNumber": "%s"})",
-                    it->get_description().c_str());
+            fprintf(writef,
+                    R"(,
+					 		    "line": %d,
+                  "col": %d,
+                  "fullLocation: "%s"})",
+                    it->line, it->column, it->get_description().c_str());
             break;
           }
         }
