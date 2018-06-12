@@ -48,8 +48,8 @@ function chooseResource () {
 }
 
 /* This function will take the raw array and a string of a specified property and process the related datum, etc */
-function processData (timeslices, resourse) {
-  switch (resourse) {
+function processData (timeslices, resource) {
+  switch (resource) {
     case 'numInstructions':
       timeslices[0].instructionsAcc = timeslices[0].numInstructions
       for (var i = 1; i < timeslices.length; i++) {
