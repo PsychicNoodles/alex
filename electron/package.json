@@ -1,0 +1,17 @@
+{
+  "name": "alex-electron",
+  "version": "0.0.1",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "clean": "rm -f out-* err-* result-*"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "electron": "^2.0.2",
+    "yargs": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/yargs": "^11.0.0"
+  }
+}
