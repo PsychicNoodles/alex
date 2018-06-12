@@ -29,6 +29,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <link.h>
+
 #include "debug.hpp"
 #include "dwarf/dwarf++.hh"
 #include "elf/elf++.hh"
@@ -81,11 +82,6 @@ size_t init_time;
 static main_fn_t real_main;
 void *buffer;
 bool ready = false;
-
-void usage(const char *cmd) {
-  fprintf(stderr, "usage: %s elf-file pc\n", cmd);
-  exit(2);
-}
 
 /*
    find program counter
@@ -227,20 +223,13 @@ vector<string> get_events() {
 int dump_table_and_symbol(char *path) {
   int fd = open(path, O_RDONLY);
   if (fd < 0) {
-    fprintf(stderr, "%s: %s\n", path, strerror(errno));
-    return 1;
+    perror(path);
+    return OPENERROR;
   }
 
   elf::elf ef(elf::create_mmap_loader(fd));
   dwarf::dwarf dw(dwarf::elf::create_loader(ef));
   DEBUG("dump_line_table");
-
-  close(fd);
-  fd = open(path, O_RDONLY);
-  if (fd < 0) {
-    fprintf(stderr, "%s: %s\n", "matrixmultiplier", strerror(errno));
-    return 1;
-  }
 
   for (auto cu : dw.compilation_units()) {
     printf("--- <%x>\n", (unsigned int)cu.get_section_offset());
@@ -248,8 +237,7 @@ int dump_table_and_symbol(char *path) {
     printf("\n");
   }
   printf("loading symbols");
-  elf::elf f(elf::create_mmap_loader(fd));
-  for (auto &sec : f.sections()) {
+  for (auto &sec : ef.sections()) {
     if (sec.get_hdr().type != elf::sht::symtab &&
         sec.get_hdr().type != elf::sht::dynsym)
       continue;
@@ -270,7 +258,7 @@ int dump_table_and_symbol(char *path) {
          "PhysAddr");
   printf("  %-16s  %-16s   %-16s  %6s %5s\n", " ", "FileSiz", "MemSiz", "Flags",
          "Align");
-  for (auto &seg : f.segments()) {
+  for (auto &seg : ef.segments()) {
     auto &hdr = seg.get_hdr();
     printf("   %-16s 0x%016" PRIx64 " 0x%016" PRIx64 " 0x%016" PRIx64 "\n",
            to_string(hdr.type).c_str(), hdr.offset, hdr.vaddr, hdr.paddr);
@@ -592,7 +580,9 @@ static int wrapped_main(int argc, char **argv, char **env) {
         get_function_addrs(exe_path, functions);
         */
   enable_segfault_trace();
+  
   int result = 0;
+
   struct sigaction ready_act;
   ready_act.sa_handler = ready_handler;
   sigemptyset(&ready_act.sa_mask);

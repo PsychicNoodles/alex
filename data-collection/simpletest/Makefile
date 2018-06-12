@@ -1,4 +1,3 @@
-
 all: matrixmultiplier threadarray
 
 matrixmultiplier: matrixmultiplier.c
