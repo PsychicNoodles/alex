@@ -18,8 +18,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <fstream>
 #include <exception>
+#include <fstream>
 #include <map>
 #include <sstream>
 #include <string>
@@ -81,7 +81,6 @@ size_t init_time;
 static main_fn_t real_main;
 void *buffer;
 bool ready = false;
-
 
 void usage(const char *cmd) {
   fprintf(stderr, "usage: %s elf-file pc\n", cmd);
@@ -149,7 +148,7 @@ size_t time_ms() {
   return tv.tv_sec * 1000 + tv.tv_usec / 1000;
 }  // time_ms
 
-inline string ptr_fmt(void* ptr) {
+inline string ptr_fmt(void *ptr) {
   char buf[128];
   snprintf(buf, 128, "%p", ptr);
   return string(buf);
@@ -287,7 +286,7 @@ int dump_table_and_symbol(char *path) {
  * intended data.
  */
 int analyzer(int pid) {
- DEBUG("anlz: initializing pfm");
+  DEBUG("anlz: initializing pfm");
   pfm_initialize();
 
   DEBUG("anlz: setting up period from env var");
@@ -487,64 +486,66 @@ int analyzer(int pid) {
       fprintf(writef,
               R"(
                 { "address": "%p")",
-            (void *)perf_sample->instruction_pointers[i]);
-       Dl_info  DlInfo;
-        int  nRet;
-        char * file_name;
-        char * func_name;
-        // Lookup the name of the function given the function pointer
-        if (dladdr((void*)perf_sample->instruction_pointers[i], &DlInfo) == 0) {
-          file_name = NULL;
-          func_name = NULL;
-        } else {
-          func_name = (char *) DlInfo.dli_sname;
-          file_name = (char *) DlInfo.dli_fname;
-        }
-        fprintf(writef,",");
-        fprintf(writef,
-            R"(
+              (void *)perf_sample->instruction_pointers[i]);
+      Dl_info DlInfo;
+      int nRet;
+      char *file_name;
+      char *func_name;
+      // Lookup the name of the function given the function pointer
+      if (dladdr((void *)perf_sample->instruction_pointers[i], &DlInfo) == 0) {
+        file_name = NULL;
+        func_name = NULL;
+      } else {
+        func_name = (char *)DlInfo.dli_sname;
+        file_name = (char *)DlInfo.dli_fname;
+      }
+      fprintf(writef, ",");
+      fprintf(writef,
+              R"(
                   "FunctionName": "%s",
-                  "SourceFile": "%s")", func_name, file_name);
- 
-        int fd_new = open((char *)"/proc/self/exe", O_RDONLY);
-        if (fd_new < 0) {
-          fprintf(stderr, "%s: %s\n","cannot open executable", strerror(errno));
-          return 1;
-        } 
-        // Need to subtract one. PC is the return address, but we're looking for the callsite.
-        dwarf::taddr pc = perf_sample->instruction_pointers[i] -1;
-        elf::elf ef(elf::create_mmap_loader(fd_new));
-        dwarf::dwarf dw(dwarf::elf::create_loader(ef));
+                  "SourceFile": "%s")",
+              func_name, file_name);
 
-        // Find the CU containing pc
-        // XXX Use .debug_aranges
-        for (auto &cu : dw.compilation_units()) {
-          if (die_pc_range(cu.root()).contains(pc)) {
-            // Map PC to a line
-            auto &lt = cu.get_line_table();
-            auto it = lt.find_address(pc);
-            if (it == lt.end())
-              fprintf(writef,"UNKNOWN\n");
-            else {
-              fprintf(writef,",");
-              fprintf(writef,R"(
-					 		    "filepath & lineNumber": "%s"})", it->get_description().c_str());
-              // Map PC to an object
-              // XXX Index/helper/something for looking up PCs
-              // XXX DW_AT_specification and DW_AT_abstract_origin
-              vector<dwarf::die> stack;
-              if (find_pc(cu.root(), pc, &stack)) {
-                bool first = true;
-                for (auto &d : stack) {
-                  if (!first)
-                    fprintf(writef,"\nInlined in:\n");
-                  first = false;
-                  dump_die(d);
-                }
+      int fd_new = open((char *)"/proc/self/exe", O_RDONLY);
+      if (fd_new < 0) {
+        fprintf(stderr, "%s: %s\n", "cannot open executable", strerror(errno));
+        return 1;
+      }
+      // Need to subtract one. PC is the return address, but we're looking for
+      // the callsite.
+      dwarf::taddr pc = perf_sample->instruction_pointers[i] - 1;
+      elf::elf ef(elf::create_mmap_loader(fd_new));
+      dwarf::dwarf dw(dwarf::elf::create_loader(ef));
+
+      // Find the CU containing pc
+      // XXX Use .debug_aranges
+      for (auto &cu : dw.compilation_units()) {
+        if (die_pc_range(cu.root()).contains(pc)) {
+          // Map PC to a line
+          auto &lt = cu.get_line_table();
+          auto it = lt.find_address(pc);
+          if (it == lt.end())
+            fprintf(writef, "UNKNOWN\n");
+          else {
+            fprintf(writef, ",");
+            fprintf(writef, R"(
+					 		    "filepath & lineNumber": "%s"})",
+                    it->get_description().c_str());
+            // Map PC to an object
+            // XXX Index/helper/something for looking up PCs
+            // XXX DW_AT_specification and DW_AT_abstract_origin
+            vector<dwarf::die> stack;
+            if (find_pc(cu.root(), pc, &stack)) {
+              bool first = true;
+              for (auto &d : stack) {
+                if (!first) fprintf(writef, "\nInlined in:\n");
+                first = false;
+                dump_die(d);
               }
-             break;
             }
+            break;
           }
+        }
         fprintf(writef, "}");
       }
     }
