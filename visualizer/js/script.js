@@ -1,14 +1,14 @@
 // Set size and margins of graph
-var width = d3.select("#plot").attr("width"),
-  height = d3.select("#plot").attr("height"),
-  verticalPad = 20,
-  horizontalPad = 100;
+var width = d3.select('#plot').attr('width');
+var height = d3.select('#plot').attr('height');
+var verticalPad = 20;
+var horizontalPad = 100;
 
 // Create an svg object for the graph
 var svg = d3
-  .select("#plot")
-  .attr("width", width)
-  .attr("height", height);
+  .select('#plot')
+  .attr('width', width)
+  .attr('height', height);
 
 var reader = new FileReader();
 
@@ -16,7 +16,7 @@ function loadFile() {
   var file = document.getElementById("data-input").files[0];
   reader.addEventListener("load", parseFile, false);
   if (file) {
-    reader.readAsText(file);
+    reader.readAsText(file)
   }
 }
 
@@ -80,123 +80,113 @@ function processData(timeslices, resourse) {
 }
 
 /* This function helps prepare for the scale, finding the max using attr, a string */
-function findMax(timeslices, attr) {
+function findMax (timeslices, attr) {
   switch (attr) {
-    case "numInstructions":
+    case 'numInstructions':
       return d3.max(timeslices, function (d) {
-        return d.numInstructions;
-      });
+        return d.numInstructions
+      })
     case "cache":
-      var max = d3.max(timeslices, function (d) {
-        return d.events.missRates;
-      });
-      return max;
-      
-    case "density":
-      return d3.max(timeslices,function (d) {
-        return d.density;
-      });
+    var max = d3.max(timeslices, function (d) {
+      return d.events.missRates
+    })
+    return max
+    case 'density':
+      return d3.max(timeslices, function (d) {
+        return d.density
+      })
   }
 }
 
 //This func will draw the axes
-function drawAxes(timeslices, xScale, yScale) {
+function drawAxes (timeslices, xScale, yScale) {
   // Create axes and format the ticks on the y-axis as percentages
-  var formatAsPercentage = d3.format(".0%");
-  var abbrev = d3.format(".0s");
-  var xAxis = d3.axisBottom(xScale).tickFormat(abbrev),
-    yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage);
+  var formatAsPercentage = d3.format('.0%')
+  var abbrev = d3.format('.0s')
+  var xAxis = d3.axisBottom(xScale).tickFormat(abbrev)
+  var yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage)
 
   // Add the axes to the svg object
   svg
-    .append("g")
-    .attr("id", "xAxis")
-    .attr("class", "axis")
-    .attr("transform", "translate(0, " + (height - verticalPad * 2) + ")")
-    .call(xAxis);
+    .append('g')
+    .attr('id', 'xAxis')
+    .attr('class', 'axis')
+    .attr('transform', 'translate(0, ' + (height - verticalPad * 2) + ')')
+    .call(xAxis)
 
   svg
-    .append("g")
-    .attr("id", "yAxis")
-    .attr("class", "axis")
-    .attr("transform", "translate(" + (horizontalPad - verticalPad) + ", 0)")
-    .call(yAxis);
+    .append('g')
+    .attr('id', 'yAxis')
+    .attr('class', 'axis')
+    .attr('transform', 'translate(' + (horizontalPad - verticalPad) + ', 0)')
+    .call(yAxis)
 
   // Add labels to the axes
   svg
-    .select("xAxis")
-    .append("text")
-    .attr("class", "x label")
-    .attr("text-anchor", "end")
-    .attr("x", width / 2 + horizontalPad)
-    .attr("y", height)
-    .text(chooseXAxis());
+    .select('xAxis')
+    .append('text')
+    .attr('class', 'x label')
+    .attr('text-anchor', 'end')
+    .attr('x', width / 2 + horizontalPad)
+    .attr('y', height)
+    .text(chooseXAxis())
 
   svg
-    .select("yAxis")
-    .append("text")
-    .attr("class", "y label")
-    .attr("text-anchor", "end")
-    .attr("y", 6)
-    .attr("x", (-1 * (height - verticalPad)) / 2)
-    .attr("dy", ".75em")
-    .attr("transform", "rotate(-90)")
-    .text("Cache miss rate");
+    .select('yAxis')
+    .append('text')
+    .attr('class', 'y label')
+    .attr('text-anchor', 'end')
+    .attr('y', 6)
+    .attr('x', (-1 * (height - verticalPad)) / 2)
+    .attr('dy', '.75em')
+    .attr('transform', 'rotate(-90)')
+    .text('Cache miss rate')
 }
 
-
-
-
 /* This func makes the scatter plot */
-function scatterPlot(timeslices) {
+function scatterPlot (timeslices) {
   // Calculate size of x-axis based on number of data points
-  var xAxisMax = timeslices[timeslices.length - 1].instructionsAcc;
-  var yAxisMax = findMax(timeslices, chooseResource());
-  var densityMax = findMax(timeslices,"density");
+  var xAxisMax = timeslices[timeslices.length - 1].instructionsAcc
+  var yAxisMax = findMax(timeslices, chooseResource())
+  var densityMax = findMax(timeslices, 'density')
 
   /* Create functions to scale objects vertically and horizontally according to
   the size of the graph */
   var xScale = d3
     .scaleLinear()
     .domain([0, xAxisMax])
-    .range([horizontalPad, width - verticalPad]),
-    yScale = d3
-      .scaleLinear()
-      .domain([yAxisMax, 0])
-      .range([verticalPad, height - verticalPad * 3]),
-    rainbow = d3.scaleSequential(d3.interpolateRainbow);
-    
+    .range([horizontalPad, width - verticalPad])
+  var yScale = d3
+    .scaleLinear()
+    .domain([yAxisMax, 0])
+    .range([verticalPad, height - verticalPad * 3])
+  var rainbow = d3.scaleSequential(d3.interpolateRainbow)
 
-  drawAxes(timeslices, xScale, yScale);
+  drawAxes(timeslices, xScale, yScale)
 
   // Create the points and position them in the graph
   svg
-    .selectAll("circle")
+    .selectAll('circle')
     .data(timeslices)
     .enter()
-    .append("circle")
-    .attr("cx", function (d) {
-      return xScale(d.instructionsAcc);
+    .append('circle')
+    .attr('cx', function (d) {
+      return xScale(d.instructionsAcc)
     })
-    .attr("cy", function (d) {
+    .attr('cy', function (d) {
       if (isNaN(yScale(d.events.missRates))) {
       }
-      return yScale(d.events.missRates);
+      return yScale(d.events.missRates)
     }
     )
-    .attr("r", 2)
-    .style("fill", function (d) {
-      return rainbow(Math.log(d.density/densityMax) * 35)
-    });
+    .attr('r', 2)
+    .style('fill', function (d) {
+      return rainbow(Math.log(d.density / densityMax) * 40)
+    })
 }
 
-
-
-
-
-
-/******************************************* selector selector selector************************************************************/
-//Re-center brush when the user clicks somewhere in the graph
+/***************************selector selector selector ********************************************************** */
+// Re-center brush when the user clicks somewhere in the graph
 function brushcentered() {
   var dx = x(1) - x(0), // Use a fixed width when recentering.
     cx = d3.mouse(this)[0],
@@ -237,70 +227,72 @@ svg.append("g")
   .each(function (d) { d.type = "selection"; })
   .on("mousedown touchstart", brushcentered);
 
+function quadTreeX (d) {
+  return d.instructionsAcc
+}
 
+function quadTreeY (d) {
+  return d.events.missRates
+}
 
-/*************************************** coloring coloring coloring ************************************************************* */
-
-// Collects a list of nodes to draw rectangles, adding extent and depth data
-function getDepth(cur, depth) {
-  if (cur != undefined) {
-    if (!cur.length) {//this is a leaf 
-      cur.depth = depth;
+// Collect a list of nodes to draw rectangles, adding extent and depth data
+function getDepth (cur, depth) {
+  if (cur !== undefined) {
+    if (!cur.length) { // this is a leaf
+      cur.depth = depth
     } else {
-      depth++;
-      cur.depth = depth;
-      getDepth(cur[0], depth);
-      getDepth(cur[1], depth);
-      getDepth(cur[2], depth);
-      getDepth(cur[3], depth);
+      depth++
+      cur.depth = depth
+      getDepth(cur[0], depth)
+      getDepth(cur[1], depth)
+      getDepth(cur[2], depth)
+      getDepth(cur[3], depth)
     }
   }
 }
 
-//This function calculate how many points are in this node
-function getDensity(cur) {
-  if (cur == undefined) {
-    return 0;
+ /*************************************** coloring coloring coloring ************************************************************* */
+
+// Calculates how many points are in this node
+function getDensity (cur) {
+  if (cur === undefined) {
+    return 0
   }
   if (!cur.length) {
-    return 1;
-  }
-  else {
-    var a = getDensity(cur[0]);
-    var b = getDensity(cur[1]);
-    var c = getDensity(cur[2]);
-    var d = getDensity(cur[3]);
-    return (getDensity(cur[0]) + getDensity(cur[1]) + getDensity(cur[2]) + getDensity(cur[3]));
+    return 1
+  } else {
+    return (getDensity(cur[0]) + getDensity(cur[1]) + getDensity(cur[2])+ getDensity(cur[3]))
   }
 }
 
+
 //Used for finding a data representing the whole node in one unit square
-function findJustOneLeaf(node, check) {
-  if (node != undefined) {
-    if (!node.length) { //it is a leaf
-      return node;
+function findJustOneLeaf (node, check) {
+  if (node !== undefined) {
+    if (!node.length) { // Is a leaf
+      return node
     } else {
-      var temp = findJustOneLeaf(node[0]);
+      var temp = findJustOneLeaf(node[0])
       if (temp != null) {
-        return temp;
+        return temp
       }
-      temp = findJustOneLeaf(node[1]);
+      temp = findJustOneLeaf(node[1])
       if (temp != null) {
-        return temp;
-      }
-
-      temp = findJustOneLeaf(node[2]);
-      if (temp != null) {
-        return temp;
+        return temp
       }
 
-      temp = findJustOneLeaf(node[3]);
+      temp = findJustOneLeaf(node[2])
       if (temp != null) {
-        return temp;
+        return temp
+      }
+
+      temp = findJustOneLeaf(node[3])
+      if (temp != null) {
+        return temp
       }
     }
   } else {
-    return null;
+    return null
   }
 }
 

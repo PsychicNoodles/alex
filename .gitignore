@@ -259,3 +259,4 @@ tags
 
 ### ESLint ###
 .eslintrc.js
+visualizer/css/style.css
