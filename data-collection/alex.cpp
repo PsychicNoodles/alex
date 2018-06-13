@@ -211,12 +211,17 @@ vector<string> str_split(string str, string delim) {
     end = str.find(delim, start);
   }
 
-  split.push_back(str.substr(start, end));
+  auto last_substr = str.substr(start, end);
+  if (last_substr != "") {
+    split.push_back(last_substr);
+  }
+
   return split;
 }
 
 vector<string> get_events() {
   auto events_env = getenv_safe("ALEX_EVENTS");
+  DEBUG("events: '" << events_env << "'");
   return str_split(events_env, ",");
 }
 
@@ -399,12 +404,6 @@ int analyzer(int pid) {
     sigwait(&signal_set, &sig);
     DEBUG("anlz: received SIGUSR1");
 
-    if (is_first_timeslice) {
-      is_first_timeslice = false;
-    } else {
-      fprintf(writef, ",");
-    }
-
     long long num_cycles = 0;
     read(cpu_cycles_perf.fd, &num_cycles, sizeof(num_cycles));
     if (reset_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
@@ -422,120 +421,123 @@ int analyzer(int pid) {
       exit(IOCTLERROR);
     }
 
-    assert(has_next_sample(&cpu_cycles_perf));
-    int sample_type;
-    int sample_size;
-    sample *perf_sample =
-        (sample *)get_next_sample(&cpu_cycles_perf, &sample_type, &sample_size);
-    assert(sample_type == PERF_RECORD_SAMPLE);
-    while (has_next_sample(&cpu_cycles_perf)) {
-      int temp_type, temp_size;
-      get_next_sample(&cpu_cycles_perf, &temp_type, &temp_size);
-    }
-
-    fprintf(writef,
-            R"(
-              {
-                "time": %lu,
-                "numCPUCycles": %lld,
-                "numInstructions": %lld,
-                "events": {
-            )",
-            perf_sample->time, num_cycles, num_instructions);
-
-    DEBUG("anlz: reading from each fd");
-    for (int i = 0; i < number; i++) {
-      if (i > 0) {
+    if (!has_next_sample(&cpu_cycles_perf)) {
+      DEBUG("SKIPPED SAMPLE PERIOD");
+    } else {
+      if (is_first_timeslice) {
+        is_first_timeslice = false;
+      } else {
         fprintf(writef, ",");
       }
 
-      long long count = 0;
-      read(event_fds[i], &count, sizeof(long long));
-      if (reset_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
-        kill(cpid, SIGKILL);
-        fclose(writef);
-        exit(IOCTLERROR);
-      }
-
-      fprintf(writef, R"("%s": %lld)", events.at(i).c_str(), count);
-    }
-
-    fprintf(writef,
-            R"(
-                },
-                "stackFrames": [
-            )");
-
-    int fd = open((char *)"/proc/self/exe", O_RDONLY);
-    if (fd < 0) {
-      perror("cannot open executable (/proc/self/exe)");
-      return OPENERROR;
-    }
-
-    elf::elf ef(elf::create_mmap_loader(fd));
-    dwarf::dwarf dw(dwarf::elf::create_loader(ef));
-
-    for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
-      if (i > 0) {
-        fprintf(writef, ",");
+      int sample_type;
+      int sample_size;
+      sample *perf_sample = (sample *)get_next_sample(
+          &cpu_cycles_perf, &sample_type, &sample_size);
+      assert(sample_type == PERF_RECORD_SAMPLE);
+      while (has_next_sample(&cpu_cycles_perf)) {
+        int temp_type, temp_size;
+        get_next_sample(&cpu_cycles_perf, &temp_type, &temp_size);
       }
 
       fprintf(writef,
               R"(
-                { "address": "%p",)",
-              (void *)perf_sample->instruction_pointers[i]);
+                {
+                  "time": %lu,
+                  "numCPUCycles": %lld,
+                  "numInstructions": %lld,
+                  "events": {
+              )",
+              perf_sample->time, num_cycles, num_instructions);
 
-      Dl_info info;
-      const char *sym_name = NULL, *file_name = NULL;
-      void *file_base = NULL, *sym_addr = NULL;
-      // Lookup the name of the function given the function pointer
-      if (dladdr((void *)perf_sample->instruction_pointers[i], &info) != 0) {
-        sym_name = info.dli_sname;
-        file_name = info.dli_fname;
-        file_base = info.dli_fbase;
-        sym_addr = info.dli_saddr;
+      DEBUG("anlz: reading from each fd");
+      for (int i = 0; i < number; i++) {
+        if (i > 0) {
+          fprintf(writef, ",");
+        }
+
+        long long count = 0;
+        read(event_fds[i], &count, sizeof(long long));
+        if (reset_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
+          kill(cpid, SIGKILL);
+          fclose(writef);
+          exit(IOCTLERROR);
+        }
+
+        fprintf(writef, R"("%s": %lld)", events.at(i).c_str(), count);
       }
+
+      int fd = open((char *)"/proc/self/exe", O_RDONLY);
+      if (fd < 0) {
+        perror("cannot open executable (/proc/self/exe)");
+        return OPENERROR;
+      }
+
+      elf::elf ef(elf::create_mmap_loader(fd));
+      dwarf::dwarf dw(dwarf::elf::create_loader(ef));
+
       fprintf(writef,
               R"(
+                  },
+                  "stackFrames": [
+              )");
+
+      for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
+        if (i > 0) {
+          fprintf(writef, ",");
+        }
+
+        fprintf(writef,
+                R"(
+                  { "address": "%p" }
+                )",
+                (void *)perf_sample->instruction_pointers[i]);
+
+        Dl_info info;
+        const char *sym_name = NULL, *file_name = NULL;
+        void *file_base = NULL, *sym_addr = NULL;
+        // Lookup the name of the function given the function pointer
+        if (dladdr((void *)perf_sample->instruction_pointers[i], &info) != 0) {
+          sym_name = info.dli_sname;
+          file_name = info.dli_fname;
+          file_base = info.dli_fbase;
+          sym_addr = info.dli_saddr;
+        }
+        fprintf(writef,
+                R"(
                   "name": "%s",
                   "file": "%s",
                   "base": "%p",
                   "addr": "%p")",
-              sym_name, file_name, file_base, sym_addr);
+                sym_name, file_name, file_base, sym_addr);
 
-      // Need to subtract one. PC is the return address, but we're looking for
-      // the callsite.
-      dwarf::taddr pc = perf_sample->instruction_pointers[i] - 1;
+        // Need to subtract one. PC is the return address, but we're looking for
+        // the callsite.
+        dwarf::taddr pc = perf_sample->instruction_pointers[i] - 1;
 
-      // Find the CU containing pc
-      // XXX Use .debug_aranges
-      for (auto &cu : dw.compilation_units()) {
-        if (die_pc_range(cu.root()).contains(pc)) {
-          // Map PC to a line
-          auto &lt = cu.get_line_table();
-          auto it = lt.find_address(pc);
-          if (it == lt.end())
-            fprintf(writef, "UNKNOWN\n");
-          else {
-            fprintf(writef,
-                    R"(,
+        // Find the CU containing pc
+        // XXX Use .debug_aranges
+        for (auto &cu : dw.compilation_units()) {
+          if (die_pc_range(cu.root()).contains(pc)) {
+            // Map PC to a line
+            auto &lt = cu.get_line_table();
+            auto it = lt.find_address(pc);
+            if (it == lt.end())
+              fprintf(writef, "UNKNOWN\n");
+            else {
+              fprintf(writef,
+                      R"(,
                   "line": %d,
                   "col": %d,
                   "fullLocation: "%s" })",
-                    it->line, it->column, it->get_description().c_str());
-            break;
+                      it->line, it->column, it->get_description().c_str());
+              break;
+            }
           }
+          fprintf(writef, " }");
         }
-        fprintf(writef, " }");
       }
     }
-
-    fprintf(writef,
-            R"(
-                ]
-              }
-            )");
-    DEBUG("anlz: finished a loop");
   }
   return 0;
 }
