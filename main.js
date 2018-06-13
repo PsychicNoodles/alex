@@ -133,7 +133,9 @@ collector.on("exit", code => {
     console.error(errorCodes[code]);
   } else {
     console.info("Successfully collected data.");
-    console.info(`Results saved to ${resultFile}`);
+    if (argv.result) {
+      console.info(`Results saved to ${resultFile}`);
+    }
 
     if (argv.visualize === "window") {
       createWindow();
