@@ -9,7 +9,9 @@
   },
   "scripts": {
     "start": "electron .",
-    "clean": "rm -f out-* err-* result-*"
+    "clean": "rm -f out-* err-* result-*",
+    "build-examples": "cd examples && make",
+    "build-collector": "cd data-collection && make"
   },
   "license": "UNLICENSED",
   "dependencies": {
