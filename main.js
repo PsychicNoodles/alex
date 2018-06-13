@@ -166,7 +166,7 @@ const appReady = new Promise(resolve => app.on("ready", resolve));
 async function createWindow() {
   await appReady;
 
-  win = new BrowserWindow({ width: 1520, height: 820 });
+  win = new BrowserWindow({ width: 1000, height: 820 });
   win.loadFile(`${__dirname}/visualizer/index.html`);
 
   win.on("closed", () => {
