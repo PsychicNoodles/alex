@@ -17,6 +17,8 @@ likely also want to build the example programs with `npm run build-examples`.
 To run the profiler, on the `examples/build/matrixmultiplier` program with
 the `examples/inputs/matrix-1000x1000.in` test input using the cache preset,
 run `npm start -- --in examples/inputs/matrix-1000x1000.in --preset cache -- examples/build/matrixmultiplier`.
+If that's too long for you, run `npm run example` as a shortcut for the
+matrix multiplier.
 
 ## Data Collection
 
