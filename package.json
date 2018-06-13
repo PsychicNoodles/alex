@@ -16,9 +16,12 @@
   },
   "license": "UNLICENSED",
   "dependencies": {
+    "bootstrap": "^4.1.1",
     "d3": "^5.4.0",
     "d3-svg-legend": "^2.25.6",
     "electron": "^2.0.2",
+    "jquery": "^3.3.1",
+    "popper.js": "^1.14.3",
     "tempfile": "^2.0.0",
     "yargs": "^11.0.0"
   },
