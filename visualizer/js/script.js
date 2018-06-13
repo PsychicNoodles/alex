@@ -1,6 +1,6 @@
 // Set size and margins of graph
-//var width = window.innerWidth;
-var width = 1000;
+var width = window.innerWidth;
+//var width = 1000;
 var height = width * .7;
 var verticalPad = 20;
 var horizontalPad = 50;
@@ -70,6 +70,18 @@ function resizeGraph () {
     }
     );
 
+  selection.call(brush.move, null);
+  brush = d3.brushX()
+    .extent([[0, 0], [width, height]])
+    .on('brush', brushed)
+    .on('end', createTable);
+
+  svg.append('g')
+    .call(brush)
+    .call(brush.move, [3, 5].map(x))
+    .selectAll('.overlay')
+    .each(function(d) { d.type = 'selection'; })
+    .on('mousedown touchstart', brushcentered);
 }
 
 function draw(timeslices) {
