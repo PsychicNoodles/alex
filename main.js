@@ -57,20 +57,20 @@ if (argv.preset === "cpu") {
 
 const otherEvents = argv.events || [];
 
-const dataCollector = spawn(executable, executableArgs, {
+const collector = spawn(executable, executableArgs, {
   env: {
     ...process.env,
-    ALEX_PERIOD: argv.period,
-    ALEX_EVENTS: [...presetEvents, ...otherEvents].join(","),
-    ALEX_RESULT_FILE: argv.result,
-    LD_PRELOAD: `${__dirname}/data-collection/alex.so`
+    COLLECTOR_PERIOD: argv.period,
+    COLLECTOR_EVENTS: [...presetEvents, ...otherEvents].join(","),
+    COLLECTOR_RESULT_FILE: argv.result,
+    LD_PRELOAD: `${__dirname}/collector/collector.so`
   }
 });
 
 // Keep track so we can wait on this before quitting
 const dataCollectorDone = Promise.all([
-  new Promise(resolve => dataCollector.stdout.on("end", resolve)),
-  new Promise(resolve => dataCollector.stderr.on("end", resolve))
+  new Promise(resolve => collector.stdout.on("end", resolve)),
+  new Promise(resolve => collector.stderr.on("end", resolve))
 ]);
 
 // Pipe through inputs and outputs
@@ -78,28 +78,28 @@ const dataCollectorDone = Promise.all([
 if (argv.in) {
   const fileStream = fs.createReadStream(argv.in);
   fileStream.on("open", () => {
-    fileStream.pipe(dataCollector.stdin);
+    fileStream.pipe(collector.stdin);
   });
 } else {
-  process.stdin.pipe(dataCollector.stdin);
+  process.stdin.pipe(collector.stdin);
 }
 
 if (argv.out) {
   const fileStream = fs.createWriteStream(argv.out);
   fileStream.on("open", () => {
-    dataCollector.stdout.pipe(fileStream);
+    collector.stdout.pipe(fileStream);
   });
 } else {
-  dataCollector.stdout.pipe(process.stdout);
+  collector.stdout.pipe(process.stdout);
 }
 
 if (argv.err) {
   const fileStream = fs.createWriteStream(argv.err);
   fileStream.on("open", () => {
-    dataCollector.stderr.pipe(fileStream);
+    collector.stderr.pipe(fileStream);
   });
 } else {
-  dataCollector.stderr.pipe(process.stderr);
+  collector.stderr.pipe(process.stderr);
 }
 
 function exit() {
@@ -109,7 +109,7 @@ function exit() {
   });
 }
 
-dataCollector.on("exit", code => {
+collector.on("exit", code => {
   const errorCodes = {
     1: "Could not kill parent.",
     2: "Could not fork.",
