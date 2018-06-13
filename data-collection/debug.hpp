@@ -22,3 +22,4 @@ static inline std::string getenv_safe(const char* var,
   if (!value) value = fallback;
   return std::string(value);
 }
+
