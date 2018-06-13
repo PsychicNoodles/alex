@@ -1,0 +1,4 @@
+instructions,MEM_LOAD_RETIRED.L3_MISS,n_call_chain
+instructions,MEM_LOAD_RETIRED.L3_MISS,n_call_chain
+instructions,MEM_LOAD_RETIRED.L3_MISS,n_call_chain
+instructions,MEM_LOAD_RETIRED.L3_MISS,n_call_chain

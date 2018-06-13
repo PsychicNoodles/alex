@@ -1,129 +1,88 @@
-// Set size and margins of graph
-var width = window.innerWidth * .8;
-var height = width * .7;
-var verticalPad = 20;
-var horizontalPad = 50;
-var xScale;
-var yScale;
-var xAxis;
-var yAxis;
-var timeslices;
-var circles;
-var brush;
-var rainbow;
-
-// Create an svg object for the graph
-var svg = d3
-  .select('#plot')
-  .attr('width', width)
-  .attr('height', height);
+// Constants
+const ASPECT_RATIO = 9 / 16; // ratio of height-to-width currently, can be changed
+const SPECTRUM = d3.scaleSequential(d3.interpolateWarm);
+const VERTICALPAD = 20; // Should dynamically generate these in the future.
+const HORIZONTALPAD = 50; // ''
 
 /* ******************************** LOADING ********************************* */
-document.getElementById('data-input').addEventListener('change', loadFile, false);
+// Set "loadFile" to execute when files are uploaded via the file upload button.
+document.getElementById('data-input')
+  .addEventListener('input', loadFile, false);
 
 function loadFile() {
-  var reader = new FileReader();
-  reader.onload = function(event) {
-    if (event.target.readyState != 2 || event.target.error) return;
-    timeslices = JSON.parse(this.result).timeslices;
-    svg.selectAll('*').remove();
-    draw(timeslices);
-  };
-
+  // Get the file uploaded by the user.
   var file = document.getElementById('data-input').files[0];
-  if (file) {
+
+  var reader = new FileReader();
+  // Read the file; when this is done, it automatically executes reader.onload.
+  try {
     reader.readAsText(file);
+  } catch (err) {
+    return;
   }
+
+  reader.onload = function () {
+    try {
+      var timeslices = JSON.parse(reader.result).timeslices;
+      draw(timeslices, d3.select('#plot'));
+    } catch (err) {
+      console.error(err);
+    }
+  };
 }
 
 /* ******************************** RESIZING ******************************** */
+// Set "loadFile" to execute when the window's size changes.
+window.addEventListener('resize', loadFile, false);
 
-window.addEventListener('resize', resizeGraph, false);
-function resizeGraph () {
-  width = window.innerWidth - horizontalPad * 2;
-  height = .7 * width;
-  
-  xScale.range([horizontalPad, width - verticalPad]);
-  yScale.range([verticalPad, height - verticalPad * 3]);
+/* ******************************** DRAWING ********************************* */
 
-  
-  svg.attr('width', width + horizontalPad * 2)
-    .attr('height', height + verticalPad * 2);
-  
-  xAxis.scale(xScale);
-  yAxis.scale(yScale);
+/* This takes in timeslices (format specified in wiki) and svg (the plot we want
+  to use). It's nice to take svg in as an argument, because if we want to draw
+  multiple graphs in the future, we can say which svg should be drawn in. */
+function draw(timeslices, svg) {
+  var width = window.innerWidth;
+  var height = width * ASPECT_RATIO;
+  // Select the svg object of the graph.
+  svg.attr('width', width).attr('height', height);
 
-  svg.select('#xAxis.axis').attr('transform','translate(0,' + height + ')').call(xAxis);
-
-  svg.select('#yAxis.axis').call(yAxis);
-
-  svg.selectAll('circle')
-    .attr('cx', function (d) {
-      return xScale(d.totalCycles);
-    })
-    .attr('cy', function (d) {
-      if (isNaN(yScale(d.events.missRates))) {
-        return 0;
-      }
-      return yScale(d.events.missRates);
-    }
-    );
-
-  selection.call(brush.move, null);
-  brush = d3.brushX()
-    .extent([[0, 0], [width, height]])
-    .on('brush', brushed)
-    .on('end', createTable);
-
-  svg.append('g')
-    .call(brush)
-    .call(brush.move, [3, 5].map(x))
-    .selectAll('.overlay')
-    .each(function(d) { d.type = 'selection'; })
-    .on('mousedown touchstart', brushcentered);
-}
-
-function draw(timeslices) {
+  // If the SVG has anything in it, get rid of it. We want a clean slate.
   svg.selectAll('*').remove();
   processData(timeslices, chooseResource());
   processData(timeslices, chooseXAxis());
+
   // Calculate size of x-axis based on number of data points
-  const xAxisMax = timeslices[timeslices.length - 1].totalCycles;
-  const yAxisMax = findMax(timeslices, chooseResource());
-
-
+  var xScaleMax = timeslices[timeslices.length - 1].totalCycles;
+  var yScaleMax = findMax(timeslices, chooseResource());
 
   /* Create functions to scale objects vertically and horizontally according to
   the size of the graph */
-  xScale = d3
-    .scaleLinear()
-    .domain([0, xAxisMax])
-    .range([horizontalPad, width - verticalPad]);
-  yScale = d3
-    .scaleLinear()
-    .domain([yAxisMax, 0])
-    .range([verticalPad, height - verticalPad * 3]);
-  rainbow = d3.scaleSequential(d3.interpolateWarm);
+  var xScale = d3.scaleLinear()
+    .domain([0, xScaleMax])
+    .range([HORIZONTALPAD, width - VERTICALPAD]);
+  var yScale = d3.scaleLinear()
+    .domain([yScaleMax, 0])
+    .range([VERTICALPAD, height - VERTICALPAD * 3]);
 
-  drawAxes(timeslices, xScale, yScale);
-  var densityMax = scatterPlot(densityInfo(timeslices, xScale, yScale), xScale, yScale, rainbow);
+  drawAxes(xScale, yScale, svg);
+  var densityMax = scatterPlot(densityInfo(timeslices, xScale, yScale), xScale, yScale, svg);
   legend(densityMax);
 }
 
 /* Lets users to choose which resource they want the tool to present and analyze on */
-function chooseXAxis () {
+function chooseXAxis() {
   // need work!
   return 'numInstructions';
 }
 
 /* Lets users to choose which resource they want the tool to present and analyze on */
-function chooseResource () {
+function chooseResource() {
   // need work!
   return 'cache';
 }
 
 /* This function will take the raw array and a string of a specified property and process the related datum, etc */
-function processData (timeslices, resource) {
+function processData(timeslices, resource) {
   switch (resource) {
     case 'numInstructions':
       timeslices[0].instructionsAcc = timeslices[0].numInstructions;
@@ -138,7 +97,7 @@ function processData (timeslices, resource) {
     case 'cache':
       timeslices[0].totalCycles = timeslices[0].numCPUCycles;
       var total = timeslices[0].events['MEM_LOAD_RETIRED.L3_MISS'] + timeslices[0].events['MEM_LOAD_RETIRED.L3_HIT'];
-      if(total == 0) {
+      if (total == 0) {
         timeslices[0].missRates = 0;
       } else {
         timeslices[0].missRates = timeslices[0].events['MEM_LOAD_RETIRED.L3_MISS'] / total;
@@ -146,7 +105,7 @@ function processData (timeslices, resource) {
       for (let i = 1; i < timeslices.length; i++) {
         let cur = timeslices[i];
         total = cur.events['MEM_LOAD_RETIRED.L3_MISS'] + cur.events['MEM_LOAD_RETIRED.L3_HIT'];
-        if (total === 0) {
+        if (total == 0) {
           cur.events.missRates = 0;
         } else {
           cur.events.missRates = cur.events['MEM_LOAD_RETIRED.L3_MISS'] / total;
@@ -184,26 +143,29 @@ function findMax(timeslices, attr) {
 }
 
 //This func will draw the axes
-function drawAxes() {
+function drawAxes(xScale, yScale, svg) {
   // Create axes and format the ticks on the y-axis as percentages
   var formatAsPercentage = d3.format('.0%');
   var abbrev = d3.format('.0s');
-  xAxis = d3.axisBottom(xScale).tickFormat(abbrev);
-  yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage);
+  var xAxis = d3.axisBottom(xScale).tickFormat(abbrev);
+  var yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage);
+  console.log(svg);
+  var height = svg.attr('height');
+  var width = svg.attr('width');
 
   // Add the axes to the svg object
   svg
     .append('g')
     .attr('id', 'xAxis')
     .attr('class', 'axis')
-    .attr('transform', 'translate(0, ' + (height - verticalPad * 2) + ')')
+    .attr('transform', 'translate(0, ' + (height - VERTICALPAD * 2) + ')')
     .call(xAxis);
 
   svg
     .append('g')
     .attr('id', 'yAxis')
     .attr('class', 'axis')
-    .attr('transform', 'translate(' + (horizontalPad - verticalPad) + ', 0)')
+    .attr('transform', 'translate(' + (HORIZONTALPAD - VERTICALPAD) + ', 0)')
     .call(yAxis);
 
   // Add labels to the axes
@@ -212,7 +174,7 @@ function drawAxes() {
     .append('text')
     .attr('class', 'x label')
     .attr('text-anchor', 'end')
-    .attr('x', width / 2 + horizontalPad)
+    .attr('x', width / 2 + HORIZONTALPAD)
     .attr('y', height)
     .text('CPU Cycles');
 
@@ -222,18 +184,25 @@ function drawAxes() {
     .attr('class', 'y label')
     .attr('text-anchor', 'end')
     .attr('y', 6)
-    .attr('x', (-1 * (height - verticalPad)) / 2)
+    .attr('x', (-1 * (height - VERTICALPAD)) / 2)
     .attr('dy', '.75em')
     .attr('transform', 'rotate(-90)')
     .text('Cache miss rate');
 }
 
 /* This func makes the scatter plot */
-function scatterPlot(timeslices, xScale, yScale, rainbow) {
+function scatterPlot(timeslices, xScale, yScale, svg) {
   const densityMax = findMax(timeslices, 'density');
+  var width = svg.attr('width');
+  var height = svg.attr('height');
+
+  var x = d3.scaleLinear()
+    .domain([0, 10])
+    .range([0, width]);
+
 
   // Create the points and position them in the graph
-  circles = svg
+  var circles = svg
     .selectAll('circle')
     .data(timeslices)
     .enter()
@@ -247,13 +216,13 @@ function scatterPlot(timeslices, xScale, yScale, rainbow) {
     )
     .attr('r', 2)
     .style('fill', function (d) {
-      return rainbow(d.densityAver / densityMax);
+      return SPECTRUM(d.densityAver / densityMax);
     });
 
   // Create brush
-  brush = d3.brushX()
+  var brush = d3.brushX()
     .extent([[0, 0], [width, height]])
-    .on('brush', brushed)
+    .on('brush', brushed(circles, timeslices, xScale))
     .on('end', createTable);
 
   // Add brush to svg object
@@ -261,15 +230,19 @@ function scatterPlot(timeslices, xScale, yScale, rainbow) {
     .call(brush)
     .call(brush.move, [3, 5].map(x))
     .selectAll('.overlay')
-    .each(function(d) { d.type = 'selection'; })
-    .on('mousedown touchstart', brushcentered);
+    .each(function (d) { d.type = 'selection'; })
+    .on('mousedown touchstart', brushcentered(brush, svg));
 
   return densityMax;
 }
 
-/** *************************selector selector selector ********************************************************** */
 // Re-center brush when the user clicks somewhere in the graph
-function brushcentered() {
+function brushcentered(brush, svg) {
+  var width = svg.attr('width');
+  var x = d3.scaleLinear()
+    .domain([0, 10])
+    .range([0, width]);
+
   var dx = x(1) - x(0), // Use a fixed width when recentering.
     cx = d3.mouse(this)[0],
     x0 = cx - dx / 2,
@@ -278,18 +251,18 @@ function brushcentered() {
 }
 
 // Create a table of the points selected by the brush
-function createTable() {
+function createTable(timeslices) {
   d3.selectAll('.row_data').remove();
   d3.select('table').style('visibility', 'visible');
 
   var circlesSelected = d3.selectAll('.brushed').data();
 
-  if(circlesSelected.length > 0) {
-    timeslices.forEach(function(d) {
-      if(d.selected) {
+  if (circlesSelected.length > 0) {
+    timeslices.forEach(function (d) {
+      if (d.selected) {
         var formatRate = d3.format('.1%');
         var data = [d.totalCycles, d.events['MEM_LOAD_RETIRED.L3_MISS'], d.events['MEM_LOAD_RETIRED.L3_HIT'], formatRate(d.events.missRates)];
-      
+
         d3.select('table')
           .append('tr')
           .attr('class', 'row_data')
@@ -305,45 +278,41 @@ function createTable() {
 }
 
 // Re-color the circles in the region that was selected by the user
-function brushed() {
-  if(d3.event.selection != null) {
+function brushed(circles, timeslices, xScale) {
+  if (d3.event.selection != null) {
     circles.attr('class', 'circle');
     var brushArea = d3.brushSelection(this);
 
     circles.filter(function () {
       var cx = d3.select(this).attr('cx');
-      return brushArea[0] <= cx && cx <= brushArea[1]; 
+      return brushArea[0] <= cx && cx <= brushArea[1];
     })
       .attr('class', 'brushed');
 
-    for(var i = 0; i < timeslices.length; i++) {
+    for (var i = 0; i < timeslices.length; i++) {
       timeslices[i].selected = false;
     }
-    
+
     timeslices.map(function (d) {
-      if(brushArea[0] <= xScale(d.totalCycles) && xScale(d.totalCycles) <= brushArea[1]) {
+      if (brushArea[0] <= xScale(d.totalCycles) && xScale(d.totalCycles) <= brushArea[1]) {
         d.selected = true;
       }
     });
   }
 }
 
-var x = d3.scaleLinear()
-  .domain([0, 10])
-  .range([0, width]);
 
 
 
 
 
-
-  
-
+/** ************************* cccc color color color ccccc ****************** */
 
 // Calculates how many points are in this node
 function getDensity(node) {
   var count = 1;
-  while (node = node.next) {
+  while (node.next) {
+    node = node.next;
     count++;
   }
   return count;
@@ -351,7 +320,7 @@ function getDensity(node) {
 
 // // Calculates how many points are in this node
 // function getDensity (cur) {
-//   if (cur === undefined) {
+//   if (cur == undefined) {
 //     return 0
 //   }
 //   if (!cur.length) {
@@ -453,6 +422,7 @@ function densityInfo(timeslices, xScale, yScale) {//for now, just take in missRa
 
   calcAverDens(result);
   return result;
+
 }
 
 // //This function will make a array of the density information and the "fake" xAxis and yAxis information
@@ -495,19 +465,19 @@ function densityInfo(timeslices, xScale, yScale) {//for now, just take in missRa
 
 function legend(densityMax) {
   var sequentialScale = d3.scaleSequential(d3.interpolateWarm)
-    .domain([0,densityMax]);
+    .domain([0, densityMax]);
 
   var svg = d3.select('svg');
 
   svg.append('g')
     .attr('class', 'legendSequential')
-    .attr('transform', 'translate(1000,30)');
+    .attr('transform', 'translate(500,30)');
 
   var legendSequential = d3.legendColor()
     .title('Density')
     .cells(6)
     .orient('vertical')
-    .scale(sequentialScale); 
+    .scale(sequentialScale);
 
   svg.select('.legendSequential')
     .call(legendSequential);
