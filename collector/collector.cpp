@@ -55,7 +55,7 @@ using namespace std;
 #define BUFFERROR 11   // Cannot open buffer
 #define IOCTLERROR 13  // Cannot control perf_event
 
-#define ALEX_VERSION "0.0.1"
+#define COLLECTOR_VERSION "0.0.1"
 
 // https://godoc.org/github.com/aclements/go-perf/perffile#pkg-constants
 #define CALLCHAIN_HYPERVISOR 0xffffffffffffffe0
@@ -220,7 +220,7 @@ vector<string> str_split(string str, string delim) {
 }
 
 vector<string> get_events() {
-  auto events_env = getenv_safe("ALEX_EVENTS");
+  auto events_env = getenv_safe("COLLECTOR_EVENTS");
   DEBUG("events: '" << events_env << "'");
   return str_split(events_env, ",");
 }
@@ -283,7 +283,7 @@ int analyzer(int pid) {
   pfm_initialize();
 
   DEBUG("anlz: setting up period from env var");
-  long long period = stoll(getenv_safe("ALEX_PERIOD", "10000000"));
+  long long period = stoll(getenv_safe("COLLECTOR_PERIOD", "10000000"));
 
   // set up the cpu cycles perf buffer
   perf_event_attr cpu_cycles_attr;
@@ -389,7 +389,7 @@ int analyzer(int pid) {
   fprintf(writef,
           R"({
             "header": {
-              "programVersion": ")" ALEX_VERSION R"("
+              "programVersion": ")" COLLECTOR_VERSION R"("
             },
             "timeslices": [
           )");
@@ -613,7 +613,7 @@ static int wrapped_main(int argc, char **argv, char **env) {
     // parent process
     DEBUG("in parent process, opening result file for writing (pid: " << ppid
                                                                       << ")");
-    string env_res = getenv_safe("ALEX_RESULT_FILE", "result.txt");
+    string env_res = getenv_safe("COLLECTOR_RESULT_FILE", "result.txt");
     DEBUG("result file " << env_res);
     writef = fopen(env_res.c_str(), "w");
 
