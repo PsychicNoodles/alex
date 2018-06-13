@@ -158,7 +158,7 @@ dataCollector.on("exit", code => {
 // be closed automatically when the JavaScript object is garbage collected.
 let win;
 
-// This method will be called when Electron has finished
+// This promise will resolve when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 const appReady = new Promise(resolve => app.on("ready", resolve));
