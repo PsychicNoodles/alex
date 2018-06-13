@@ -1,6 +1,6 @@
 // Set size and margins of graph
-var width = 500;
-var height = 200;
+var width = 1400;
+var height = 800;
 var verticalPad = 20;
 var horizontalPad = 100;
 
@@ -32,11 +32,9 @@ function parseFile() {
 function draw(timeslices) {
   processData(timeslices, chooseResource());
   processData(timeslices, chooseXAxis());
-  console.log(timeslices);
   // Calculate size of x-axis based on number of data points
   const xAxisMax = timeslices[timeslices.length - 1].instructionsAcc
   const yAxisMax = findMax(timeslices, chooseResource())
-  console.log(yAxisMax);
 
 
 
@@ -50,10 +48,11 @@ function draw(timeslices) {
     .scaleLinear()
     .domain([yAxisMax, 0])
     .range([verticalPad, height - verticalPad * 3])
-  const rainbow = d3.scaleSequential(d3.interpolateSpectral)
+  const rainbow = d3.scaleSequential(d3.interpolateWarm)
 
   drawAxes(timeslices, xScale, yScale)
-  scatterPlot(densityInfo(timeslices, xScale, yScale), xScale, yScale, rainbow);
+  var densityMax = scatterPlot(densityInfo(timeslices, xScale, yScale), xScale, yScale, rainbow);
+  legend(densityMax)
 }
 
 /*Lets users to choose which resource they want the tool to present and analyze on */
@@ -167,9 +166,6 @@ function drawAxes(timeslices, xScale, yScale) {
 /* This func makes the scatter plot */
 function scatterPlot(timeslices, xScale, yScale, rainbow) {
   const densityMax = findMax(timeslices, 'density')
-  console.log("densMAX", densityMax)
-  console.log(timeslices);
-
 
   // Create the points and position them in the graph
   svg
@@ -184,11 +180,12 @@ function scatterPlot(timeslices, xScale, yScale, rainbow) {
       return yScale(d.events.missRates)
     }
     )
-    .attr('r', 0.5)
+    .attr('r', 1.2)
     .style('fill', function (d) {
-      console.log(Math.cbrt(d.densityAver / densityMax))
-      return rainbow(Math.cbrt(d.densityAver / densityMax))
+      return rainbow(d.densityAver / densityMax)
     })
+
+    return densityMax
 }
 
 /***************************selector selector selector ********************************************************** */
@@ -317,7 +314,7 @@ function position(timeslices, xScale, yScale) {
 }
 
 function calcAverDens(result) {
-  var quadtree = d3.quadtree(result, function (d) { return d.x; }, function (d) { return d.y; }); 
+  var quadtree = d3.quadtree(result, function (d) { return d.x; }, function (d) { return d.y; });
   for (var i = 0; i < result.length; i++) {
     var x0 = result[i].x - 2;
     var x3 = result[i].x + 2;
@@ -329,11 +326,7 @@ function calcAverDens(result) {
     quadtree.visit(function (node, x1, y1, x2, y2) {
       if (!node.length) {
         do {
-
           if ((node.data.x >= x0) && (node.data.x <= x3) && (node.data.y >= y0) && (node.data.y <= y3)) {
-            if(node.data.density == undefined) {
-              console.log(node)
-            }
             arr.push(node.data.density);
           }
 
@@ -342,20 +335,13 @@ function calcAverDens(result) {
       return x1 >= x3 || y1 >= y3 || x2 <= x0 || y2 <= y0;
     });
 
-    if (arr.length == 0) {
-      console.log(result[i]);
-    }
-
     var sum = 0;
-    for(var j = 0; j < arr.length; j++) {
+    for (var j = 0; j < arr.length; j++) {
       sum += arr[j];
     }
 
     var aver = sum / arr.length
-    if(isNaN(aver)) {
-      console.log("arr", arr);
-    }
-    result[i].densityAver = sum / arr.length;
+    result[i].densityAver = aver;
   }
 }
 
@@ -421,4 +407,23 @@ function densityInfo(timeslices, xScale, yScale) {//for now, just take in missRa
 //   return result;
 // }
 
+function legend(densityMax) {
+  var sequentialScale = d3.scaleSequential(d3.interpolateWarm)
+  .domain([0,densityMax]);
 
+var svg = d3.select("svg");
+
+svg.append("g")
+  .attr("class", "legendSequential")
+  .attr("transform", "translate(1000,30)");
+
+var legendSequential = d3.legendColor()
+    .title("Density")
+    .cells(6)
+    .orient("vertical")
+    .scale(sequentialScale) 
+
+svg.select(".legendSequential")
+  .call(legendSequential);
+
+}
