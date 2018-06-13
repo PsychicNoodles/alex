@@ -1,7 +1,12 @@
 {
-  "name": "alex-electron",
+  "name": "alex",
   "version": "0.0.1",
   "main": "main.js",
+  "description": "AnaLysis of EXecution",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/curtsinger-lab/perf-analyzer"
+  },
   "scripts": {
     "start": "electron .",
     "clean": "rm -f out-* err-* result-*"
