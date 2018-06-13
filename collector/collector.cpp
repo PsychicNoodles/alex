@@ -516,29 +516,28 @@ int analyzer(int pid) {
 
         // Find the CU containing pc
         // XXX Use .debug_aranges
+        auto line = -1, column = -1;
+        char *fullLocation = NULL;
+
         for (auto &cu : dw.compilation_units()) {
           if (die_pc_range(cu.root()).contains(pc)) {
             // Map PC to a line
             auto &lt = cu.get_line_table();
             auto it = lt.find_address(pc);
-            auto line = -1, column = -1;
-            const char *fullLocation = NULL;
             if (it != lt.end()) {
               line = it->line;
               column = it->column;
-              fullLocation = it->get_description().c_str();
+              fullLocation = (char *) it->file->path.c_str();
             }
-
-            fprintf(writef,
-                    R"(,
+            break;
+          }
+        }
+        fprintf(writef,
+                R"(,
                     "line": %d,
                     "col": %d,
                     "fullLocation": "%s" })",
-                    line, column, fullLocation);
-            break;
-          }
-          fprintf(writef, " }");
-        }
+                line, column, fullLocation);
       }
       fprintf(writef,
               R"(
