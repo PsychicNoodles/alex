@@ -521,21 +521,30 @@ int analyzer(int pid) {
             // Map PC to a line
             auto &lt = cu.get_line_table();
             auto it = lt.find_address(pc);
-            if (it == lt.end())
-              fprintf(writef, "UNKNOWN\n");
-            else {
-              fprintf(writef,
-                      R"(,
+            auto line = -1, column = -1;
+            const char *fullLocation = NULL;
+            if (it != lt.end()) {
+              line = it->line;
+              column = it->column;
+              fullLocation = it->get_description().c_str();
+            }
+
+            fprintf(writef,
+                    R"(,
                     "line": %d,
                     "col": %d,
-                    "fullLocation: "%s" })",
-                      it->line, it->column, it->get_description().c_str());
-              break;
-            }
+                    "fullLocation": "%s" })",
+                    line, column, fullLocation);
+            break;
           }
           fprintf(writef, " }");
         }
       }
+      fprintf(writef,
+              R"(
+                  ]
+                }
+              )");
     }
   }
   return 0;
