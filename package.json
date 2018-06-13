@@ -8,9 +8,9 @@
     "url": "https://github.com/curtsinger-lab/perf-analyzer"
   },
   "scripts": {
-    "start": "electron .",
+    "start": "node .",
     "clean": "rm -f out-* err-* result-*",
-    "example": "npm run clean && electron . --in examples/inputs/matrix-1000x1000.in -p cache -- examples/build/matrixmultiplier",
+    "example": "npm run clean && node . --in examples/inputs/matrix-1000x1000.in -p cache -- examples/build/matrixmultiplier",
     "build-examples": "cd examples && make",
     "build-collector": "cd collector && make"
   },

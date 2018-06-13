@@ -1,4 +1,3 @@
-const { app, BrowserWindow } = require("electron");
 const yargs = require("yargs");
 const { spawn } = require("child_process");
 const fs = require("fs");
@@ -42,147 +41,121 @@ const { argv } = yargs
     default: 10000000
   });
 
-// Create child process
+collect();
 
-const executable = argv._[0];
-const executableArgs = argv._.slice(1);
+function collect() {
+  const executable = argv._[0];
+  const executableArgs = argv._.slice(1);
 
-let presetEvents = [];
-if (argv.preset === "cpu") {
-  presetEvents = [];
-} else if (argv.preset === "cache") {
-  presetEvents = ["MEM_LOAD_RETIRED.L3_MISS", "MEM_LOAD_RETIRED.L3_HIT"];
-} else {
-  console.error("Invalid preset:", preset);
-}
-
-const otherEvents = argv.events || [];
-
-const resultFile = argv.result || tempfile(".json");
-
-const collector = spawn(executable, executableArgs, {
-  env: {
-    ...process.env,
-    COLLECTOR_PERIOD: argv.period,
-    COLLECTOR_EVENTS: [...presetEvents, ...otherEvents].join(","),
-    COLLECTOR_RESULT_FILE: resultFile,
-    LD_PRELOAD: `${__dirname}/collector/collector.so`
-  }
-});
-
-// Keep track so we can wait on this before quitting
-const collectorDone = Promise.all([
-  new Promise(resolve => collector.stdout.on("end", resolve)),
-  new Promise(resolve => collector.stderr.on("end", resolve))
-]);
-
-// Pipe through inputs and outputs
-
-if (argv.in) {
-  const fileStream = fs.createReadStream(argv.in);
-  fileStream.on("open", () => {
-    fileStream.pipe(collector.stdin);
-  });
-} else {
-  process.stdin.pipe(collector.stdin);
-}
-
-if (argv.out) {
-  const fileStream = fs.createWriteStream(argv.out);
-  fileStream.on("open", () => {
-    collector.stdout.pipe(fileStream);
-  });
-} else {
-  collector.stdout.pipe(process.stdout);
-}
-
-if (argv.err) {
-  const fileStream = fs.createWriteStream(argv.err);
-  fileStream.on("open", () => {
-    collector.stderr.pipe(fileStream);
-  });
-} else {
-  collector.stderr.pipe(process.stderr);
-}
-
-function exit() {
-  console.info("Exiting gracefully, please wait...");
-  collectorDone.then(() => {
-    app.quit();
-  });
-}
-
-collector.on("exit", code => {
-  const errorCodes = {
-    1: "Could not kill parent.",
-    2: "Could not fork.",
-    3: "Could not open file to write results.",
-    4: "Could not open perf event.",
-    5: "Could not make file descriptor for instruction counter.",
-    6: "Could not set file descriptor to ASYNC mode.",
-    7: "Could not set signal to file descriptor.",
-    8: "Could not set file descriptor to owner.",
-    9: "Could not empty sigset.",
-    10: "Could not add to sigset.",
-    11: "Could not open file descriptor buffer.",
-    12: "Could not open semaphores.",
-    13: "Could not control perf event."
-  };
-
-  if (code in errorCodes) {
-    console.error(errorCodes[code]);
+  let presetEvents = [];
+  if (argv.preset === "cpu") {
+    presetEvents = [];
+  } else if (argv.preset === "cache") {
+    presetEvents = ["MEM_LOAD_RETIRED.L3_MISS", "MEM_LOAD_RETIRED.L3_HIT"];
   } else {
-    console.info("Successfully collected data.");
-    if (argv.result) {
-      console.info(`Results saved to ${resultFile}`);
-    }
-
-    if (argv.visualize === "window") {
-      createWindow();
-    } else if (argv.visualize === "ask") {
-      const interface = readline.createInterface(process.stdin, process.stdout);
-      interface.question(
-        "Would you like to see a visualization of the results ([yes]/no)? ",
-        answer => {
-          if (answer === "no") {
-            exit();
-          } else {
-            createWindow();
-          }
-
-          interface.close();
-        }
-      );
-    } else {
-      exit();
-    }
+    console.error("Invalid preset:", preset);
   }
-});
 
-// Electron Setup
+  const otherEvents = argv.events || [];
 
-// Keep a global reference of the window object, if you don't, the window will
-// be closed automatically when the JavaScript object is garbage collected.
-let win;
+  const resultFile = argv.result || tempfile(".json");
 
-// This promise will resolve when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
-const appReady = new Promise(resolve => app.on("ready", resolve));
-
-async function createWindow() {
-  await appReady;
-
-  win = new BrowserWindow({ width: 1000, height: 820 });
-  win.loadFile(`${__dirname}/visualizer/index.html`);
-
-  win.on("closed", () => {
-    // Dereference the window object so it can be garbage collected
-    win = null;
+  const collector = spawn(executable, executableArgs, {
+    env: {
+      ...process.env,
+      COLLECTOR_PERIOD: argv.period,
+      COLLECTOR_EVENTS: [...presetEvents, ...otherEvents].join(","),
+      COLLECTOR_RESULT_FILE: resultFile,
+      LD_PRELOAD: `${__dirname}/collector/collector.so`
+    }
   });
 
-  return win;
+  // Keep track so we can wait on this before quitting
+  const collectorDone = Promise.all([
+    new Promise(resolve => collector.stdout.on("end", resolve)),
+    new Promise(resolve => collector.stderr.on("end", resolve))
+  ]);
+
+  // Pipe through inputs and outputs
+
+  if (argv.in) {
+    const fileStream = fs.createReadStream(argv.in);
+    fileStream.on("open", () => {
+      fileStream.pipe(collector.stdin);
+    });
+  } else {
+    process.stdin.pipe(collector.stdin);
+  }
+
+  if (argv.out) {
+    const fileStream = fs.createWriteStream(argv.out);
+    fileStream.on("open", () => {
+      collector.stdout.pipe(fileStream);
+    });
+  } else {
+    collector.stdout.pipe(process.stdout);
+  }
+
+  if (argv.err) {
+    const fileStream = fs.createWriteStream(argv.err);
+    fileStream.on("open", () => {
+      collector.stderr.pipe(fileStream);
+    });
+  } else {
+    collector.stderr.pipe(process.stderr);
+  }
+
+  collector.on("exit", code => {
+    const errorCodes = {
+      1: "Could not kill parent.",
+      2: "Could not fork.",
+      3: "Could not open file to write results.",
+      4: "Could not open perf event.",
+      5: "Could not make file descriptor for instruction counter.",
+      6: "Could not set file descriptor to ASYNC mode.",
+      7: "Could not set signal to file descriptor.",
+      8: "Could not set file descriptor to owner.",
+      9: "Could not empty sigset.",
+      10: "Could not add to sigset.",
+      11: "Could not open file descriptor buffer.",
+      12: "Could not open semaphores.",
+      13: "Could not control perf event."
+    };
+
+    if (code in errorCodes) {
+      console.error(errorCodes[code]);
+    } else {
+      console.info("Successfully collected data.");
+      if (argv.result) {
+        console.info(`Results saved to ${resultFile}`);
+      }
+
+      if (argv.visualize === "window") {
+        visualize(resultFile);
+      } else if (argv.visualize === "ask") {
+        const interface = readline.createInterface(
+          process.stdin,
+          process.stdout
+        );
+        interface.question(
+          "Would you like to see a visualization of the results ([yes]/no)? ",
+          answer => {
+            if (answer !== "no") {
+              visualize(resultFile);
+            }
+
+            interface.close();
+          }
+        );
+      }
+    }
+  });
 }
 
-// Quit when all windows are closed.
-app.on("window-all-closed", exit);
+function visualize(resultFile) {
+  spawn(
+    `${__dirname}/node_modules/.bin/electron`,
+    [`${__dirname}/visualizer`, resultFile],
+    { stdio: "ignore" }
+  );
+}
