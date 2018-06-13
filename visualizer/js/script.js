@@ -1,6 +1,5 @@
 // Set size and margins of graph
-var width = window.innerWidth;
-//var width = 1000;
+var width = window.innerWidth * .8;
 var height = width * .7;
 var verticalPad = 20;
 var horizontalPad = 50;
@@ -215,7 +214,7 @@ function drawAxes() {
     .attr('text-anchor', 'end')
     .attr('x', width / 2 + horizontalPad)
     .attr('y', height)
-    .text(chooseXAxis());
+    .text('CPU Cycles');
 
   svg
     .select('yAxis')
@@ -246,7 +245,7 @@ function scatterPlot(timeslices, xScale, yScale, rainbow) {
       return yScale(d.events.missRates);
     }
     )
-    .attr('r', 1.2)
+    .attr('r', 2)
     .style('fill', function (d) {
       return rainbow(d.densityAver / densityMax);
     });
@@ -344,7 +343,7 @@ var x = d3.scaleLinear()
 // Calculates how many points are in this node
 function getDensity(node) {
   var count = 1;
-  while (node === node.next) {
+  while (node = node.next) {
     count++;
   }
   return count;
@@ -417,7 +416,7 @@ function calcAverDens(result) {
             arr.push(node.data.density);
           }
 
-        } while (node === node.next);
+        } while (node = node.next);
       }
       return x1 >= x3 || y1 >= y3 || x2 <= x0 || y2 <= y0;
     });
