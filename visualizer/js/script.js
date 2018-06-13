@@ -38,7 +38,7 @@ function loadFile() {
 
 /* ******************************** RESIZING ******************************** */
 
-window.addEventListener('resize', resizeGraph, false);
+//window.addEventListener('resize', resizeGraph, false);
 function resizeGraph () {
   width = window.innerWidth - horizontalPad * 2;
   height = .7 * width;
@@ -95,6 +95,7 @@ function draw(timeslices) {
 
   drawAxes(timeslices, xScale, yScale);
   var densityMax = scatterPlot(densityInfo(timeslices, xScale, yScale), xScale, yScale, rainbow);
+  console.log(densityMax);
   legend(densityMax);
 }
 
@@ -325,12 +326,12 @@ var x = d3.scaleLinear()
 
 
   
-
+/** ************************* cccc color color color ccccc ********************************************************** */
 
 // Calculates how many points are in this node
 function getDensity(node) {
   var count = 1;
-  while (node === node.next) {
+  while (node = node.next) {
     count++;
   }
   return count;
@@ -338,7 +339,7 @@ function getDensity(node) {
 
 // // Calculates how many points are in this node
 // function getDensity (cur) {
-//   if (cur === undefined) {
+//   if (cur == undefined) {
 //     return 0
 //   }
 //   if (!cur.length) {
@@ -403,7 +404,7 @@ function calcAverDens(result) {
             arr.push(node.data.density);
           }
 
-        } while (node === node.next);
+        } while (node = node.next);
       }
       return x1 >= x3 || y1 >= y3 || x2 <= x0 || y2 <= y0;
     });
@@ -421,6 +422,7 @@ function calcAverDens(result) {
 //This function will make a array of the density information and the "fake" xAxis and yAxis information
 function densityInfo(timeslices, xScale, yScale) {//for now, just take in missRates, and InstrustionsAcc
   position(timeslices, xScale, yScale);
+  console.log(timeslices)
   var quadtree = d3.quadtree(timeslices, function (d) { return d.x; }, function (d) { return d.y; }); //build a quadtree with all datum
   var result = []; //the array used for holding the "picked" datum with their density 
 
@@ -439,7 +441,9 @@ function densityInfo(timeslices, xScale, yScale) {//for now, just take in missRa
   });
 
   calcAverDens(result);
+  console.log(result)
   return result;
+ 
 }
 
 // //This function will make a array of the density information and the "fake" xAxis and yAxis information
@@ -488,7 +492,7 @@ function legend(densityMax) {
 
   svg.append('g')
     .attr('class', 'legendSequential')
-    .attr('transform', 'translate(1000,30)');
+    .attr('transform', 'translate(500,30)');
 
   var legendSequential = d3.legendColor()
     .title('Density')
