@@ -1,5 +1,6 @@
 // Set size and margins of graph
 var width = window.innerWidth;
+//var width = 1000;
 var height = width * .7;
 var verticalPad = 20;
 var horizontalPad = 50;
@@ -69,6 +70,18 @@ function resizeGraph () {
     }
     );
 
+  selection.call(brush.move, null);
+  brush = d3.brushX()
+    .extent([[0, 0], [width, height]])
+    .on('brush', brushed)
+    .on('end', createTable);
+
+  svg.append('g')
+    .call(brush)
+    .call(brush.move, [3, 5].map(x))
+    .selectAll('.overlay')
+    .each(function(d) { d.type = 'selection'; })
+    .on('mousedown touchstart', brushcentered);
 }
 
 function draw(timeslices) {
@@ -76,7 +89,7 @@ function draw(timeslices) {
   processData(timeslices, chooseResource());
   processData(timeslices, chooseXAxis());
   // Calculate size of x-axis based on number of data points
-  const xAxisMax = timeslices[timeslices.length - 1].instructionsAcc;
+  const xAxisMax = timeslices[timeslices.length - 1].totalCycles;
   const yAxisMax = findMax(timeslices, chooseResource());
 
 
@@ -238,8 +251,22 @@ function scatterPlot(timeslices, xScale, yScale, rainbow) {
     .style('fill', function (d) {
       return rainbow(d.densityAver / densityMax);
     });
-  return densityMax;
 
+  // Create brush
+  brush = d3.brushX()
+    .extent([[0, 0], [width, height]])
+    .on('brush', brushed)
+    .on('end', createTable);
+
+  // Add brush to svg object
+  svg.append('g')
+    .call(brush)
+    .call(brush.move, [3, 5].map(x))
+    .selectAll('.overlay')
+    .each(function(d) { d.type = 'selection'; })
+    .on('mousedown touchstart', brushcentered);
+
+  return densityMax;
 }
 
 /** *************************selector selector selector ********************************************************** */
@@ -303,19 +330,6 @@ function brushed() {
   }
 }
 
-// Create brush
-brush = d3.brushX()
-  .extent([[0, 0], [width, height]])
-  .on('brush', brushed)
-  .on('end', createTable);
-
-// Add brush to svg object
-svg.append('g')
-  .call(brush)
-  .call(brush.move, [3, 5].map(x))
-  .selectAll('.overlay')
-  .each(function(d) { d.type = 'selection'; })
-  .on('mousedown touchstart', brushcentered);
 var x = d3.scaleLinear()
   .domain([0, 10])
   .range([0, width]);
@@ -382,7 +396,7 @@ function getDensity(node) {
 
 function position(timeslices, xScale, yScale) {
   for (var i = 0; i < timeslices.length; i++) {
-    timeslices[i].x = Math.round(xScale(timeslices[i].instructionsAcc));
+    timeslices[i].x = Math.round(xScale(timeslices[i].totalCycles));
     timeslices[i].y = Math.round(yScale(timeslices[i].events.missRates));
   }
 }

@@ -5,8 +5,8 @@
 void * calculate_sum(void *);
 int  counter = 0;
 
-#define N 10
-#define M 10
+#define N 1000
+#define M 1000
 
 int dimensional_array[N][M];
 
