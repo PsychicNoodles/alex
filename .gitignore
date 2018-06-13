@@ -329,3 +329,8 @@ tags
 
 
 # End of https://www.gitignore.io/api/c,r,vim,c++,node,linux,macos,python,visualstudiocode
+
+# Results
+/err-*
+/out-*
+/result-*
