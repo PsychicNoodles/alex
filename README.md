@@ -11,7 +11,9 @@ All bundled in a tidy electron app with a command line interface.
 
 ## Getting Started
 
-First build the data collector with `npm run build-collector`. You will most
+First, install dependencies with `npm install`.
+
+Then, build the data collector with `npm run build-collector`. You will most
 likely also want to build the example programs with `npm run build-examples`.
 
 To run the profiler, on the `examples/build/matrixmultiplier` program with
