@@ -1,10 +1,11 @@
 CXX := clang++
+CFLAGS := $(shell pkg-config --cflags --libs libelf++ libdwarf++)
 
 ifeq ($(shell uname -s),Darwin)
 SHLIB_SUFFIX := dylib
 PRELOAD_VAR  := DYLD_INSERT_LIBRARIES
 CXXLIB       := $(CXX) -shared -fPIC -compatibility_version 1 -current_version 1 \
-                        -dynamiclib
+                        -dynamiclib 
 else
 SHLIB_SUFFIX := so
 PRELOAD_VAR  := LD_PRELOAD
@@ -29,4 +30,4 @@ clean-res:
 	@rm -f err-* out-* res-*
 
 alex.$(SHLIB_SUFFIX): alex.cpp debug.cpp perf_sampler.cpp
-	$(CXXLIB) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -ldl -lpfm -pthread -rdynamic
+	$(CXXLIB) $(CFLAGS) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -ldl -lpfm -pthread -rdynamic
