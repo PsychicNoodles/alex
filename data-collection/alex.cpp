@@ -489,8 +489,7 @@ int analyzer(int pid) {
 
         fprintf(writef,
                 R"(
-                  { "address": "%p" }
-                )",
+                  { "address": "%p",)",
                 (void *)perf_sample->instruction_pointers[i]);
 
         Dl_info info;
@@ -505,10 +504,10 @@ int analyzer(int pid) {
         }
         fprintf(writef,
                 R"(
-                  "name": "%s",
-                  "file": "%s",
-                  "base": "%p",
-                  "addr": "%p")",
+                    "name": "%s",
+                    "file": "%s",
+                    "base": "%p",
+                    "addr": "%p")",
                 sym_name, file_name, file_base, sym_addr);
 
         // Need to subtract one. PC is the return address, but we're looking for
@@ -527,9 +526,9 @@ int analyzer(int pid) {
             else {
               fprintf(writef,
                       R"(,
-                  "line": %d,
-                  "col": %d,
-                  "fullLocation: "%s" })",
+                    "line": %d,
+                    "col": %d,
+                    "fullLocation: "%s" })",
                       it->line, it->column, it->get_description().c_str());
               break;
             }
