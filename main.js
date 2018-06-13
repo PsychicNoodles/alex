@@ -3,6 +3,7 @@ const yargs = require("yargs");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const readline = require("readline");
+const tempfile = require("tempfile");
 
 const { argv } = yargs
   .usage("usage: alex [OPTIONS] -- EXECUTABLE [EXECUTABLE_ARGS...]")
@@ -57,18 +58,20 @@ if (argv.preset === "cpu") {
 
 const otherEvents = argv.events || [];
 
+const resultFile = argv.result || tempfile(".json");
+
 const collector = spawn(executable, executableArgs, {
   env: {
     ...process.env,
     COLLECTOR_PERIOD: argv.period,
     COLLECTOR_EVENTS: [...presetEvents, ...otherEvents].join(","),
-    COLLECTOR_RESULT_FILE: argv.result,
+    COLLECTOR_RESULT_FILE: resultFile,
     LD_PRELOAD: `${__dirname}/collector/collector.so`
   }
 });
 
 // Keep track so we can wait on this before quitting
-const dataCollectorDone = Promise.all([
+const collectorDone = Promise.all([
   new Promise(resolve => collector.stdout.on("end", resolve)),
   new Promise(resolve => collector.stderr.on("end", resolve))
 ]);
@@ -104,7 +107,7 @@ if (argv.err) {
 
 function exit() {
   console.info("Exiting gracefully, please wait...");
-  dataCollectorDone.then(() => {
+  collectorDone.then(() => {
     app.quit();
   });
 }
@@ -130,7 +133,7 @@ collector.on("exit", code => {
     console.error(errorCodes[code]);
   } else {
     console.info("Successfully collected data.");
-    console.info(`Results saved to ${argv.result}`);
+    console.info(`Results saved to ${resultFile}`);
 
     if (argv.visualize === "window") {
       createWindow();
