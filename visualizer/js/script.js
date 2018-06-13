@@ -69,7 +69,6 @@ function resizeGraph () {
     }
     );
 
-  selection.call(brush.move, null);
   brush = d3.brushX()
     .extent([[0, 0], [width, height]])
     .on('brush', brushed)
@@ -343,7 +342,8 @@ var x = d3.scaleLinear()
 // Calculates how many points are in this node
 function getDensity(node) {
   var count = 1;
-  while (node = node.next) {
+  while (node.next) {
+    node = node.next;
     count++;
   }
   return count;
@@ -416,7 +416,7 @@ function calcAverDens(result) {
             arr.push(node.data.density);
           }
 
-        } while (node = node.next);
+        } while (node === node.next);
       }
       return x1 >= x3 || y1 >= y3 || x2 <= x0 || y2 <= y0;
     });
