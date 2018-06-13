@@ -19,16 +19,23 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <exception>
+#include <fstream>
 #include <map>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include <fcntl.h>
+#include <inttypes.h>
+#include <link.h>
+
 #include "debug.hpp"
+#include "dwarf/dwarf++.hh"
+#include "elf/elf++.hh"
 #include "perf_sampler.hpp"
 
-using std::string;
-using std::vector;
+using namespace std;
 
 #define PAGE_SIZE 0x1000LL
 // this needs to be a power of two :'( (an hour was spent here)
@@ -59,6 +66,7 @@ using std::vector;
 #define CALLCHAIN_GUESTUSER 0xfffffffffffff600
 
 #define SAMPLE_TYPE (PERF_SAMPLE_TIME | PERF_SAMPLE_CALLCHAIN)
+using namespace std;
 struct sample {
   uint64_t time;
   uint64_t num_instruction_pointers;
@@ -74,6 +82,54 @@ size_t init_time;
 static main_fn_t real_main;
 void *buffer;
 bool ready = false;
+
+/*
+   find program counter
+   */
+
+bool find_pc(const dwarf::die &d, dwarf::taddr pc, vector<dwarf::die> *stack) {
+  using namespace dwarf;
+
+  // Scan children first to find most specific DIE
+  bool found = false;
+  for (auto &child : d) {
+    if ((found = find_pc(child, pc, stack))) break;
+  }
+  switch (d.tag) {
+    case DW_TAG::subprogram:
+    case DW_TAG::inlined_subroutine:
+      try {
+        if (found || die_pc_range(d).contains(pc)) {
+          found = true;
+          stack->push_back(d);
+        }
+      } catch (out_of_range &e) {
+      } catch (value_type_mismatch &e) {
+      }
+      break;
+    default:
+      break;
+  }
+  return found;
+}
+
+void dump_die(const dwarf::die &node) {
+  printf("<%" PRIx64 "> %s\n", node.get_section_offset(),
+         to_string(node.tag).c_str());
+  for (auto &attr : node.attributes())
+    printf("      %s %s\n", to_string(attr.first).c_str(),
+           to_string(attr.second).c_str());
+}
+
+void dump_line_table(const dwarf::line_table &lt) {
+  for (auto &line : lt) {
+    if (line.end_sequence)
+      printf("\n");
+    else
+      printf("%-40s%8d%#20" PRIx64 "\n", line.file->path.c_str(), line.line,
+             line.address);
+  }
+}
 
 /*
  * Reports time since epoch in milliseconds.
@@ -167,6 +223,55 @@ vector<string> get_events() {
   auto events_env = getenv_safe("ALEX_EVENTS");
   DEBUG("events: '" << events_env << "'");
   return str_split(events_env, ",");
+}
+
+int dump_table_and_symbol(char *path) {
+  int fd = open(path, O_RDONLY);
+  if (fd < 0) {
+    perror(path);
+    return OPENERROR;
+  }
+
+  elf::elf ef(elf::create_mmap_loader(fd));
+  dwarf::dwarf dw(dwarf::elf::create_loader(ef));
+  DEBUG("dump_line_table");
+
+  for (auto cu : dw.compilation_units()) {
+    printf("--- <%x>\n", (unsigned int)cu.get_section_offset());
+    dump_line_table(cu.get_line_table());
+    printf("\n");
+  }
+  printf("loading symbols");
+  for (auto &sec : ef.sections()) {
+    if (sec.get_hdr().type != elf::sht::symtab &&
+        sec.get_hdr().type != elf::sht::dynsym)
+      continue;
+
+    printf("Symbol table '%s':\n", sec.get_name().c_str());
+    printf("%6s: %-16s %-5s %-7s %-7s %-5s %s\n", "Num", "Value", "Size",
+           "Type", "Binding", "Index", "Name");
+    int i = 0;
+    for (auto sym : sec.as_symtab()) {
+      auto &d = sym.get_data();
+      printf("%6d: %016" PRIx64 " %5" PRId64 " %-7s %-7s %5s %s\n", i++,
+             d.value, d.size, to_string(d.type()).c_str(),
+             to_string(d.binding()).c_str(), to_string(d.shnxd).c_str(),
+             sym.get_name().c_str());
+    }
+  }
+  printf("  %-16s  %-16s   %-16s   %s\n", "Type", "Offset", "VirtAddr",
+         "PhysAddr");
+  printf("  %-16s  %-16s   %-16s  %6s %5s\n", " ", "FileSiz", "MemSiz", "Flags",
+         "Align");
+  for (auto &seg : ef.segments()) {
+    auto &hdr = seg.get_hdr();
+    printf("   %-16s 0x%016" PRIx64 " 0x%016" PRIx64 " 0x%016" PRIx64 "\n",
+           to_string(hdr.type).c_str(), hdr.offset, hdr.vaddr, hdr.paddr);
+    printf("   %-16s 0x%016" PRIx64 " 0x%016" PRIx64 " %-5s %-5" PRIx64 "\n",
+           "", hdr.filesz, hdr.memsz, to_string(hdr.flags).c_str(), hdr.align);
+  }
+  return 0;
+  DEBUG("dump symbol table");
 }
 
 /*
@@ -362,6 +467,15 @@ int analyzer(int pid) {
         fprintf(writef, R"("%s": %lld)", events.at(i).c_str(), count);
       }
 
+      int fd = open((char *)"/proc/self/exe", O_RDONLY);
+      if (fd < 0) {
+        perror("cannot open executable (/proc/self/exe)");
+        return OPENERROR;
+      }
+
+      elf::elf ef(elf::create_mmap_loader(fd));
+      dwarf::dwarf dw(dwarf::elf::create_loader(ef));
+
       fprintf(writef,
               R"(
                   },
@@ -375,20 +489,64 @@ int analyzer(int pid) {
 
         fprintf(writef,
                 R"(
-                  { "address": "%p" }
-                )",
+                  { "address": "%p",)",
                 (void *)perf_sample->instruction_pointers[i]);
-      }
 
+        Dl_info info;
+        const char *sym_name = NULL, *file_name = NULL;
+        void *file_base = NULL, *sym_addr = NULL;
+        // Lookup the name of the function given the function pointer
+        if (dladdr((void *)perf_sample->instruction_pointers[i], &info) != 0) {
+          sym_name = info.dli_sname;
+          file_name = info.dli_fname;
+          file_base = info.dli_fbase;
+          sym_addr = info.dli_saddr;
+        }
+        fprintf(writef,
+                R"(
+                    "name": "%s",
+                    "file": "%s",
+                    "base": "%p",
+                    "addr": "%p")",
+                sym_name, file_name, file_base, sym_addr);
+
+        // Need to subtract one. PC is the return address, but we're looking for
+        // the callsite.
+        dwarf::taddr pc = perf_sample->instruction_pointers[i] - 1;
+
+        // Find the CU containing pc
+        // XXX Use .debug_aranges
+        for (auto &cu : dw.compilation_units()) {
+          if (die_pc_range(cu.root()).contains(pc)) {
+            // Map PC to a line
+            auto &lt = cu.get_line_table();
+            auto it = lt.find_address(pc);
+            auto line = -1, column = -1;
+            const char *fullLocation = NULL;
+            if (it != lt.end()) {
+              line = it->line;
+              column = it->column;
+              fullLocation = it->get_description().c_str();
+            }
+
+            fprintf(writef,
+                    R"(,
+                    "line": %d,
+                    "col": %d,
+                    "fullLocation": "%s" })",
+                    line, column, fullLocation);
+            break;
+          }
+          fprintf(writef, " }");
+        }
+      }
       fprintf(writef,
               R"(
                   ]
                 }
               )");
-      DEBUG("anlz: finished a loop");
     }
   }
-
   return 0;
 }
 
@@ -424,6 +582,7 @@ static int wrapped_main(int argc, char **argv, char **env) {
         get_function_addrs(exe_path, functions);
         */
   enable_segfault_trace();
+
   int result = 0;
 
   struct sigaction ready_act;
