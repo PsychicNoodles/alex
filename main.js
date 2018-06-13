@@ -55,11 +55,13 @@ if (argv.preset === "cpu") {
   console.error("Invalid preset:", preset);
 }
 
+const otherEvents = argv.events || [];
+
 const dataCollector = spawn(executable, executableArgs, {
   env: {
     ...process.env,
     ALEX_PERIOD: argv.period,
-    ALEX_EVENTS: [...presetEvents, ...(argv.events || [])].join(","),
+    ALEX_EVENTS: [...presetEvents, ...otherEvents].join(","),
     ALEX_RESULT_FILE: argv.result,
     LD_PRELOAD: `${__dirname}/data-collection/alex.so`
   }
