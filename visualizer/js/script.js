@@ -1,6 +1,5 @@
 // Set size and margins of graph
 var width = window.innerWidth;
-//var width = 1000;
 var height = width * .7;
 var verticalPad = 20;
 var horizontalPad = 50;
@@ -39,7 +38,7 @@ function loadFile() {
 
 /* ******************************** RESIZING ******************************** */
 
-//window.addEventListener('resize', resizeGraph, false);
+window.addEventListener('resize', resizeGraph, false);
 function resizeGraph () {
   width = window.innerWidth - horizontalPad * 2;
   height = .7 * width;
@@ -108,7 +107,6 @@ function draw(timeslices) {
 
   drawAxes(timeslices, xScale, yScale);
   var densityMax = scatterPlot(densityInfo(timeslices, xScale, yScale), xScale, yScale, rainbow);
-  console.log(densityMax);
   legend(densityMax);
 }
 
@@ -148,7 +146,7 @@ function processData (timeslices, resource) {
       for (let i = 1; i < timeslices.length; i++) {
         let cur = timeslices[i];
         total = cur.events['MEM_LOAD_RETIRED.L3_MISS'] + cur.events['MEM_LOAD_RETIRED.L3_HIT'];
-        if (total === 0) {
+        if (total == 0) {
           cur.events.missRates = 0;
         } else {
           cur.events.missRates = cur.events['MEM_LOAD_RETIRED.L3_MISS'] / total;
@@ -436,7 +434,6 @@ function calcAverDens(result) {
 //This function will make a array of the density information and the "fake" xAxis and yAxis information
 function densityInfo(timeslices, xScale, yScale) {//for now, just take in missRates, and InstrustionsAcc
   position(timeslices, xScale, yScale);
-  console.log(timeslices)
   var quadtree = d3.quadtree(timeslices, function (d) { return d.x; }, function (d) { return d.y; }); //build a quadtree with all datum
   var result = []; //the array used for holding the "picked" datum with their density 
 
@@ -455,7 +452,6 @@ function densityInfo(timeslices, xScale, yScale) {//for now, just take in missRa
   });
 
   calcAverDens(result);
-  console.log(result)
   return result;
  
 }
