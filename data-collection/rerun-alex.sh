@@ -1,7 +1,7 @@
-#!/bin/bash
-
+#!/usr/bin/env bash
+set -e
 echo "making..."
-make
+make pedantic
 make -C simpletest
 echo "cleaning..."
 make clean-res
