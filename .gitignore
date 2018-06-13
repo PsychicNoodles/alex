@@ -256,3 +256,11 @@ tags
 !.vscode/launch.json
 !.vscode/extensions.json
 .history
+
+# NPM packages
+node_modules
+
+# Data files
+/out-*
+/err-*
+/result-*

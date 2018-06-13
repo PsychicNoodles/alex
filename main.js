@@ -9,7 +9,7 @@ const { argv } = yargs
   .option("preset", {
     alias: "p",
     description: "Sensible performance metrics.",
-    choices: ["cpu", "cache", "power"],
+    choices: ["cpu", "cache"],
     default: "cpu"
   })
   .option("events", {
@@ -38,7 +38,7 @@ const { argv } = yargs
   .option("period", {
     description: "The period in CPU cycles",
     type: "number",
-    default: 1000000
+    default: 10000000
   });
 
 // Create child process
@@ -61,7 +61,7 @@ const dataCollector = spawn(executable, executableArgs, {
     ALEX_PERIOD: argv.period,
     ALEX_EVENTS: [...presetEvents, ...(argv.events || [])].join(","),
     ALEX_RESULT_FILE: argv.result,
-    LD_PRELOAD: "../data-collection/alex.so"
+    LD_PRELOAD: `${__dirname}/data-collection/alex.so`
   }
 });
 
@@ -167,7 +167,7 @@ async function createWindow() {
   await appReady;
 
   win = new BrowserWindow({ width: 1520, height: 820 });
-  win.loadFile("../visualizer/index.html");
+  win.loadFile(`${__dirname}/visualizer/index.html`);
 
   win.on("closed", () => {
     // Dereference the window object so it can be garbage collected
