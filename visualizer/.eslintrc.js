@@ -7,9 +7,6 @@ module.exports = {
         "d3": true
     },
     "extends": "eslint:recommended",
-    "parserOptions": {
-        "sourceType": "module"
-    },
     "rules": {
         "indent": [
             "error",
@@ -27,6 +24,7 @@ module.exports = {
         "semi": [
             "error",
             "always"
-        ]
+        ],
+        "no-console": "off",
     }
 };

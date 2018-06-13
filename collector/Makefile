@@ -5,14 +5,14 @@ ifeq ($(shell uname -s),Darwin)
 SHLIB_SUFFIX := dylib
 PRELOAD_VAR  := DYLD_INSERT_LIBRARIES
 CXXLIB       := $(CXX) -shared -fPIC -compatibility_version 1 -current_version 1 \
-                        -dynamiclib 
+                        -dynamiclib
 else
 SHLIB_SUFFIX := so
 PRELOAD_VAR  := LD_PRELOAD
 CXXLIB       := $(CXX) -shared -fPIC -Wl,-soname,interposer.so
 endif
 
-all: alex.$(SHLIB_SUFFIX)
+all: collector.$(SHLIB_SUFFIX)
 
 pedantic: WARN = -Werror
 pedantic: all
@@ -24,10 +24,10 @@ minlog: DEBUG = -D MINDEBUG
 minlog: all
 
 clean:
-	@rm -f alex.$(SHLIB_SUFFIX)
+	@rm -f collector.$(SHLIB_SUFFIX)
 
 clean-res:
 	@rm -f err-* out-* res-*
 
-alex.$(SHLIB_SUFFIX): alex.cpp debug.cpp perf_sampler.cpp
+collector.$(SHLIB_SUFFIX): collector.cpp debug.cpp perf_sampler.cpp
 	$(CXXLIB) $(CFLAGS) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -ldl -lpfm -pthread -rdynamic
