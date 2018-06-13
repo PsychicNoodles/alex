@@ -4,48 +4,80 @@ const fs = require("fs");
 const readline = require("readline");
 const tempfile = require("tempfile");
 
-const { argv } = yargs
-  .usage("usage: alex [OPTIONS] -- EXECUTABLE [EXECUTABLE_ARGS...]")
-  .option("preset", {
-    alias: "p",
-    description: "Sensible performance metrics.",
-    choices: ["cpu", "cache"],
-    default: "cpu"
-  })
-  .option("events", {
-    alias: "e",
-    description: "A list of events to count.",
-    type: "array"
-  })
-  .describe("in", "The file to pipe into the stdin of EXECUTABLE.")
-  .option("out", {
-    description: "The file to pipe the stdout of EXECUTABLE into.",
-    default: `out-${Date.now()}.log`
-  })
-  .option("err", {
-    description: "The file to pipe the stderr of EXECUTABLE into.",
-    default: `err-${Date.now()}.log`
-  })
-  .option("result", {
-    description: "The file to pipe the performance results into.",
-    default: `result-${Date.now()}.json`
-  })
-  .option("visualize", {
-    description: "Where to visualize the results.",
-    choices: ["window", "no", "ask"],
-    default: "ask"
-  })
-  .option("period", {
-    description: "The period in CPU cycles",
-    type: "number",
-    default: 10000000
-  });
+yargs
+  .usage(
+    "usage: alex collect [OPTIONS] -- EXECUTABLE [EXECUTABLE_ARGS...]\n" +
+      "   or: alex visualize FILE"
+  )
+  .command(
+    "collect",
+    "Collect performance data on an executable.",
+    yargs =>
+      yargs
+        .usage("collect [OPTIONS] -- EXECUTABLE [EXECUTABLE_ARGS...]")
+        .positional("EXECUTABLE", {
+          description: "Executable file to profile.",
+          type: "string"
+        })
+        .positional("EXECUTABLE_ARGS", {
+          description: "Arguments to be passed to the executable.",
+          type: "string"
+        })
+        .option("preset", {
+          alias: "p",
+          description: "Sensible performance metrics.",
+          choices: ["cpu", "cache"],
+          default: "cpu"
+        })
+        .option("events", {
+          alias: "e",
+          description: "A list of events to count.",
+          type: "array"
+        })
+        .describe("in", "The file to pipe into the stdin of EXECUTABLE.")
+        .option("out", {
+          description: "The file to pipe the stdout of EXECUTABLE into.",
+          default: `out-${Date.now()}.log`
+        })
+        .option("err", {
+          description: "The file to pipe the stderr of EXECUTABLE into.",
+          default: `err-${Date.now()}.log`
+        })
+        .option("result", {
+          description: "The file to pipe the performance results into.",
+          default: `result-${Date.now()}.json`
+        })
+        .option("visualize", {
+          description: "Where to visualize the results.",
+          choices: ["window", "no", "ask"],
+          default: "ask"
+        })
+        .option("period", {
+          description: "The period in CPU cycles",
+          type: "number",
+          default: 10000000
+        }),
+    collect
+  )
+  .command(
+    "visualize",
+    "Visualize performance data from a file.",
+    yargs =>
+      yargs.usage("visualize FILE")
+      .positional("FILE", {
+        description: "File to read result data from.",
+        type: "string"
+      }),
+    argv => {
+      visualize(argv._[1]);
+    }
+  )
+  .demandCommand()
+  .help().argv;
 
-collect();
-
-function collect() {
-  const executable = argv._[0];
-  const executableArgs = argv._.slice(1);
+function collect(argv) {
+  const executable = argv._[1];
+  const executableArgs = argv._.slice(2);
 
   let presetEvents = [];
   if (argv.preset === "cpu") {
