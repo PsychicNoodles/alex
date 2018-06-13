@@ -1,9 +1,22 @@
-# Alex
+# ALEX
 
-This repository is the home of Alex, the [AnaLysis of EXecution](https://en.wikipedia.org/wiki/Backronym) profiler. Alex is a multipart project that includes:
+This repository is the home of ALEX, the
+[AnaLysis of EXecution](https://en.wikipedia.org/wiki/Backronym) profiler.
+Alex is a multipart project that includes:
 
 * C/C++ data collection tool
 * D3.js visualization
+
+All bundled in a tidy electron app with a command line interface.
+
+## Getting Started
+
+First build the data collector with `npm run build-collector`. You will most
+likely also want to build the example programs with `npm run build-examples`.
+
+To run the profiler, on the `examples/build/matrixmultiplier` program with
+the `examples/inputs/matrix-1000x1000.in` test input using the cache preset,
+run `npm start -- --in examples/inputs/matrix-1000x1000.in --preset cache -- examples/build/matrixmultiplier`.
 
 ## Data Collection
 
