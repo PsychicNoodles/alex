@@ -11,5 +11,5 @@ examples:
 run-example: collector examples
 	npm run example
 
-.PHONY: all collector examples
+.PHONY: all collector examples run-example
 
