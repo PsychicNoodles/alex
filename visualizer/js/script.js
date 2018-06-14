@@ -1,5 +1,5 @@
 // Constants
-const ASPECT_RATIO = 9 / 16; // ratio of height-to-width currently, can be changed
+const ASPECT_RATIO = 8 / 16; // ratio of height-to-width currently, can be changed
 const SPECTRUM = d3.scaleSequential(d3.interpolateWarm);
 const VERTICALPAD = 20; // Should dynamically generate these in the future.
 const HORIZONTALPAD = 50; // ''
@@ -11,6 +11,11 @@ var timeslices;
 var svg;
 var width;
 var height;
+const { ipcRenderer } = require("electron");
+ipcRenderer.send("result-request");
+ipcRenderer.on("result", (event, result) => {
+  draw(result.timeslices, d3.select("#plot"));
+});
 
 /* ******************************** LOADING ********************************* */
 // Set "loadFile" to execute when files are uploaded via the file upload button.
@@ -33,7 +38,7 @@ function loadFile() {
     try {
       timeslices = JSON.parse(reader.result).timeslices;
       svg = d3.select('#plot');
-      draw(timeslices, svg);
+      draw(timeslices, svg, d3.select('#legend'));
     } catch (err) {
       console.error(err);
     }
@@ -49,14 +54,15 @@ window.addEventListener('resize', loadFile, false);
 /* This takes in timeslices (format specified in wiki) and svg (the plot we want
   to use). It's nice to take svg in as an argument, because if we want to draw
   multiple graphs in the future, we can say which svg should be drawn in. */
-function draw(timeslices, svg) {
-  width = window.innerWidth;
+function draw(timeslices, svgPlot) {
+  width = document.querySelector('#plot')
+    .getBoundingClientRect().width;
   height = width * ASPECT_RATIO;
   // Select the svg object of the graph.
-  svg.attr('width', width).attr('height', height);
+  svgPlot.attr('width', width).attr('height', height);
 
   // If the SVG has anything in it, get rid of it. We want a clean slate.
-  svg.selectAll('*').remove();
+  svgPlot.selectAll('*').remove();
   processData(timeslices, chooseResource());
   processData(timeslices, chooseXAxis());
 
@@ -73,8 +79,8 @@ function draw(timeslices, svg) {
     .domain([yScaleMax, 0])
     .range([VERTICALPAD, height - VERTICALPAD * 3]);
 
-  drawAxes(xScale, yScale, svg);
-  var densityMax = scatterPlot(densityInfo(timeslices, xScale, yScale), xScale, yScale, svg);
+  drawAxes(xScale, yScale, svgPlot);
+  var densityMax = scatterPlot(densityInfo(timeslices, xScale, yScale), xScale, yScale, svgPlot);
   legend(densityMax);
 }
 
@@ -200,11 +206,6 @@ function drawAxes(xScale, yScale, svg) {
 function scatterPlot(timeslices, xScale, yScale, svg) {
   const densityMax = findMax(timeslices, 'density');
 
-  var x = d3.scaleLinear()
-    .domain([0, 10])
-    .range([0, width]);
-
-
   // Create the points and position them in the graph
   circles = svg
     .selectAll('circle')
@@ -305,11 +306,6 @@ function brushed() {
   }
 }
 
-
-
-
-
-
 /** ************************* cccc color color color ccccc ****************** */
 
 // Calculates how many points are in this node
@@ -408,7 +404,7 @@ function calcAverDens(result) {
 function densityInfo(timeslices, xScale, yScale) {//for now, just take in missRates, and InstrustionsAcc
   position(timeslices, xScale, yScale);
   var quadtree = d3.quadtree(timeslices, function (d) { return d.x; }, function (d) { return d.y; }); //build a quadtree with all datum
-  var result = []; //the array used for holding the "picked" datum with their density 
+  var result = []; //the array used for holding the "picked" datum with their density
 
   //now go to the depthStd deep node and count the density and record the information to result[]
   quadtree.visit(function (node) {
@@ -438,7 +434,7 @@ function densityInfo(timeslices, xScale, yScale) {//for now, just take in missRa
 //   //add depth information into the datum
 //   getDepth(quadtree.root(), -1);
 
-//   //making sure that the max depth level goes down to pixels 
+//   //making sure that the max depth level goes down to pixels
 //   var depthStd = Math.round(Math.log(width * height) / Math.log(4)); //round up!
 
 //   //now go to the depthStd deep node and count the density and record the information to result[]
@@ -467,6 +463,8 @@ function densityInfo(timeslices, xScale, yScale) {//for now, just take in missRa
 //   return result;
 // }
 
+/************************************ legend legend legend **************************************** */
+
 function legend(densityMax) {
   var sequentialScale = d3.scaleSequential(d3.interpolateWarm)
     .domain([0, densityMax]);
@@ -475,7 +473,7 @@ function legend(densityMax) {
 
   svg.append('g')
     .attr('class', 'legendSequential')
-    .attr('transform', 'translate(500,30)');
+    .attr('transform', 'translate(0,30)');
 
   var legendSequential = d3.legendColor()
     .title('Density')
@@ -485,5 +483,7 @@ function legend(densityMax) {
 
   svg.select('.legendSequential')
     .call(legendSequential);
-
 }
+
+
+/***************************************** UI to choose xAxis ******************************************* */
