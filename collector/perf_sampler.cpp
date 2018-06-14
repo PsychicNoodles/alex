@@ -75,3 +75,18 @@ int reset_monitoring(int fd) {
 
   return SAMPLER_MONITOR_SUCCESS;
 }
+
+int setup_pfm_os_event(perf_event_attr *attr, char *event_name) {
+  pfm_perf_encode_arg_t pfm;
+  pfm.attr = attr;
+  pfm.fstr = 0;
+  pfm.size = sizeof(pfm_perf_encode_arg_t);
+  int pfm_result = pfm_get_os_event_encoding(event_name, PFM_PLM3,
+                                             PFM_OS_PERF_EVENT_EXT, &pfm);
+
+  attr->disabled = true;
+  attr->size = sizeof(perf_event_attr);
+  attr->exclude_kernel = true;
+
+  return pfm_result;
+}

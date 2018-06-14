@@ -198,20 +198,11 @@ int analyzer(int pid) {
     memset(&attr, 0, sizeof(perf_event_attr));
 
     // Parse out event name with PFM.  Must be done first.
-    pfm_perf_encode_arg_t pfm;
-    pfm.attr = &attr;
-    pfm.fstr = 0;
-    pfm.size = sizeof(pfm_perf_encode_arg_t);
-    int pfm_result = pfm_get_os_event_encoding(events.at(i).c_str(), PFM_PLM3,
-                                               PFM_OS_PERF_EVENT_EXT, &pfm);
+    int pfm_result = setup_pfm_os_event(&attr, (char *)events.at(i).c_str());
     if (pfm_result != PFM_SUCCESS) {
       fprintf(stderr, "pfm encoding error: %s", pfm_strerror(pfm_result));
       shutdown(cpid, writef, PERFERROR);
     }
-
-    attr.disabled = true;
-    attr.size = sizeof(perf_event_attr);
-    attr.exclude_kernel = true;
 
     event_fds[i] = perf_event_open(&attr, pid, -1, -1, 0);
     if (event_fds[i] == -1) {
@@ -225,7 +216,7 @@ int analyzer(int pid) {
   }
 
   if (start_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS) {
-   shutdown(cpid, writef, IOCTLERROR);
+    shutdown(cpid, writef, IOCTLERROR);
   }
 
   for (int i = 0; i < number; i++) {
@@ -279,7 +270,7 @@ int analyzer(int pid) {
       int sample_size;
       sample *perf_sample = (sample *)get_next_sample(
           &cpu_cycles_perf, &sample_type, &sample_size);
-      if(sample_type != PERF_RECORD_SAMPLE) {
+      if (sample_type != PERF_RECORD_SAMPLE) {
         shutdown(cpid, writef, SAMPLEERROR);
       }
       while (has_next_sample(&cpu_cycles_perf)) {

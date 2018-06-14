@@ -38,3 +38,5 @@ bool has_next_sample(perf_buffer *perf);
 
 /* get the next record */
 void *get_next_sample(perf_buffer *perf, int *type, int *size);
+
+int setup_pfm_os_event(perf_event_attr *attr, char *event_name);
