@@ -9,7 +9,8 @@ var xScale;
 var yScale;
 var timeslices;
 var svg;
-var brush;
+var width;
+var height;
 
 /* ******************************** LOADING ********************************* */
 // Set "loadFile" to execute when files are uploaded via the file upload button.
@@ -49,8 +50,8 @@ window.addEventListener('resize', loadFile, false);
   to use). It's nice to take svg in as an argument, because if we want to draw
   multiple graphs in the future, we can say which svg should be drawn in. */
 function draw(timeslices, svg) {
-  var width = window.innerWidth;
-  var height = width * ASPECT_RATIO;
+  width = window.innerWidth;
+  height = width * ASPECT_RATIO;
   // Select the svg object of the graph.
   svg.attr('width', width).attr('height', height);
 
@@ -75,7 +76,6 @@ function draw(timeslices, svg) {
   drawAxes(xScale, yScale, svg);
   var densityMax = scatterPlot(densityInfo(timeslices, xScale, yScale), xScale, yScale, svg);
   legend(densityMax);
-  console.log("got here");
 }
 
 /* Lets users to choose which resource they want the tool to present and analyze on */
@@ -158,9 +158,6 @@ function drawAxes(xScale, yScale, svg) {
   var abbrev = d3.format('.0s');
   var xAxis = d3.axisBottom(xScale).tickFormat(abbrev);
   var yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage);
-  //console.log(svg);
-  var height = svg.attr('height');
-  var width = svg.attr('width');
 
   // Add the axes to the svg object
   svg
@@ -202,8 +199,6 @@ function drawAxes(xScale, yScale, svg) {
 /* This func makes the scatter plot */
 function scatterPlot(timeslices, xScale, yScale, svg) {
   const densityMax = findMax(timeslices, 'density');
-  var width = svg.attr('width');
-  var height = svg.attr('height');
 
   var x = d3.scaleLinear()
     .domain([0, 10])
@@ -229,7 +224,7 @@ function scatterPlot(timeslices, xScale, yScale, svg) {
     });
 
   // Create brush
-  brush = d3.brushX()
+  var brush = d3.brushX()
     .extent([[0, 0], [width, height]])
     .on('brush', brushed)
     .on('end', createTable);
@@ -240,27 +235,22 @@ function scatterPlot(timeslices, xScale, yScale, svg) {
     .call(brush.move, [3, 5].map(x))
     .selectAll('.overlay')
     .each(function (d) { d.type = 'selection'; })
-    .on('mousedown touchstart', brushCentered);
+    .on('mousedown touchstart', function () { brushCentered.call(this, brush) });
 
   return densityMax;
 }
 
 // Re-center brush when the user clicks somewhere in the graph
 function brushCentered(brush) {
-  console.log("hellooooo");
-  console.log("svg: ", svg);
-  var width = svg.attr('width');
-  console.log("width:", width);
   var x = d3.scaleLinear()
     .domain([0, 10])
     .range([0, width]);
-  console.log("hellooooo2");
-
-  console.log("logging: ", d3.mouse(this));
+  
   var dx = x(1) - x(0), // Use a fixed width when recentering.
     cx = d3.mouse(this)[0],
     x0 = cx - dx / 2,
     x1 = cx + dx / 2;
+  console.log(d3.select(this.parentNode));
   d3.select(this.parentNode).call(brush.move, x1 > width ? [width - dx, width] : x0 < 0 ? [0, dx] : [x0, x1]);
 }
 
