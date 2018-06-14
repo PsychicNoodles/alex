@@ -8,17 +8,22 @@
     "url": "https://github.com/curtsinger-lab/perf-analyzer"
   },
   "scripts": {
-    "start": "electron .",
+    "start": "node .",
     "clean": "rm -f out-* err-* result-*",
-    "example": "npm run clean && electron . --in examples/inputs/matrix-1000x1000.in -p cache -- examples/build/matrixmultiplier",
-    "build-examples": "cd examples && make",
-    "build-collector": "cd collector && make"
+    "example": "npm run clean && node . collect --in examples/inputs/matrix-1000x1000.in -p cache -- examples/build/matrixmultiplier"
+  },
+  "bin": {
+    "alex": "main.js"
   },
   "license": "UNLICENSED",
   "dependencies": {
+    "bootstrap": "^4.1.1",
     "d3": "^5.4.0",
     "d3-svg-legend": "^2.25.6",
     "electron": "^2.0.2",
+    "jquery": "^3.3.1",
+    "popper.js": "^1.14.3",
+    "tempfile": "^2.0.0",
     "yargs": "^11.0.0"
   },
   "devDependencies": {
