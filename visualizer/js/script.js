@@ -4,6 +4,13 @@ const SPECTRUM = d3.scaleSequential(d3.interpolateWarm);
 const VERTICALPAD = 20; // Should dynamically generate these in the future.
 const HORIZONTALPAD = 50; // ''
 
+var circles;
+var xScale;
+var yScale;
+var timeslices;
+var svg;
+var brush;
+
 /* ******************************** LOADING ********************************* */
 // Set "loadFile" to execute when files are uploaded via the file upload button.
 document.getElementById('data-input')
@@ -23,8 +30,9 @@ function loadFile() {
 
   reader.onload = function () {
     try {
-      var timeslices = JSON.parse(reader.result).timeslices;
-      draw(timeslices, d3.select('#plot'));
+      timeslices = JSON.parse(reader.result).timeslices;
+      svg = d3.select('#plot');
+      draw(timeslices, svg);
     } catch (err) {
       console.error(err);
     }
@@ -57,16 +65,17 @@ function draw(timeslices, svg) {
 
   /* Create functions to scale objects vertically and horizontally according to
   the size of the graph */
-  var xScale = d3.scaleLinear()
+  xScale = d3.scaleLinear()
     .domain([0, xScaleMax])
     .range([HORIZONTALPAD, width - VERTICALPAD]);
-  var yScale = d3.scaleLinear()
+  yScale = d3.scaleLinear()
     .domain([yScaleMax, 0])
     .range([VERTICALPAD, height - VERTICALPAD * 3]);
 
   drawAxes(xScale, yScale, svg);
   var densityMax = scatterPlot(densityInfo(timeslices, xScale, yScale), xScale, yScale, svg);
   legend(densityMax);
+  console.log("got here");
 }
 
 /* Lets users to choose which resource they want the tool to present and analyze on */
@@ -149,7 +158,7 @@ function drawAxes(xScale, yScale, svg) {
   var abbrev = d3.format('.0s');
   var xAxis = d3.axisBottom(xScale).tickFormat(abbrev);
   var yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage);
-  console.log(svg);
+  //console.log(svg);
   var height = svg.attr('height');
   var width = svg.attr('width');
 
@@ -202,7 +211,7 @@ function scatterPlot(timeslices, xScale, yScale, svg) {
 
 
   // Create the points and position them in the graph
-  var circles = svg
+  circles = svg
     .selectAll('circle')
     .data(timeslices)
     .enter()
@@ -220,9 +229,9 @@ function scatterPlot(timeslices, xScale, yScale, svg) {
     });
 
   // Create brush
-  var brush = d3.brushX()
+  brush = d3.brushX()
     .extent([[0, 0], [width, height]])
-    .on('brush', brushed(circles, timeslices, xScale))
+    .on('brush', brushed)
     .on('end', createTable);
 
   // Add brush to svg object
@@ -231,18 +240,23 @@ function scatterPlot(timeslices, xScale, yScale, svg) {
     .call(brush.move, [3, 5].map(x))
     .selectAll('.overlay')
     .each(function (d) { d.type = 'selection'; })
-    .on('mousedown touchstart', brushcentered(brush, svg));
+    .on('mousedown touchstart', brushCentered);
 
   return densityMax;
 }
 
 // Re-center brush when the user clicks somewhere in the graph
-function brushcentered(brush, svg) {
+function brushCentered(brush) {
+  console.log("hellooooo");
+  console.log("svg: ", svg);
   var width = svg.attr('width');
+  console.log("width:", width);
   var x = d3.scaleLinear()
     .domain([0, 10])
     .range([0, width]);
+  console.log("hellooooo2");
 
+  console.log("logging: ", d3.mouse(this));
   var dx = x(1) - x(0), // Use a fixed width when recentering.
     cx = d3.mouse(this)[0],
     x0 = cx - dx / 2,
@@ -251,7 +265,7 @@ function brushcentered(brush, svg) {
 }
 
 // Create a table of the points selected by the brush
-function createTable(timeslices) {
+function createTable() {
   d3.selectAll('.row_data').remove();
   d3.select('table').style('visibility', 'visible');
 
@@ -278,9 +292,9 @@ function createTable(timeslices) {
 }
 
 // Re-color the circles in the region that was selected by the user
-function brushed(circles, timeslices, xScale) {
+function brushed() {
   if (d3.event.selection != null) {
-    circles.attr('class', 'circle');
+   circles.attr('class', 'circle');
     var brushArea = d3.brushSelection(this);
 
     circles.filter(function () {
@@ -467,7 +481,7 @@ function legend(densityMax) {
   var sequentialScale = d3.scaleSequential(d3.interpolateWarm)
     .domain([0, densityMax]);
 
-  var svg = d3.select('svg');
+  svg = d3.select('svg');
 
   svg.append('g')
     .attr('class', 'legendSequential')
