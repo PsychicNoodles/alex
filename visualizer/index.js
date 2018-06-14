@@ -25,7 +25,7 @@ app
   // This event fires when Electron has finished initialization and is ready to
   // create browser windows. Some APIs can only be used after this event occurs.
   .on("ready", async () => {
-    win = new BrowserWindow({ width: 1000, height: 820, show: false });
+    win = new BrowserWindow({ width: 1000, height: 500, show: false });
 
     win.loadFile(`${__dirname}/index.html`);
 
