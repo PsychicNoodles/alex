@@ -30,6 +30,8 @@
 #include <inttypes.h>
 #include <link.h>
 
+#include "util.hpp"
+#include "const.h"
 #include "debug.hpp"
 #include "dwarf/dwarf++.hh"
 #include "elf/elf++.hh"
@@ -37,36 +39,6 @@
 
 using namespace std;
 
-#define PAGE_SIZE 0x1000LL
-// this needs to be a power of two :'( (an hour was spent here)
-#define NUM_DATA_PAGES 256
-
-// kill failure. Not really a fail but a security hazard.
-#define KILLERROR 1    // Cannot kill parent
-#define FORKERROR 2    // Cannot fork
-#define OPENERROR 3    // Cannot open file
-#define PERFERROR 4    // Cannot make perf_event
-#define INSTERROR 5    // Cannot make fd for inst counter
-#define ASYNERROR 6    // Cannot set file to async mode
-#define FISGERROR 7    // Cannot set signal to file
-#define OWNERROR 8     // Cannot set file to owner
-#define SETERROR 9     // Cannot empty sigset
-#define ADDERROR 10    // Cannot add to sigset
-#define BUFFERROR 11   // Cannot open buffer
-#define IOCTLERROR 13  // Cannot control perf_event
-
-#define COLLECTOR_VERSION "0.0.1"
-
-// https://godoc.org/github.com/aclements/go-perf/perffile#pkg-constants
-#define CALLCHAIN_HYPERVISOR 0xffffffffffffffe0
-#define CALLCHAIN_KERNEL 0xffffffffffffff80
-#define CALLCHAIN_USER 0xfffffffffffffe00
-#define CALLCHAIN_GUEST 0xfffffffffffff800
-#define CALLCHAIN_GUESTKERNEL 0xfffffffffffff780
-#define CALLCHAIN_GUESTUSER 0xfffffffffffff600
-
-#define SAMPLE_TYPE (PERF_SAMPLE_TIME | PERF_SAMPLE_CALLCHAIN)
-using namespace std;
 struct sample {
   uint64_t time;
   uint64_t num_instruction_pointers;
@@ -111,43 +83,6 @@ bool find_pc(const dwarf::die &d, dwarf::taddr pc, vector<dwarf::die> *stack) {
       break;
   }
   return found;
-}
-
-void dump_die(const dwarf::die &node) {
-  printf("<%" PRIx64 "> %s\n", node.get_section_offset(),
-         to_string(node.tag).c_str());
-  for (auto &attr : node.attributes())
-    printf("      %s %s\n", to_string(attr.first).c_str(),
-           to_string(attr.second).c_str());
-}
-
-void dump_line_table(const dwarf::line_table &lt) {
-  for (auto &line : lt) {
-    if (line.end_sequence)
-      printf("\n");
-    else
-      printf("%-40s%8d%#20" PRIx64 "\n", line.file->path.c_str(), line.line,
-             line.address);
-  }
-}
-
-/*
- * Reports time since epoch in milliseconds.
- */
-size_t time_ms() {
-  struct timeval tv;
-  if (gettimeofday(&tv, NULL) == -1) {
-    perror("gettimeofday");
-    exit(2);
-  }  // if
-  // Convert timeval values to milliseconds
-  return tv.tv_sec * 1000 + tv.tv_usec / 1000;
-}  // time_ms
-
-inline string ptr_fmt(void *ptr) {
-  char buf[128];
-  snprintf(buf, 128, "%p", ptr);
-  return string(buf);
 }
 
 /*
@@ -200,78 +135,10 @@ int setup_sigset(int signum, sigset_t *sigset) {
   return pthread_sigmask(SIG_BLOCK, sigset, NULL);
 }  // setup_sigset
 
-// https://stackoverflow.com/a/14267455
-vector<string> str_split(string str, string delim) {
-  vector<string> split;
-  auto start = 0U;
-  auto end = str.find(delim);
-  while (end != std::string::npos) {
-    split.push_back(str.substr(start, end - start));
-    start = end + delim.length();
-    end = str.find(delim, start);
-  }
-
-  auto last_substr = str.substr(start, end);
-  if (last_substr != "") {
-    split.push_back(last_substr);
-  }
-
-  return split;
-}
-
 vector<string> get_events() {
   auto events_env = getenv_safe("COLLECTOR_EVENTS");
   DEBUG("events: '" << events_env << "'");
   return str_split(events_env, ",");
-}
-
-int dump_table_and_symbol(char *path) {
-  int fd = open(path, O_RDONLY);
-  if (fd < 0) {
-    perror(path);
-    return OPENERROR;
-  }
-
-  elf::elf ef(elf::create_mmap_loader(fd));
-  dwarf::dwarf dw(dwarf::elf::create_loader(ef));
-  DEBUG("dump_line_table");
-
-  for (auto cu : dw.compilation_units()) {
-    printf("--- <%x>\n", (unsigned int)cu.get_section_offset());
-    dump_line_table(cu.get_line_table());
-    printf("\n");
-  }
-  printf("loading symbols");
-  for (auto &sec : ef.sections()) {
-    if (sec.get_hdr().type != elf::sht::symtab &&
-        sec.get_hdr().type != elf::sht::dynsym)
-      continue;
-
-    printf("Symbol table '%s':\n", sec.get_name().c_str());
-    printf("%6s: %-16s %-5s %-7s %-7s %-5s %s\n", "Num", "Value", "Size",
-           "Type", "Binding", "Index", "Name");
-    int i = 0;
-    for (auto sym : sec.as_symtab()) {
-      auto &d = sym.get_data();
-      printf("%6d: %016" PRIx64 " %5" PRId64 " %-7s %-7s %5s %s\n", i++,
-             d.value, d.size, to_string(d.type()).c_str(),
-             to_string(d.binding()).c_str(), to_string(d.shnxd).c_str(),
-             sym.get_name().c_str());
-    }
-  }
-  printf("  %-16s  %-16s   %-16s   %s\n", "Type", "Offset", "VirtAddr",
-         "PhysAddr");
-  printf("  %-16s  %-16s   %-16s  %6s %5s\n", " ", "FileSiz", "MemSiz", "Flags",
-         "Align");
-  for (auto &seg : ef.segments()) {
-    auto &hdr = seg.get_hdr();
-    printf("   %-16s 0x%016" PRIx64 " 0x%016" PRIx64 " 0x%016" PRIx64 "\n",
-           to_string(hdr.type).c_str(), hdr.offset, hdr.vaddr, hdr.paddr);
-    printf("   %-16s 0x%016" PRIx64 " 0x%016" PRIx64 " %-5s %-5" PRIx64 "\n",
-           "", hdr.filesz, hdr.memsz, to_string(hdr.flags).c_str(), hdr.align);
-  }
-  return 0;
-  DEBUG("dump symbol table");
 }
 
 /*
