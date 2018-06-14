@@ -61,23 +61,21 @@ bool ready = false;
    */
 
 bool find_pc(const dwarf::die &d, dwarf::taddr pc, vector<dwarf::die> *stack) {
-  using namespace dwarf;
-
   // Scan children first to find most specific DIE
   bool found = false;
   for (auto &child : d) {
     if ((found = find_pc(child, pc, stack))) break;
   }
   switch (d.tag) {
-    case DW_TAG::subprogram:
-    case DW_TAG::inlined_subroutine:
+    case dwarf::DW_TAG::subprogram:
+    case dwarf::DW_TAG::inlined_subroutine:
       try {
         if (found || die_pc_range(d).contains(pc)) {
           found = true;
           stack->push_back(d);
         }
       } catch (out_of_range &e) {
-      } catch (value_type_mismatch &e) {
+      } catch (dwarf::value_type_mismatch &e) {
       }
       break;
     default:
