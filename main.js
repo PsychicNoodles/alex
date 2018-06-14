@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const yargs = require("yargs");
 const { spawn } = require("child_process");
 const fs = require("fs");

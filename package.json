@@ -12,6 +12,9 @@
     "clean": "rm -f out-* err-* result-*",
     "example": "npm run clean && node . collect --in examples/inputs/matrix-1000x1000.in -p cache -- examples/build/matrixmultiplier"
   },
+  "bin": {
+    "alex": "main.js"
+  },
   "license": "UNLICENSED",
   "dependencies": {
     "bootstrap": "^4.1.1",
