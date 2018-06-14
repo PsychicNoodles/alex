@@ -1,3 +1,6 @@
+#ifndef ALEX_COLLECTOR_DEBUG
+#define ALEX_COLLECTOR_DEBUG
+
 #include <iostream>
 #include <string>
 
@@ -23,3 +26,4 @@ static inline std::string getenv_safe(const char* var,
   return std::string(value);
 }
 
+#endif
