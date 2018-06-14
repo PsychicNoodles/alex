@@ -421,6 +421,8 @@ int analyzer(int pid) {
       exit(IOCTLERROR);
     }
 
+
+
     if (!has_next_sample(&cpu_cycles_perf)) {
       DEBUG("SKIPPED SAMPLE PERIOD");
     } else {
@@ -439,6 +441,8 @@ int analyzer(int pid) {
         int temp_type, temp_size;
         get_next_sample(&cpu_cycles_perf, &temp_type, &temp_size);
       }
+
+      
 
       fprintf(writef,
               R"(
