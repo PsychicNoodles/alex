@@ -2,7 +2,7 @@
 
 This repository is the home of ALEX, the
 [AnaLysis of EXecution](https://en.wikipedia.org/wiki/Backronym) profiler.
-Alex is a multipart project that includes:
+Alex is a multi-part project that includes:
 
 * C/C++ data collection tool
 * D3.js visualization
@@ -16,11 +16,10 @@ First, install dependencies with `npm install`.
 Then, build the data collector with `npm run build-collector`. You will most
 likely also want to build the example programs with `npm run build-examples`.
 
-To run the profiler, on the `examples/build/matrixmultiplier` program with
-the `examples/inputs/matrix-1000x1000.in` test input using the cache preset,
-run `npm start -- --in examples/inputs/matrix-1000x1000.in --preset cache -- examples/build/matrixmultiplier`.
-If that's too long for you, run `npm run example` as a shortcut for the
-matrix multiplier.
+To run the profiler, on `examples/build/matrixmultiplier` program with a
+default example input, run `npm run example`.
+
+Try `node . --help` to see usage information.
 
 ## Data Collection
 
