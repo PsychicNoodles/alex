@@ -178,6 +178,7 @@ function collect({
     } else {
       console.info("Successfully collected data.");
 
+      console.info("Processing results...")
       const result = JSON.parse(fs.readFileSync(resultFile).toString());
       result.header.events = events;
       result.header.preset = preset;
@@ -215,6 +216,6 @@ function visualize(resultFile) {
   spawn(
     `${__dirname}/node_modules/.bin/electron`,
     [`${__dirname}/visualizer`, resultFile],
-    { stdio: "ignore" }
+    { stdio: "inherit" }
   );
 }
