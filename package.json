@@ -10,9 +10,7 @@
   "scripts": {
     "start": "node .",
     "clean": "rm -f out-* err-* result-*",
-    "example": "npm run clean && node . collect --in examples/inputs/matrix-1000x1000.in -p cache -- examples/build/matrixmultiplier",
-    "build-examples": "cd examples && make",
-    "build-collector": "cd collector && make"
+    "example": "npm run clean && node . collect --in examples/inputs/matrix-1000x1000.in -p cache -- examples/build/matrixmultiplier"
   },
   "license": "UNLICENSED",
   "dependencies": {

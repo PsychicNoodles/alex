@@ -1,14 +1,15 @@
+all: node_modules collector examples
 
-all: collector examples
+node_modules:
+	npm install
 
 collector:
-	npm install
-	npm run build-collector
+	$(MAKE) -C collector
 
 examples:
-	npm run build-examples
+	$(MAKE) -C examples
 
-run-example: collector examples
+run-example: node_modules collector examples
 	npm run example
 
 .PHONY: all collector examples run-example

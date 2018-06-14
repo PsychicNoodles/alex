@@ -11,10 +11,7 @@ All bundled in a tidy electron app with a command line interface.
 
 ## Getting Started
 
-First, install dependencies with `npm install`.
-
-Then, build the data collector with `npm run build-collector`. You will most
-likely also want to build the example programs with `npm run build-examples`.
+To install dependencies and build everything, run `make`.
 
 To run the profiler, on `examples/build/matrixmultiplier` program with a
 default example input, run `npm run example`.
