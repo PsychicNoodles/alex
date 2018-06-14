@@ -469,11 +469,7 @@ function legend(densityMax) {
   var sequentialScale = d3.scaleSequential(d3.interpolateWarm)
     .domain([0, densityMax]);
 
-<<<<<<< HEAD
   svg = d3.select('svg');
-=======
-  var svg = d3.select('#legend');
->>>>>>> master
 
   svg.append('g')
     .attr('class', 'legendSequential')
