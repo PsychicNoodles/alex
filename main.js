@@ -4,7 +4,7 @@ const yargs = require("yargs");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const readline = require("readline");
-const tempfile = require("tempfile");
+const tempFile = require("tempfile");
 
 yargs
   .usage(
@@ -109,7 +109,7 @@ function collect({
     console.error("Invalid preset:", preset);
   }
 
-  const resultFile = resultOption || tempfile(".json");
+  const resultFile = resultOption || tempFile(".json");
 
   const collector = spawn(executable, executableArgs, {
     env: {
@@ -177,6 +177,14 @@ function collect({
       console.error(errorCodes[code]);
     } else {
       console.info("Successfully collected data.");
+
+      const result = JSON.parse(fs.readFileSync(resultFile).toString());
+      result.header.events = events;
+      result.header.preset = preset;
+      result.header.executableName = executable;
+      result.header.executableArgs = executableArgs;
+      fs.writeFileSync(resultFile, JSON.stringify(result, null, 2));
+
       if (resultOption) {
         console.info(`Results saved to ${resultFile}`);
       }
