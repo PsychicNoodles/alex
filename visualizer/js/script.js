@@ -4,6 +4,12 @@ const SPECTRUM = d3.scaleSequential(d3.interpolateWarm);
 const VERTICALPAD = 20; // Should dynamically generate these in the future.
 const HORIZONTALPAD = 50; // ''
 
+const { ipcRenderer } = require("electron");
+ipcRenderer.send("result-request");
+ipcRenderer.on("result", (event, result) => {
+  draw(result.timeslices, d3.select("#plot"));
+});
+
 /* ******************************** LOADING ********************************* */
 // Set "loadFile" to execute when files are uploaded via the file upload button.
 document.getElementById('data-input')
@@ -398,7 +404,7 @@ function calcAverDens(result) {
 function densityInfo(timeslices, xScale, yScale) {//for now, just take in missRates, and InstrustionsAcc
   position(timeslices, xScale, yScale);
   var quadtree = d3.quadtree(timeslices, function (d) { return d.x; }, function (d) { return d.y; }); //build a quadtree with all datum
-  var result = []; //the array used for holding the "picked" datum with their density 
+  var result = []; //the array used for holding the "picked" datum with their density
 
   //now go to the depthStd deep node and count the density and record the information to result[]
   quadtree.visit(function (node) {
@@ -428,7 +434,7 @@ function densityInfo(timeslices, xScale, yScale) {//for now, just take in missRa
 //   //add depth information into the datum
 //   getDepth(quadtree.root(), -1);
 
-//   //making sure that the max depth level goes down to pixels 
+//   //making sure that the max depth level goes down to pixels
 //   var depthStd = Math.round(Math.log(width * height) / Math.log(4)); //round up!
 
 //   //now go to the depthStd deep node and count the density and record the information to result[]
