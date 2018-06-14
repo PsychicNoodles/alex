@@ -4,6 +4,9 @@
 #include <iostream>
 #include <string>
 
+#include "dwarf/dwarf++.hh"
+#include "elf/elf++.hh"
+
 //debug macro
 #if defined(NDEBUG)
 #define DEBUG(x)
@@ -25,5 +28,9 @@ static inline std::string getenv_safe(const char* var,
   if (!value) value = fallback;
   return std::string(value);
 }
+
+void dump_die(const dwarf::die& node);
+void dump_line_table(const dwarf::line_table& lt);
+int dump_table_and_symbol(char* path);
 
 #endif
