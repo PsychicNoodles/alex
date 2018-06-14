@@ -5,25 +5,41 @@
 	<title>perf-analyzer</title>
 	<meta charset="utf-8">
 	<link rel="stylesheet" type="text/css" href="css/style.css" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+		
+		<!-- Bootstrap CSS -->
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB"
+	crossorigin="anonymous">
 	<script src="https://d3js.org/d3.v5.min.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.25.6/d3-legend.min.js"></script>
-	
+
+
 </head>
 
 <body>
-	<div id="table">
-		<table>
-			<tr>
-				<th>Time</th>
-				<th>Hits</th>
-				<th>Misses</th>
-				<th>Miss rate</th>
-			</tr>
-		</table>
-	</div>
-	<svg id="plot"></svg>
+
+	<div class="container-fluid">
+		<div class="row">
+
+				<svg id="plot" class="col-lg-9"></svg>
+				<svg id="legend" class="col-lg-1"></svg>
+		</div>
+	</div> 
+
+
 	<input id="data-input" type="file" accept=".json,application/json">
+
+
+
+
+	
 	<script src="./js/script.js"></script>
+	<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+	 crossorigin="anonymous"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49"
+	 crossorigin="anonymous"></script>
+	<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js" integrity="sha384-smHYKdLADwkXOn1EmN1qk/HfnUcbVRZyYmZ4qpPea6sjB/pTJ0euyQp0Mk8ck+5T"
+	 crossorigin="anonymous"></script>
 </body>
 
 </html>
