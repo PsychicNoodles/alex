@@ -4,8 +4,8 @@
 #include <iostream>
 #include <string>
 
-#include "dwarf/dwarf++.hh"
-#include "elf/elf++.hh"
+#include <dwarf/dwarf++.hh>
+#include <elf/elf++.hh>
 
 //debug macro
 #if defined(NDEBUG)
