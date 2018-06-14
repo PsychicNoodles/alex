@@ -1,5 +1,6 @@
 #include <sys/time.h>
 #include <stdlib.h>
+#include <signal.h>
 
 #include "util.hpp"
 
@@ -39,4 +40,10 @@ vector<string> str_split(string str, string delim) {
   }
 
   return split;
+}
+
+void shutdown(pid_t pid, FILE* writef, int code) {
+  kill(pid, SIGKILL);
+  fclose(writef);
+  exit(errno);
 }

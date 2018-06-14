@@ -18,6 +18,8 @@
 #define ADDERROR 10    // Cannot add to sigset
 #define BUFFERROR 11   // Cannot open buffer
 #define IOCTLERROR 13  // Cannot control perf_event
+#define ENVERROR 14    // Cannot get environment variable
+#define SAMPLEERROR 15 // Cannot get sample
 
 #define COLLECTOR_VERSION "0.0.1"
 
