@@ -8,7 +8,6 @@ var circles;
 var xScale;
 var yScale;
 var timeslices;
-var svg;
 var width;
 var height;
 
@@ -38,8 +37,8 @@ function loadFile() {
   reader.onload = function () {
     try {
       timeslices = JSON.parse(reader.result).timeslices;
-      svg = d3.select("#plot");
-      draw(timeslices, svg, d3.select("#legend"));
+      var svg = d3.select("#plot");
+      draw(timeslices, d3.select("#legend"));
     } catch (err) {
       console.error(err);
     }
@@ -80,8 +79,8 @@ function draw(timeslices, svgPlot) {
     .domain([yScaleMax, 0])
     .range([VERTICALPAD, height - VERTICALPAD * 3]);
 
-  drawAxes(xScale, yScale, svgPlot);
-  var densityMax = scatterPlot(densityInfo(timeslices, xScale, yScale), xScale, yScale, svgPlot);
+  drawAxes(xScale, yScale);
+  var densityMax = scatterPlot(densityInfo(timeslices, xScale, yScale), xScale, yScale);
   legend(densityMax);
 }
 
@@ -159,12 +158,13 @@ function findMax(timeslices, attr) {
 }
 
 //This func will draw the axes
-function drawAxes(xScale, yScale, svg) {
+function drawAxes(xScale, yScale) {
   // Create axes and format the ticks on the y-axis as percentages
   var formatAsPercentage = d3.format(".0%");
   var abbrev = d3.format(".0s");
   var xAxis = d3.axisBottom(xScale).tickFormat(abbrev);
   var yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage);
+  var svg = d3.select("#plot");
 
   // Add the axes to the svg object
   svg
@@ -204,8 +204,9 @@ function drawAxes(xScale, yScale, svg) {
 }
 
 /* This func makes the scatter plot */
-function scatterPlot(timeslices, xScale, yScale, svg) {
+function scatterPlot(timeslices, xScale, yScale) {
   const densityMax = findMax(timeslices, "density");
+  var svg = d3.select("#plot");
 
   // Create the points and position them in the graph
   circles = svg
@@ -474,7 +475,7 @@ function legend(densityMax) {
   var sequentialScale = d3.scaleSequential(d3.interpolateWarm)
     .domain([0, densityMax]);
 
-  svg = d3.select("svg");
+  var svg = d3.select("svg");
 
   svg.append("g")
     .attr("class", "legendSequential")
