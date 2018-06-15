@@ -3,10 +3,12 @@ const { ipcRenderer } = require("electron");
 const d3 = require("d3");
 const { legendColor } = require("d3-svg-legend");
 
+require("bootstrap");
+
 const ASPECT_RATIO = 9 / 16; // ratio of height-to-width currently, can be changed
 const SPECTRUM = d3.scaleSequential(d3.interpolateGreens);
 const VERTICALPAD = 20; // Should dynamically generate these in the future.
-const HORIZONTALPAD = 50; // 
+const HORIZONTALPAD = 50; //
 
 var circles;
 var xScale;
@@ -20,10 +22,6 @@ ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, result) => {
   draw(result.timeslices, d3.select("#plot"));
 });
-
-/* ******************************** RESIZING ******************************** */
-// Set "loadFile" to execute when the window's size changes.
-//window.addEventListener("resize", loadFile, false);
 
 /* ******************************** DRAWING ********************************* */
 
