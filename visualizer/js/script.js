@@ -22,37 +22,9 @@ ipcRenderer.on("result", (event, result) => {
   draw(result.timeslices, d3.select("#plot"));
 });
 
-// Set "loadFile" to execute when files are uploaded via the file upload button.
-document
-  .getElementById("data-input")
-  .addEventListener("change", loadFile, false);
-
-function loadFile() {
-  // Get the file uploaded by the user.
-  var file = document.getElementById("data-input").files[0];
-
-  var reader = new FileReader();
-  // Read the file; when this is done, it automatically executes reader.onload.
-  try {
-    reader.readAsText(file);
-  } catch (err) {
-    return;
-  }
-
-  reader.onload = function() {
-    try {
-      timeslices = JSON.parse(reader.result).timeslices;
-      var svg = d3.select("#plot");
-      draw(timeslices, d3.select("#legend"));
-    } catch (err) {
-      console.error(err);
-    }
-  };
-}
-
 /* ******************************** RESIZING ******************************** */
 // Set "loadFile" to execute when the window's size changes.
-window.addEventListener("resize", loadFile, false);
+//window.addEventListener("resize", loadFile, false);
 
 /* ******************************** DRAWING ********************************* */
 
@@ -534,7 +506,7 @@ function legend(densityMax) {
     .scaleSequential(d3.interpolateWarm)
     .domain([0, densityMax]);
 
-  var svg = d3.select("svg");
+  var svg = d3.select("#legend");
 
   svg
     .append("g")
