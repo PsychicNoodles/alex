@@ -1,8 +1,10 @@
-#include <sys/time.h>
-#include <stdlib.h>
 #include <signal.h>
+#include <stdlib.h>
+#include <sys/time.h>
 
+#include "const.h"
 #include "util.hpp"
+using namespace std;
 
 /*
  * Reports time since epoch in milliseconds.
@@ -17,7 +19,7 @@ size_t time_ms() {
   return tv.tv_sec * 1000 + tv.tv_usec / 1000;
 }  // time_ms
 
-inline string ptr_fmt(void *ptr) {
+inline string ptr_fmt(void* ptr) {
   char buf[128];
   snprintf(buf, 128, "%p", ptr);
   return string(buf);
@@ -46,4 +48,16 @@ void shutdown(pid_t pid, FILE* writef, int code) {
   kill(pid, SIGKILL);
   fclose(writef);
   exit(errno);
+}
+
+bool check_markup(uint64_t instruction_pointers) {
+  if (instruction_pointers == CALLCHAIN_GUEST ||
+      instruction_pointers == CALLCHAIN_GUESTKERNEL ||
+      instruction_pointers == CALLCHAIN_GUESTUSER ||
+      instruction_pointers == CALLCHAIN_HYPERVISOR ||
+      instruction_pointers == CALLCHAIN_USER ||
+      instruction_pointers == CALLCHAIN_KERNEL)
+    return true;
+  else
+    return false;
 }
