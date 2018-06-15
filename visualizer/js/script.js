@@ -16,8 +16,6 @@ let plotWidth;
 let plotHeight;
 let graphWidth;
 let graphHeight;
-let verticalPad;
-let horizontalPad;
 let svgPlot = d3.select("#plot");
 let svgLegend = d3.select("#legend");
 
