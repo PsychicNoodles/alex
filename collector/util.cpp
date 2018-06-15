@@ -50,7 +50,7 @@ void shutdown(pid_t pid, FILE* writef, int code) {
   exit(errno);
 }
 
-bool check_markup(uint64_t instruction_pointers) {
+bool is_callchain_marker(uint64_t instruction_pointers) {
   if (instruction_pointers == CALLCHAIN_GUEST ||
       instruction_pointers == CALLCHAIN_GUESTKERNEL ||
       instruction_pointers == CALLCHAIN_GUESTUSER ||

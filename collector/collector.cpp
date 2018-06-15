@@ -317,17 +317,16 @@ int analyzer(int pid) {
                   },
                   "stackFrames": [
               )");
-      bool skip = false;
+      bool is_first = true;
       for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
-        if (check_markup(perf_sample->instruction_pointers[i])) {
-          skip = true;
+        if (is_callchain_marker(perf_sample->instruction_pointers[i])) {
           continue;
         }
 
-        if (i > 0 && skip == false) {
+        if (!is_first) {
           fprintf(writef, ",");
         }
-        skip = false;
+        is_first = false;
 
         fprintf(writef,
                 R"(
