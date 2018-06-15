@@ -7,27 +7,25 @@ require("bootstrap");
 
 const ASPECT_RATIO = 9 / 16; // ratio of height-to-width currently, can be changed
 const SPECTRUM = d3.scaleSequential(d3.interpolateGreens);
-const VERTICAL_PAD = 20; // Should dynamically generate these in the future.
-const HORIZONTAL_PAD = 50; //
 
-var circles;
-var xScale;
-var yScale;
+let circles;
+let xScale;
+let yScale;
 
-var plotWidth;
-var plotHeight;
-var graphWidth;
-var graphHeight;
-var verticalPad;
-var horizontalPad;
-var svgPlot = d3.select("#plot");
-var svgLegend = d3.select("#legend");
+let plotWidth;
+let plotHeight;
+let graphWidth;
+let graphHeight;
+let verticalPad;
+let horizontalPad;
+let svgPlot = d3.select("#plot");
+let svgLegend = d3.select("#legend");
 
 /********************************** LOADING ***********************************/
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, result) => {
-  var densityMax = drawPlot(result.timeslices);
+  let densityMax = drawPlot(result.timeslices);
   legend(densityMax);
 });
 
@@ -52,7 +50,7 @@ function drawPlot(timeslices) {
   // If the SVG has anything in it, get rid of it. We want a clean slate.
   svgPlot.selectAll("*").remove();
 
-  // Edit the timeslices array to include information based on which variables we are graphing
+  // Edit the timeslices array to include information based on which letiables we are graphing
   processData(timeslices, chooseResource());
   processData(timeslices, chooseXAxis());
 
@@ -80,7 +78,7 @@ function drawPlot(timeslices) {
   return densityMax;
 }
 
-/* Lets users choose which variable they want on the x-axis */
+/* Lets users choose which letiable they want on the x-axis */
 function chooseXAxis() {
   // need work!
   return "numInstructions";
@@ -106,7 +104,7 @@ function processData(timeslices, resource) {
         cur.selected = false;
       }
       break;
-    case "cache":
+    case "cache": {
       timeslices[0].totalCycles = timeslices[0].numCPUCycles;
       let total =
         timeslices[0].events["MEM_LOAD_RETIRED.L3_MISS"] +
@@ -131,6 +129,7 @@ function processData(timeslices, resource) {
         cur.selected = false;
       }
       break;
+    }
     case "power":
       // power(timeslices, i)
       break;
@@ -147,11 +146,12 @@ function findMax(timeslices, attr) {
       return d3.max(timeslices, function(d) {
         return d.numInstructions;
       });
-    case "cache":
+    case "cache": {
       const max = d3.max(timeslices, function(d) {
         return d.events.missRates;
       });
       return max;
+    }
     case "density":
       return d3.max(timeslices, function(d) {
         return d.densityAver;
@@ -208,7 +208,6 @@ function drawAxes(xScale, yScale) {
 /* This func makes the scatter plot */
 function scatterPlot(simplifiedData, xScale, yScale) {
   const densityMax = findMax(simplifiedData, "density");
-  const svg = d3.select("#plot");
 
   // Create the points and position them in the graph
   circles = svgPlot
@@ -234,8 +233,6 @@ function scatterPlot(simplifiedData, xScale, yScale) {
 
 /**********************Brush Brush Brush******************************* */
 function createBrush(timeslices) {
-  const svg = d3.select("#plot");
-
   const x = d3
     .scaleLinear()
     .domain([0, 10])
