@@ -2,12 +2,12 @@
 const ASPECT_RATIO = 8 / 16; // ratio of height-to-width currently, can be changed
 const SPECTRUM = d3.scaleSequential(d3.interpolateWarm);
 const VERTICALPAD = 20; // Should dynamically generate these in the future.
-const HORIZONTALPAD = 50; // ''
+const HORIZONTALPAD = 50; // 
 
-const { ipcRenderer } = require("electron");
-ipcRenderer.send("result-request");
-ipcRenderer.on("result", (event, result) => {
-  draw(result.timeslices, d3.select("#plot"));
+const { ipcRenderer } = require('electron');
+ipcRenderer.send('result-request');
+ipcRenderer.on('result', (event, result) => {
+  draw(result.timeslices, d3.select('#plot'));
 });
 
 /* ******************************** LOADING ********************************* */
@@ -51,6 +51,8 @@ function draw(timeslices, svgPlot) {
     .getBoundingClientRect().width;
   var height = width * ASPECT_RATIO;
   // Select the svg object of the graph.
+  //svgPlot.attr('preserveAspectRatio', 'xMinYMin meet')
+  //  .attr('viewBox', '0 0 100 100').attr('preserveAspectRatio', 'xMidYMid meet'); // "none"
   svgPlot.attr('width', width).attr('height', height);
 
   // If the SVG has anything in it, get rid of it. We want a clean slate.
