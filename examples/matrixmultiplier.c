@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 int **alloc_matrix(int num_row, int num_col) {
   int **matrix = (int **)malloc(num_row * sizeof(int *));
@@ -35,14 +36,61 @@ int main() {
     printf("Enter the elements of second matrix\n");
     read_matrix(second, num_row2, num_col2);
 
-    for (int i = 0; i < num_row1; i++) {
-      for (int j = 0; j < num_col2; j++) {
-        for (int k = 0; k < num_row2; k++) {
-          sum = sum + first[i][k] * second[k][j];
-        }
 
-        multiply[i][j] = sum;
-        sum = 0;
+    /*time_t start, end;
+    double elapsed;
+    start = time(NULL);
+    int terminate = 1;
+    while(terminate) {
+      end = time(NULL);
+      elapsed = difftime(end, start);
+      if(elapsed >= 300.0) {
+        terminate = 0;
+      }
+      for (int i = 0; i < num_row1; i++) {
+        for (int j = 0; j < num_col2; j++) {
+          for (int k = 0; k < num_row2; k++) {
+            sum = sum + first[i][k] * second[k][j];
+          }
+
+          multiply[i][j] = sum;
+          sum = 0;
+        }
+      }
+
+      for (int i = 0; i < num_row1; i++) {
+        for (int j = 0; j < num_col2; j++) {
+          for (int k = 0; k < num_row2; k++) {
+            sum = sum + first[k][j] * second[i][k];
+          }
+
+          multiply[i][j] = sum;
+          sum = 0;
+        }
+      }
+    }*/
+
+    for(int i = 0; i < 10; i++) {
+      for (int i = 0; i < num_row1; i++) {
+        for (int j = 0; j < num_col2; j++) {
+          for (int k = 0; k < num_row2; k++) {
+            sum = sum + first[i][k] * second[k][j];
+          }
+
+          multiply[i][j] = sum;
+          sum = 0;
+        }
+      }
+
+      for (int i = 0; i < num_row1; i++) {
+        for (int j = 0; j < num_col2; j++) {
+          for (int k = 0; k < num_row2; k++) {
+            sum = sum + first[k][j] * second[i][k];
+          }
+
+          multiply[i][j] = sum;
+          sum = 0;
+        }
       }
     }
 
