@@ -317,11 +317,17 @@ int analyzer(int pid) {
                   },
                   "stackFrames": [
               )");
-
+      bool skip = false;
       for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
-        if (i > 0) {
+        if (check_markup(perf_sample->instruction_pointers[i])) {
+          skip = true;
+          continue;
+        }
+
+        if (i > 0 && skip == false) {
           fprintf(writef, ",");
         }
+        skip = false;
 
         fprintf(writef,
                 R"(
