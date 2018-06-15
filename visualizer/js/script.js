@@ -25,7 +25,7 @@ document.getElementById('data-input')
 
 function loadFile() {
   // Get the file uploaded by the user.
-  var file = document.getElementById('data-input').files[0];
+  var fiFBle = document.getElementById('data-input').files[0];
 
   var reader = new FileReader();
   // Read the file; when this is done, it automatically executes reader.onload.
@@ -233,7 +233,7 @@ function scatterPlot(timeslices, xScale, yScale, svg) {
 function createBrush(timeslices) {
   var svg = d3.select('#plot');
 
-  x = d3.scaleLinear()
+  var x = d3.scaleLinear()
     .domain([0, 10])
     .range([0, width]);
   
@@ -249,11 +249,11 @@ function createBrush(timeslices) {
     .call(brush.move, [3, 5].map(x))
     .selectAll('.overlay')
     .each(function (d) { d.type = 'selection'; })
-    .on('mousedown touchstart', function () { brushCentered.call(this, brush) });
+    .on('mousedown touchstart', function () { brushCentered.call(this, brush, x) });
 }
 
 // Re-center brush when the user clicks somewhere in the graph
-function brushCentered(brush) {
+function brushCentered(brush, x) {
   var dx = x(1) - x(0), // Use a fixed width when recentering.
     cx = d3.mouse(this)[0],
     x0 = cx - dx / 2,
