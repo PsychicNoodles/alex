@@ -37,6 +37,8 @@ function drawPlot(timeslices) {
   plotWidth = document.querySelector("#plot")
     .getBoundingClientRect().width;
   plotHeight = plotWidth * ASPECT_RATIO;
+  svgPlot.attr("viewBox", "0 0 " + plotWidth + " " + plotHeight);
+
   graphWidth = 0.9 * plotWidth;
   graphHeight = 0.9 * plotHeight;
 
@@ -187,8 +189,8 @@ function drawAxes(xScale, yScale) {
     .append("text")
     .attr("class", "x label")
     .attr("text-anchor", "middle")
-    .attr("x", (graphWidth / 2) + (plotWidth - graphWidth))
-    .attr("y", graphHeight + ((plotHeight - graphHeight) / 2))
+    .attr("x", (graphWidth / 2 + (plotWidth - graphWidth)))
+    .attr("y", plotHeight - graphHeight)
     .text("CPU Cycles");
 
   svg
@@ -196,9 +198,9 @@ function drawAxes(xScale, yScale) {
     .append("text")
     .attr("class", "y label")
     .attr("text-anchor", "middle")
-    .attr("y", (plotWidth - graphWidth) / 2)
-    .attr("x", graphHeight / 2)
-    .attr("dy", ".75em")
+    .attr("y", graphHeight - plotHeight)
+    .attr("x", -(graphHeight / 2))
+    //.attr("dy", ".75em")
     .attr("transform", "rotate(-90)")
     .text("Cache miss rate");
 }
@@ -239,7 +241,7 @@ function createBrush(timeslices) {
   // Create brush
   const brush = d3
     .brushX()
-    .extent([[plotWidth - graphWidth, 0], [plotWidth, plotHeight - graphHeight]])
+    .extent([[0, 0], [plotWidth, plotHeight - graphHeight]])
     .on("brush", function() {
       brushed.call(this, timeslices);
     })
