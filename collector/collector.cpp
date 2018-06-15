@@ -30,8 +30,8 @@
 #include <inttypes.h>
 #include <link.h>
 
-#include <dwarf/dwarf++.hh>
-#include <elf/elf++.hh>
+#include <libelfin/dwarf/dwarf++.hh>
+#include <libelfin/elf/elf++.hh>
 
 #include "const.h"
 #include "debug.hpp"
