@@ -504,7 +504,7 @@ function densityInfo(timeslices, xScale, yScale) {
 function legend(densityMax) {
   var sequentialScale = d3
     .scaleSequential(d3.interpolateWarm)
-    .domain([0, densityMax]);
+    .domain([densityMax, 0]);
 
   var svg = d3.select("#legend");
 
