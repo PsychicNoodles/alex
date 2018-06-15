@@ -1,3 +1,7 @@
+const { ipcRenderer } = require("electron");
+const d3 = require("d3");
+const {legendColor} = require("d3-svg-legend");
+
 // Constants
 const ASPECT_RATIO = 9 / 16; // ratio of height-to-width currently, can be changed
 const SPECTRUM = d3.scaleSequential(d3.interpolateWarm);
@@ -11,13 +15,13 @@ var timeslices;
 var width;
 var height;
 
-const { ipcRenderer } = require("electron");
+/********************************** LOADING ***********************************/
+
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, result) => {
   draw(result.timeslices, d3.select("#plot"));
 });
 
-/* ******************************** LOADING ********************************* */
 // Set "loadFile" to execute when files are uploaded via the file upload button.
 document.getElementById("data-input")
   .addEventListener("change", loadFile, false);
@@ -237,7 +241,7 @@ function createBrush(timeslices) {
   var x = d3.scaleLinear()
     .domain([0, 10])
     .range([0, width]);
-  
+
   // Create brush
   var brush = d3.brushX()
     .extent([[0, 0], [width, height]])
@@ -481,7 +485,7 @@ function legend(densityMax) {
     .attr("class", "legendSequential")
     .attr("transform", "translate(0,30)");
 
-  var legendSequential = d3.legendColor()
+  var legendSequential = legendColor()
     .title("Density")
     .cells(6)
     .orient("vertical")
@@ -492,4 +496,4 @@ function legend(densityMax) {
 }
 
 
-/***************************** UI to choose xAxis *************************** */
+/***************************** UI to choose xAxis *****************************/
