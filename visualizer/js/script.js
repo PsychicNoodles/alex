@@ -11,7 +11,6 @@ var timeslices;
 var svg;
 var width;
 var height;
-var x;
 
 const { ipcRenderer } = require("electron");
 ipcRenderer.send("result-request");
