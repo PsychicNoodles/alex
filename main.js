@@ -5,6 +5,7 @@ const { spawn } = require("child_process");
 const fs = require("fs");
 const readline = require("readline");
 const tempFile = require("tempfile");
+const path = require("path")
 
 yargs
   .usage(
@@ -117,7 +118,7 @@ function collect({
       COLLECTOR_PERIOD: period,
       COLLECTOR_EVENTS: [...presetEvents, ...events].join(","),
       COLLECTOR_RESULT_FILE: resultFile,
-      LD_PRELOAD: `${__dirname}/collector/collector.so`
+      LD_PRELOAD: path.join(__dirname, "./collector/collector.so")
     }
   });
 
@@ -217,8 +218,8 @@ function collect({
 
 function visualize(resultFile) {
   spawn(
-    `${__dirname}/node_modules/.bin/electron`,
-    [`${__dirname}/visualizer`, resultFile],
+    path.join(__dirname, "./node_modules/.bin/electron"),
+    [path.join(__dirname, "./visualizer"), resultFile],
     { stdio: "inherit" }
   );
 }

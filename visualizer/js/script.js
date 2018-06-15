@@ -3,38 +3,40 @@ const { ipcRenderer } = require("electron");
 const d3 = require("d3");
 const { legendColor } = require("d3-svg-legend");
 
+require("bootstrap");
+
 const ASPECT_RATIO = 9 / 16; // ratio of height-to-width currently, can be changed
 const SPECTRUM = d3.scaleSequential(d3.interpolateGreens);
-//const VERTICALPAD = 20; // Should dynamically generate these in the future.
-//const HORIZONTALPAD = 50; // 
+const VERTICAL_PAD = 20; // Should dynamically generate these in the future.
+const HORIZONTAL_PAD = 50; //
 
 var circles;
 var xScale;
 var yScale;
+
 var plotWidth;
 var plotHeight;
 var graphWidth;
 var graphHeight;
 var verticalPad;
 var horizontalPad;
+var svgPlot = d3.select("#plot");
+var svgLegend = d3.select("#legend");
 
 /********************************** LOADING ***********************************/
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, result) => {
-  draw(result.timeslices, d3.select("#plot"));
+  var densityMax = drawPlot(result.timeslices);
+  legend(densityMax);
 });
-
-/* ******************************** RESIZING ******************************** */
-// Set "loadFile" to execute when the window's size changes.
-//window.addEventListener("resize", loadFile, false);
 
 /* ******************************** DRAWING ********************************* */
 
 /* This takes in timeslices (format specified in wiki) and svg (the plot we want
   to use). It's nice to take svg in as an argument, because if we want to draw
   multiple graphs in the future, we can say which svg should be drawn in. */
-function draw(timeslices, svgPlot) {
+function drawPlot(timeslices) {
   // Calculate the width and height based on the size of the window
   plotWidth = document.querySelector("#plot")
     .getBoundingClientRect().width;
@@ -55,8 +57,8 @@ function draw(timeslices, svgPlot) {
   processData(timeslices, chooseXAxis());
 
   // Calculate size of x-axis based on number of data points
-  var xScaleMax = timeslices[timeslices.length - 1].totalCycles;
-  var yScaleMax = findMax(timeslices, chooseResource());
+  const xScaleMax = timeslices[timeslices.length - 1].totalCycles;
+  const yScaleMax = findMax(timeslices, chooseResource());
 
   /* Create functions to scale objects vertically and horizontally according to
   the size of the graph */
@@ -70,12 +72,12 @@ function draw(timeslices, svgPlot) {
     .range([0, graphHeight]);
 
   drawAxes(xScale, yScale);
-  var densityMax = scatterPlot(
+  const densityMax = scatterPlot(
     densityInfo(timeslices, xScale, yScale),
     xScale,
     yScale
   );
-  legend(densityMax);
+  return densityMax;
 }
 
 /* Lets users choose which variable they want on the x-axis */
@@ -96,8 +98,8 @@ function processData(timeslices, resource) {
     case "numInstructions":
       timeslices[0].instructionsAcc = timeslices[0].numInstructions;
       timeslices[0].totalCycles = timeslices[0].numCPUCycles;
-      for (var i = 1; i < timeslices.length; i++) {
-        var cur = timeslices[i];
+      for (let i = 1; i < timeslices.length; i++) {
+        const cur = timeslices[i];
         cur.totalCycles = cur.numCPUCycles + timeslices[i - 1].totalCycles;
         cur.instructionsAcc =
           cur.numInstructions + timeslices[i - 1].instructionsAcc;
@@ -106,7 +108,7 @@ function processData(timeslices, resource) {
       break;
     case "cache":
       timeslices[0].totalCycles = timeslices[0].numCPUCycles;
-      var total =
+      let total =
         timeslices[0].events["MEM_LOAD_RETIRED.L3_MISS"] +
         timeslices[0].events["MEM_LOAD_RETIRED.L3_HIT"];
       if (total == 0) {
@@ -146,7 +148,7 @@ function findMax(timeslices, attr) {
         return d.numInstructions;
       });
     case "cache":
-      var max = d3.max(timeslices, function(d) {
+      const max = d3.max(timeslices, function(d) {
         return d.events.missRates;
       });
       return max;
@@ -159,22 +161,21 @@ function findMax(timeslices, attr) {
 
 function drawAxes(xScale, yScale) {
   // Create axes and format the ticks
-  var formatAsPercentage = d3.format(".0%");
-  var abbrev = d3.format(".0s");
-  var xAxis = d3.axisBottom(xScale).tickFormat(abbrev);
-  var yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage);
-  
-  var svg = d3.select("#plot");
+  const formatAsPercentage = d3.format(".0%");
+  const abbrev = d3.format(".0s");
+  const xAxis = d3.axisBottom(xScale).tickFormat(abbrev);
+  const yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage);
+  const svg = d3.select("#plot");
 
   // Add the axes to the svg object
-  svg
+  svgPlot
     .append("g")
     .attr("id", "xAxis")
     .attr("class", "axis")
     .attr("transform", "translate(0, " + graphHeight + ")")
     .call(xAxis);
 
-  svg
+  svgPlot
     .append("g")
     .attr("id", "yAxis")
     .attr("class", "axis")
@@ -207,10 +208,10 @@ function drawAxes(xScale, yScale) {
 /* This func makes the scatter plot */
 function scatterPlot(simplifiedData, xScale, yScale) {
   const densityMax = findMax(simplifiedData, "density");
-  var svg = d3.select("#plot");
+  const svg = d3.select("#plot");
 
   // Create the points and position them in the graph
-  circles = svg
+  circles = svgPlot
     .selectAll("circle")
     .data(simplifiedData)
     .enter()
@@ -231,16 +232,17 @@ function scatterPlot(simplifiedData, xScale, yScale) {
   return densityMax;
 }
 
+/**********************Brush Brush Brush******************************* */
 function createBrush(timeslices) {
-  var svg = d3.select("#plot");
+  const svg = d3.select("#plot");
 
-  var x = d3
+  const x = d3
     .scaleLinear()
     .domain([0, 10])
     .range([plotWidth - graphWidth, plotWidth]);
 
   // Create brush
-  var brush = d3
+  const brush = d3
     .brushX()
     .extent([[plotWidth - graphWidth, 0], [plotWidth, plotHeight - graphHeight]])
     .on("brush", function() {
@@ -249,7 +251,7 @@ function createBrush(timeslices) {
     .on("end", () => createTable(timeslices));
 
   // Add brush to svg object
-  svg
+  svgPlot
     .append("g")
     .call(brush)
     .call(brush.move, [3, 5].map(x))
@@ -264,7 +266,7 @@ function createBrush(timeslices) {
 
 // Re-center brush when the user clicks somewhere in the graph
 function brushCentered(brush, x) {
-  var dx = x(1) - x(0), // Use a fixed width when recentering.
+  const dx = x(1) - x(0), // Use a fixed width when recentering.
     cx = d3.mouse(this)[0],
     x0 = cx - dx / 2,
     x1 = cx + dx / 2;
@@ -279,13 +281,13 @@ function createTable(timeslices) {
   d3.selectAll(".row_data").remove();
   d3.select("table").style("visibility", "visible");
 
-  var circlesSelected = d3.selectAll(".brushed").data();
+  const circlesSelected = d3.selectAll(".brushed").data();
 
   if (circlesSelected.length > 0) {
     timeslices.forEach(function(d) {
       if (d.selected) {
-        var formatRate = d3.format(".1%");
-        var data = [
+        const formatRate = d3.format(".1%");
+        const data = [
           d.totalCycles,
           d.events["MEM_LOAD_RETIRED.L3_MISS"],
           d.events["MEM_LOAD_RETIRED.L3_HIT"],
@@ -310,16 +312,16 @@ function createTable(timeslices) {
 function brushed(timeslices) {
   if (d3.event.selection != null) {
     circles.attr("class", "circle");
-    var brushArea = d3.brushSelection(this);
+    const brushArea = d3.brushSelection(this);
 
     circles
       .filter(function() {
-        var cx = d3.select(this).attr("cx");
+        const cx = d3.select(this).attr("cx");
         return brushArea[0] <= cx && cx <= brushArea[1];
       })
       .attr("class", "brushed");
 
-    for (var i = 0; i < timeslices.length; i++) {
+    for (let i = 0; i < timeslices.length; i++) {
       timeslices[i].selected = false;
     }
 
@@ -338,7 +340,7 @@ function brushed(timeslices) {
 
 // Calculates how many points are in this node
 function getDensity(node) {
-  var count = 1;
+  let count = 1;
   while (node.next) {
     node = node.next;
     count++;
@@ -364,7 +366,7 @@ function getDensity(node) {
 //     if (!node.length) { // Is a leaf
 //       return node
 //     } else {
-//       var temp = findJustOneLeaf(node[0])
+//       const temp = findJustOneLeaf(node[0])
 //       if (temp != null) {
 //         return temp
 //       }
@@ -389,14 +391,14 @@ function getDensity(node) {
 // }
 
 function position(timeslices, xScale, yScale) {
-  for (var i = 0; i < timeslices.length; i++) {
+  for (let i = 0; i < timeslices.length; i++) {
     timeslices[i].x = Math.round(xScale(timeslices[i].totalCycles));
     timeslices[i].y = Math.round(yScale(timeslices[i].events.missRates));
   }
 }
 
 function calcAverDens(result) {
-  var quadtree = d3.quadtree(
+  const quadtree = d3.quadtree(
     result,
     function(d) {
       return d.x;
@@ -405,13 +407,13 @@ function calcAverDens(result) {
       return d.y;
     }
   );
-  for (var i = 0; i < result.length; i++) {
-    var x0 = result[i].x - 2;
-    var x3 = result[i].x + 2;
-    var y0 = result[i].y - 2;
-    var y3 = result[i].y + 2;
+  for (let i = 0; i < result.length; i++) {
+    const x0 = result[i].x - 2;
+    const x3 = result[i].x + 2;
+    const y0 = result[i].y - 2;
+    const y3 = result[i].y + 2;
 
-    var arr = [];
+    const arr = [];
 
     quadtree.visit(function(node, x1, y1, x2, y2) {
       if (!node.length) {
@@ -429,12 +431,12 @@ function calcAverDens(result) {
       return x1 >= x3 || y1 >= y3 || x2 <= x0 || y2 <= y0;
     });
 
-    var sum = 0;
-    for (var j = 0; j < arr.length; j++) {
+    let sum = 0;
+    for (let j = 0; j < arr.length; j++) {
       sum += arr[j];
     }
 
-    var aver = sum / arr.length;
+    const aver = sum / arr.length;
     result[i].densityAver = aver;
   }
 }
@@ -443,7 +445,7 @@ function calcAverDens(result) {
 function densityInfo(timeslices, xScale, yScale) {
   //for now, just take in missRates, and InstrustionsAcc
   position(timeslices, xScale, yScale);
-  var quadtree = d3.quadtree(
+  const quadtree = d3.quadtree(
     timeslices,
     function(d) {
       return d.x;
@@ -452,7 +454,7 @@ function densityInfo(timeslices, xScale, yScale) {
       return d.y;
     }
   ); //build a quadtree with all datum
-  var result = []; //the array used for holding the "picked" datum with their density
+  const result = []; //the array used for holding the "picked" datum with their density
 
   //now go to the depthStd deep node and count the density and record the information to result[]
   quadtree.visit(function(node) {
@@ -474,15 +476,15 @@ function densityInfo(timeslices, xScale, yScale) {
 
 // //This function will make a array of the density information and the "fake" xAxis and yAxis information
 // function densityInfo(timeslices) {//for now, just take in missRates, and InstrustionsAcc
-//   var plot = position(timeslices);
-//   var quadtree = d3.quadtree(timeslices, function (d) { return d.instructionsAcc; }, function (d) { return d.events.missRates; }); //build a quadtree with all datum
-//   var result = []; //the array used for holding the "picked" datum with their density
+//   const plot = position(timeslices);
+//   const quadtree = d3.quadtree(timeslices, function (d) { return d.instructionsAcc; }, function (d) { return d.events.missRates; }); //build a quadtree with all datum
+//   const result = []; //the array used for holding the "picked" datum with their density
 
 //   //add depth information into the datum
 //   getDepth(quadtree.root(), -1);
 
 //   //making sure that the max depth level goes down to pixels
-//   var depthStd = Math.round(Math.log(width * height) / Math.log(4)); //round up!
+//   const depthStd = Math.round(Math.log(width * height) / Math.log(4)); //round up!
 
 //   //now go to the depthStd deep node and count the density and record the information to result[]
 //   quadtree.visit(function (node, x1, y1, x2, y2) {
@@ -499,8 +501,8 @@ function densityInfo(timeslices, xScale, yScale) {
 //       if (node.depth < depthStd) {
 //         return false; //keep searching the children
 //       } else {
-//         var density = getDensity(node);
-//         var fakeData = findJustOneLeaf(node);
+//         const density = getDensity(node);
+//         const fakeData = findJustOneLeaf(node);
 //         fakeData.data.density = density;
 //         result.push(fakeData.data);
 //         return true;  //stop searching the children
@@ -513,24 +515,24 @@ function densityInfo(timeslices, xScale, yScale) {
 /********************************** legend ********************************** */
 
 function legend(densityMax) {
-  var sequentialScale = SPECTRUM
+  const sequentialScale = SPECTRUM
     .domain([0, densityMax]);
 
-  var svg = d3.select("#legend");
+  const svg = d3.select("#legend");
 
   svg
     .append("g")
     .attr("class", "legendSequential")
     .attr("transform", "translate(0,30)");
 
-  var legendSequential = legendColor()
+  const legendSequential = legendColor()
     .title("Density")
     .cells(6)
     .orient("vertical")
     .ascending(true)
     .scale(sequentialScale);
 
-  svg.select(".legendSequential").call(legendSequential);
+  svgLegend.select(".legendSequential").call(legendSequential);
 }
 
 /***************************** UI to choose xAxis *****************************/
