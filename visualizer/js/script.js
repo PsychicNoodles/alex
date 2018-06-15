@@ -42,7 +42,7 @@ function loadFile() {
   reader.onload = function() {
     try {
       timeslices = JSON.parse(reader.result).timeslices;
-      var svg = d3.select("#plot");
+      d3.select("#plot");
       draw(timeslices, d3.select("#legend"));
     } catch (err) {
       console.error(err);
