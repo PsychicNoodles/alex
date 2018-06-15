@@ -1,5 +1,11 @@
+#ifndef ALEX_COLLECTOR_DEBUG
+#define ALEX_COLLECTOR_DEBUG
+
 #include <iostream>
 #include <string>
+
+#include <dwarf/dwarf++.hh>
+#include <elf/elf++.hh>
 
 //debug macro
 #if defined(NDEBUG)
@@ -23,3 +29,8 @@ static inline std::string getenv_safe(const char* var,
   return std::string(value);
 }
 
+void dump_die(const dwarf::die& node);
+void dump_line_table(const dwarf::line_table& lt);
+int dump_table_and_symbol(char* path);
+
+#endif

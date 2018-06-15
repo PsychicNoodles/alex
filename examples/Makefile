@@ -3,7 +3,7 @@ all: build/matrixmultiplier build/threadarray
 build:
 	mkdir -p build
 
-build/matrixmultiplier: threadarray.c | build
+build/matrixmultiplier: matrixmultiplier.c | build
 	clang -g -Wall -rdynamic -o build/matrixmultiplier matrixmultiplier.c
 
 build/threadarray: threadarray.c | build
