@@ -319,9 +319,10 @@ int analyzer(int pid) {
               )");
       bool skip = false;
       for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
-        if (check_markup(perf_sample->instruction_pointers[i])) {
+        if (is_callchain_marker(perf_sample->instruction_pointers[i])) {
+          //fprintf(writef, "return true\n");
           skip = true;
-          continue;
+          //continue;
         }
 
         if (i > 0 && skip == false) {
