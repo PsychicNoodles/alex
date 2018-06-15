@@ -11,7 +11,6 @@ var timeslices;
 var svg;
 var width;
 var height;
-var x;
 
 const { ipcRenderer } = require("electron");
 ipcRenderer.send("result-request");
@@ -234,7 +233,7 @@ function scatterPlot(timeslices, xScale, yScale, svg) {
 function createBrush(timeslices) {
   var svg = d3.select("#plot");
 
-  x = d3.scaleLinear()
+  var x = d3.scaleLinear()
     .domain([0, 10])
     .range([0, width]);
   
@@ -248,13 +247,13 @@ function createBrush(timeslices) {
   svg.append("g")
     .call(brush)
     .call(brush.move, [3, 5].map(x))
-    .selectAll(".overlay")
-    .each(function (d) { d.type = "selection"; })
-    .on("mousedown touchstart", function () { brushCentered.call(this, brush) });
+    .selectAll('.overlay')
+    .each(function (d) { d.type = 'selection'; })
+    .on('mousedown touchstart', function () { brushCentered.call(this, brush, x) });
 }
 
 // Re-center brush when the user clicks somewhere in the graph
-function brushCentered(brush) {
+function brushCentered(brush, x) {
   var dx = x(1) - x(0), // Use a fixed width when recentering.
     cx = d3.mouse(this)[0],
     x0 = cx - dx / 2,
@@ -391,8 +390,7 @@ function calcAverDens(result) {
           if ((node.data.x >= x0) && (node.data.x <= x3) && (node.data.y >= y0) && (node.data.y <= y3)) {
             arr.push(node.data.density);
           }
-          node = node.next
-        } while (node.next);
+        } while (node = node.next); // FIX: is there a different way we can do this?
       }
       return x1 >= x3 || y1 >= y3 || x2 <= x0 || y2 <= y0;
     });
