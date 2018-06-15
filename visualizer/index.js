@@ -5,6 +5,7 @@
 
 const { app, BrowserWindow, ipcMain } = require("electron");
 const fs = require("fs");
+const path = require("path");
 
 console.info("Starting app...");
 
@@ -31,9 +32,14 @@ app
   .on("ready", async () => {
     console.info("Creating window...");
 
-    win = new BrowserWindow({ width: 1000, height: 500, show: false });
+    win = new BrowserWindow({
+      width: 1000,
+      height: 500,
+      show: false,
+      icon: path.join(__dirname, "./icons/launcher-64x64.png")
+    });
 
-    win.loadFile(`${__dirname}/index.html`);
+    win.loadFile(path.join(__dirname, "./index.html"));
 
     win
       .on("ready-to-show", () => {
