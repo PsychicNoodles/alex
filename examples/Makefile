@@ -1,12 +1,12 @@
-all: matrixmultiplier.c threadarray.c
+all: build/matrixmultiplier build/threadarray
 
 build:
 	mkdir -p build
 
-matrixmultiplier.c: | build
+build/matrixmultiplier: matrixmultiplier.c | build
 	clang -g -Wall -rdynamic -o build/matrixmultiplier matrixmultiplier.c
 
-threadarray.c: | build
+build/threadarray: threadarray.c | build
 	clang -g -Wall -lpthread -o build/threadarray threadarray.c
 
 clean:

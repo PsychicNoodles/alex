@@ -30,43 +30,16 @@
 #include <inttypes.h>
 #include <link.h>
 
+#include <libelfin/dwarf/dwarf++.hh>
+#include <libelfin/elf/elf++.hh>
+
+#include "const.h"
 #include "debug.hpp"
-#include "dwarf/dwarf++.hh"
-#include "elf/elf++.hh"
 #include "perf_sampler.hpp"
+#include "util.hpp"
 
 using namespace std;
 
-#define PAGE_SIZE 0x1000LL
-// this needs to be a power of two :'( (an hour was spent here)
-#define NUM_DATA_PAGES 256
-
-// kill failure. Not really a fail but a security hazard.
-#define KILLERROR 1    // Cannot kill parent
-#define FORKERROR 2    // Cannot fork
-#define OPENERROR 3    // Cannot open file
-#define PERFERROR 4    // Cannot make perf_event
-#define INSTERROR 5    // Cannot make fd for inst counter
-#define ASYNERROR 6    // Cannot set file to async mode
-#define FISGERROR 7    // Cannot set signal to file
-#define OWNERROR 8     // Cannot set file to owner
-#define SETERROR 9     // Cannot empty sigset
-#define ADDERROR 10    // Cannot add to sigset
-#define BUFFERROR 11   // Cannot open buffer
-#define IOCTLERROR 13  // Cannot control perf_event
-
-#define COLLECTOR_VERSION "0.0.1"
-
-// https://godoc.org/github.com/aclements/go-perf/perffile#pkg-constants
-#define CALLCHAIN_HYPERVISOR 0xffffffffffffffe0
-#define CALLCHAIN_KERNEL 0xffffffffffffff80
-#define CALLCHAIN_USER 0xfffffffffffffe00
-#define CALLCHAIN_GUEST 0xfffffffffffff800
-#define CALLCHAIN_GUESTKERNEL 0xfffffffffffff780
-#define CALLCHAIN_GUESTUSER 0xfffffffffffff600
-
-#define SAMPLE_TYPE (PERF_SAMPLE_TIME | PERF_SAMPLE_CALLCHAIN)
-using namespace std;
 struct sample {
   uint64_t time;
   uint64_t num_instruction_pointers;
@@ -88,66 +61,27 @@ bool ready = false;
    */
 
 bool find_pc(const dwarf::die &d, dwarf::taddr pc, vector<dwarf::die> *stack) {
-  using namespace dwarf;
-
   // Scan children first to find most specific DIE
   bool found = false;
   for (auto &child : d) {
     if ((found = find_pc(child, pc, stack))) break;
   }
   switch (d.tag) {
-    case DW_TAG::subprogram:
-    case DW_TAG::inlined_subroutine:
+    case dwarf::DW_TAG::subprogram:
+    case dwarf::DW_TAG::inlined_subroutine:
       try {
         if (found || die_pc_range(d).contains(pc)) {
           found = true;
           stack->push_back(d);
         }
       } catch (out_of_range &e) {
-      } catch (value_type_mismatch &e) {
+      } catch (dwarf::value_type_mismatch &e) {
       }
       break;
     default:
       break;
   }
   return found;
-}
-
-void dump_die(const dwarf::die &node) {
-  printf("<%" PRIx64 "> %s\n", node.get_section_offset(),
-         to_string(node.tag).c_str());
-  for (auto &attr : node.attributes())
-    printf("      %s %s\n", to_string(attr.first).c_str(),
-           to_string(attr.second).c_str());
-}
-
-void dump_line_table(const dwarf::line_table &lt) {
-  for (auto &line : lt) {
-    if (line.end_sequence)
-      printf("\n");
-    else
-      printf("%-40s%8d%#20" PRIx64 "\n", line.file->path.c_str(), line.line,
-             line.address);
-  }
-}
-
-/*
- * Reports time since epoch in milliseconds.
- */
-size_t time_ms() {
-  struct timeval tv;
-  if (gettimeofday(&tv, NULL) == -1) {
-    perror("gettimeofday");
-    exit(2);
-  }  // if
-  // Convert timeval values to milliseconds
-  return tv.tv_sec * 1000 + tv.tv_usec / 1000;
-}  // time_ms
-
-inline string ptr_fmt(void *ptr) {
-  char buf[128];
-  snprintf(buf, 128, "%p", ptr);
-  return string(buf);
 }
 
 /*
@@ -157,24 +91,18 @@ void set_ready_signal(int sig, int fd) {
   // Set the perf_event file to async
   if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_ASYNC)) {
     perror("couldn't set perf_event file to async");
-    kill(cpid, SIGKILL);
-    fclose(writef);
-    exit(ASYNERROR);
+    shutdown(cpid, writef, ASYNERROR);
   }  // if
   // Set the notification signal for the perf file
   if (fcntl(fd, F_SETSIG, sig)) {
     perror("couldn't set notification signal for perf file");
-    kill(cpid, SIGKILL);
-    fclose(writef);
-    exit(FISGERROR);
+    shutdown(cpid, writef, FISGERROR);
   }  // if
   pid_t tid = syscall(SYS_gettid);
   // Set the current thread as the owner of the file (to target signal delivery)
   if (fcntl(fd, F_SETOWN, tid)) {
     perror("couldn't set the current thread as the owner of the file");
-    kill(cpid, SIGKILL);
-    fclose(writef);
-    exit(OWNERROR);
+    shutdown(cpid, writef, OWNERROR);
   }  // if
 }  // set_ready_signal
 
@@ -185,93 +113,21 @@ int setup_sigset(int signum, sigset_t *sigset) {
   // emptying the set
   if (sigemptyset(sigset)) {
     perror("couldn't empty the signal set");
-    kill(cpid, SIGKILL);
-    fclose(writef);
-    exit(SETERROR);
+    shutdown(cpid, writef, SETERROR);
   }  // if
   // adding signum to sigset
   if (sigaddset(sigset, SIGUSR1)) {
     perror("couldn't add to signal set");
-    kill(cpid, SIGKILL);
-    fclose(writef);
-    exit(ADDERROR);
+    shutdown(cpid, writef, ADDERROR);
   }
   // blocking signum
   return pthread_sigmask(SIG_BLOCK, sigset, NULL);
 }  // setup_sigset
 
-// https://stackoverflow.com/a/14267455
-vector<string> str_split(string str, string delim) {
-  vector<string> split;
-  auto start = 0U;
-  auto end = str.find(delim);
-  while (end != std::string::npos) {
-    split.push_back(str.substr(start, end - start));
-    start = end + delim.length();
-    end = str.find(delim, start);
-  }
-
-  auto last_substr = str.substr(start, end);
-  if (last_substr != "") {
-    split.push_back(last_substr);
-  }
-
-  return split;
-}
-
 vector<string> get_events() {
   auto events_env = getenv_safe("COLLECTOR_EVENTS");
   DEBUG("events: '" << events_env << "'");
   return str_split(events_env, ",");
-}
-
-int dump_table_and_symbol(char *path) {
-  int fd = open(path, O_RDONLY);
-  if (fd < 0) {
-    perror(path);
-    return OPENERROR;
-  }
-
-  elf::elf ef(elf::create_mmap_loader(fd));
-  dwarf::dwarf dw(dwarf::elf::create_loader(ef));
-  DEBUG("dump_line_table");
-
-  for (auto cu : dw.compilation_units()) {
-    printf("--- <%x>\n", (unsigned int)cu.get_section_offset());
-    dump_line_table(cu.get_line_table());
-    printf("\n");
-  }
-  printf("loading symbols");
-  for (auto &sec : ef.sections()) {
-    if (sec.get_hdr().type != elf::sht::symtab &&
-        sec.get_hdr().type != elf::sht::dynsym)
-      continue;
-
-    printf("Symbol table '%s':\n", sec.get_name().c_str());
-    printf("%6s: %-16s %-5s %-7s %-7s %-5s %s\n", "Num", "Value", "Size",
-           "Type", "Binding", "Index", "Name");
-    int i = 0;
-    for (auto sym : sec.as_symtab()) {
-      auto &d = sym.get_data();
-      printf("%6d: %016" PRIx64 " %5" PRId64 " %-7s %-7s %5s %s\n", i++,
-             d.value, d.size, to_string(d.type()).c_str(),
-             to_string(d.binding()).c_str(), to_string(d.shnxd).c_str(),
-             sym.get_name().c_str());
-    }
-  }
-  printf("  %-16s  %-16s   %-16s   %s\n", "Type", "Offset", "VirtAddr",
-         "PhysAddr");
-  printf("  %-16s  %-16s   %-16s  %6s %5s\n", " ", "FileSiz", "MemSiz", "Flags",
-         "Align");
-  for (auto &seg : ef.segments()) {
-    auto &hdr = seg.get_hdr();
-    printf("   %-16s 0x%016" PRIx64 " 0x%016" PRIx64 " 0x%016" PRIx64 "\n",
-           to_string(hdr.type).c_str(), hdr.offset, hdr.vaddr, hdr.paddr);
-    printf("   %-16s 0x%016" PRIx64 " 0x%016" PRIx64 " %-5s %-5" PRIx64 "\n",
-           "", hdr.filesz, hdr.memsz, to_string(hdr.flags).c_str(), hdr.align);
-  }
-  return 0;
-  DEBUG("dump symbol table");
 }
 
 /*
@@ -283,7 +139,14 @@ int analyzer(int pid) {
   pfm_initialize();
 
   DEBUG("anlz: setting up period from env var");
-  long long period = stoll(getenv_safe("COLLECTOR_PERIOD", "10000000"));
+  long long period;
+  try {
+    period = stoll(getenv_safe("COLLECTOR_PERIOD", "10000000"));
+  } catch (std::invalid_argument &e) {
+    shutdown(cpid, writef, ENVERROR);
+  } catch (std::out_of_range &e) {
+    shutdown(cpid, writef, ENVERROR);
+  }
 
   // set up the cpu cycles perf buffer
   perf_event_attr cpu_cycles_attr;
@@ -300,9 +163,7 @@ int analyzer(int pid) {
   perf_buffer cpu_cycles_perf;
   if (setup_monitoring(&cpu_cycles_perf, &cpu_cycles_attr, pid) !=
       SAMPLER_MONITOR_SUCCESS) {
-    kill(cpid, SIGKILL);
-    fclose(writef);
-    exit(INSTERROR);
+    shutdown(cpid, writef, INSTERROR);
   }
 
   DEBUG("anlz: setting ready signal for SIGUSR1");
@@ -323,9 +184,7 @@ int analyzer(int pid) {
       perf_event_open(&instruction_count_attr, pid, -1, -1, 0);
   if (instruction_count_fd == -1) {
     perror("couldn't perf_event_open for instruction count");
-    kill(cpid, SIGKILL);
-    fclose(writef);
-    exit(PERFERROR);
+    shutdown(cpid, writef, PERFERROR);
   }
 
   // Set up event counters
@@ -339,49 +198,30 @@ int analyzer(int pid) {
     memset(&attr, 0, sizeof(perf_event_attr));
 
     // Parse out event name with PFM.  Must be done first.
-    pfm_perf_encode_arg_t pfm;
-    pfm.attr = &attr;
-    pfm.fstr = 0;
-    pfm.size = sizeof(pfm_perf_encode_arg_t);
-    int pfm_result = pfm_get_os_event_encoding(events.at(i).c_str(), PFM_PLM3,
-                                               PFM_OS_PERF_EVENT_EXT, &pfm);
+    int pfm_result = setup_pfm_os_event(&attr, (char *)events.at(i).c_str());
     if (pfm_result != PFM_SUCCESS) {
       fprintf(stderr, "pfm encoding error: %s", pfm_strerror(pfm_result));
-      kill(ppid, SIGKILL);
-      fclose(writef);
-      exit(PERFERROR);
+      shutdown(cpid, writef, PERFERROR);
     }
-
-    attr.disabled = true;
-    attr.size = sizeof(perf_event_attr);
-    attr.exclude_kernel = true;
 
     event_fds[i] = perf_event_open(&attr, pid, -1, -1, 0);
     if (event_fds[i] == -1) {
       perror("couldn't perf_event_open for event");
-      kill(cpid, SIGKILL);
-      fclose(writef);
-      exit(PERFERROR);
+      shutdown(cpid, writef, PERFERROR);
     }
   }
 
   if (start_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
-    kill(cpid, SIGKILL);
-    fclose(writef);
-    exit(IOCTLERROR);
+    shutdown(cpid, writef, IOCTLERROR);
   }
 
   if (start_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS) {
-    kill(cpid, SIGKILL);
-    fclose(writef);
-    exit(IOCTLERROR);
+    shutdown(cpid, writef, IOCTLERROR);
   }
 
   for (int i = 0; i < number; i++) {
     if (start_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
-      kill(cpid, SIGKILL);
-      fclose(writef);
-      exit(IOCTLERROR);
+      shutdown(cpid, writef, IOCTLERROR);
     }
   }
 
@@ -407,18 +247,14 @@ int analyzer(int pid) {
     long long num_cycles = 0;
     read(cpu_cycles_perf.fd, &num_cycles, sizeof(num_cycles));
     if (reset_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
-      kill(cpid, SIGKILL);
-      fclose(writef);
-      exit(IOCTLERROR);
+      shutdown(cpid, writef, IOCTLERROR);
     }
 
     long long num_instructions = 0;
     read(instruction_count_fd, &num_instructions, sizeof(num_instructions));
     DEBUG("anlz: read in num of inst: " << num_instructions);
     if (reset_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS) {
-      kill(cpid, SIGKILL);
-      fclose(writef);
-      exit(IOCTLERROR);
+      shutdown(cpid, writef, IOCTLERROR);
     }
 
     if (!has_next_sample(&cpu_cycles_perf)) {
@@ -434,7 +270,9 @@ int analyzer(int pid) {
       int sample_size;
       sample *perf_sample = (sample *)get_next_sample(
           &cpu_cycles_perf, &sample_type, &sample_size);
-      assert(sample_type == PERF_RECORD_SAMPLE);
+      if (sample_type != PERF_RECORD_SAMPLE) {
+        shutdown(cpid, writef, SAMPLEERROR);
+      }
       while (has_next_sample(&cpu_cycles_perf)) {
         int temp_type, temp_size;
         get_next_sample(&cpu_cycles_perf, &temp_type, &temp_size);
@@ -459,9 +297,7 @@ int analyzer(int pid) {
         long long count = 0;
         read(event_fds[i], &count, sizeof(long long));
         if (reset_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
-          kill(cpid, SIGKILL);
-          fclose(writef);
-          exit(IOCTLERROR);
+          shutdown(cpid, writef, IOCTLERROR);
         }
 
         fprintf(writef, R"("%s": %lld)", events.at(i).c_str(), count);
@@ -470,7 +306,7 @@ int analyzer(int pid) {
       int fd = open((char *)"/proc/self/exe", O_RDONLY);
       if (fd < 0) {
         perror("cannot open executable (/proc/self/exe)");
-        return OPENERROR;
+        shutdown(cpid, writef, OPENERROR);
       }
 
       elf::elf ef(elf::create_mmap_loader(fd));
@@ -527,7 +363,7 @@ int analyzer(int pid) {
             if (it != lt.end()) {
               line = it->line;
               column = it->column;
-              fullLocation = (char *) it->file->path.c_str();
+              fullLocation = (char *)it->file->path.c_str();
             }
             break;
           }
