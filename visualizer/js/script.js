@@ -6,7 +6,7 @@ const { legendColor } = require("d3-svg-legend");
 const ASPECT_RATIO = 9 / 16; // ratio of height-to-width currently, can be changed
 const SPECTRUM = d3.scaleSequential(d3.interpolateWarm);
 const VERTICALPAD = 20; // Should dynamically generate these in the future.
-const HORIZONTALPAD = 50; // ''
+const HORIZONTALPAD = 50; // 
 
 var circles;
 var xScale;
@@ -63,7 +63,9 @@ function draw(timeslices, svgPlot) {
   width = document.querySelector("#plot").getBoundingClientRect().width;
   height = width * ASPECT_RATIO;
   // Select the svg object of the graph.
-  svgPlot.attr("width", width).attr("height", height);
+  //svgPlot.attr('preserveAspectRatio', 'xMinYMin meet')
+  //  .attr('viewBox', '0 0 100 100').attr('preserveAspectRatio', 'xMidYMid meet'); // "none"
+  svgPlot.attr('width', width).attr('height', height);
 
   // If the SVG has anything in it, get rid of it. We want a clean slate.
   svgPlot.selectAll("*").remove();
