@@ -30,8 +30,8 @@
 #include <inttypes.h>
 #include <link.h>
 
-#include <dwarf/dwarf++.hh>
-#include <elf/elf++.hh>
+#include <libelfin/dwarf/dwarf++.hh>
+#include <libelfin/elf/elf++.hh>
 
 #include "const.h"
 #include "debug.hpp"
@@ -317,11 +317,18 @@ int analyzer(int pid) {
                   },
                   "stackFrames": [
               )");
-
+      bool skip = false;
       for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
-        if (i > 0) {
+        if (is_callchain_marker(perf_sample->instruction_pointers[i])) {
+          //fprintf(writef, "return true\n");
+          skip = true;
+          //continue;
+        }
+
+        if (i > 0 && skip == false) {
           fprintf(writef, ",");
         }
+        skip = false;
 
         fprintf(writef,
                 R"(
