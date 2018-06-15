@@ -391,8 +391,7 @@ function calcAverDens(result) {
           if ((node.data.x >= x0) && (node.data.x <= x3) && (node.data.y >= y0) && (node.data.y <= y3)) {
             arr.push(node.data.density);
           }
-          node = node.next
-        } while (node.next);
+        } while (node = node.next); // FIX: is there a different way we can do this?
       }
       return x1 >= x3 || y1 >= y3 || x2 <= x0 || y2 <= y0;
     });
