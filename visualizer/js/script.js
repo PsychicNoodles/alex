@@ -5,14 +5,18 @@ const { legendColor } = require("d3-svg-legend");
 
 const ASPECT_RATIO = 9 / 16; // ratio of height-to-width currently, can be changed
 const SPECTRUM = d3.scaleSequential(d3.interpolateGreens);
-const VERTICALPAD = 20; // Should dynamically generate these in the future.
-const HORIZONTALPAD = 50; // 
+//const VERTICALPAD = 20; // Should dynamically generate these in the future.
+//const HORIZONTALPAD = 50; // 
 
 var circles;
 var xScale;
 var yScale;
-var width;
-var height;
+var plotWidth;
+var plotHeight;
+var graphWidth;
+var graphHeight;
+var verticalPad;
+var horizontalPad;
 
 /********************************** LOADING ***********************************/
 
@@ -32,14 +36,16 @@ ipcRenderer.on("result", (event, result) => {
   multiple graphs in the future, we can say which svg should be drawn in. */
 function draw(timeslices, svgPlot) {
   // Calculate the width and height based on the size of the window
-  width = document.querySelector("#plot")
-    .getBoundingClientRect().width + HORIZONTALPAD;
-  height = width * ASPECT_RATIO + VERTICALPAD;
+  plotWidth = document.querySelector("#plot")
+    .getBoundingClientRect().width;
+  plotHeight = plotWidth * ASPECT_RATIO;
+  graphWidth = 0.9 * plotWidth;
+  graphHeight = 0.9 * plotHeight;
 
   // Select the svg object of the graph.
   //svgPlot.attr('preserveAspectRatio', 'xMinYMin meet')
   //  .attr('viewBox', '0 0 100 100').attr('preserveAspectRatio', 'xMidYMid meet'); // "none"
-  svgPlot.attr('width', width).attr('height', height);
+  svgPlot.attr('width', plotWidth).attr('height', plotHeight);
 
   // If the SVG has anything in it, get rid of it. We want a clean slate.
   svgPlot.selectAll("*").remove();
@@ -57,11 +63,11 @@ function draw(timeslices, svgPlot) {
   xScale = d3
     .scaleLinear()
     .domain([0, xScaleMax])
-    .range([HORIZONTALPAD, width - VERTICALPAD]);
+    .range([plotWidth - graphWidth, plotWidth]);
   yScale = d3
     .scaleLinear()
     .domain([yScaleMax, 0])
-    .range([VERTICALPAD, height - VERTICALPAD * 3]);
+    .range([0, graphHeight]);
 
   drawAxes(xScale, yScale);
   var densityMax = scatterPlot(
@@ -165,14 +171,14 @@ function drawAxes(xScale, yScale) {
     .append("g")
     .attr("id", "xAxis")
     .attr("class", "axis")
-    .attr("transform", "translate(0, " + (height - VERTICALPAD * 2) + ")")
+    .attr("transform", "translate(0, " + graphHeight + ")")
     .call(xAxis);
 
   svg
     .append("g")
     .attr("id", "yAxis")
     .attr("class", "axis")
-    .attr("transform", "translate(" + (HORIZONTALPAD) + ", 0)")
+    .attr("transform", "translate(" + ((plotWidth - graphWidth) - 10) + ", 0)")
     .call(yAxis);
 
   // Add labels to the axes
@@ -182,8 +188,8 @@ function drawAxes(xScale, yScale) {
     .append("text")
     .attr("class", "x label")
     .attr("text-anchor", "middle")
-    .attr("x", width / 2 + HORIZONTALPAD)
-    .attr("y", VERTICALPAD * 2)
+    .attr("x", (graphWidth / 2) + (plotWidth - graphWidth))
+    .attr("y", graphHeight + ((plotHeight - graphHeight) / 2))
     .text("CPU Cycles");
 
   svg
@@ -191,8 +197,8 @@ function drawAxes(xScale, yScale) {
     .append("text")
     .attr("class", "y label")
     .attr("text-anchor", "middle")
-    .attr("y", -HORIZONTALPAD)
-    .attr("x", -1 * (height / 2))
+    .attr("y", (plotWidth - graphWidth) / 2)
+    .attr("x", graphHeight / 2)
     .attr("dy", ".75em")
     .attr("transform", "rotate(-90)")
     .text("Cache miss rate");
@@ -231,12 +237,12 @@ function createBrush(timeslices) {
   var x = d3
     .scaleLinear()
     .domain([0, 10])
-    .range([0, width]);
+    .range([plotWidth - graphWidth, plotWidth]);
 
   // Create brush
   var brush = d3
     .brushX()
-    .extent([[0, 0], [width, height]])
+    .extent([[plotWidth - graphWidth, 0], [plotWidth, plotHeight - graphHeight]])
     .on("brush", function() {
       brushed.call(this, timeslices);
     })
@@ -264,7 +270,7 @@ function brushCentered(brush, x) {
     x1 = cx + dx / 2;
   d3.select(this.parentNode).call(
     brush.move,
-    x1 > width ? [width - dx, width] : x0 < 0 ? [0, dx] : [x0, x1]
+    x1 > plotWidth ? [plotWidth - dx, plotWidth] : x0 < 0 ? [0, dx] : [x0, x1]
   );
 }
 
@@ -515,7 +521,7 @@ function legend(densityMax) {
   svg
     .append("g")
     .attr("class", "legendSequential")
-    .attr("transform", "translate(" + width + ",30)");
+    .attr("transform", "translate(0,30)");
 
   var legendSequential = legendColor()
     .title("Density")
