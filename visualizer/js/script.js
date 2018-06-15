@@ -55,14 +55,18 @@ window.addEventListener("resize", loadFile, false);
   to use). It's nice to take svg in as an argument, because if we want to draw
   multiple graphs in the future, we can say which svg should be drawn in. */
 function draw(timeslices, svgPlot) {
+  // Calculate the width and height based on the size of the window
   width = document.querySelector("#plot")
-    .getBoundingClientRect().width;
-  height = width * ASPECT_RATIO;
+    .getBoundingClientRect().width + HORIZONTALPAD;
+  height = width * ASPECT_RATIO + VERTICALPAD;
+
   // Select the svg object of the graph.
   svgPlot.attr("width", width).attr("height", height);
 
   // If the SVG has anything in it, get rid of it. We want a clean slate.
   svgPlot.selectAll("*").remove();
+
+  // Edit the timeslices array to include information based on which variables we are graphing
   processData(timeslices, chooseResource());
   processData(timeslices, chooseXAxis());
 
@@ -70,8 +74,7 @@ function draw(timeslices, svgPlot) {
   var xScaleMax = timeslices[timeslices.length - 1].totalCycles;
   var yScaleMax = findMax(timeslices, chooseResource());
 
-  /* Create functions to scale objects vertically and horizontally according to
-  the size of the graph */
+  // Create functions to scale objects vertically and horizontally according to the size of the graph
   xScale = d3.scaleLinear()
     .domain([0, xScaleMax])
     .range([HORIZONTALPAD, width - VERTICALPAD]);
@@ -80,17 +83,21 @@ function draw(timeslices, svgPlot) {
     .range([VERTICALPAD, height - VERTICALPAD * 3]);
 
   drawAxes(xScale, yScale);
+
+  // Draw the graph and calculate the density of the most dense part of the graph
   var densityMax = scatterPlot(densityInfo(timeslices, xScale, yScale), xScale, yScale);
+
+  // Draw the legend
   legend(densityMax);
 }
 
-/* Lets users to choose which resource they want the tool to present and analyze on */
+/* Lets users choose which variable they want on the x-axis */
 function chooseXAxis() {
   // need work!
   return "numInstructions";
 }
 
-/* Lets users to choose which resource they want the tool to present and analyze on */
+/* Lets users choose which resource they want the tool to present on the y-axis */
 function chooseResource() {
   // need work!
   return "cache";
@@ -157,13 +164,13 @@ function findMax(timeslices, attr) {
   }
 }
 
-//This func will draw the axes
 function drawAxes(xScale, yScale) {
-  // Create axes and format the ticks on the y-axis as percentages
+  // Create axes and format the ticks
   var formatAsPercentage = d3.format(".0%");
   var abbrev = d3.format(".0s");
   var xAxis = d3.axisBottom(xScale).tickFormat(abbrev);
   var yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage);
+  
   var svg = d3.select("#plot");
 
   // Add the axes to the svg object
@@ -178,26 +185,27 @@ function drawAxes(xScale, yScale) {
     .append("g")
     .attr("id", "yAxis")
     .attr("class", "axis")
-    .attr("transform", "translate(" + (HORIZONTALPAD - VERTICALPAD) + ", 0)")
+    .attr("transform", "translate(" + (HORIZONTALPAD) + ", 0)")
     .call(yAxis);
 
   // Add labels to the axes
+  console.log(svg.select("#xAxis"));
   svg
-    .select("xAxis")
+    .select("#xAxis")
     .append("text")
     .attr("class", "x label")
-    .attr("text-anchor", "end")
+    .attr("text-anchor", "middle")
     .attr("x", width / 2 + HORIZONTALPAD)
-    .attr("y", height)
+    .attr("y", VERTICALPAD * 2)
     .text("CPU Cycles");
 
   svg
-    .select("yAxis")
+    .select("#yAxis")
     .append("text")
     .attr("class", "y label")
-    .attr("text-anchor", "end")
-    .attr("y", 6)
-    .attr("x", (-1 * (height - VERTICALPAD)) / 2)
+    .attr("text-anchor", "middle")
+    .attr("y", -HORIZONTALPAD)
+    .attr("x", -1 * (height / 2))
     .attr("dy", ".75em")
     .attr("transform", "rotate(-90)")
     .text("Cache miss rate");
@@ -479,7 +487,7 @@ function legend(densityMax) {
 
   svg.append("g")
     .attr("class", "legendSequential")
-    .attr("transform", "translate(0,30)");
+    .attr("transform", "translate(" + width + ",30)");
 
   var legendSequential = d3.legendColor()
     .title("Density")

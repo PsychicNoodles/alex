@@ -21,6 +21,7 @@ tr:nth-child(even) {
 .axis text {
     font-family: sans-serif;
     font-size: 11px;
+    fill: #000;
 }
  
 .circle {
