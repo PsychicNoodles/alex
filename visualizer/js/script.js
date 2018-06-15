@@ -1,17 +1,16 @@
+// Constants
 const { ipcRenderer } = require("electron");
 const d3 = require("d3");
 const { legendColor } = require("d3-svg-legend");
 
-// Constants
 const ASPECT_RATIO = 9 / 16; // ratio of height-to-width currently, can be changed
-const SPECTRUM = d3.scaleSequential(d3.interpolateWarm);
+const SPECTRUM = d3.scaleSequential(d3.interpolateGreens);
 const VERTICALPAD = 20; // Should dynamically generate these in the future.
 const HORIZONTALPAD = 50; // 
 
 var circles;
 var xScale;
 var yScale;
-var timeslices;
 var width;
 var height;
 
@@ -22,37 +21,9 @@ ipcRenderer.on("result", (event, result) => {
   draw(result.timeslices, d3.select("#plot"));
 });
 
-// Set "loadFile" to execute when files are uploaded via the file upload button.
-document
-  .getElementById("data-input")
-  .addEventListener("change", loadFile, false);
-
-function loadFile() {
-  // Get the file uploaded by the user.
-  var file = document.getElementById("data-input").files[0];
-
-  var reader = new FileReader();
-  // Read the file; when this is done, it automatically executes reader.onload.
-  try {
-    reader.readAsText(file);
-  } catch (err) {
-    return;
-  }
-
-  reader.onload = function() {
-    try {
-      timeslices = JSON.parse(reader.result).timeslices;
-      d3.select("#plot");
-      draw(timeslices, d3.select("#legend"));
-    } catch (err) {
-      console.error(err);
-    }
-  };
-}
-
 /* ******************************** RESIZING ******************************** */
 // Set "loadFile" to execute when the window's size changes.
-window.addEventListener("resize", loadFile, false);
+//window.addEventListener("resize", loadFile, false);
 
 /* ******************************** DRAWING ********************************* */
 
@@ -222,14 +193,14 @@ function drawAxes(xScale, yScale) {
 }
 
 /* This func makes the scatter plot */
-function scatterPlot(timeslices, xScale, yScale) {
-  const densityMax = findMax(timeslices, "density");
+function scatterPlot(simplifiedData, xScale, yScale) {
+  const densityMax = findMax(simplifiedData, "density");
   var svg = d3.select("#plot");
 
   // Create the points and position them in the graph
   circles = svg
     .selectAll("circle")
-    .data(timeslices)
+    .data(simplifiedData)
     .enter()
     .append("circle")
     .attr("cx", function(d) {
@@ -238,12 +209,12 @@ function scatterPlot(timeslices, xScale, yScale) {
     .attr("cy", function(d) {
       return yScale(d.events.missRates);
     })
-    .attr("r", 2)
+    .attr("r", 1)
     .style("fill", function(d) {
       return SPECTRUM(d.densityAver / densityMax);
     });
 
-  createBrush(timeslices);
+  createBrush(simplifiedData);
 
   return densityMax;
 }
@@ -530,11 +501,10 @@ function densityInfo(timeslices, xScale, yScale) {
 /********************************** legend ********************************** */
 
 function legend(densityMax) {
-  var sequentialScale = d3
-    .scaleSequential(d3.interpolateWarm)
-    .domain([densityMax, 0]);
+  var sequentialScale = SPECTRUM
+    .domain([0, densityMax]);
 
-  var svg = d3.select("svg");
+  var svg = d3.select("#legend");
 
   svg
     .append("g")
@@ -545,6 +515,7 @@ function legend(densityMax) {
     .title("Density")
     .cells(6)
     .orient("vertical")
+    .ascending(true)
     .scale(sequentialScale);
 
   svg.select(".legendSequential").call(legendSequential);
