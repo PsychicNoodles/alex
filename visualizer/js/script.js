@@ -13,12 +13,15 @@ var xScale;
 var yScale;
 var width;
 var height;
+var svgPlot = d3.select("#plot");
+var svgLegend = d3.select("#legend");
 
 /********************************** LOADING ***********************************/
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, result) => {
-  draw(result.timeslices, d3.select("#plot"));
+  var densityMax = drawPlot(result.timeslices);
+  legend(densityMax);
 });
 
 /* ******************************** RESIZING ******************************** */
@@ -30,7 +33,7 @@ ipcRenderer.on("result", (event, result) => {
 /* This takes in timeslices (format specified in wiki) and svg (the plot we want
   to use). It's nice to take svg in as an argument, because if we want to draw
   multiple graphs in the future, we can say which svg should be drawn in. */
-function draw(timeslices, svgPlot) {
+function drawPlot(timeslices) {
   width = document.querySelector("#plot").getBoundingClientRect().width;
   height = width * ASPECT_RATIO;
   // Select the svg object of the graph.
@@ -64,7 +67,7 @@ function draw(timeslices, svgPlot) {
     xScale,
     yScale
   );
-  legend(densityMax);
+  return densityMax;
 }
 
 /* Lets users to choose which resource they want the tool to present and analyze on */
@@ -153,17 +156,16 @@ function drawAxes(xScale, yScale) {
   var abbrev = d3.format(".0s");
   var xAxis = d3.axisBottom(xScale).tickFormat(abbrev);
   var yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage);
-  var svg = d3.select("#plot");
 
   // Add the axes to the svg object
-  svg
+  svgPlot
     .append("g")
     .attr("id", "xAxis")
     .attr("class", "axis")
     .attr("transform", "translate(0, " + (height - VERTICALPAD * 2) + ")")
     .call(xAxis);
 
-  svg
+  svgPlot
     .append("g")
     .attr("id", "yAxis")
     .attr("class", "axis")
@@ -171,7 +173,7 @@ function drawAxes(xScale, yScale) {
     .call(yAxis);
 
   // Add labels to the axes
-  svg
+  svgPlot
     .select("xAxis")
     .append("text")
     .attr("class", "x label")
@@ -180,7 +182,7 @@ function drawAxes(xScale, yScale) {
     .attr("y", height)
     .text("CPU Cycles");
 
-  svg
+  svgPlot
     .select("yAxis")
     .append("text")
     .attr("class", "y label")
@@ -195,10 +197,9 @@ function drawAxes(xScale, yScale) {
 /* This func makes the scatter plot */
 function scatterPlot(simplifiedData, xScale, yScale) {
   const densityMax = findMax(simplifiedData, "density");
-  var svg = d3.select("#plot");
 
   // Create the points and position them in the graph
-  circles = svg
+  circles = svgPlot
     .selectAll("circle")
     .data(simplifiedData)
     .enter()
@@ -219,9 +220,8 @@ function scatterPlot(simplifiedData, xScale, yScale) {
   return densityMax;
 }
 
+/**********************Brush Brush Brush******************************* */
 function createBrush(timeslices) {
-  var svg = d3.select("#plot");
-
   var x = d3
     .scaleLinear()
     .domain([0, 10])
@@ -237,7 +237,7 @@ function createBrush(timeslices) {
     .on("end", () => createTable(timeslices));
 
   // Add brush to svg object
-  svg
+  svgPlot
     .append("g")
     .call(brush)
     .call(brush.move, [3, 5].map(x))
@@ -504,9 +504,7 @@ function legend(densityMax) {
   var sequentialScale = SPECTRUM
     .domain([0, densityMax]);
 
-  var svg = d3.select("#legend");
-
-  svg
+  svgLegend
     .append("g")
     .attr("class", "legendSequential")
     .attr("transform", "translate(0,30)");
@@ -518,7 +516,7 @@ function legend(densityMax) {
     .ascending(true)
     .scale(sequentialScale);
 
-  svg.select(".legendSequential").call(legendSequential);
+  svgLegend.select(".legendSequential").call(legendSequential);
 }
 
 /***************************** UI to choose xAxis *****************************/
