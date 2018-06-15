@@ -37,9 +37,6 @@
       "node": true
     },
     "extends": "eslint:recommended",
-    "globals": {
-      "d3": true
-    },
     "rules": {
       "no-console": "off",
       "no-var": "error"
