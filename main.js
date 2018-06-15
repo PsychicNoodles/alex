@@ -178,12 +178,15 @@ function collect({
     } else {
       console.info("Successfully collected data.");
 
-      console.info("Processing results...")
+      console.info("Processing results...");
       const result = JSON.parse(fs.readFileSync(resultFile).toString());
-      result.header.events = events;
-      result.header.preset = preset;
-      result.header.executableName = executable;
-      result.header.executableArgs = executableArgs;
+      result.header = {
+        ...result.header,
+        events,
+        preset,
+        executableName: executable,
+        executableArgs
+      };
       fs.writeFileSync(resultFile, JSON.stringify(result, null, 2));
 
       if (resultOption) {
