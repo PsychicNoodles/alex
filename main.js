@@ -4,7 +4,7 @@ const yargs = require("yargs");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const readline = require("readline");
-const tempfile = require("tempfile");
+const tempFile = require("tempfile");
 
 yargs
   .usage(
@@ -109,7 +109,7 @@ function collect({
     console.error("Invalid preset:", preset);
   }
 
-  const resultFile = resultOption || tempfile(".json");
+  const resultFile = resultOption || tempFile(".json");
 
   const collector = spawn(executable, executableArgs, {
     env: {
@@ -177,6 +177,18 @@ function collect({
       console.error(errorCodes[code]);
     } else {
       console.info("Successfully collected data.");
+
+      console.info("Processing results...");
+      const result = JSON.parse(fs.readFileSync(resultFile).toString());
+      result.header = {
+        ...result.header,
+        events,
+        preset,
+        executableName: executable,
+        executableArgs
+      };
+      fs.writeFileSync(resultFile, JSON.stringify(result, null, 2));
+
       if (resultOption) {
         console.info(`Results saved to ${resultFile}`);
       }
@@ -207,6 +219,6 @@ function visualize(resultFile) {
   spawn(
     `${__dirname}/node_modules/.bin/electron`,
     [`${__dirname}/visualizer`, resultFile],
-    { stdio: "ignore" }
+    { stdio: "inherit" }
   );
 }

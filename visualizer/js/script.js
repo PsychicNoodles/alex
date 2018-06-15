@@ -21,7 +21,7 @@ ipcRenderer.on("result", (event, result) => {
 /* ******************************** LOADING ********************************* */
 // Set "loadFile" to execute when files are uploaded via the file upload button.
 document.getElementById('data-input')
-  .addEventListener('input', loadFile, false);
+  .addEventListener('change', loadFile, false);
 
 function loadFile() {
   // Get the file uploaded by the user.
