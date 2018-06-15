@@ -11,6 +11,7 @@ var timeslices;
 var svg;
 var width;
 var height;
+
 const { ipcRenderer } = require("electron");
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, result) => {
@@ -224,11 +225,23 @@ function scatterPlot(timeslices, xScale, yScale, svg) {
       return SPECTRUM(d.densityAver / densityMax);
     });
 
+    createBrush(timeslices);
+
+  return densityMax;
+}
+
+function createBrush(timeslices) {
+  var svg = d3.select('#plot');
+
+  x = d3.scaleLinear()
+    .domain([0, 10])
+    .range([0, width]);
+  
   // Create brush
   var brush = d3.brushX()
     .extent([[0, 0], [width, height]])
-    .on('brush', brushed)
-    .on('end', createTable);
+    .on('brush', function () { brushed.call(this, timeslices) })
+    .on('end', () => createTable(timeslices));
 
   // Add brush to svg object
   svg.append('g')
@@ -237,26 +250,19 @@ function scatterPlot(timeslices, xScale, yScale, svg) {
     .selectAll('.overlay')
     .each(function (d) { d.type = 'selection'; })
     .on('mousedown touchstart', function () { brushCentered.call(this, brush) });
-
-  return densityMax;
 }
 
 // Re-center brush when the user clicks somewhere in the graph
 function brushCentered(brush) {
-  var x = d3.scaleLinear()
-    .domain([0, 10])
-    .range([0, width]);
-  
   var dx = x(1) - x(0), // Use a fixed width when recentering.
     cx = d3.mouse(this)[0],
     x0 = cx - dx / 2,
     x1 = cx + dx / 2;
-  console.log(d3.select(this.parentNode));
   d3.select(this.parentNode).call(brush.move, x1 > width ? [width - dx, width] : x0 < 0 ? [0, dx] : [x0, x1]);
 }
 
 // Create a table of the points selected by the brush
-function createTable() {
+function createTable(timeslices) {
   d3.selectAll('.row_data').remove();
   d3.select('table').style('visibility', 'visible');
 
@@ -283,7 +289,7 @@ function createTable() {
 }
 
 // Re-color the circles in the region that was selected by the user
-function brushed() {
+function brushed(timeslices) {
   if (d3.event.selection != null) {
    circles.attr('class', 'circle');
     var brushArea = d3.brushSelection(this);
