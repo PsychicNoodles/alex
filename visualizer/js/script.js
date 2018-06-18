@@ -223,8 +223,6 @@ function scatterPlot(simplifiedData, xScale, yScale) {
     .style("fill", function (d, i) {
       if (i == 10000) {
         console.log(d.densityAver)
-        let temp = d.densityAver / densityMax
-        let temp2 = SPECTRUM(temp)
         return d3.scaleSequential(d3.interpolateGreens)(d.densityAver / densityMax);
       }
       
@@ -551,11 +549,7 @@ let button = function () {
 
   let dispatch = d3.dispatch('press', 'release');
 
-  let padding = 10,
-    radius = 10,
-    stdDeviation = 5,
-    offsetX = 2,
-    offsetY = 4;
+  let padding = 10
 
   function my(selection) {
     selection.each(function (d, i) {
@@ -564,9 +558,9 @@ let button = function () {
         .attr('transform', 'translate(' + 100 + ',' + (d.y + 50) + ')');
 
       let text = g.append('text').text(d.label);
-      let defs = g.append('defs');
+      g.append('defs');
       let bbox = text.node().getBBox();
-      let rect = g.insert('rect', 'text')
+      g.insert('rect', 'text')
         .attr("x", bbox.x - padding)
         .attr("y", bbox.y - padding)
         .attr("width", bbox.width + 2 * padding)
@@ -600,29 +594,29 @@ let button = function () {
     d3.select(this).select('rect').attr('fill', 'url(#gradient' + i + ")");
   }
 
-  function addShadow(d, i) {
-    //   let defs = d3.select(this).select('defs');
-    //   let rect = d3.select(this).select('rect').attr('filter', 'url(#dropShadow' + i + ")");
-    //   let shadow = defs.append('filter')
-    //     .attr('id', 'dropShadow' + i)
-    //     .attr('x', rect.attr('x'))
-    //     .attr('y', rect.attr('y'))
-    //     .attr('width', rect.attr('width') + offsetX)
-    //     .attr('height', rect.attr('height') + offsetY)
+  // function addShadow(d, i) {
+  //     let defs = d3.select(this).select('defs');
+  //     let rect = d3.select(this).select('rect').attr('filter', 'url(#dropShadow' + i + ")");
+  //     let shadow = defs.append('filter')
+  //       .attr('id', 'dropShadow' + i)
+  //       .attr('x', rect.attr('x'))
+  //       .attr('y', rect.attr('y'))
+  //       .attr('width', rect.attr('width') + offsetX)
+  //       .attr('height', rect.attr('height') + offsetY)
 
-    //   shadow.append('feGaussianBlur')
-    //     .attr('in', 'SourceAlpha')
-    //     .attr('stdDeviation', 2)
+  //     shadow.append('feGaussianBlur')
+  //       .attr('in', 'SourceAlpha')
+  //       .attr('stdDeviation', 2)
 
-    //   shadow.append('feOffset')
-    //     .attr('dx', offsetX)
-    //     .attr('dy', offsetY);
+  //     shadow.append('feOffset')
+  //       .attr('dx', offsetX)
+  //       .attr('dy', offsetY);
 
-    //   let merge = shadow.append('feMerge');
+  //     let merge = shadow.append('feMerge');
 
-    //   merge.append('feMergeNode');
-    //   merge.append('feMergeNode').attr('in', 'SourceGraphic');
-  }
+  //     merge.append('feMergeNode');
+  //     merge.append('feMergeNode').attr('in', 'SourceGraphic');
+  // }
 
   function activate() {
     let gradient = d3.select(this.parentNode).select('linearGradient')
@@ -664,7 +658,7 @@ let button = function () {
     my.clear.call(this, d, i);
   }
 
-  my.clear = function (d, i) {
+  my.clear = function () {
     d3.select(this).classed('pressed', false);
     // let shadow = d3.select(this.parentNode).select('filter')
     // if (!shadow.node()) return;
@@ -684,7 +678,7 @@ let data = [{ label: "CPUCyclesAcc", x: 0, y: 0 },
 { label: "instructionsAcc", x: 0, y: 100 }];
 
 let buttonFunc = button()
-  .on('press', function (d, i) {
+  .on('press', function (d) {
     clearAll();
     chooseXAxis = d.label
     let densityMax = drawPlot(timeslices);
