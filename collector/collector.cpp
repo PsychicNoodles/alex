@@ -337,6 +337,7 @@ int collect_perf_data(int subject_pid, FILE *result_file,
                     "section": "%s",)",
                 (void *)inst_ptr, callchain_str(callchain_section));
 
+        string sym_name_str;
         const char *sym_name = NULL, *file_name = NULL;
         void *file_base = NULL, *sym_addr = NULL;
         if (callchain_section == CALLCHAIN_USER) {
@@ -355,7 +356,8 @@ int collect_perf_data(int subject_pid, FILE *result_file,
           DEBUG("cpd: addr is " << int_to_hex(addr));
           if (addr != -1) {
             auto ks = kernel_syms.at(addr);
-            sym_name = ks.sym.c_str();
+            sym_name_str = ks.sym;
+            sym_name = sym_name_str.c_str();
             file_name = "(kernel)";
             file_base = NULL;
             sym_addr = (void *)addr;
