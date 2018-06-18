@@ -2,6 +2,7 @@
 const { ipcRenderer } = require("electron");
 const d3 = require("d3");
 const { legendColor } = require("d3-svg-legend");
+const fs = require("fs");
 
 require("bootstrap");
 
@@ -25,8 +26,17 @@ let chooseXAxis = "CPUCyclesAcc";
 
 /* ******************************** Loading ********************************* */
 ipcRenderer.send("result-request");
-ipcRenderer.on("result", (event, result) => {
+ipcRenderer.on("result", (event, resultFile) => {
+  let result
+  try {
+    result = JSON.parse(fs.readFileSync(resultFile).toString());
+  } catch (err) {
+    alert(`Invalid result file: ${err.message}`);
+    window.close();
+  }
+
   timeslices = result.timeslices;
+
   /* Edit the timeslices array to include information based on which letiables
   we are graphing */
   processData(timeslices, "CPUCyclesAcc");
@@ -421,7 +431,7 @@ function densityInfo(timeslices, xScale, yScale) {
   const result = [];
   // The array used for holding the "picked" datum with their density
 
-  /* Now go to the depthStd deep node and count the density and record the 
+  /* Now go to the depthStd deep node and count the density and record the
   information to result[] */
   quadtree.visit(function(node) {
     if (!node.length) {
