@@ -166,11 +166,15 @@ function collect({
       10: "Could not add to sigset.",
       11: "Could not open file descriptor buffer.",
       12: "Could not open semaphores.",
-      13: "Could not control perf event."
+      13: "Could not control perf event.",
+      14: "Cannot get environment variable",
+      15: "Cannot get sample",
+      16: "Uncaught error in analyzer"
     };
 
     if (code in errorCodes) {
       console.error(errorCodes[code]);
+      console.error(`Check ${errFile || "error logs"} for details`);
     } else {
       console.info("Successfully collected data.");
 

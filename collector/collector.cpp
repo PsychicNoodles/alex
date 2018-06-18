@@ -486,8 +486,7 @@ static int wrapped_main(int argc, char **argv, char **env) {
       result = analyzer(cpid);
     } catch (std::exception &e) {
       DEBUG("uncaught error in analyzer: " << e.what());
-      DEBUG("uncaught error in parent: " << e.what());
-      result = 1;
+      result = UNCAUGHT_ERROR;
     }
     DEBUG("finished analyzer, closing file");
 
