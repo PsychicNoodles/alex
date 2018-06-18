@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <exception>
 #include <fstream>
+#include <iostream>
 #include <map>
 #include <sstream>
 #include <string>
@@ -33,7 +34,7 @@
 #include <libelfin/dwarf/dwarf++.hh>
 #include <libelfin/elf/elf++.hh>
 
-#include "const.h"
+#include "const.hpp"
 #include "debug.hpp"
 #include "perf_sampler.hpp"
 #include "util.hpp"
@@ -46,6 +47,12 @@ struct sample {
   uint64_t instruction_pointers[];
 };
 
+struct kernel_sym {
+  char type;
+  string sym;
+  string cat;
+};
+
 typedef int (*main_fn_t)(int, char **, char **);
 
 static main_fn_t subject_main_fn;
@@ -55,7 +62,7 @@ bool done = false;
 /*
  * Sets a file descriptor to send a signal everytime an event is recorded.
  */
-void set_ready_signal(int pid, FILE* result_file, int sig, int fd) {
+void set_ready_signal(int pid, FILE *result_file, int sig, int fd) {
   // Set the perf_event file to async
   if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_ASYNC)) {
     perror("couldn't set perf_event file to async");
@@ -79,7 +86,7 @@ void set_ready_signal(int pid, FILE* result_file, int sig, int fd) {
 /*
  * Preps the system for using sigset.
  */
-void setup_sigset(int pid, FILE* result_file, int signum, sigset_t *sigset) {
+void setup_sigset(int pid, FILE *result_file, int signum, sigset_t *sigset) {
   // emptying the set
   if (sigemptyset(sigset)) {
     perror("couldn't empty the signal set");
@@ -99,10 +106,27 @@ void setup_sigset(int pid, FILE* result_file, int signum, sigset_t *sigset) {
 }
 
 /*
+ * Looks up an address in the kernel sym map. Accounts for addresses that
+ * may be in the middle of a kernel function.
+ */
+uint64_t lookup_kernel_addr(map<uint64_t, kernel_sym> kernel_syms,
+                            uint64_t addr) {
+  auto prev = kernel_syms.begin()->first;
+  for (auto const &next : kernel_syms) {
+    if (prev < addr && addr < next.first) {
+      return prev;
+    }
+    prev = next.first;
+  }
+  return -1;
+}
+
+/*
  * Sets up the required events and records performance of subject process into
  * result file.
  */
-int collect_perf_data(int subject_pid, FILE* result_file) {
+int collect_perf_data(int subject_pid, FILE *result_file,
+                      map<uint64_t, kernel_sym> kernel_syms) {
   DEBUG("cpd: initializing pfm");
   pfm_initialize();
 
@@ -121,7 +145,6 @@ int collect_perf_data(int subject_pid, FILE* result_file) {
   memset(&cpu_cycles_attr, 0, sizeof(cpu_cycles_attr));
   cpu_cycles_attr.disabled = true;
   cpu_cycles_attr.size = sizeof(cpu_cycles_attr);
-  cpu_cycles_attr.exclude_kernel = true;
   cpu_cycles_attr.type = PERF_TYPE_HARDWARE;
   cpu_cycles_attr.config = PERF_COUNT_HW_CPU_CYCLES;
   cpu_cycles_attr.sample_type = SAMPLE_TYPE;
@@ -144,7 +167,6 @@ int collect_perf_data(int subject_pid, FILE* result_file) {
   memset(&instruction_count_attr, 0, sizeof(instruction_count_attr));
   instruction_count_attr.disabled = true;
   instruction_count_attr.size = sizeof(instruction_count_attr);
-  instruction_count_attr.exclude_kernel = true;
   instruction_count_attr.type = PERF_TYPE_HARDWARE;
   instruction_count_attr.config = PERF_COUNT_HW_INSTRUCTIONS;
 
@@ -293,11 +315,16 @@ int collect_perf_data(int subject_pid, FILE* result_file) {
                 },
                 "stackFrames": [
               )");
+
       bool is_first = true;
+      uint64_t callchain_section;
       for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
-        if (is_callchain_marker(perf_sample->instruction_pointers[i])) {
+        uint64_t inst_ptr = perf_sample->instruction_pointers[i];
+        if (is_callchain_marker(inst_ptr)) {
+          callchain_section = inst_ptr;
           continue;
         }
+        DEBUG("cpd: on instruction pointer " << int_to_hex(inst_ptr));
 
         if (!is_first) {
           fprintf(result_file, ",");
@@ -306,18 +333,35 @@ int collect_perf_data(int subject_pid, FILE* result_file) {
 
         fprintf(result_file,
                 R"(
-                  { "address": "%p",)",
-                (void *)perf_sample->instruction_pointers[i]);
+                  { "address": "%p",
+                    "section": "%s",)",
+                (void *)inst_ptr, callchain_str(callchain_section));
 
-        Dl_info info;
+        string sym_name_str;
         const char *sym_name = NULL, *file_name = NULL;
         void *file_base = NULL, *sym_addr = NULL;
-        // Lookup the name of the function given the function pointer
-        if (dladdr((void *)perf_sample->instruction_pointers[i], &info) != 0) {
-          sym_name = info.dli_sname;
-          file_name = info.dli_fname;
-          file_base = info.dli_fbase;
-          sym_addr = info.dli_saddr;
+        if (callchain_section == CALLCHAIN_USER) {
+          DEBUG("cpd: looking up user stack frame");
+          Dl_info info;
+          // Lookup the name of the function given the function pointer
+          if (dladdr((void *)inst_ptr, &info) != 0) {
+            sym_name = info.dli_sname;
+            file_name = info.dli_fname;
+            file_base = info.dli_fbase;
+            sym_addr = info.dli_saddr;
+          }
+        } else if (callchain_section == CALLCHAIN_KERNEL) {
+          DEBUG("cpd: looking up kernel stack frame");
+          uint64_t addr = lookup_kernel_addr(kernel_syms, inst_ptr);
+          DEBUG("cpd: addr is " << int_to_hex(addr));
+          if (addr != -1) {
+            auto ks = kernel_syms.at(addr);
+            sym_name_str = ks.sym;
+            sym_name = sym_name_str.c_str();
+            file_name = "(kernel)";
+            file_base = NULL;
+            sym_addr = (void *)addr;
+          }
         }
         fprintf(result_file,
                 R"(
@@ -329,7 +373,7 @@ int collect_perf_data(int subject_pid, FILE* result_file) {
 
         // Need to subtract one. PC is the return address, but we're looking for
         // the callsite.
-        dwarf::taddr pc = perf_sample->instruction_pointers[i] - 1;
+        dwarf::taddr pc = inst_ptr - 1;
 
         // Find the CU containing pc
         // XXX Use .debug_aranges
@@ -379,13 +423,48 @@ void ready_handler(int signum) {
   }
 }
 
+map<uint64_t, kernel_sym> read_kernel_syms(
+    const char *path = "/proc/kallsyms") {
+  ifstream input(path);
+  map<uint64_t, kernel_sym> syms;
+
+  for (string line; getline(input, line);) {
+    kernel_sym sym;
+    istringstream line_stream(line);
+    string addr_s, type_s, tail;
+    uint64_t addr;
+
+    getline(line_stream, addr_s, ' ');
+    addr = stoul(addr_s, 0, 16);
+    getline(line_stream, type_s, ' ');
+    sym.type = type_s[0];
+    getline(line_stream, tail);
+    size_t tab;
+    if ((tab = tail.find("\t")) == string::npos) {
+      sym.sym = tail;
+      sym.cat = "";
+    } else {
+      sym.sym = tail.substr(0, tab);
+      sym.cat = tail.substr(tab + 1);
+    }
+
+    syms[addr] = sym;
+  }
+
+  return syms;
+}
+
+/*
+ *
+ */
 void done_handler(int signum) {
   if (signum == SIGTERM) {
     DEBUG("done_handler: Received SIGTERM, asking analyzer to finish");
 
     done = true;
 
-    // Signal analyzer function to continue its loop so it can read the done flag
+    // Signal analyzer function to continue its loop so it can read the done
+    // flag
     kill(getpid(), SIGUSR1);
   }
 }
@@ -394,6 +473,7 @@ static int collector_main(int argc, char **argv, char **env) {
   enable_segfault_trace();
 
   int result = 0;
+  ready = false;
 
   struct sigaction ready_act;
   ready_act.sa_handler = ready_handler;
@@ -404,8 +484,10 @@ static int collector_main(int argc, char **argv, char **env) {
   int collector_pid = getpid();
   int subject_pid = fork();
   if (subject_pid == 0) {
-    DEBUG("collector_main: in child process, waiting for parent to be ready (pid: " << getpid()
-                                                                    << ")");
+    DEBUG(
+        "collector_main: in child process, waiting for parent to be ready "
+        "(pid: "
+        << getpid() << ")");
 
     if (kill(collector_pid, SIGUSR2)) {
       perror("couldn't signal collector process");
@@ -414,7 +496,9 @@ static int collector_main(int argc, char **argv, char **env) {
     while (!ready)
       ;
 
-    DEBUG("collector_main: received parent ready signal, starting child/real main");
+    DEBUG(
+        "collector_main: received parent ready signal, starting child/real "
+        "main");
     result = subject_main_fn(argc, argv, env);
 
     if (kill(collector_pid, SIGTERM)) {
@@ -422,11 +506,13 @@ static int collector_main(int argc, char **argv, char **env) {
       exit(INTERNAL_ERROR);
     }
   } else if (subject_pid > 0) {
-    DEBUG("collector_main: in parent process, opening result file for writing (pid: " << collector_pid
-                                                                      << ")");
+    DEBUG(
+        "collector_main: in parent process, opening result file for writing "
+        "(pid: "
+        << collector_pid << ")");
     string env_res = getenv_safe("COLLECTOR_RESULT_FILE", "result.txt");
     DEBUG("collector_main: result file " << env_res);
-    FILE* result_file = fopen(env_res.c_str(), "w");
+    FILE *result_file = fopen(env_res.c_str(), "w");
 
     if (result_file == NULL) {
       perror("couldn't open result file");
@@ -437,7 +523,17 @@ static int collector_main(int argc, char **argv, char **env) {
     sa.sa_handler = &done_handler;
     sigaction(SIGTERM, &sa, NULL);
 
-    DEBUG("collector_main: result file opened, sending ready (SIGUSR2) signal to child");
+    map<uint64_t, kernel_sym> kernel_syms = read_kernel_syms();
+    DEBUG("kernel_syms:");
+    for (auto &kv : kernel_syms) {
+      DEBUG("addr: " << int_to_hex(kv.first) << ", type: " << kv.second.type
+                     << ", sym: " << kv.second.sym
+                     << ", cat: " << kv.second.cat);
+    }
+
+    DEBUG(
+        "collector_main: result file opened, sending ready (SIGUSR2) signal to "
+        "child");
 
     kill(subject_pid, SIGUSR2);
     while (!ready)
@@ -445,7 +541,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
     DEBUG("collector_main: received child ready signal, starting analyzer");
     try {
-      result = collect_perf_data(subject_pid, result_file);
+      result = collect_perf_data(subject_pid, result_file, kernel_syms);
     } catch (std::exception &e) {
       DEBUG("collector_main: uncaught error in analyzer: " << e.what());
       result = INTERNAL_ERROR;
