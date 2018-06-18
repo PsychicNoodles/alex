@@ -185,18 +185,18 @@ function collect({
       if (visualizeOption === "window") {
         visualize(resultFile);
       } else if (visualizeOption === "ask") {
-        const interfce = readline.createInterface(
+        const interface = readline.createInterface(
           process.stdin,
           process.stdout
         );
-        interfce.question(
+        interface.question(
           "Would you like to see a visualization of the results ([yes]/no)? ",
           answer => {
             if (answer !== "no") {
               visualize(resultFile);
             }
 
-            interfce.close();
+            interface.close();
           }
         );
       }
