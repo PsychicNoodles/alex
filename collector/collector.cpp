@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <exception>
 #include <fstream>
+#include <iostream>
 #include <map>
 #include <sstream>
 #include <string>
@@ -44,6 +45,13 @@ struct sample {
   uint64_t time;
   uint64_t num_instruction_pointers;
   uint64_t instruction_pointers[];
+};
+
+struct kernel_sym {
+  size_t addr;
+  char type;
+  string sym;
+  string cat;
 };
 
 typedef int (*main_fn_t)(int, char **, char **);
@@ -134,7 +142,7 @@ vector<string> get_events() {
  * The most important function. Sets up the required events and records
  * intended data.
  */
-int analyzer(int pid) {
+int analyzer(int pid, vector<kernel_sym> kernel_syms) {
   DEBUG("anlz: initializing pfm");
   pfm_initialize();
 
@@ -411,6 +419,35 @@ void ready_handler(int signum) {
   }
 }
 
+vector<kernel_sym> read_kernel_syms(const char *path = "/proc/kallsyms") {
+  ifstream input(path);
+  vector<kernel_sym> syms;
+
+  for (string line; getline(input, line);) {
+    kernel_sym sym;
+    istringstream line_stream(line);
+    string addr_s, type_s, tail;
+
+    getline(line_stream, addr_s, ' ');
+    sym.addr = stoul(addr_s, 0, 16);
+    getline(line_stream, type_s, ' ');
+    sym.type = type_s[0];
+    getline(line_stream, tail);
+    size_t tab;
+    if ((tab = tail.find("\t")) == string::npos) {
+      sym.sym = tail;
+      sym.cat = "";
+    } else {
+      sym.sym = tail.substr(0, tab);
+      sym.cat = tail.substr(tab + 1);
+    }
+
+    syms.push_back(sym);
+  }
+
+  return syms;
+}
+
 /*
  *
  */
@@ -466,6 +503,8 @@ static int wrapped_main(int argc, char **argv, char **env) {
     sa.sa_sigaction = &exit_please;
     sigaction(SIGTERM, &sa, NULL);
 
+    vector<kernel_sym> kernel_syms = read_kernel_syms();
+
     DEBUG("result file opened, sending ready (SIGUSR2) signal to child");
 
     kill(cpid, SIGUSR2);
@@ -474,7 +513,7 @@ static int wrapped_main(int argc, char **argv, char **env) {
 
     DEBUG("received child ready signal, starting analyzer");
     try {
-      result = analyzer(cpid);
+      result = analyzer(cpid, kernel_syms);
     } catch (std::exception &e) {
       DEBUG("uncaught error in parent: " << e.what());
       result = 1;
