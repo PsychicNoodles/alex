@@ -27,7 +27,7 @@ let chooseXAxis = "CPUCyclesAcc";
 /* ******************************** Loading ********************************* */
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, resultFile) => {
-  let result
+  let result;
   try {
     result = JSON.parse(fs.readFileSync(resultFile).toString());
   } catch (err) {
