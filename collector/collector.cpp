@@ -48,9 +48,7 @@ struct sample {
 
 typedef int (*main_fn_t)(int, char **, char **);
 
-size_t init_time;
 static main_fn_t real_main;
-void *buffer;
 bool ready = false;
 bool done = false;
 
