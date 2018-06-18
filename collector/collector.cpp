@@ -161,7 +161,6 @@ int analyzer(int pid, vector<kernel_sym> kernel_syms) {
   memset(&cpu_cycles_attr, 0, sizeof(cpu_cycles_attr));
   cpu_cycles_attr.disabled = true;
   cpu_cycles_attr.size = sizeof(cpu_cycles_attr);
-  cpu_cycles_attr.exclude_kernel = true;
   cpu_cycles_attr.type = PERF_TYPE_HARDWARE;
   cpu_cycles_attr.config = PERF_COUNT_HW_CPU_CYCLES;
   cpu_cycles_attr.sample_type = SAMPLE_TYPE;
