@@ -308,6 +308,7 @@ int collect_perf_data(int subject_pid, FILE *result_file,
           callchain_section = inst_ptr;
           continue;
         }
+        DEBUG("cpd: on instruction pointer " << int_to_hex(inst_ptr));
 
         if (!is_first) {
           fprintf(result_file, ",");
@@ -323,6 +324,7 @@ int collect_perf_data(int subject_pid, FILE *result_file,
         const char *sym_name = NULL, *file_name = NULL;
         void *file_base = NULL, *sym_addr = NULL;
         if (callchain_section == CALLCHAIN_USER) {
+          DEBUG("cpd: looking up user stack frame");
           Dl_info info;
           // Lookup the name of the function given the function pointer
           if (dladdr((void *)inst_ptr, &info) != 0) {
@@ -332,6 +334,7 @@ int collect_perf_data(int subject_pid, FILE *result_file,
             sym_addr = info.dli_saddr;
           }
         } else if (callchain_section == CALLCHAIN_KERNEL) {
+          DEBUG("cpd: looking up kernel stack frame");
           auto ks = kernel_syms.at(inst_ptr);
           sym_name = ks.sym.c_str();
           file_name = "(kernel)";
@@ -499,6 +502,10 @@ static int collector_main(int argc, char **argv, char **env) {
     sigaction(SIGTERM, &sa, NULL);
 
     map<uint64_t, kernel_sym> kernel_syms = read_kernel_syms();
+    DEBUG("kernel_syms:");
+    for(auto& kv : kernel_syms) {
+      DEBUG("addr: " << int_to_hex(kv.first) << ", type: " << kv.second.type << ", sym: " << kv.second.sym << ", cat: " << kv.second.cat);
+    }
 
     DEBUG(
         "collector_main: result file opened, sending ready (SIGUSR2) signal to "
