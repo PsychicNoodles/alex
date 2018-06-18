@@ -19,24 +19,15 @@ tr:nth-child(even) {
 }
 
 .axis text {
-    font-family: sans-serif;
-    font-size: 11px;
-    fill: #000;
-}
-
-.circle {
-  fill: #222;
+  font-family: sans-serif;
+  font-size: 11px;
+  fill: #000;
 }
 
 .brushed {
   fill: #ff3399;
   stroke: #8e1b54;
   opacity: 1;
-}
-
-.button rect {
-  /* stroke: #999faa; /* navy 40% */
-  /* stroke-width: 0px; */
 }
 
 .button rect.pressed {
@@ -53,12 +44,14 @@ tr:nth-child(even) {
   stop-opacity: 1;
 }
 
-.button #gradient-start.active, .button #gradient-start.pressed {
+.button #gradient-start.active,
+.button #gradient-start.pressed {
   stop-color: #4d576b; /* navy 70% */
 }
 
-.button #gradient-stop.active, .button #gradient-stop.pressed {
-   stop-color: #4d576b; /* navy 70% */
+.button #gradient-stop.active,
+.button #gradient-stop.pressed {
+  stop-color: #4d576b; /* navy 70% */
 }
 
 .button text {
@@ -69,4 +62,5 @@ tr:nth-child(even) {
   -moz-user-select: none;
   -webkit-user-select: none;
   -ms-user-select: none;
+  user-select: none;
 }
