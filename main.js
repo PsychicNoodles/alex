@@ -118,7 +118,7 @@ function collect({
   });
 
   // Keep track so we can wait on this before quitting
-  const collectorDone = Promise.all([
+  Promise.all([
     new Promise(resolve => collector.stdout.on("end", resolve)),
     new Promise(resolve => collector.stderr.on("end", resolve))
   ]);
@@ -192,18 +192,18 @@ function collect({
       if (visualizeOption === "window") {
         visualize(resultFile);
       } else if (visualizeOption === "ask") {
-        const interface = readline.createInterface(
+        const interfce = readline.createInterface(
           process.stdin,
           process.stdout
         );
-        interface.question(
+        interfce.question(
           "Would you like to see a visualization of the results ([yes]/no)? ",
           answer => {
             if (answer !== "no") {
               visualize(resultFile);
             }
 
-            interface.close();
+            interfce.close();
           }
         );
       }
