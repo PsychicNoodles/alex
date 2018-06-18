@@ -26,8 +26,8 @@ inline string ptr_fmt(void* ptr) {
 }
 
 char* int_to_hex(uint64_t i) {
-  static char buf[15];
-  snprintf(buf, 15, "%#014lx", i);
+  static char buf[19];
+  snprintf(buf, 19, "%#018lx", i);
   return buf;
 }
 
