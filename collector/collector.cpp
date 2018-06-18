@@ -59,38 +59,44 @@ void set_ready_signal(int pid, FILE* result_file, int sig, int fd) {
   // Set the perf_event file to async
   if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_ASYNC)) {
     perror("couldn't set perf_event file to async");
-    shutdown(pid, result_file, ASYNERROR);
-  }  // if
+    shutdown(pid, result_file, INTERNAL_ERROR);
+  }
+
   // Set the notification signal for the perf file
   if (fcntl(fd, F_SETSIG, sig)) {
     perror("couldn't set notification signal for perf file");
-    shutdown(pid, result_file, FISGERROR);
-  }  // if
-  pid_t tid = syscall(SYS_gettid);
+    shutdown(pid, result_file, INTERNAL_ERROR);
+  }
+
   // Set the current thread as the owner of the file (to target signal delivery)
+  pid_t tid = syscall(SYS_gettid);
   if (fcntl(fd, F_SETOWN, tid)) {
     perror("couldn't set the current thread as the owner of the file");
-    shutdown(pid, result_file, OWNERROR);
-  }  // if
+    shutdown(pid, result_file, INTERNAL_ERROR);
+  }
 }
 
 /*
  * Preps the system for using sigset.
  */
-int setup_sigset(int pid, FILE* result_file, int signum, sigset_t *sigset) {
+void setup_sigset(int pid, FILE* result_file, int signum, sigset_t *sigset) {
   // emptying the set
   if (sigemptyset(sigset)) {
     perror("couldn't empty the signal set");
-    shutdown(pid, result_file, SETERROR);
-  }  // if
+    shutdown(pid, result_file, INTERNAL_ERROR);
+  }
+
   // adding signum to sigset
   if (sigaddset(sigset, SIGUSR1)) {
     perror("couldn't add to signal set");
-    shutdown(pid, result_file, ADDERROR);
+    shutdown(pid, result_file, INTERNAL_ERROR);
   }
-  // blocking signum
-  return pthread_sigmask(SIG_BLOCK, sigset, NULL);
-}  // setup_sigset
+
+  if (pthread_sigmask(SIG_BLOCK, sigset, NULL)) {
+    perror("couldn't mask signal set");
+    shutdown(pid, result_file, INTERNAL_ERROR);
+  }
+}
 
 /*
  * The most important function. Sets up the required events and records
@@ -105,9 +111,9 @@ int analyzer(int subject_pid, FILE* result_file) {
   try {
     period = stoll(getenv_safe("COLLECTOR_PERIOD", "10000000"));
   } catch (std::invalid_argument &e) {
-    shutdown(subject_pid, result_file, ENVERROR);
+    shutdown(subject_pid, result_file, ENV_ERROR);
   } catch (std::out_of_range &e) {
-    shutdown(subject_pid, result_file, ENVERROR);
+    shutdown(subject_pid, result_file, ENV_ERROR);
   }
 
   // set up the cpu cycles perf buffer
@@ -125,7 +131,7 @@ int analyzer(int subject_pid, FILE* result_file) {
   perf_buffer cpu_cycles_perf;
   if (setup_monitoring(&cpu_cycles_perf, &cpu_cycles_attr, subject_pid) !=
       SAMPLER_MONITOR_SUCCESS) {
-    shutdown(subject_pid, result_file, INSTERROR);
+    shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
 
   DEBUG("anlz: setting ready signal for SIGUSR1");
@@ -146,7 +152,7 @@ int analyzer(int subject_pid, FILE* result_file) {
       perf_event_open(&instruction_count_attr, subject_pid, -1, -1, 0);
   if (instruction_count_fd == -1) {
     perror("couldn't perf_event_open for instruction count");
-    shutdown(subject_pid, result_file, PERFERROR);
+    shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
 
   // Set up event counters
@@ -166,27 +172,27 @@ int analyzer(int subject_pid, FILE* result_file) {
     int pfm_result = setup_pfm_os_event(&attr, (char *)events.at(i).c_str());
     if (pfm_result != PFM_SUCCESS) {
       fprintf(stderr, "pfm encoding error: %s", pfm_strerror(pfm_result));
-      shutdown(subject_pid, result_file, PERFERROR);
+      shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
 
     event_fds[i] = perf_event_open(&attr, subject_pid, -1, -1, 0);
     if (event_fds[i] == -1) {
       perror("couldn't perf_event_open for event");
-      shutdown(subject_pid, result_file, PERFERROR);
+      shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
   }
 
   if (start_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
-    shutdown(subject_pid, result_file, IOCTLERROR);
+    shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
 
   if (start_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS) {
-    shutdown(subject_pid, result_file, IOCTLERROR);
+    shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
 
   for (int i = 0; i < number; i++) {
     if (start_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
-      shutdown(subject_pid, result_file, IOCTLERROR);
+      shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
   }
 
@@ -217,14 +223,14 @@ int analyzer(int subject_pid, FILE* result_file) {
     long long num_cycles = 0;
     read(cpu_cycles_perf.fd, &num_cycles, sizeof(num_cycles));
     if (reset_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
-      shutdown(subject_pid, result_file, IOCTLERROR);
+      shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
 
     long long num_instructions = 0;
     read(instruction_count_fd, &num_instructions, sizeof(num_instructions));
     DEBUG("anlz: read in num of inst: " << num_instructions);
     if (reset_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS) {
-      shutdown(subject_pid, result_file, IOCTLERROR);
+      shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
 
     if (!has_next_sample(&cpu_cycles_perf)) {
@@ -241,7 +247,7 @@ int analyzer(int subject_pid, FILE* result_file) {
       sample *perf_sample = (sample *)get_next_sample(
           &cpu_cycles_perf, &sample_type, &sample_size);
       if (sample_type != PERF_RECORD_SAMPLE) {
-        shutdown(subject_pid, result_file, SAMPLEERROR);
+        shutdown(subject_pid, result_file, INTERNAL_ERROR);
       }
       while (has_next_sample(&cpu_cycles_perf)) {
         int temp_type, temp_size;
@@ -267,7 +273,7 @@ int analyzer(int subject_pid, FILE* result_file) {
         long long count = 0;
         read(event_fds[i], &count, sizeof(long long));
         if (reset_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
-          shutdown(subject_pid, result_file, IOCTLERROR);
+          shutdown(subject_pid, result_file, INTERNAL_ERROR);
         }
 
         fprintf(result_file, R"("%s": %lld)", events.at(i).c_str(), count);
@@ -276,7 +282,7 @@ int analyzer(int subject_pid, FILE* result_file) {
       int fd = open((char *)"/proc/self/exe", O_RDONLY);
       if (fd < 0) {
         perror("cannot open executable (/proc/self/exe)");
-        shutdown(subject_pid, result_file, OPENERROR);
+        shutdown(subject_pid, result_file, EXECUTABLE_FILE_ERROR);
       }
 
       elf::elf ef(elf::create_mmap_loader(fd));
@@ -410,7 +416,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
     // killing the parent
     if (kill(collector_pid, SIGTERM)) {
-      exit(KILLERROR);
+      exit(INTERNAL_ERROR);
     }
   } else if (subject_pid > 0) {
     DEBUG("in parent process, opening result file for writing (pid: " << collector_pid
@@ -422,7 +428,7 @@ static int collector_main(int argc, char **argv, char **env) {
     if (result_file == NULL) {
       perror("couldn't open result file");
       kill(subject_pid, SIGKILL);
-      exit(OPENERROR);
+      exit(INTERNAL_ERROR);
     }
     struct sigaction sa;
     sa.sa_handler = &done_handler;
@@ -439,13 +445,13 @@ static int collector_main(int argc, char **argv, char **env) {
       result = analyzer(subject_pid, result_file);
     } catch (std::exception &e) {
       DEBUG("uncaught error in analyzer: " << e.what());
-      result = UNCAUGHT_ERROR;
+      result = INTERNAL_ERROR;
     }
     DEBUG("finished analyzer, closing file");
 
     fclose(result_file);
   } else {
-    exit(FORKERROR);
+    exit(INTERNAL_ERROR);
   }
 
   return result;

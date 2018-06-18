@@ -6,21 +6,11 @@
 #define NUM_DATA_PAGES 256
 
 // kill failure. Not really a fail but a security hazard.
-#define KILLERROR 1        // Cannot kill parent
-#define FORKERROR 2        // Cannot fork
-#define OPENERROR 3        // Cannot open file
-#define PERFERROR 4        // Cannot make perf_event
-#define INSTERROR 5        // Cannot make fd for inst counter
-#define ASYNERROR 6        // Cannot set file to async mode
-#define FISGERROR 7        // Cannot set signal to file
-#define OWNERROR 8         // Cannot set file to owner
-#define SETERROR 9         // Cannot empty sigset
-#define ADDERROR 10        // Cannot add to sigset
-#define BUFFERROR 11       // Cannot open buffer
-#define IOCTLERROR 13      // Cannot control perf_event
-#define ENVERROR 14        // Cannot get environment variable
-#define SAMPLEERROR 15     // Cannot get sample
-#define UNCAUGHT_ERROR 16  // Uncaught error in analyzer
+#define INTERNAL_ERROR 1            // Problem with something internal, see error logs
+#define RESULT_FILE_ERROR 2         // Problem with the result file
+#define EXECUTABLE_FILE_ERROR 3     // Problem with the executable file
+#define DEBUG_SYMBOLS_FILE_ERROR 4  // Problem with the debug symbols file
+#define ENV_ERROR 5                 // Cannot get environment variable
 
 #define COLLECTOR_VERSION "0.0.1"
 

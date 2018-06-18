@@ -154,22 +154,11 @@ function collect({
 
   collector.on("exit", code => {
     const errorCodes = {
-      1: "Could not kill parent.",
-      2: "Could not fork.",
-      3: "Could not open file to write results.",
-      4: "Could not open perf event.",
-      5: "Could not make file descriptor for instruction counter.",
-      6: "Could not set file descriptor to ASYNC mode.",
-      7: "Could not set signal to file descriptor.",
-      8: "Could not set file descriptor to owner.",
-      9: "Could not empty sigset.",
-      10: "Could not add to sigset.",
-      11: "Could not open file descriptor buffer.",
-      12: "Could not open semaphores.",
-      13: "Could not control perf event.",
-      14: "Cannot get environment variable",
-      15: "Cannot get sample",
-      16: "Uncaught error in analyzer"
+      1: "Internal error.",
+      2: "There was a problem with the result file.",
+      3: "There was a problem with the executable file.",
+      4: "There was a problem with the debug symbols file.",
+      5: "There was a problem accessing an environment variable."
     };
 
     if (code in errorCodes) {
