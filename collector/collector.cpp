@@ -55,6 +55,7 @@ size_t init_time;
 static main_fn_t real_main;
 void *buffer;
 bool ready = false;
+bool done = false;
 
 /*
    find program counter
@@ -227,11 +228,12 @@ int analyzer(int pid) {
 
   DEBUG("anlz: printing result header");
   fprintf(writef,
-          R"({
-            "header": {
-              "programVersion": ")" COLLECTOR_VERSION R"("
-            },
-            "timeslices": [
+          R"(
+            {
+              "header": {
+                "programVersion": ")" COLLECTOR_VERSION R"("
+              },
+              "timeslices": [
           )");
 
   bool is_first_timeslice = true;
@@ -243,6 +245,10 @@ int analyzer(int pid) {
     int sig;
     sigwait(&signal_set, &sig);
     DEBUG("anlz: received SIGUSR1");
+
+    if (done) {
+      break;
+    }
 
     long long num_cycles = 0;
     read(cpu_cycles_perf.fd, &num_cycles, sizeof(num_cycles));
@@ -314,8 +320,8 @@ int analyzer(int pid) {
 
       fprintf(writef,
               R"(
-                  },
-                  "stackFrames": [
+                },
+                "stackFrames": [
               )");
       bool is_first = true;
       for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
@@ -387,27 +393,30 @@ int analyzer(int pid) {
               )");
     }
   }
-  return 0;
-}
 
-/*
- * Exit function for SIGTERM
- * As for the naming convention, we were bored. You can judge.
- */
-void exit_please(int sig, siginfo_t *info, void *ucontext) {
-  if (sig == SIGTERM) {
-    fprintf(writef,
-            R"(
+  fprintf(writef,
+          R"(
               ]
-            })");
-    fclose(writef);
-    exit(0);
-  }  // if
+            }
+          )");
+
+  return 0;
 }
 
 void ready_handler(int signum) {
   if (signum == SIGUSR2) {
     ready = true;
+  }
+}
+
+void done_handler(int signum) {
+  if (signum == SIGTERM) {
+    DEBUG("Received SIGTERM, asking analyzer to finish");
+
+    done = true;
+
+    // Signal analyzer function to continue its loop so it can read the done flag
+    kill(ppid, SIGUSR1);
   }
 }
 
@@ -448,7 +457,7 @@ static int wrapped_main(int argc, char **argv, char **env) {
     // killing the parent
     if (kill(ppid, SIGTERM)) {
       exit(KILLERROR);
-    }  // if
+    }
   } else if (cpid > 0) {
     // parent process
     DEBUG("in parent process, opening result file for writing (pid: " << ppid
@@ -461,9 +470,9 @@ static int wrapped_main(int argc, char **argv, char **env) {
       perror("couldn't open result file");
       kill(cpid, SIGKILL);
       exit(OPENERROR);
-    }  // if
+    }
     struct sigaction sa;
-    sa.sa_sigaction = &exit_please;
+    sa.sa_handler = &done_handler;
     sigaction(SIGTERM, &sa, NULL);
 
     DEBUG("result file opened, sending ready (SIGUSR2) signal to child");
@@ -476,14 +485,19 @@ static int wrapped_main(int argc, char **argv, char **env) {
     try {
       result = analyzer(cpid);
     } catch (std::exception &e) {
+      DEBUG("uncaught error in analyzer: " << e.what());
       DEBUG("uncaught error in parent: " << e.what());
       result = 1;
     }
+    DEBUG("finished analyzer, closing file");
+
+    fclose(writef);
   } else {
     exit(FORKERROR);
-  }  // else
+  }
+
   return result;
-}  // wrapped_main
+}
 
 extern "C" int __libc_start_main(main_fn_t main_fn, int argc, char **argv,
                                  void (*init)(), void (*fini)(),
@@ -494,4 +508,4 @@ extern "C" int __libc_start_main(main_fn_t main_fn, int argc, char **argv,
   int result = real_libc_start_main(wrapped_main, argc, argv, init, fini,
                                     rtld_fini, stack_end);
   return result;
-}  // __libc_start_main
+}
