@@ -116,6 +116,7 @@ uint64_t lookup_kernel_addr(map<uint64_t, kernel_sym> kernel_syms,
     if (prev < addr && addr < next.first) {
       return prev;
     }
+    prev = next.first;
   }
   return -1;
 }
