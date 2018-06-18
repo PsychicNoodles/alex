@@ -48,7 +48,7 @@ struct sample {
 };
 
 struct kernel_sym {
-  size_t addr;
+  uint64_t addr;
   char type;
   string sym;
   string cat;
@@ -184,7 +184,6 @@ int analyzer(int pid, vector<kernel_sym> kernel_syms) {
   memset(&instruction_count_attr, 0, sizeof(instruction_count_attr));
   instruction_count_attr.disabled = true;
   instruction_count_attr.size = sizeof(instruction_count_attr);
-  instruction_count_attr.exclude_kernel = true;
   instruction_count_attr.type = PERF_TYPE_HARDWARE;
   instruction_count_attr.config = PERF_COUNT_HW_INSTRUCTIONS;
 
@@ -325,9 +324,13 @@ int analyzer(int pid, vector<kernel_sym> kernel_syms) {
                   },
                   "stackFrames": [
               )");
+
       bool is_first = true;
+      const char* callchain_section;
       for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
-        if (is_callchain_marker(perf_sample->instruction_pointers[i])) {
+        uint64_t inst_ptr = perf_sample->instruction_pointers[i];
+        if (is_callchain_marker(inst_ptr)) {
+          callchain_section = callchain_str(inst_ptr);
           continue;
         }
 
@@ -338,14 +341,15 @@ int analyzer(int pid, vector<kernel_sym> kernel_syms) {
 
         fprintf(writef,
                 R"(
-                  { "address": "%p",)",
-                (void *)perf_sample->instruction_pointers[i]);
+                  { "address": "%p",
+                    "section": "%s",)",
+                (void *)inst_ptr, callchain_section);
 
         Dl_info info;
         const char *sym_name = NULL, *file_name = NULL;
         void *file_base = NULL, *sym_addr = NULL;
         // Lookup the name of the function given the function pointer
-        if (dladdr((void *)perf_sample->instruction_pointers[i], &info) != 0) {
+        if (dladdr((void *)inst_ptr, &info) != 0) {
           sym_name = info.dli_sname;
           file_name = info.dli_fname;
           file_base = info.dli_fbase;
@@ -361,7 +365,7 @@ int analyzer(int pid, vector<kernel_sym> kernel_syms) {
 
         // Need to subtract one. PC is the return address, but we're looking for
         // the callsite.
-        dwarf::taddr pc = perf_sample->instruction_pointers[i] - 1;
+        dwarf::taddr pc = inst_ptr - 1;
 
         // Find the CU containing pc
         // XXX Use .debug_aranges
