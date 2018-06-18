@@ -5,7 +5,7 @@
   "description": "AnaLysis of EXecution",
   "repository": {
     "type": "git",
-    "url": "https://github.com/curtsinger-lab/perf-analyzer"
+    "url": "https://github.com/curtsinger-lab/alex"
   },
   "scripts": {
     "start": "node .",
@@ -28,6 +28,7 @@
   },
   "devDependencies": {
     "@types/yargs": "^11.0.0",
+    "babel-eslint": "^8.2.3",
     "eslint": "^4.19.1"
   },
   "eslintConfig": {
@@ -37,6 +38,7 @@
       "node": true
     },
     "extends": "eslint:recommended",
+    "parser": "babel-eslint",
     "rules": {
       "no-console": "off",
       "no-var": "error"
