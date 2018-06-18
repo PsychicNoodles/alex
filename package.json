@@ -10,8 +10,8 @@
   "scripts": {
     "start": "node .",
     "eslint:fix": "eslint --fix .",
-    "clean-outfiles": "rm -f out-* err-* result-*",
-    "example": "npm run clean-outfiles && node . collect --in examples/inputs/matrix-1000x1000.in -- examples/build/matrixmultiplier"
+    "clean:outfiles": "rm -f out-* err-* result-*",
+    "example": "npm run clean:outfiles && node . collect --in examples/inputs/matrix-1000x1000.in -- examples/build/matrixmultiplier"
   },
   "bin": {
     "alex": "main.js"
@@ -43,7 +43,8 @@
     "rules": {
       "no-console": "off",
       "no-var": "error",
-      "prefer-const": "error"
+      "prefer-const": "warn",
+      "no-unused-vars": "warn"
     }
   }
 }
