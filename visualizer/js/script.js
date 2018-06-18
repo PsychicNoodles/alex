@@ -8,6 +8,8 @@ require("bootstrap");
 const ASPECT_RATIO = 9 / 16; // ratio of height-to-width currently, can be changed
 const SPECTRUM = d3.scaleSequential(d3.interpolateGreens);
 
+let timeslices;
+
 let circles;
 let xScale;
 let yScale;
@@ -18,13 +20,20 @@ let graphWidth;
 let graphHeight;
 let svgPlot = d3.select("#plot");
 let svgLegend = d3.select("#legend");
+let chooseResource = "cache"
+let chooseXAxis = "CPUCyclesAcc"
 
 
 /********************************** LOADING ***********************************/
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, result) => {
-  let densityMax = drawPlot(result.timeslices);
+  timeslices = result.timeslices
+  // Edit the timeslices array to include information based on which letiables we are graphing
+  processData(timeslices, "CPUCyclesAcc");
+  processData(timeslices, "instructionsAcc");
+  processData(timeslices, chooseResource);
+  let densityMax = drawPlot(timeslices);
   legend(densityMax);
 });
 
@@ -34,6 +43,9 @@ ipcRenderer.on("result", (event, result) => {
   to use). It's nice to take svg in as an argument, because if we want to draw
   multiple graphs in the future, we can say which svg should be drawn in. */
 function drawPlot(timeslices) {
+
+  svgPlot.selectAll("*").remove();
+
   // Calculate the width and height based on the size of the window
   plotWidth = document.querySelector("#plot")
     .getBoundingClientRect().width;
@@ -51,14 +63,11 @@ function drawPlot(timeslices) {
   // If the SVG has anything in it, get rid of it. We want a clean slate.
   svgPlot.selectAll("*").remove();
 
-  // Edit the timeslices array to include information based on which letiables we are graphing
-  processData(timeslices, chooseResource());
-  processData(timeslices, chooseXAxis());
+
 
   // Calculate size of x-axis based on number of data points
   const xScaleMax = timeslices[timeslices.length - 1].CPUCyclesAcc;
-  console.log(xScale);
-  const yScaleMax = findMax(timeslices, chooseResource());
+  const yScaleMax = findMax(timeslices, chooseResource);
 
   /* Create functions to scale objects vertically and horizontally according to
   the size of the graph */
@@ -73,21 +82,11 @@ function drawPlot(timeslices) {
 
   drawAxes(xScale, yScale);
   const densityMax = scatterPlot(
-    densityInfo(timeslices, xScale, yScale),xScale,yScale);
+    densityInfo(timeslices, xScale, yScale), xScale, yScale);
   return densityMax;
 }
 
-/* Lets users choose which letiable they want on the x-axis */
-function chooseXAxis() {
-  // need work!
-  return "CPUCyclesAcc";
-}
 
-/* Lets users choose which resource they want the tool to present on the y-axis */
-function chooseResource() {
-  // need work!
-  return "cache";
-}
 
 /* This function will take the raw array and a string of a specified property and process the related datum, etc */
 function processData(timeslices, label) {
@@ -183,7 +182,7 @@ function drawAxes(xScale, yScale) {
     .attr("text-anchor", "middle")
     .attr("x", (graphWidth / 2 + (plotWidth - graphWidth)))
     .attr("y", plotHeight - graphHeight)
-    .text("CPU Cycles");
+    .text(chooseXAxis);
 
   svg
     .select("#yAxis")
@@ -194,7 +193,7 @@ function drawAxes(xScale, yScale) {
     .attr("x", -(graphHeight / 2))
     //.attr("dy", ".75em")
     .attr("transform", "rotate(-90)")
-    .text("Cache miss rate");
+    .text(chooseResource);
 }
 
 /* This func makes the scatter plot */
@@ -221,8 +220,15 @@ function scatterPlot(simplifiedData, xScale, yScale) {
       return yScale(d.events.missRates);
     })
     .attr("r", 1)
-    .style("fill", function (d) {
-      return SPECTRUM(d.densityAver / densityMax);
+    .style("fill", function (d, i) {
+      if (i == 10000) {
+        console.log(d.densityAver)
+        let temp = d.densityAver / densityMax
+        let temp2 = SPECTRUM(temp)
+        return d3.scaleSequential(d3.interpolateGreens)(d.densityAver / densityMax);
+      }
+      
+      return d3.scaleSequential(d3.interpolateGreens)(d.densityAver / densityMax);
     });
 
 
@@ -540,3 +546,163 @@ function legend(densityMax) {
 }
 
 /***************************** UI to choose xAxis *****************************/
+
+let button = function () {
+
+  let dispatch = d3.dispatch('press', 'release');
+
+  let padding = 10,
+    radius = 10,
+    stdDeviation = 5,
+    offsetX = 2,
+    offsetY = 4;
+
+  function my(selection) {
+    selection.each(function (d, i) {
+      let g = d3.select(this)
+        .attr('id', 'd3-button' + i)
+        .attr('transform', 'translate(' + 100 + ',' + (d.y + 50) + ')');
+
+      let text = g.append('text').text(d.label);
+      let defs = g.append('defs');
+      let bbox = text.node().getBBox();
+      let rect = g.insert('rect', 'text')
+        .attr("x", bbox.x - padding)
+        .attr("y", bbox.y - padding)
+        .attr("width", bbox.width + 2 * padding)
+        .attr("height", bbox.height + 2 * padding)
+        .on('mouseover', activate)
+        .on('mouseout', deactivate)
+        .on('click', toggle)
+
+      //addShadow.call(g.node(), d, i);
+      addGradient.call(g.node(), d, i);
+    });
+  }
+
+  function addGradient(d, i) {
+    let defs = d3.select(this).select('defs');
+    let gradient = defs.append('linearGradient')
+      .attr('id', 'gradient' + i)
+      .attr('x1', '0%')
+      .attr('y1', '0%')
+      .attr('x2', '0%')
+      .attr('y2', '100%');
+
+    gradient.append('stop')
+      .attr('id', 'gradient-start')
+      .attr('offset', '0%')
+
+    gradient.append('stop')
+      .attr('id', 'gradient-stop')
+      .attr('offset', '100%')
+
+    d3.select(this).select('rect').attr('fill', 'url(#gradient' + i + ")");
+  }
+
+  function addShadow(d, i) {
+    //   let defs = d3.select(this).select('defs');
+    //   let rect = d3.select(this).select('rect').attr('filter', 'url(#dropShadow' + i + ")");
+    //   let shadow = defs.append('filter')
+    //     .attr('id', 'dropShadow' + i)
+    //     .attr('x', rect.attr('x'))
+    //     .attr('y', rect.attr('y'))
+    //     .attr('width', rect.attr('width') + offsetX)
+    //     .attr('height', rect.attr('height') + offsetY)
+
+    //   shadow.append('feGaussianBlur')
+    //     .attr('in', 'SourceAlpha')
+    //     .attr('stdDeviation', 2)
+
+    //   shadow.append('feOffset')
+    //     .attr('dx', offsetX)
+    //     .attr('dy', offsetY);
+
+    //   let merge = shadow.append('feMerge');
+
+    //   merge.append('feMergeNode');
+    //   merge.append('feMergeNode').attr('in', 'SourceGraphic');
+  }
+
+  function activate() {
+    let gradient = d3.select(this.parentNode).select('linearGradient')
+    d3.select(this.parentNode).select("rect").classed('active', true)
+    if (!gradient.node()) return;
+    gradient.select('#gradient-start').classed('active', true)
+    gradient.select('#gradient-stop').classed('active', true)
+  }
+
+  function deactivate() {
+    let gradient = d3.select(this.parentNode).select('linearGradient')
+    d3.select(this.parentNode).select("rect").classed('active', false)
+    if (!gradient.node()) return;
+    gradient.select('#gradient-start').classed('active', false);
+    gradient.select('#gradient-stop').classed('active', false);
+  }
+
+  function toggle(d, i) {
+    if (d3.select(this).classed('pressed')) {
+      release.call(this, d, i);
+      deactivate.call(this, d, i);
+    } else {
+      press.call(this, d, i);
+      activate.call(this, d, i);
+    }
+  }
+
+  function press(d, i) {
+    dispatch.call('press', this, d, i)
+    d3.select(this).classed('pressed', true);
+    // let shadow = d3.select(this.parentNode).select('filter')
+    // if (!shadow.node()) return;
+    // shadow.select('feOffset').attr('dx', 0).attr('dy', 0);
+    // shadow.select('feGaussianBlur').attr('stdDeviation', 0);
+  }
+
+  function release(d, i) {
+    dispatch.call('release', this, d, i)
+    my.clear.call(this, d, i);
+  }
+
+  my.clear = function (d, i) {
+    d3.select(this).classed('pressed', false);
+    // let shadow = d3.select(this.parentNode).select('filter')
+    // if (!shadow.node()) return;
+    // shadow.select('feOffset').attr('dx', offsetX).attr('dy', offsetY);
+    // shadow.select('feGaussianBlur').attr('stdDeviation', stdDeviation);
+  }
+
+  my.on = function () {
+    let value = dispatch.on.apply(dispatch, arguments);
+    return value === dispatch ? my : value;
+  };
+
+  return my;
+}
+
+let data = [{ label: "CPUCyclesAcc", x: 0, y: 0 },
+{ label: "instructionsAcc", x: 0, y: 100 }];
+
+let buttonFunc = button()
+  .on('press', function (d, i) {
+    clearAll();
+    chooseXAxis = d.label
+    let densityMax = drawPlot(timeslices);
+    legend(densityMax);
+
+  })
+  .on('release', function (d, i) { console.log("Released", d, i, this.parentNode) });
+
+// Add buttons
+let buttons = d3.select("#buttons").selectAll('.button')
+  .data(data)
+  .enter()
+  .append('g')
+  .attr('class', 'button')
+  .call(buttonFunc);
+
+function clearAll() {
+  buttons.selectAll('rect')
+    .each(function (d, i) { buttonFunc.clear.call(this, d, i) });
+}
+
