@@ -62,7 +62,8 @@ FILE *writef;
 size_t init_time;
 static main_fn_t real_main;
 void *buffer;
-bool ready = false;
+bool ready;
+bool running;
 
 /*
    find program counter
@@ -243,7 +244,7 @@ int analyzer(int pid, vector<kernel_sym> kernel_syms) {
   bool is_first_timeslice = true;
 
   DEBUG("anlz: entering SIGUSR1 ready loop");
-  while (true) {
+  while (running) {
     // waits until it receives SIGUSR1
     DEBUG("anlz: waiting for SIGUSR1");
     int sig;
@@ -398,6 +399,13 @@ int analyzer(int pid, vector<kernel_sym> kernel_syms) {
               )");
     }
   }
+  fprintf(writef,
+          R"(
+              ]
+            })");
+  fclose(writef);
+  exit(0);
+
   return 0;
 }
 
@@ -407,12 +415,7 @@ int analyzer(int pid, vector<kernel_sym> kernel_syms) {
  */
 void exit_please(int sig, siginfo_t *info, void *ucontext) {
   if (sig == SIGTERM) {
-    fprintf(writef,
-            R"(
-              ]
-            })");
-    fclose(writef);
-    exit(0);
+    running = false;
   }  // if
 }
 
@@ -464,6 +467,7 @@ static int wrapped_main(int argc, char **argv, char **env) {
   enable_segfault_trace();
 
   int result = 0;
+  ready = false;
 
   struct sigaction ready_act;
   ready_act.sa_handler = ready_handler;
@@ -516,6 +520,7 @@ static int wrapped_main(int argc, char **argv, char **env) {
 
     DEBUG("received child ready signal, starting analyzer");
     try {
+      running = true;
       result = analyzer(cpid, kernel_syms);
     } catch (std::exception &e) {
       DEBUG("uncaught error in parent: " << e.what());
