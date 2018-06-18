@@ -56,94 +56,62 @@ struct kernel_sym {
 
 typedef int (*main_fn_t)(int, char **, char **);
 
-int ppid;
-int cpid;
-FILE *writef;
-size_t init_time;
-static main_fn_t real_main;
-void *buffer;
-bool ready;
-bool running;
-
-/*
-   find program counter
-   */
-
-bool find_pc(const dwarf::die &d, dwarf::taddr pc, vector<dwarf::die> *stack) {
-  // Scan children first to find most specific DIE
-  bool found = false;
-  for (auto &child : d) {
-    if ((found = find_pc(child, pc, stack))) break;
-  }
-  switch (d.tag) {
-    case dwarf::DW_TAG::subprogram:
-    case dwarf::DW_TAG::inlined_subroutine:
-      try {
-        if (found || die_pc_range(d).contains(pc)) {
-          found = true;
-          stack->push_back(d);
-        }
-      } catch (out_of_range &e) {
-      } catch (dwarf::value_type_mismatch &e) {
-      }
-      break;
-    default:
-      break;
-  }
-  return found;
-}
+static main_fn_t subject_main_fn;
+bool ready = false;
+bool done = false;
 
 /*
  * Sets a file descriptor to send a signal everytime an event is recorded.
  */
-void set_ready_signal(int sig, int fd) {
+void set_ready_signal(int pid, FILE *result_file, int sig, int fd) {
   // Set the perf_event file to async
   if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_ASYNC)) {
     perror("couldn't set perf_event file to async");
-    shutdown(cpid, writef, ASYNERROR);
-  }  // if
+    shutdown(pid, result_file, INTERNAL_ERROR);
+  }
+
   // Set the notification signal for the perf file
   if (fcntl(fd, F_SETSIG, sig)) {
     perror("couldn't set notification signal for perf file");
-    shutdown(cpid, writef, FISGERROR);
-  }  // if
-  pid_t tid = syscall(SYS_gettid);
+    shutdown(pid, result_file, INTERNAL_ERROR);
+  }
+
   // Set the current thread as the owner of the file (to target signal delivery)
+  pid_t tid = syscall(SYS_gettid);
   if (fcntl(fd, F_SETOWN, tid)) {
     perror("couldn't set the current thread as the owner of the file");
-    shutdown(cpid, writef, OWNERROR);
-  }  // if
-}  // set_ready_signal
+    shutdown(pid, result_file, INTERNAL_ERROR);
+  }
+}
 
 /*
  * Preps the system for using sigset.
  */
-int setup_sigset(int signum, sigset_t *sigset) {
+void setup_sigset(int pid, FILE *result_file, int signum, sigset_t *sigset) {
   // emptying the set
   if (sigemptyset(sigset)) {
     perror("couldn't empty the signal set");
-    shutdown(cpid, writef, SETERROR);
-  }  // if
+    shutdown(pid, result_file, INTERNAL_ERROR);
+  }
+
   // adding signum to sigset
   if (sigaddset(sigset, SIGUSR1)) {
     perror("couldn't add to signal set");
-    shutdown(cpid, writef, ADDERROR);
+    shutdown(pid, result_file, INTERNAL_ERROR);
   }
-  // blocking signum
-  return pthread_sigmask(SIG_BLOCK, sigset, NULL);
-}  // setup_sigset
 
-vector<string> get_events() {
-  auto events_env = getenv_safe("COLLECTOR_EVENTS");
-  DEBUG("events: '" << events_env << "'");
-  return str_split(events_env, ",");
+  if (pthread_sigmask(SIG_BLOCK, sigset, NULL)) {
+    perror("couldn't mask signal set");
+    shutdown(pid, result_file, INTERNAL_ERROR);
+  }
 }
 
 /*
  * The most important function. Sets up the required events and records
  * intended data.
  */
-int analyzer(int pid, vector<kernel_sym> kernel_syms) {
+int analyzer(int subject_pid, FILE *result_file,
+             vector<kernel_sym> kernel_syms) {
   DEBUG("anlz: initializing pfm");
   pfm_initialize();
 
@@ -152,9 +120,9 @@ int analyzer(int pid, vector<kernel_sym> kernel_syms) {
   try {
     period = stoll(getenv_safe("COLLECTOR_PERIOD", "10000000"));
   } catch (std::invalid_argument &e) {
-    shutdown(cpid, writef, ENVERROR);
+    shutdown(subject_pid, result_file, ENV_ERROR);
   } catch (std::out_of_range &e) {
-    shutdown(cpid, writef, ENVERROR);
+    shutdown(subject_pid, result_file, ENV_ERROR);
   }
 
   // set up the cpu cycles perf buffer
@@ -169,15 +137,15 @@ int analyzer(int pid, vector<kernel_sym> kernel_syms) {
   cpu_cycles_attr.wakeup_events = 1;
 
   perf_buffer cpu_cycles_perf;
-  if (setup_monitoring(&cpu_cycles_perf, &cpu_cycles_attr, pid) !=
+  if (setup_monitoring(&cpu_cycles_perf, &cpu_cycles_attr, subject_pid) !=
       SAMPLER_MONITOR_SUCCESS) {
-    shutdown(cpid, writef, INSTERROR);
+    shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
 
   DEBUG("anlz: setting ready signal for SIGUSR1");
-  set_ready_signal(SIGUSR1, cpu_cycles_perf.fd);
+  set_ready_signal(subject_pid, result_file, SIGUSR1, cpu_cycles_perf.fd);
   sigset_t signal_set;
-  setup_sigset(SIGUSR1, &signal_set);
+  setup_sigset(subject_pid, result_file, SIGUSR1, &signal_set);
 
   // set up the instruction file descriptor
   perf_event_attr instruction_count_attr;
@@ -188,15 +156,18 @@ int analyzer(int pid, vector<kernel_sym> kernel_syms) {
   instruction_count_attr.config = PERF_COUNT_HW_INSTRUCTIONS;
 
   int instruction_count_fd =
-      perf_event_open(&instruction_count_attr, pid, -1, -1, 0);
+      perf_event_open(&instruction_count_attr, subject_pid, -1, -1, 0);
   if (instruction_count_fd == -1) {
     perror("couldn't perf_event_open for instruction count");
-    shutdown(cpid, writef, PERFERROR);
+    shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
 
   // Set up event counters
   DEBUG("anlz: getting events from env var");
-  vector<string> events = get_events();
+  auto events_env = getenv_safe("COLLECTOR_EVENTS");
+  DEBUG("events: '" << events_env << "'");
+  auto events = str_split(events_env, ",");
+
   int number = events.size();
   DEBUG("anlz: setting up perf events");
   int event_fds[number];
@@ -208,60 +179,65 @@ int analyzer(int pid, vector<kernel_sym> kernel_syms) {
     int pfm_result = setup_pfm_os_event(&attr, (char *)events.at(i).c_str());
     if (pfm_result != PFM_SUCCESS) {
       fprintf(stderr, "pfm encoding error: %s", pfm_strerror(pfm_result));
-      shutdown(cpid, writef, PERFERROR);
+      shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
 
-    event_fds[i] = perf_event_open(&attr, pid, -1, -1, 0);
+    event_fds[i] = perf_event_open(&attr, subject_pid, -1, -1, 0);
     if (event_fds[i] == -1) {
       perror("couldn't perf_event_open for event");
-      shutdown(cpid, writef, PERFERROR);
+      shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
   }
 
   if (start_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
-    shutdown(cpid, writef, IOCTLERROR);
+    shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
 
   if (start_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS) {
-    shutdown(cpid, writef, IOCTLERROR);
+    shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
 
   for (int i = 0; i < number; i++) {
     if (start_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
-      shutdown(cpid, writef, IOCTLERROR);
+      shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
   }
 
   DEBUG("anlz: printing result header");
-  fprintf(writef,
-          R"({
-            "header": {
-              "programVersion": ")" COLLECTOR_VERSION R"("
-            },
-            "timeslices": [
+  fprintf(result_file,
+          R"(
+            {
+              "header": {
+                "programVersion": ")" COLLECTOR_VERSION R"("
+              },
+              "timeslices": [
           )");
 
   bool is_first_timeslice = true;
 
   DEBUG("anlz: entering SIGUSR1 ready loop");
-  while (running) {
+  while (true) {
     // waits until it receives SIGUSR1
     DEBUG("anlz: waiting for SIGUSR1");
     int sig;
     sigwait(&signal_set, &sig);
     DEBUG("anlz: received SIGUSR1");
 
+    if (done) {
+      break;
+    }
+
     long long num_cycles = 0;
     read(cpu_cycles_perf.fd, &num_cycles, sizeof(num_cycles));
     if (reset_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
-      shutdown(cpid, writef, IOCTLERROR);
+      shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
 
     long long num_instructions = 0;
     read(instruction_count_fd, &num_instructions, sizeof(num_instructions));
     DEBUG("anlz: read in num of inst: " << num_instructions);
     if (reset_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS) {
-      shutdown(cpid, writef, IOCTLERROR);
+      shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
 
     if (!has_next_sample(&cpu_cycles_perf)) {
@@ -270,7 +246,7 @@ int analyzer(int pid, vector<kernel_sym> kernel_syms) {
       if (is_first_timeslice) {
         is_first_timeslice = false;
       } else {
-        fprintf(writef, ",");
+        fprintf(result_file, ",");
       }
 
       int sample_type;
@@ -278,14 +254,14 @@ int analyzer(int pid, vector<kernel_sym> kernel_syms) {
       sample *perf_sample = (sample *)get_next_sample(
           &cpu_cycles_perf, &sample_type, &sample_size);
       if (sample_type != PERF_RECORD_SAMPLE) {
-        shutdown(cpid, writef, SAMPLEERROR);
+        shutdown(subject_pid, result_file, INTERNAL_ERROR);
       }
       while (has_next_sample(&cpu_cycles_perf)) {
         int temp_type, temp_size;
         get_next_sample(&cpu_cycles_perf, &temp_type, &temp_size);
       }
 
-      fprintf(writef,
+      fprintf(result_file,
               R"(
                 {
                   "time": %lu,
@@ -298,35 +274,35 @@ int analyzer(int pid, vector<kernel_sym> kernel_syms) {
       DEBUG("anlz: reading from each fd");
       for (int i = 0; i < number; i++) {
         if (i > 0) {
-          fprintf(writef, ",");
+          fprintf(result_file, ",");
         }
 
         long long count = 0;
         read(event_fds[i], &count, sizeof(long long));
         if (reset_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
-          shutdown(cpid, writef, IOCTLERROR);
+          shutdown(subject_pid, result_file, INTERNAL_ERROR);
         }
 
-        fprintf(writef, R"("%s": %lld)", events.at(i).c_str(), count);
+        fprintf(result_file, R"("%s": %lld)", events.at(i).c_str(), count);
       }
 
       int fd = open((char *)"/proc/self/exe", O_RDONLY);
       if (fd < 0) {
         perror("cannot open executable (/proc/self/exe)");
-        shutdown(cpid, writef, OPENERROR);
+        shutdown(subject_pid, result_file, EXECUTABLE_FILE_ERROR);
       }
 
       elf::elf ef(elf::create_mmap_loader(fd));
       dwarf::dwarf dw(dwarf::elf::create_loader(ef));
 
-      fprintf(writef,
+      fprintf(result_file,
               R"(
-                  },
-                  "stackFrames": [
+                },
+                "stackFrames": [
               )");
 
       bool is_first = true;
-      const char* callchain_section;
+      const char *callchain_section;
       for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
         uint64_t inst_ptr = perf_sample->instruction_pointers[i];
         if (is_callchain_marker(inst_ptr)) {
@@ -335,11 +311,11 @@ int analyzer(int pid, vector<kernel_sym> kernel_syms) {
         }
 
         if (!is_first) {
-          fprintf(writef, ",");
+          fprintf(result_file, ",");
         }
         is_first = false;
 
-        fprintf(writef,
+        fprintf(result_file,
                 R"(
                   { "address": "%p",
                     "section": "%s",)",
@@ -355,7 +331,7 @@ int analyzer(int pid, vector<kernel_sym> kernel_syms) {
           file_base = info.dli_fbase;
           sym_addr = info.dli_saddr;
         }
-        fprintf(writef,
+        fprintf(result_file,
                 R"(
                     "name": "%s",
                     "file": "%s",
@@ -385,38 +361,28 @@ int analyzer(int pid, vector<kernel_sym> kernel_syms) {
             break;
           }
         }
-        fprintf(writef,
+        fprintf(result_file,
                 R"(,
                     "line": %d,
                     "col": %d,
                     "fullLocation": "%s" })",
                 line, column, fullLocation);
       }
-      fprintf(writef,
+      fprintf(result_file,
               R"(
                   ]
                 }
               )");
     }
   }
-  fprintf(writef,
+
+  fprintf(result_file,
           R"(
               ]
-            })");
-  fclose(writef);
-  exit(0);
+            }
+          )");
 
   return 0;
-}
-
-/*
- * Exit function for SIGTERM
- * As for the naming convention, we were bored. You can judge.
- */
-void exit_please(int sig, siginfo_t *info, void *ucontext) {
-  if (sig == SIGTERM) {
-    running = false;
-  }  // if
 }
 
 void ready_handler(int signum) {
@@ -457,13 +423,19 @@ vector<kernel_sym> read_kernel_syms(const char *path = "/proc/kallsyms") {
 /*
  *
  */
+void done_handler(int signum) {
+  if (signum == SIGTERM) {
+    DEBUG("Received SIGTERM, asking analyzer to finish");
 
-static int wrapped_main(int argc, char **argv, char **env) {
-  /*
-        char * exe_path = getenv("exe_path");
-        std::map<char *, void *> functions;
-        get_function_addrs(exe_path, functions);
-        */
+    done = true;
+
+    // Signal analyzer function to continue its loop so it can read the done
+    // flag
+    kill(getpid(), SIGUSR1);
+  }
+}
+
+static int collector_main(int argc, char **argv, char **env) {
   enable_segfault_trace();
 
   int result = 0;
@@ -475,70 +447,71 @@ static int wrapped_main(int argc, char **argv, char **env) {
   ready_act.sa_flags = 0;
   sigaction(SIGUSR2, &ready_act, NULL);
 
-  ppid = getpid();
-  cpid = fork();
-  if (cpid == 0) {
-    // child process
+  int collector_pid = getpid();
+  int subject_pid = fork();
+  if (subject_pid == 0) {
     DEBUG("in child process, waiting for parent to be ready (pid: " << getpid()
                                                                     << ")");
 
-    kill(ppid, SIGUSR2);
+    kill(collector_pid, SIGUSR2);
     while (!ready)
       ;
 
     DEBUG("received parent ready signal, starting child/real main");
-    result = real_main(argc, argv, env);
+    result = subject_main_fn(argc, argv, env);
 
     // killing the parent
-    if (kill(ppid, SIGTERM)) {
-      exit(KILLERROR);
-    }  // if
-  } else if (cpid > 0) {
-    // parent process
-    DEBUG("in parent process, opening result file for writing (pid: " << ppid
-                                                                      << ")");
+    if (kill(collector_pid, SIGTERM)) {
+      exit(INTERNAL_ERROR);
+    }
+  } else if (subject_pid > 0) {
+    DEBUG("in parent process, opening result file for writing (pid: "
+          << collector_pid << ")");
     string env_res = getenv_safe("COLLECTOR_RESULT_FILE", "result.txt");
     DEBUG("result file " << env_res);
-    writef = fopen(env_res.c_str(), "w");
+    FILE *result_file = fopen(env_res.c_str(), "w");
 
-    if (writef == NULL) {
+    if (result_file == NULL) {
       perror("couldn't open result file");
-      kill(cpid, SIGKILL);
-      exit(OPENERROR);
-    }  // if
+      kill(subject_pid, SIGKILL);
+      exit(INTERNAL_ERROR);
+    }
     struct sigaction sa;
-    sa.sa_sigaction = &exit_please;
+    sa.sa_handler = &done_handler;
     sigaction(SIGTERM, &sa, NULL);
 
     vector<kernel_sym> kernel_syms = read_kernel_syms();
 
     DEBUG("result file opened, sending ready (SIGUSR2) signal to child");
 
-    kill(cpid, SIGUSR2);
+    kill(subject_pid, SIGUSR2);
     while (!ready)
       ;
 
     DEBUG("received child ready signal, starting analyzer");
     try {
-      running = true;
-      result = analyzer(cpid, kernel_syms);
+      result = analyzer(subject_pid, result_file, kernel_syms);
     } catch (std::exception &e) {
-      DEBUG("uncaught error in parent: " << e.what());
-      result = 1;
+      DEBUG("uncaught error in analyzer: " << e.what());
+      result = INTERNAL_ERROR;
     }
+    DEBUG("finished analyzer, closing file");
+
+    fclose(result_file);
   } else {
-    exit(FORKERROR);
-  }  // else
+    exit(INTERNAL_ERROR);
+  }
+
   return result;
-}  // wrapped_main
+}
 
 extern "C" int __libc_start_main(main_fn_t main_fn, int argc, char **argv,
                                  void (*init)(), void (*fini)(),
                                  void (*rtld_fini)(), void *stack_end) {
   auto real_libc_start_main =
       (decltype(__libc_start_main) *)dlsym(RTLD_NEXT, "__libc_start_main");
-  real_main = main_fn;
-  int result = real_libc_start_main(wrapped_main, argc, argv, init, fini,
+  subject_main_fn = main_fn;
+  int result = real_libc_start_main(collector_main, argc, argv, init, fini,
                                     rtld_fini, stack_end);
   return result;
-}  // __libc_start_main
+}
