@@ -415,16 +415,7 @@ void done_handler(int signum) {
   }
 }
 
-/*
- *
- */
-
 static int collector_main(int argc, char **argv, char **env) {
-  /*
-        char * exe_path = getenv("exe_path");
-        std::map<char *, void *> functions;
-        get_function_addrs(exe_path, functions);
-        */
   enable_segfault_trace();
 
   int result = 0;
@@ -435,14 +426,13 @@ static int collector_main(int argc, char **argv, char **env) {
   ready_act.sa_flags = 0;
   sigaction(SIGUSR2, &ready_act, NULL);
 
-  int ppid = getpid();
-  int cpid = fork();
-  if (cpid == 0) {
-    // child process
+  int collector_pid = getpid();
+  int subject_pid = fork();
+  if (subject_pid == 0) {
     DEBUG("in child process, waiting for parent to be ready (pid: " << getpid()
                                                                     << ")");
 
-    kill(ppid, SIGUSR2);
+    kill(collector_pid, SIGUSR2);
     while (!ready)
       ;
 
@@ -450,12 +440,11 @@ static int collector_main(int argc, char **argv, char **env) {
     result = subject_main_fn(argc, argv, env);
 
     // killing the parent
-    if (kill(ppid, SIGTERM)) {
+    if (kill(collector_pid, SIGTERM)) {
       exit(KILLERROR);
     }
-  } else if (cpid > 0) {
-    // parent process
-    DEBUG("in parent process, opening result file for writing (pid: " << ppid
+  } else if (subject_pid > 0) {
+    DEBUG("in parent process, opening result file for writing (pid: " << collector_pid
                                                                       << ")");
     string env_res = getenv_safe("COLLECTOR_RESULT_FILE", "result.txt");
     DEBUG("result file " << env_res);
@@ -463,7 +452,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
     if (result_file == NULL) {
       perror("couldn't open result file");
-      kill(cpid, SIGKILL);
+      kill(subject_pid, SIGKILL);
       exit(OPENERROR);
     }
     struct sigaction sa;
@@ -472,13 +461,13 @@ static int collector_main(int argc, char **argv, char **env) {
 
     DEBUG("result file opened, sending ready (SIGUSR2) signal to child");
 
-    kill(cpid, SIGUSR2);
+    kill(subject_pid, SIGUSR2);
     while (!ready)
       ;
 
     DEBUG("received child ready signal, starting analyzer");
     try {
-      result = analyzer(cpid, result_file);
+      result = analyzer(subject_pid, result_file);
     } catch (std::exception &e) {
       DEBUG("uncaught error in analyzer: " << e.what());
       result = UNCAUGHT_ERROR;
