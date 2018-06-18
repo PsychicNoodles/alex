@@ -302,11 +302,11 @@ int analyzer(int subject_pid, FILE *result_file,
               )");
 
       bool is_first = true;
-      const char *callchain_section;
+      uint64_t callchain_section;
       for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
         uint64_t inst_ptr = perf_sample->instruction_pointers[i];
         if (is_callchain_marker(inst_ptr)) {
-          callchain_section = callchain_str(inst_ptr);
+          callchain_section = inst_ptr;
           continue;
         }
 
@@ -319,17 +319,28 @@ int analyzer(int subject_pid, FILE *result_file,
                 R"(
                   { "address": "%p",
                     "section": "%s",)",
-                (void *)inst_ptr, callchain_section);
+                (void *)inst_ptr, callchain_str(callchain_section));
 
-        Dl_info info;
         const char *sym_name = NULL, *file_name = NULL;
         void *file_base = NULL, *sym_addr = NULL;
-        // Lookup the name of the function given the function pointer
-        if (dladdr((void *)inst_ptr, &info) != 0) {
-          sym_name = info.dli_sname;
-          file_name = info.dli_fname;
-          file_base = info.dli_fbase;
-          sym_addr = info.dli_saddr;
+        if (callchain_section == CALLCHAIN_USER) {
+          Dl_info info;
+          // Lookup the name of the function given the function pointer
+          if (dladdr((void *)inst_ptr, &info) != 0) {
+            sym_name = info.dli_sname;
+            file_name = info.dli_fname;
+            file_base = info.dli_fbase;
+            sym_addr = info.dli_saddr;
+          }
+        } else if (callchain_section == CALLCHAIN_KERNEL) {
+          for (auto ks : kernel_syms) {
+            if (ks.addr == inst_ptr) {
+              sym_name = ks.sym.c_str();
+              file_name = "(kernel)";
+              file_base = NULL;
+              sym_addr = (void *)ks.addr;
+            }
+          }
         }
         fprintf(result_file,
                 R"(
