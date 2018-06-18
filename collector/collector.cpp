@@ -106,6 +106,21 @@ void setup_sigset(int pid, FILE *result_file, int signum, sigset_t *sigset) {
 }
 
 /*
+ * Looks up an address in the kernel sym map. Accounts for addresses that
+ * may be in the middle of a kernel function.
+ */
+uint64_t lookup_kernel_addr(map<uint64_t, kernel_sym> kernel_syms,
+                            uint64_t addr) {
+  auto prev = kernel_syms.begin()->first;
+  for (auto const &next : kernel_syms) {
+    if (prev < addr && addr < next.first) {
+      return prev;
+    }
+  }
+  return -1;
+}
+
+/*
  * Sets up the required events and records performance of subject process into
  * result file.
  */
@@ -335,11 +350,15 @@ int collect_perf_data(int subject_pid, FILE *result_file,
           }
         } else if (callchain_section == CALLCHAIN_KERNEL) {
           DEBUG("cpd: looking up kernel stack frame");
-          auto ks = kernel_syms.at(inst_ptr);
-          sym_name = ks.sym.c_str();
-          file_name = "(kernel)";
-          file_base = NULL;
-          sym_addr = (void *)inst_ptr;
+          uint64_t addr = lookup_kernel_addr(kernel_syms, inst_ptr);
+          DEBUG("cpd: addr is " << int_to_hex(addr));
+          if (addr != -1) {
+            auto ks = kernel_syms.at(addr);
+            sym_name = ks.sym.c_str();
+            file_name = "(kernel)";
+            file_base = NULL;
+            sym_addr = (void *)addr;
+          }
         }
         fprintf(result_file,
                 R"(
@@ -503,8 +522,10 @@ static int collector_main(int argc, char **argv, char **env) {
 
     map<uint64_t, kernel_sym> kernel_syms = read_kernel_syms();
     DEBUG("kernel_syms:");
-    for(auto& kv : kernel_syms) {
-      DEBUG("addr: " << int_to_hex(kv.first) << ", type: " << kv.second.type << ", sym: " << kv.second.sym << ", cat: " << kv.second.cat);
+    for (auto &kv : kernel_syms) {
+      DEBUG("addr: " << int_to_hex(kv.first) << ", type: " << kv.second.type
+                     << ", sym: " << kv.second.sym
+                     << ", cat: " << kv.second.cat);
     }
 
     DEBUG(
