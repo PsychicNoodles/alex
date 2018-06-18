@@ -18,9 +18,9 @@ let plotWidth;
 let plotHeight;
 let graphWidth;
 let graphHeight;
-let svgPlot = d3.select("#plot");
-let svgLegend = d3.select("#legend");
-let chooseResource = "cache";
+const svgPlot = d3.select("#plot");
+const svgLegend = d3.select("#legend");
+const chooseResource = "cache";
 let chooseXAxis = "CPUCyclesAcc";
 
 /* ******************************** Loading ********************************* */
@@ -32,7 +32,7 @@ ipcRenderer.on("result", (event, result) => {
   processData(timeslices, "CPUCyclesAcc");
   processData(timeslices, "instructionsAcc");
   processData(timeslices, chooseResource);
-  let densityMax = drawPlot(timeslices);
+  const densityMax = drawPlot(timeslices);
   legend(densityMax);
 });
 
@@ -99,15 +99,15 @@ function processData(timeslices, label) {
     case "CPUCyclesAcc": {
       timeslices[0].CPUCyclesAcc = timeslices[0].numCPUCycles;
       for (let i = 1; i < timeslices.length; i++) {
-        let cur = timeslices[i];
+        const cur = timeslices[i];
         cur.CPUCyclesAcc = cur.numCPUCycles + timeslices[i - 1].CPUCyclesAcc;
       }
       break;
     }
     case "cache": {
       for (let i = 0; i < timeslices.length; i++) {
-        let cur = timeslices[i];
-        let total =
+        const cur = timeslices[i];
+        const total =
           cur.events["MEM_LOAD_RETIRED.L3_MISS"] +
           cur.events["MEM_LOAD_RETIRED.L3_HIT"];
         if (total == 0) {
@@ -188,7 +188,7 @@ function scatterPlot(simplifiedData, xScale, yScale) {
   const densityMax = findMax(simplifiedData, "density");
 
   // Create the points and position them in the graph
-  let graph = svgPlot.append("svg").attr("class", "graph");
+  const graph = svgPlot.append("svg").attr("class", "graph");
 
   circles = graph
     .append("g")
@@ -409,7 +409,7 @@ xAxis and yAxis information */
 function densityInfo(timeslices, xScale, yScale) {
   // For now, just take in missRates, and CPUCyclesAcc
   position(timeslices, xScale, yScale);
-  let quadtree = d3.quadtree(
+  const quadtree = d3.quadtree(
     timeslices,
     function(d) {
       return d.x;
@@ -418,7 +418,7 @@ function densityInfo(timeslices, xScale, yScale) {
       return d.y;
     }
   ); // Build a quadtree with all datum
-  let result = [];
+  const result = [];
   // The array used for holding the "picked" datum with their density
 
   /* Now go to the depthStd deep node and count the density and record the 
@@ -460,21 +460,21 @@ function legend(densityMax) {
 }
 
 /* *************************** UI to choose xAxis *************************** */
-let button = function() {
-  let dispatch = d3.dispatch("press", "release");
+const button = function() {
+  const dispatch = d3.dispatch("press", "release");
 
-  let padding = 10;
+  const padding = 10;
 
   function my(selection) {
     selection.each(function(d, i) {
-      let g = d3
+      const g = d3
         .select(this)
         .attr("id", "d3-button" + i)
         .attr("transform", "translate(" + 100 + "," + (d.y + 50) + ")");
 
-      let text = g.append("text").text(d.label);
+      const text = g.append("text").text(d.label);
       g.append("defs");
-      let bbox = text.node().getBBox();
+      const bbox = text.node().getBBox();
       g.insert("rect", "text")
         .attr("x", bbox.x - padding)
         .attr("y", bbox.y - padding)
@@ -490,8 +490,8 @@ let button = function() {
   }
 
   function addGradient(d, i) {
-    let defs = d3.select(this).select("defs");
-    let gradient = defs
+    const defs = d3.select(this).select("defs");
+    const gradient = defs
       .append("linearGradient")
       .attr("id", "gradient" + i)
       .attr("x1", "0%")
@@ -545,7 +545,7 @@ let button = function() {
   // }
 
   function activate() {
-    let gradient = d3.select(this.parentNode).select("linearGradient");
+    const gradient = d3.select(this.parentNode).select("linearGradient");
     d3.select(this.parentNode)
       .select("rect")
       .classed("active", true);
@@ -555,7 +555,7 @@ let button = function() {
   }
 
   function deactivate() {
-    let gradient = d3.select(this.parentNode).select("linearGradient");
+    const gradient = d3.select(this.parentNode).select("linearGradient");
     d3.select(this.parentNode)
       .select("rect")
       .classed("active", false);
@@ -597,23 +597,23 @@ let button = function() {
   };
 
   my.on = function() {
-    let value = dispatch.on.apply(dispatch, arguments);
+    const value = dispatch.on.apply(dispatch, arguments);
     return value === dispatch ? my : value;
   };
 
   return my;
 };
 
-let data = [
+const data = [
   { label: "CPUCyclesAcc", x: 0, y: 0 },
   { label: "instructionsAcc", x: 0, y: 100 }
 ];
 
-let buttonFunc = button()
+const buttonFunc = button()
   .on("press", function(d) {
     clearAll();
     chooseXAxis = d.label;
-    let densityMax = drawPlot(timeslices);
+    const densityMax = drawPlot(timeslices);
     legend(densityMax);
   })
   .on("release", function(d, i) {
@@ -621,7 +621,7 @@ let buttonFunc = button()
   });
 
 // Add buttons
-let buttons = d3
+const buttons = d3
   .select("#buttons")
   .selectAll(".button")
   .data(data)
