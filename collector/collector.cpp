@@ -48,7 +48,6 @@ struct sample {
 };
 
 struct kernel_sym {
-  uint64_t addr;
   char type;
   string sym;
   string cat;
@@ -111,7 +110,7 @@ void setup_sigset(int pid, FILE *result_file, int signum, sigset_t *sigset) {
  * result file.
  */
 int collect_perf_data(int subject_pid, FILE *result_file,
-                      vector<kernel_sym> kernel_syms) {
+                      map<uint64_t, kernel_sym> kernel_syms) {
   DEBUG("cpd: initializing pfm");
   pfm_initialize();
 
@@ -333,14 +332,11 @@ int collect_perf_data(int subject_pid, FILE *result_file,
             sym_addr = info.dli_saddr;
           }
         } else if (callchain_section == CALLCHAIN_KERNEL) {
-          for (auto ks : kernel_syms) {
-            if (ks.addr == inst_ptr) {
-              sym_name = ks.sym.c_str();
-              file_name = "(kernel)";
-              file_base = NULL;
-              sym_addr = (void *)ks.addr;
-            }
-          }
+          auto ks = kernel_syms.at(inst_ptr);
+          sym_name = ks.sym.c_str();
+          file_name = "(kernel)";
+          file_base = NULL;
+          sym_addr = (void *)inst_ptr;
         }
         fprintf(result_file,
                 R"(
@@ -402,17 +398,19 @@ void ready_handler(int signum) {
   }
 }
 
-vector<kernel_sym> read_kernel_syms(const char *path = "/proc/kallsyms") {
+map<uint64_t, kernel_sym> read_kernel_syms(
+    const char *path = "/proc/kallsyms") {
   ifstream input(path);
-  vector<kernel_sym> syms;
+  map<uint64_t, kernel_sym> syms;
 
   for (string line; getline(input, line);) {
     kernel_sym sym;
     istringstream line_stream(line);
     string addr_s, type_s, tail;
+    uint64_t addr;
 
     getline(line_stream, addr_s, ' ');
-    sym.addr = stoul(addr_s, 0, 16);
+    addr = stoul(addr_s, 0, 16);
     getline(line_stream, type_s, ' ');
     sym.type = type_s[0];
     getline(line_stream, tail);
@@ -425,7 +423,7 @@ vector<kernel_sym> read_kernel_syms(const char *path = "/proc/kallsyms") {
       sym.cat = tail.substr(tab + 1);
     }
 
-    syms.push_back(sym);
+    syms[addr] = sym;
   }
 
   return syms;
@@ -500,7 +498,7 @@ static int collector_main(int argc, char **argv, char **env) {
     sa.sa_handler = &done_handler;
     sigaction(SIGTERM, &sa, NULL);
 
-    vector<kernel_sym> kernel_syms = read_kernel_syms();
+    map<uint64_t, kernel_sym> kernel_syms = read_kernel_syms();
 
     DEBUG(
         "collector_main: result file opened, sending ready (SIGUSR2) signal to "
