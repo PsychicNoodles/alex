@@ -99,14 +99,14 @@ void setup_sigset(int pid, FILE* result_file, int signum, sigset_t *sigset) {
 }
 
 /*
- * The most important function. Sets up the required events and records
- * intended data.
+ * Sets up the required events and records performance of subject process into
+ * result file.
  */
-int analyzer(int subject_pid, FILE* result_file) {
-  DEBUG("anlz: initializing pfm");
+int collect_perf_data(int subject_pid, FILE* result_file) {
+  DEBUG("cpd: initializing pfm");
   pfm_initialize();
 
-  DEBUG("anlz: setting up period from env var");
+  DEBUG("cpd: setting up period from env var");
   long long period;
   try {
     period = stoll(getenv_safe("COLLECTOR_PERIOD", "10000000"));
@@ -134,7 +134,7 @@ int analyzer(int subject_pid, FILE* result_file) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
 
-  DEBUG("anlz: setting ready signal for SIGUSR1");
+  DEBUG("cpd: setting ready signal for SIGUSR1");
   set_ready_signal(subject_pid, result_file, SIGUSR1, cpu_cycles_perf.fd);
   sigset_t signal_set;
   setup_sigset(subject_pid, result_file, SIGUSR1, &signal_set);
@@ -156,13 +156,13 @@ int analyzer(int subject_pid, FILE* result_file) {
   }
 
   // Set up event counters
-  DEBUG("anlz: getting events from env var");
+  DEBUG("cpd: getting events from env var");
   auto events_env = getenv_safe("COLLECTOR_EVENTS");
-  DEBUG("events: '" << events_env << "'");
+  DEBUG("cpd: events: '" << events_env << "'");
   auto events = str_split(events_env, ",");
 
   int number = events.size();
-  DEBUG("anlz: setting up perf events");
+  DEBUG("cpd: setting up perf events");
   int event_fds[number];
   for (int i = 0; i < number; i++) {
     perf_event_attr attr;
@@ -196,7 +196,7 @@ int analyzer(int subject_pid, FILE* result_file) {
     }
   }
 
-  DEBUG("anlz: printing result header");
+  DEBUG("cpd: printing result header");
   fprintf(result_file,
           R"(
             {
@@ -208,13 +208,13 @@ int analyzer(int subject_pid, FILE* result_file) {
 
   bool is_first_timeslice = true;
 
-  DEBUG("anlz: entering SIGUSR1 ready loop");
+  DEBUG("cpd: entering SIGUSR1 ready loop");
   while (true) {
     // waits until it receives SIGUSR1
-    DEBUG("anlz: waiting for SIGUSR1");
+    DEBUG("cpd: waiting for SIGUSR1");
     int sig;
     sigwait(&signal_set, &sig);
-    DEBUG("anlz: received SIGUSR1");
+    DEBUG("cpd: received SIGUSR1");
 
     if (done) {
       break;
@@ -228,13 +228,13 @@ int analyzer(int subject_pid, FILE* result_file) {
 
     long long num_instructions = 0;
     read(instruction_count_fd, &num_instructions, sizeof(num_instructions));
-    DEBUG("anlz: read in num of inst: " << num_instructions);
+    DEBUG("cpd: read in num of inst: " << num_instructions);
     if (reset_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS) {
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
 
     if (!has_next_sample(&cpu_cycles_perf)) {
-      DEBUG("SKIPPED SAMPLE PERIOD");
+      DEBUG("cpd: SKIPPED SAMPLE PERIOD");
     } else {
       if (is_first_timeslice) {
         is_first_timeslice = false;
@@ -264,7 +264,7 @@ int analyzer(int subject_pid, FILE* result_file) {
               )",
               perf_sample->time, num_cycles, num_instructions);
 
-      DEBUG("anlz: reading from each fd");
+      DEBUG("cpd: reading from each fd");
       for (int i = 0; i < number; i++) {
         if (i > 0) {
           fprintf(result_file, ",");
@@ -381,7 +381,7 @@ void ready_handler(int signum) {
 
 void done_handler(int signum) {
   if (signum == SIGTERM) {
-    DEBUG("Received SIGTERM, asking analyzer to finish");
+    DEBUG("done_handler: Received SIGTERM, asking analyzer to finish");
 
     done = true;
 
@@ -404,25 +404,28 @@ static int collector_main(int argc, char **argv, char **env) {
   int collector_pid = getpid();
   int subject_pid = fork();
   if (subject_pid == 0) {
-    DEBUG("in child process, waiting for parent to be ready (pid: " << getpid()
+    DEBUG("collector_main: in child process, waiting for parent to be ready (pid: " << getpid()
                                                                     << ")");
 
-    kill(collector_pid, SIGUSR2);
+    if (kill(collector_pid, SIGUSR2)) {
+      perror("couldn't signal collector process");
+      exit(INTERNAL_ERROR);
+    }
     while (!ready)
       ;
 
-    DEBUG("received parent ready signal, starting child/real main");
+    DEBUG("collector_main: received parent ready signal, starting child/real main");
     result = subject_main_fn(argc, argv, env);
 
-    // killing the parent
     if (kill(collector_pid, SIGTERM)) {
+      perror("couldn't kill collector process");
       exit(INTERNAL_ERROR);
     }
   } else if (subject_pid > 0) {
-    DEBUG("in parent process, opening result file for writing (pid: " << collector_pid
+    DEBUG("collector_main: in parent process, opening result file for writing (pid: " << collector_pid
                                                                       << ")");
     string env_res = getenv_safe("COLLECTOR_RESULT_FILE", "result.txt");
-    DEBUG("result file " << env_res);
+    DEBUG("collector_main: result file " << env_res);
     FILE* result_file = fopen(env_res.c_str(), "w");
 
     if (result_file == NULL) {
@@ -434,20 +437,20 @@ static int collector_main(int argc, char **argv, char **env) {
     sa.sa_handler = &done_handler;
     sigaction(SIGTERM, &sa, NULL);
 
-    DEBUG("result file opened, sending ready (SIGUSR2) signal to child");
+    DEBUG("collector_main: result file opened, sending ready (SIGUSR2) signal to child");
 
     kill(subject_pid, SIGUSR2);
     while (!ready)
       ;
 
-    DEBUG("received child ready signal, starting analyzer");
+    DEBUG("collector_main: received child ready signal, starting analyzer");
     try {
-      result = analyzer(subject_pid, result_file);
+      result = collect_perf_data(subject_pid, result_file);
     } catch (std::exception &e) {
-      DEBUG("uncaught error in analyzer: " << e.what());
+      DEBUG("collector_main: uncaught error in analyzer: " << e.what());
       result = INTERNAL_ERROR;
     }
-    DEBUG("finished analyzer, closing file");
+    DEBUG("collector_main: finished analyzer, closing file");
 
     fclose(result_file);
   } else {
