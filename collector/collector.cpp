@@ -48,7 +48,7 @@ struct sample {
 
 typedef int (*main_fn_t)(int, char **, char **);
 
-static main_fn_t real_main;
+static main_fn_t subject_main_fn;
 bool ready = false;
 bool done = false;
 
@@ -419,7 +419,7 @@ void done_handler(int signum) {
  *
  */
 
-static int wrapped_main(int argc, char **argv, char **env) {
+static int collector_main(int argc, char **argv, char **env) {
   /*
         char * exe_path = getenv("exe_path");
         std::map<char *, void *> functions;
@@ -447,7 +447,7 @@ static int wrapped_main(int argc, char **argv, char **env) {
       ;
 
     DEBUG("received parent ready signal, starting child/real main");
-    result = real_main(argc, argv, env);
+    result = subject_main_fn(argc, argv, env);
 
     // killing the parent
     if (kill(ppid, SIGTERM)) {
@@ -498,8 +498,8 @@ extern "C" int __libc_start_main(main_fn_t main_fn, int argc, char **argv,
                                  void (*rtld_fini)(), void *stack_end) {
   auto real_libc_start_main =
       (decltype(__libc_start_main) *)dlsym(RTLD_NEXT, "__libc_start_main");
-  real_main = main_fn;
-  int result = real_libc_start_main(wrapped_main, argc, argv, init, fini,
+  subject_main_fn = main_fn;
+  int result = real_libc_start_main(collector_main, argc, argv, init, fini,
                                     rtld_fini, stack_end);
   return result;
 }
