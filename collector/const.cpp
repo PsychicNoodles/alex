@@ -1,5 +1,7 @@
 #include "const.hpp"
 
+#include <stddef.h>
+
 const char* callchain_str(uint64_t callchain) {
   switch (callchain) {
     case CALLCHAIN_HYPERVISOR:
