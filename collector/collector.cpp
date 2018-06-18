@@ -53,34 +53,6 @@ bool ready = false;
 bool done = false;
 
 /*
-   find program counter
-   */
-
-bool find_pc(const dwarf::die &d, dwarf::taddr pc, vector<dwarf::die> *stack) {
-  // Scan children first to find most specific DIE
-  bool found = false;
-  for (auto &child : d) {
-    if ((found = find_pc(child, pc, stack))) break;
-  }
-  switch (d.tag) {
-    case dwarf::DW_TAG::subprogram:
-    case dwarf::DW_TAG::inlined_subroutine:
-      try {
-        if (found || die_pc_range(d).contains(pc)) {
-          found = true;
-          stack->push_back(d);
-        }
-      } catch (out_of_range &e) {
-      } catch (dwarf::value_type_mismatch &e) {
-      }
-      break;
-    default:
-      break;
-  }
-  return found;
-}
-
-/*
  * Sets a file descriptor to send a signal everytime an event is recorded.
  */
 void set_ready_signal(int pid, FILE* result_file, int sig, int fd) {
@@ -119,12 +91,6 @@ int setup_sigset(int pid, FILE* result_file, int signum, sigset_t *sigset) {
   // blocking signum
   return pthread_sigmask(SIG_BLOCK, sigset, NULL);
 }  // setup_sigset
-
-vector<string> get_events() {
-  auto events_env = getenv_safe("COLLECTOR_EVENTS");
-  DEBUG("events: '" << events_env << "'");
-  return str_split(events_env, ",");
-}
 
 /*
  * The most important function. Sets up the required events and records
@@ -185,7 +151,10 @@ int analyzer(int subject_pid, FILE* result_file) {
 
   // Set up event counters
   DEBUG("anlz: getting events from env var");
-  vector<string> events = get_events();
+  auto events_env = getenv_safe("COLLECTOR_EVENTS");
+  DEBUG("events: '" << events_env << "'");
+  auto events = str_split(events_env, ",");
+
   int number = events.size();
   DEBUG("anlz: setting up perf events");
   int event_fds[number];
