@@ -48,7 +48,6 @@ struct sample {
 
 typedef int (*main_fn_t)(int, char **, char **);
 
-FILE *writef;
 size_t init_time;
 static main_fn_t real_main;
 void *buffer;
@@ -86,38 +85,38 @@ bool find_pc(const dwarf::die &d, dwarf::taddr pc, vector<dwarf::die> *stack) {
 /*
  * Sets a file descriptor to send a signal everytime an event is recorded.
  */
-void set_ready_signal(int pid, int sig, int fd) {
+void set_ready_signal(int pid, FILE* result_file, int sig, int fd) {
   // Set the perf_event file to async
   if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_ASYNC)) {
     perror("couldn't set perf_event file to async");
-    shutdown(pid, writef, ASYNERROR);
+    shutdown(pid, result_file, ASYNERROR);
   }  // if
   // Set the notification signal for the perf file
   if (fcntl(fd, F_SETSIG, sig)) {
     perror("couldn't set notification signal for perf file");
-    shutdown(pid, writef, FISGERROR);
+    shutdown(pid, result_file, FISGERROR);
   }  // if
   pid_t tid = syscall(SYS_gettid);
   // Set the current thread as the owner of the file (to target signal delivery)
   if (fcntl(fd, F_SETOWN, tid)) {
     perror("couldn't set the current thread as the owner of the file");
-    shutdown(pid, writef, OWNERROR);
+    shutdown(pid, result_file, OWNERROR);
   }  // if
 }
 
 /*
  * Preps the system for using sigset.
  */
-int setup_sigset(int pid, int signum, sigset_t *sigset) {
+int setup_sigset(int pid, FILE* result_file, int signum, sigset_t *sigset) {
   // emptying the set
   if (sigemptyset(sigset)) {
     perror("couldn't empty the signal set");
-    shutdown(pid, writef, SETERROR);
+    shutdown(pid, result_file, SETERROR);
   }  // if
   // adding signum to sigset
   if (sigaddset(sigset, SIGUSR1)) {
     perror("couldn't add to signal set");
-    shutdown(pid, writef, ADDERROR);
+    shutdown(pid, result_file, ADDERROR);
   }
   // blocking signum
   return pthread_sigmask(SIG_BLOCK, sigset, NULL);
@@ -133,7 +132,7 @@ vector<string> get_events() {
  * The most important function. Sets up the required events and records
  * intended data.
  */
-int analyzer(int subject_pid) {
+int analyzer(int subject_pid, FILE* result_file) {
   DEBUG("anlz: initializing pfm");
   pfm_initialize();
 
@@ -142,9 +141,9 @@ int analyzer(int subject_pid) {
   try {
     period = stoll(getenv_safe("COLLECTOR_PERIOD", "10000000"));
   } catch (std::invalid_argument &e) {
-    shutdown(subject_pid, writef, ENVERROR);
+    shutdown(subject_pid, result_file, ENVERROR);
   } catch (std::out_of_range &e) {
-    shutdown(subject_pid, writef, ENVERROR);
+    shutdown(subject_pid, result_file, ENVERROR);
   }
 
   // set up the cpu cycles perf buffer
@@ -162,13 +161,13 @@ int analyzer(int subject_pid) {
   perf_buffer cpu_cycles_perf;
   if (setup_monitoring(&cpu_cycles_perf, &cpu_cycles_attr, subject_pid) !=
       SAMPLER_MONITOR_SUCCESS) {
-    shutdown(subject_pid, writef, INSTERROR);
+    shutdown(subject_pid, result_file, INSTERROR);
   }
 
   DEBUG("anlz: setting ready signal for SIGUSR1");
-  set_ready_signal(subject_pid, SIGUSR1, cpu_cycles_perf.fd);
+  set_ready_signal(subject_pid, result_file, SIGUSR1, cpu_cycles_perf.fd);
   sigset_t signal_set;
-  setup_sigset(subject_pid, SIGUSR1, &signal_set);
+  setup_sigset(subject_pid, result_file, SIGUSR1, &signal_set);
 
   // set up the instruction file descriptor
   perf_event_attr instruction_count_attr;
@@ -183,7 +182,7 @@ int analyzer(int subject_pid) {
       perf_event_open(&instruction_count_attr, subject_pid, -1, -1, 0);
   if (instruction_count_fd == -1) {
     perror("couldn't perf_event_open for instruction count");
-    shutdown(subject_pid, writef, PERFERROR);
+    shutdown(subject_pid, result_file, PERFERROR);
   }
 
   // Set up event counters
@@ -200,32 +199,32 @@ int analyzer(int subject_pid) {
     int pfm_result = setup_pfm_os_event(&attr, (char *)events.at(i).c_str());
     if (pfm_result != PFM_SUCCESS) {
       fprintf(stderr, "pfm encoding error: %s", pfm_strerror(pfm_result));
-      shutdown(subject_pid, writef, PERFERROR);
+      shutdown(subject_pid, result_file, PERFERROR);
     }
 
     event_fds[i] = perf_event_open(&attr, subject_pid, -1, -1, 0);
     if (event_fds[i] == -1) {
       perror("couldn't perf_event_open for event");
-      shutdown(subject_pid, writef, PERFERROR);
+      shutdown(subject_pid, result_file, PERFERROR);
     }
   }
 
   if (start_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
-    shutdown(subject_pid, writef, IOCTLERROR);
+    shutdown(subject_pid, result_file, IOCTLERROR);
   }
 
   if (start_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS) {
-    shutdown(subject_pid, writef, IOCTLERROR);
+    shutdown(subject_pid, result_file, IOCTLERROR);
   }
 
   for (int i = 0; i < number; i++) {
     if (start_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
-      shutdown(subject_pid, writef, IOCTLERROR);
+      shutdown(subject_pid, result_file, IOCTLERROR);
     }
   }
 
   DEBUG("anlz: printing result header");
-  fprintf(writef,
+  fprintf(result_file,
           R"(
             {
               "header": {
@@ -251,14 +250,14 @@ int analyzer(int subject_pid) {
     long long num_cycles = 0;
     read(cpu_cycles_perf.fd, &num_cycles, sizeof(num_cycles));
     if (reset_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
-      shutdown(subject_pid, writef, IOCTLERROR);
+      shutdown(subject_pid, result_file, IOCTLERROR);
     }
 
     long long num_instructions = 0;
     read(instruction_count_fd, &num_instructions, sizeof(num_instructions));
     DEBUG("anlz: read in num of inst: " << num_instructions);
     if (reset_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS) {
-      shutdown(subject_pid, writef, IOCTLERROR);
+      shutdown(subject_pid, result_file, IOCTLERROR);
     }
 
     if (!has_next_sample(&cpu_cycles_perf)) {
@@ -267,7 +266,7 @@ int analyzer(int subject_pid) {
       if (is_first_timeslice) {
         is_first_timeslice = false;
       } else {
-        fprintf(writef, ",");
+        fprintf(result_file, ",");
       }
 
       int sample_type;
@@ -275,14 +274,14 @@ int analyzer(int subject_pid) {
       sample *perf_sample = (sample *)get_next_sample(
           &cpu_cycles_perf, &sample_type, &sample_size);
       if (sample_type != PERF_RECORD_SAMPLE) {
-        shutdown(subject_pid, writef, SAMPLEERROR);
+        shutdown(subject_pid, result_file, SAMPLEERROR);
       }
       while (has_next_sample(&cpu_cycles_perf)) {
         int temp_type, temp_size;
         get_next_sample(&cpu_cycles_perf, &temp_type, &temp_size);
       }
 
-      fprintf(writef,
+      fprintf(result_file,
               R"(
                 {
                   "time": %lu,
@@ -295,28 +294,28 @@ int analyzer(int subject_pid) {
       DEBUG("anlz: reading from each fd");
       for (int i = 0; i < number; i++) {
         if (i > 0) {
-          fprintf(writef, ",");
+          fprintf(result_file, ",");
         }
 
         long long count = 0;
         read(event_fds[i], &count, sizeof(long long));
         if (reset_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
-          shutdown(subject_pid, writef, IOCTLERROR);
+          shutdown(subject_pid, result_file, IOCTLERROR);
         }
 
-        fprintf(writef, R"("%s": %lld)", events.at(i).c_str(), count);
+        fprintf(result_file, R"("%s": %lld)", events.at(i).c_str(), count);
       }
 
       int fd = open((char *)"/proc/self/exe", O_RDONLY);
       if (fd < 0) {
         perror("cannot open executable (/proc/self/exe)");
-        shutdown(subject_pid, writef, OPENERROR);
+        shutdown(subject_pid, result_file, OPENERROR);
       }
 
       elf::elf ef(elf::create_mmap_loader(fd));
       dwarf::dwarf dw(dwarf::elf::create_loader(ef));
 
-      fprintf(writef,
+      fprintf(result_file,
               R"(
                 },
                 "stackFrames": [
@@ -328,11 +327,11 @@ int analyzer(int subject_pid) {
         }
 
         if (!is_first) {
-          fprintf(writef, ",");
+          fprintf(result_file, ",");
         }
         is_first = false;
 
-        fprintf(writef,
+        fprintf(result_file,
                 R"(
                   { "address": "%p",)",
                 (void *)perf_sample->instruction_pointers[i]);
@@ -347,7 +346,7 @@ int analyzer(int subject_pid) {
           file_base = info.dli_fbase;
           sym_addr = info.dli_saddr;
         }
-        fprintf(writef,
+        fprintf(result_file,
                 R"(
                     "name": "%s",
                     "file": "%s",
@@ -377,14 +376,14 @@ int analyzer(int subject_pid) {
             break;
           }
         }
-        fprintf(writef,
+        fprintf(result_file,
                 R"(,
                     "line": %d,
                     "col": %d,
                     "fullLocation": "%s" })",
                 line, column, fullLocation);
       }
-      fprintf(writef,
+      fprintf(result_file,
               R"(
                   ]
                 }
@@ -392,7 +391,7 @@ int analyzer(int subject_pid) {
     }
   }
 
-  fprintf(writef,
+  fprintf(result_file,
           R"(
               ]
             }
@@ -462,9 +461,9 @@ static int wrapped_main(int argc, char **argv, char **env) {
                                                                       << ")");
     string env_res = getenv_safe("COLLECTOR_RESULT_FILE", "result.txt");
     DEBUG("result file " << env_res);
-    writef = fopen(env_res.c_str(), "w");
+    FILE* result_file = fopen(env_res.c_str(), "w");
 
-    if (writef == NULL) {
+    if (result_file == NULL) {
       perror("couldn't open result file");
       kill(cpid, SIGKILL);
       exit(OPENERROR);
@@ -481,14 +480,14 @@ static int wrapped_main(int argc, char **argv, char **env) {
 
     DEBUG("received child ready signal, starting analyzer");
     try {
-      result = analyzer(cpid);
+      result = analyzer(cpid, result_file);
     } catch (std::exception &e) {
       DEBUG("uncaught error in analyzer: " << e.what());
       result = UNCAUGHT_ERROR;
     }
     DEBUG("finished analyzer, closing file");
 
-    fclose(writef);
+    fclose(result_file);
   } else {
     exit(FORKERROR);
   }
