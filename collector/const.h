@@ -2,6 +2,7 @@
 #define ALEX_CONST
 
 #include <inttypes.h>
+#include <stdbool.h>
 
 #define PAGE_SIZE 0x1000LL
 // this needs to be a power of two :'( (an hour was spent here)
@@ -33,6 +34,7 @@
 #define CALLCHAIN_GUESTKERNEL 0xfffffffffffff780
 #define CALLCHAIN_GUESTUSER 0xfffffffffffff600
 
+bool is_callchain_marker(uint64_t instruction_pointers);
 const char* callchain_str(uint64_t callchain);
 
 #define SAMPLE_TYPE (PERF_SAMPLE_TIME | PERF_SAMPLE_CALLCHAIN)
