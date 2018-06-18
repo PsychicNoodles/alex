@@ -36,7 +36,7 @@ app
       width: 1000,
       height: 550,
       show: false,
-      icon: path.join(__dirname, "./icons/launcher-64x64.png")
+      icon: path.join(__dirname, "./icons/launcher-128x128.png")
     });
 
     win.loadFile(path.join(__dirname, "./index.html"));
