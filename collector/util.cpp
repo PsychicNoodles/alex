@@ -51,13 +51,10 @@ void shutdown(pid_t pid, FILE* writef, int code) {
 }
 
 bool is_callchain_marker(uint64_t instruction_pointers) {
-  if (instruction_pointers == CALLCHAIN_GUEST ||
-      instruction_pointers == CALLCHAIN_GUESTKERNEL ||
-      instruction_pointers == CALLCHAIN_GUESTUSER ||
-      instruction_pointers == CALLCHAIN_HYPERVISOR ||
-      instruction_pointers == CALLCHAIN_USER ||
-      instruction_pointers == CALLCHAIN_KERNEL)
-    return true;
-  else
-    return false;
+  return instruction_pointers == CALLCHAIN_GUEST ||
+         instruction_pointers == CALLCHAIN_GUESTKERNEL ||
+         instruction_pointers == CALLCHAIN_GUESTUSER ||
+         instruction_pointers == CALLCHAIN_HYPERVISOR ||
+         instruction_pointers == CALLCHAIN_USER ||
+         instruction_pointers == CALLCHAIN_KERNEL;
 }
