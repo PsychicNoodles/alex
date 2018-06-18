@@ -5,45 +5,40 @@ const { spawn } = require("child_process");
 const fs = require("fs");
 const readline = require("readline");
 const tempFile = require("tempfile");
-const path = require("path")
+const path = require("path");
 
 yargs
-  .usage(
-    "usage: alex collect [OPTIONS] -- EXECUTABLE [EXECUTABLE_ARGS...]\n" +
-      "   or: alex visualize FILE"
-  )
   .command(
-    "collect",
+    "collect <executable> [args..]",
     "Collect performance data on an executable.",
     yargs =>
       yargs
-        .usage("collect [OPTIONS] -- EXECUTABLE [EXECUTABLE_ARGS...]")
-        .positional("EXECUTABLE", {
+        .positional("executable", {
           description: "Executable file to profile.",
           type: "string"
         })
-        .positional("EXECUTABLE_ARGS", {
+        .positional("args", {
           description: "Arguments to be passed to the executable.",
           type: "string"
         })
         .option("preset", {
           alias: "p",
           description: "Sensible performance metrics.",
-          choices: ["cpu", "cache"],
-          default: "cpu"
+          choices: ["all", "cpu", "cache"],
+          default: "all"
         })
         .option("events", {
           alias: "e",
           description: "A list of events to count.",
           type: "array"
         })
-        .describe("in", "The file to pipe into the stdin of EXECUTABLE.")
+        .describe("in", "The file to pipe into the stdin of <executable>.")
         .option("out", {
-          description: "The file to pipe the stdout of EXECUTABLE into.",
+          description: "The file to pipe the stdout of <executable> into.",
           default: `out-${Date.now()}.log`
         })
         .option("err", {
-          description: "The file to pipe the stderr of EXECUTABLE into.",
+          description: "The file to pipe the stderr of <executable> into.",
           default: `err-${Date.now()}.log`
         })
         .option("result", {
@@ -68,22 +63,21 @@ yargs
         errFile: argv.err,
         resultOption: argv.result,
         events: argv.events || [],
-        executable: argv._[1],
-        executableArgs: argv._.slice(2),
+        executableArgs: argv.args,
         visualizeOption: argv.visualize
       });
     }
   )
   .command(
-    "visualize",
+    "visualize <file>",
     "Visualize performance data from a file.",
     yargs =>
-      yargs.usage("visualize FILE").positional("FILE", {
+      yargs.positional("file", {
         description: "File to read result data from.",
         type: "string"
       }),
     argv => {
-      visualize(argv._[1]);
+      visualize(argv.file);
     }
   )
   .demandCommand()
@@ -101,14 +95,15 @@ function collect({
   errFile,
   visualizeOption
 }) {
-  let presetEvents = [];
-  if (preset === "cpu") {
-    presetEvents = [];
-  } else if (preset === "cache") {
-    presetEvents = ["MEM_LOAD_RETIRED.L3_MISS", "MEM_LOAD_RETIRED.L3_HIT"];
-  } else {
-    console.error("Invalid preset:", preset);
-  }
+  const presetEvents = {
+    cpu: [],
+    cache: ["MEM_LOAD_RETIRED.L3_MISS", "MEM_LOAD_RETIRED.L3_HIT"]
+  };
+
+  presetEvents.all = Object.keys(presetEvents).reduce(
+    (events, preset) => [...events, ...presetEvents[preset]],
+    []
+  );
 
   const resultFile = resultOption || tempFile(".json");
 
@@ -116,7 +111,7 @@ function collect({
     env: {
       ...process.env,
       COLLECTOR_PERIOD: period,
-      COLLECTOR_EVENTS: [...presetEvents, ...events].join(","),
+      COLLECTOR_EVENTS: [...presetEvents[preset], ...events].join(","),
       COLLECTOR_RESULT_FILE: resultFile,
       LD_PRELOAD: path.join(__dirname, "./collector/collector.so")
     }
