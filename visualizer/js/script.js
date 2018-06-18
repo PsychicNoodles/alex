@@ -6,7 +6,7 @@ const { legendColor } = require("d3-svg-legend");
 require("bootstrap");
 
 const ASPECT_RATIO = 9 / 16; // ratio of height-to-width currently, can be changed
-const SPECTRUM = d3.scaleSequential(d3.interpolateGreens);
+const SPECTRUM = d3.interpolateGreens;
 
 let timeslices;
 
@@ -222,11 +222,10 @@ function scatterPlot(simplifiedData, xScale, yScale) {
     .attr("r", 1)
     .style("fill", function (d, i) {
       if (i == 10000) {
-        console.log(d.densityAver)
-        return d3.scaleSequential(d3.interpolateGreens)(d.densityAver / densityMax);
+        console.log(d.densityAver);
       }
       
-      return d3.scaleSequential(d3.interpolateGreens)(d.densityAver / densityMax);
+      return d3.scaleSequential(SPECTRUM)(d.densityAver / densityMax);
     });
 
 
