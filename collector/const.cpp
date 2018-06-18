@@ -1,4 +1,4 @@
-#include "const.h"
+#include "const.hpp"
 
 const char* callchain_str(uint64_t callchain) {
   switch (callchain) {

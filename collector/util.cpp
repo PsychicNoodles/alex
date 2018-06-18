@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
-#include "const.h"
+#include "const.hpp"
 #include "util.hpp"
 using namespace std;
 

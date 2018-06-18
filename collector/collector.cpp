@@ -34,7 +34,7 @@
 #include <libelfin/dwarf/dwarf++.hh>
 #include <libelfin/elf/elf++.hh>
 
-#include "const.h"
+#include "const.hpp"
 #include "debug.hpp"
 #include "perf_sampler.hpp"
 #include "util.hpp"
