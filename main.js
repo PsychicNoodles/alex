@@ -113,8 +113,14 @@ function collect({
   const startTime = Date.now();
   const progressInterval = setInterval(() => {
     const numSeconds = Math.round((Date.now() - startTime) / MS_PER_SEC);
-    console.info(`It's been ${numSeconds} seconds. Still going...`);
-  }, 10 * MS_PER_SEC);
+    const s = numSeconds === 1 ? "" : "s";
+
+    // Clear previous progress message
+    process.stdout.clearLine();
+    process.stdout.cursorTo(0);
+
+    process.stdout.write(`It's been ${numSeconds} second${s}. Still going...`);
+  }, 1 * MS_PER_SEC);
 
   const collector = spawn(executable, executableArgs, {
     env: {
@@ -165,7 +171,11 @@ function collect({
     clearInterval(progressInterval);
 
     const numSeconds = (Date.now() - startTime) / MS_PER_SEC;
-    console.info(`Finished after collecting for ${numSeconds} seconds.`)
+
+    // Clear out progress message
+    process.stdout.clearLine();
+    process.stdout.cursorTo(0);
+    console.info(`Finished after collecting for ${numSeconds} seconds.`);
 
     const errorCodes = {
       1: "Internal error.",
