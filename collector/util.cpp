@@ -25,6 +25,12 @@ inline string ptr_fmt(void* ptr) {
   return string(buf);
 }
 
+char* int_to_hex(uint64_t i) {
+  static char buf[15];
+  snprintf(buf, 15, "%#014lx", i);
+  return buf;
+}
+
 // https://stackoverflow.com/a/14267455
 vector<string> str_split(string str, string delim) {
   vector<string> split;
