@@ -524,7 +524,7 @@ function densityInfo(timeslices, xScale, yScale) {
 /********************************** legend ********************************** */
 
 function legend(densityMax) {
-  const sequentialScale = SPECTRUM
+  const sequentialScale = d3.scaleSequential(SPECTRUM)
     .domain([0, densityMax]);
 
   svgLegend
