@@ -5,6 +5,9 @@
 
 const { app, BrowserWindow, ipcMain } = require("electron");
 const fs = require("fs");
+const path = require("path");
+
+console.info("Starting app...");
 
 const resultFile = process.argv[2];
 if (!resultFile) {
@@ -14,6 +17,8 @@ if (!resultFile) {
 const result = JSON.parse(fs.readFileSync(resultFile).toString());
 
 ipcMain.on("result-request", event => {
+  console.info("Sending results...");
+
   event.sender.send("result", result);
 });
 
@@ -25,9 +30,16 @@ app
   // This event fires when Electron has finished initialization and is ready to
   // create browser windows. Some APIs can only be used after this event occurs.
   .on("ready", async () => {
-    win = new BrowserWindow({ width: 1000, height: 820, show: false });
+    console.info("Creating window...");
 
-    win.loadFile(`${__dirname}/index.html`);
+    win = new BrowserWindow({
+      width: 1000,
+      height: 550,
+      show: false,
+      icon: path.join(__dirname, "./icons/launcher-64x64.png")
+    });
+
+    win.loadFile(path.join(__dirname, "./index.html"));
 
     win
       .on("ready-to-show", () => {
