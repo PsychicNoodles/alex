@@ -11,7 +11,7 @@
     "start": "node .",
     "eslint:fix": "eslint --fix .",
     "clean:outfiles": "rm -f out-* err-* result-*",
-    "example": "npm run clean:outfiles && node . collect --in examples/inputs/matrix-1000x1000.in -- examples/build/matrixmultiplier"
+    "example": "npm run clean:outfiles && node . collect --in examples/inputs/matrix-500x500.in -- examples/build/matrixmultiplier"
   },
   "bin": {
     "alex": "main.js"
