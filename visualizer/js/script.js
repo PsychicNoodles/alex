@@ -26,7 +26,7 @@ ipcRenderer.on("result", (event, resultFile) => {
   try {
     result = JSON.parse(fs.readFileSync(resultFile).toString());
   } catch (err) {
-    console.error(`Invalid result file: ${err.message}`);
+    alert(`Invalid result file: ${err.message}`);
     window.close();
   }
   const data = result.timeslices;
