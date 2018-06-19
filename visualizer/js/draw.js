@@ -30,7 +30,7 @@ function draw(data, xAxisLabel, yAxisLabel) {
   svg.attr("viewBox", `0 0 ${PLOT_WIDTH} ${PLOT_HEIGHT}`);
 
   /* Actual drawing */
-  const circles = drawPlot(data, xScale, yScale, densityMax, svg);
+  const circles = drawPlot(data, xScale, yScale, xAxisLabel, densityMax, svg);
   drawAxes(xScale, yScale, xAxisLabel, yAxisLabel, svg);
   drawBrush(data, xScale, svg, circles);
   drawLegend(densityMax, svgLegend);
@@ -77,7 +77,7 @@ function drawAxes(xScale, yScale, xAxisLabel, yAxisLabel, svg) {
 }
 
 /* This func makes the scatter plot */
-function drawPlot(data, xScale, yScale, densityMax, svg) {
+function drawPlot(data, xScale, yScale, xAxisLabel, densityMax, svg) {
   // Create the points and position them in the graph
   const graph = svg.append("g").attr("id", "graph");
 
@@ -91,9 +91,7 @@ function drawPlot(data, xScale, yScale, densityMax, svg) {
     .attr("cx", d => xScale(xAxisLabel == "cyclesSoFar" ? d.cyclesSoFar : d.instructionsSoFar))
     .attr("cy", d => yScale(d.events.missRate))
     .attr("r", 1)
-    .style("fill", (d, i) => {
-      return d3.scaleSequential(SPECTRUM)(d.densityAvg / densityMax);
-    });
+    .style("fill", (d) => d3.scaleSequential(SPECTRUM)(d.densityAvg / densityMax));
   return circles; // FIX: this is gross
 }
 

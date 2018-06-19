@@ -1,11 +1,12 @@
 /* ******************************* Require ********************************** */
+const d3 = require("d3");
 const { ipcRenderer } = require("electron");
 const fs = require("fs");
 
 require("bootstrap");
 
 const processData = require("./js/process-data");
-const draw = require("./js/draw")
+const draw = require("./js/draw");
 
 const yAxisLabel = "cache";
 const xAxisLabel = "cyclesSoFar";
@@ -23,39 +24,38 @@ ipcRenderer.on("result", (event, resultFile) => {
     window.close();
   }
 
-  const processedData = process(result.timeslices, yAxisLabel,xAxisLabel);
+  const processedData = processData(result.timeslices, yAxisLabel, xAxisLabel);
   draw(processedData, xAxisLabel, yAxisLabel);
+
+  document.querySelector("#buttons").addEventListener("change", event => {
+    draw(processedData, event.target.value, yAxisLabel);
+  });
 });
 
 /* *************************** UI to choose xAxis *************************** */
-let button = function() {
+const button = function() {
   function my(selection) {
-    selection.each(function(d, i) {
-      let label = d3
-        .select(this)
-        .text(d);
+    selection.each(function(d) {
+      const label = d3.select(this).text(d);
 
-      let input = label.append("input")
+      label
+        .append("input")
         .attr("type", "radio")
         .attr("name", "radio")
-        .attr("value", d)
-        ;
+        .attr("value", d);
 
-      label.append("span")
-      .attr("class","checkmark");
-
+      label.append("span").attr("class", "checkmark");
     });
   }
   return my;
 };
 
-let data = ["CPUCyclesAcc","instructionsAcc"];
+const data = ["CPUCyclesAcc", "instructionsAcc"];
 
-let buttonFunc = button()
-  ;
+const buttonFunc = button();
 
 // Add buttons
-let buttons = d3
+d3
   .select("#buttons")
   .selectAll(".container")
   .data(data)
@@ -63,10 +63,3 @@ let buttons = d3
   .append("label")
   .attr("class", "container")
   .call(buttonFunc);
-
-
-  document.querySelector("#buttons").addEventListener("change",function(event) {
-    chooseXAxis = event.target.value;
-    let densityMax = drawPlot(timeslices);
-    legend(densityMax);
-  })

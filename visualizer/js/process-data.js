@@ -7,10 +7,10 @@ const d3 = require("d3");
 
 const { findMax, PLOT_WIDTH, PLOT_HEIGHT } = require("./util");
 
-module.exports = process;
+module.exports = processData;
 
 // Convert instructions and CPU cycles to be cumulative
-function process(data, metric, xAxisLabel) {
+function processData(data, xAxisLabel, metric) {
   data[0].instructionsSoFar = data[0].numInstructions;
   data[0].cyclesSoFar = data[0].numCPUCycles;
   for (let i = 1; i < data.length; i++) {
