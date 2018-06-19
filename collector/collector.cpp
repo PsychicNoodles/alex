@@ -355,7 +355,6 @@ int collect_perf_data(int subject_pid, FILE *result_file,
         } else if (callchain_section == CALLCHAIN_KERNEL) {
           DEBUG("cpd: looking up kernel stack frame");
           uint64_t addr = lookup_kernel_addr(kernel_syms, inst_ptr);
-          DEBUG("cpd: addr is " << int_to_hex(addr));
           if (addr != -1) {
             auto ks = kernel_syms.at(addr);
             sym_name_str = ks.sym;
@@ -526,12 +525,6 @@ static int collector_main(int argc, char **argv, char **env) {
     sigaction(SIGTERM, &sa, NULL);
 
     map<uint64_t, kernel_sym> kernel_syms = read_kernel_syms();
-    DEBUG("kernel_syms:");
-    for (auto &kv : kernel_syms) {
-      DEBUG("addr: " << int_to_hex(kv.first) << ", type: " << kv.second.type
-                     << ", sym: " << kv.second.sym
-                     << ", cat: " << kv.second.cat);
-    }
 
     DEBUG(
         "collector_main: result file opened, sending ready (SIGUSR2) signal to "
