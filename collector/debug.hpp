@@ -1,5 +1,5 @@
-#ifndef ALEX_COLLECTOR_DEBUG
-#define ALEX_COLLECTOR_DEBUG
+#ifndef COLLECTOR_DEBUG
+#define COLLECTOR_DEBUG
 
 #include <iostream>
 #include <string>

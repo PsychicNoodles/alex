@@ -1,3 +1,6 @@
+#ifndef COLLECTOR_OURPTHREAD
+#define COLLECTOR_OURPTHREAD
+
 #include <dlfcn.h>
 #include <linux/perf_event.h>
 #include <perfmon/perf_event.h>
@@ -24,3 +27,4 @@ typedef struct disguise {
   void *args;
 } disguise_t;
 
+#endif

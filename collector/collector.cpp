@@ -80,8 +80,7 @@ uint64_t lookup_kernel_addr(map<uint64_t, kernel_sym> kernel_syms,
  * Sets up the required events and records performance of subject process into
  * result file.
  */
-int collect_perf_data(int subject_pid, FILE *result_file,
-                      map<uint64_t, kernel_sym> kernel_syms) {
+int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms) {
   DEBUG("cpd: initializing pfm");
   pfm_initialize();
 
@@ -103,9 +102,9 @@ int collect_perf_data(int subject_pid, FILE *result_file,
   }
 
   DEBUG("cpd: setting ready signal for SIGUSR1");
-  set_ready_signal(subject_pid, result_file, PERF_NOTIFY_SIGNAL, cpu_cycles_perf.fd);
+  set_ready_signal(subject_pid, PERF_NOTIFY_SIGNAL, cpu_cycles_perf.fd);
   sigset_t signal_set;
-  setup_sigset(subject_pid, result_file, PERF_NOTIFY_SIGNAL, &signal_set);
+  setup_sigset(subject_pid, PERF_NOTIFY_SIGNAL, &signal_set);
 
   // set up the instruction file descriptor
   perf_event_attr instruction_count_attr;
@@ -482,7 +481,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
     DEBUG("collector_main: received child ready signal, starting analyzer");
     try {
-      result = collect_perf_data(subject_pid, result_file, kernel_syms);
+      result = collect_perf_data(subject_pid, kernel_syms);
     } catch (std::exception &e) {
       DEBUG("collector_main: uncaught error in analyzer: " << e.what());
       result = INTERNAL_ERROR;

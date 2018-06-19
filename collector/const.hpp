@@ -1,5 +1,5 @@
-#ifndef ALEX_CONST
-#define ALEX_CONST
+#ifndef COLLECTOR_CONST
+#define COLLECTOR_CONST
 
 #include <inttypes.h>
 #include <stdbool.h>

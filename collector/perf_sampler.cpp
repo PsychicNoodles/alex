@@ -16,7 +16,7 @@ void init_perf_event_attr(perf_event_attr *attr) {
 /*
  * Sets a file descriptor to send a signal everytime an event is recorded.
  */
-void set_ready_signal(int pid, FILE *result_file, int sig, int fd) {
+void set_ready_signal(int pid, int sig, int fd) {
   // Set the perf_event file to async
   if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_ASYNC)) {
     perror("couldn't set perf_event file to async");
@@ -40,7 +40,7 @@ void set_ready_signal(int pid, FILE *result_file, int sig, int fd) {
 /*
  * Preps the system for using sigset.
  */
-void setup_sigset(int pid, FILE *result_file, int signum, sigset_t *sigset) {
+void setup_sigset(int pid, int signum, sigset_t *sigset) {
   // emptying the set
   if (sigemptyset(sigset)) {
     perror("couldn't empty the signal set");

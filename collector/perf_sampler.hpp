@@ -1,3 +1,6 @@
+#ifndef COLLECTOR_SAMPLER
+#define COLLECTOR_SAMPLER
+
 #include <fcntl.h>
 #include <linux/perf_event.h>
 #include <perfmon/perf_event.h>
@@ -33,8 +36,8 @@ pid_t subject_pid;
 FILE *result_file;
 
 void init_perf_event_attr(perf_event_attr *perf);
-void set_ready_signal(int pid, FILE *result_file, int sig, int fd);
-void setup_sigset(int pid, FILE *result_file, int signum, sigset_t *sigset);
+void set_ready_signal(int pid, int sig, int fd);
+void setup_sigset(int pid, int signum, sigset_t *sigset);
 
 // Configure the perf buffer
 int setup_monitoring(perf_buffer *perf, perf_event_attr *attr, int pid);
@@ -52,3 +55,5 @@ bool has_next_sample(perf_buffer *perf);
 void *get_next_sample(perf_buffer *perf, int *type, int *size);
 
 int setup_pfm_os_event(perf_event_attr *attr, char *event_name);
+
+#endif
