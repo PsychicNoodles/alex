@@ -30,37 +30,68 @@ tr:nth-child(even) {
   opacity: 1;
 }
 
-.button rect.pressed {
-  fill: #000f2b; /* navy 100% */
+/* The container */
+.container {
+    display: block;
+    position: relative;
+    padding-left: 35px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    font-size: 22px;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+   
 }
 
-.button #gradient-start {
-  stop-color: #999faa; /* navy 40% */
-  stop-opacity: 1;
+/* Hide the browser's default radio button */
+.container input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
 }
 
-.button #gradient-stop {
-  stop-color: #999faa; /* navy 40% */
-  stop-opacity: 1;
+/* Create a custom radio button */
+.checkmark {
+    position: absolute;
+    top: 2;
+    left: 0;
+    height: 25px;
+    width: 25px;
+    background-color: #eee;
+    border-radius: 50%;
 }
 
-.button #gradient-start.active,
-.button #gradient-start.pressed {
-  stop-color: #4d576b; /* navy 70% */
+/* On mouse-over, add a grey background color */
+.container:hover input ~ .checkmark {
+    background-color: #ccc;
 }
 
-.button #gradient-stop.active,
-.button #gradient-stop.pressed {
-  stop-color: #4d576b; /* navy 70% */
+/* When the radio button is checked, add a blue background */
+.container input:checked ~ .checkmark {
+    background-color: #2196F3;
 }
 
-.button text {
-  font-size: 30px;
-  fill: #eee;
-  pointer-events: none;
-  text-anchor: middle;
-  -moz-user-select: none;
-  -webkit-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
+/* Create the indicator (the dot/circle - hidden when not checked) */
+.checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
 }
+
+/* Show the indicator (dot/circle) when checked */
+.container input:checked ~ .checkmark:after {
+    display: block;
+}
+
+/* Style the indicator (dot/circle) */
+.container .checkmark:after {
+ 	top: 9px;
+	left: 9px;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: white;
+}
+
