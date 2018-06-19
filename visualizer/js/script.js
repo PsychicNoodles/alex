@@ -8,10 +8,8 @@ require("bootstrap");
 
 /* ******************************* Globals ********************************** */
 const SPECTRUM = d3.interpolateGreens;
-const widthWithPadding = 500;
-const heightWithPadding = 250;
-const width = widthWithPadding;
-const height = heightWithPadding;
+const width = 500;
+const height = 250;
 const yAxisLabel = "cache";
 const xAxisLabel = "cyclesSoFar";
 
@@ -80,7 +78,7 @@ function addDensityInfo(data) {
   const xScale = d3
     .scaleLinear()
     .domain([0, xScaleMax])
-    .range([widthWithPadding - width, widthWithPadding]);
+    .range([0, width]);
   const yScale = d3
     .scaleLinear()
     .domain([yScaleMax, 0])
@@ -193,14 +191,14 @@ function draw(data) {
   const xScale = d3
     .scaleLinear()
     .domain([0, xScaleMax])
-    .range([widthWithPadding - width, widthWithPadding]);
+    .range([0, width]);
   const yScale = d3
     .scaleLinear()
     .domain([yScaleMax, 0])
     .range([0, height]);
   const densityMax = findMax(data, "density");
 
-  svg.attr("viewBox", `0 0 ${widthWithPadding} ${heightWithPadding}`)
+  svg.attr("viewBox", `0 0 ${width} ${height}`)
 
   /* Actual drawing */
   const circles = drawPlot(data, xScale, yScale, densityMax, svg);
@@ -237,7 +235,7 @@ function drawAxes(xScale, yScale, svg) {
     .append("g")
     .attr("id", "xAxis")
     .attr("class", "axis")
-    .attr("transform", "translate(0, " + heightWithPadding + ")")
+    .attr("transform", "translate(0, " + height + ")")
     .call(xAxis);
 
   svg
@@ -298,12 +296,12 @@ function drawBrush(data, xScale, svg, circles) {
   const x = d3
     .scaleLinear()
     .domain([0, 20])
-    .range([widthWithPadding - width, widthWithPadding]);
+    .range([0, width]);
 
   // Create brush
   const brush = d3
     .brushX()
-    .extent([[0, 0], [widthWithPadding, heightWithPadding - height]])
+    .extent([[0, 0], [width, 0]])
     .on("brush", function() {
       brushed.call(this, data, xScale, circles);
     })
@@ -315,7 +313,7 @@ function drawBrush(data, xScale, svg, circles) {
     .append("g")
     .attr("class", "brush")
     .call(brush)
-    .call(brush.move, [widthWithPadding - width, widthWithPadding])
+    .call(brush.move, [0, width])
     .selectAll(".overlay")
     .attr("width", width)
     .attr("height", height)
@@ -351,7 +349,7 @@ function brushCentered(brush, x) {
     x1 = cx + dx / 2;
   d3.select(this.parentNode).call(
     brush.move,
-    x1 > widthWithPadding ? [widthWithPadding - dx, widthWithPadding] : x0 < 0 ? [0, dx] : [x0, x1]
+    x1 > width ? [width - dx, width] : x0 < 0 ? [0, dx] : [x0, x1]
   );
 }
 
