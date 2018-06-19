@@ -1,4 +1,4 @@
-/* ******************************* Require ********************************** */ 
+/* ******************************* Require ********************************** */
 const { ipcRenderer } = require("electron");
 const d3 = require("d3");
 const { legendColor } = require("d3-svg-legend");
@@ -7,13 +7,11 @@ const fs = require("fs");
 require("bootstrap");
 
 /* ******************************* Globals ********************************** */
-const ASPECT_RATIO = 9 / 16;
 const SPECTRUM = d3.interpolateGreens;
-let widthWithPadding = document.querySelector("#plot").getBoundingClientRect()
-  .width;
-let heightWithPadding = widthWithPadding * ASPECT_RATIO;
-let width = 0.9 * widthWithPadding;
-let height = 0.9 * heightWithPadding;
+const widthWithPadding = 500;
+const heightWithPadding = 250;
+const width = 0.9 * widthWithPadding;
+const height = 0.9 * heightWithPadding;
 const yAxisLabel = "cache";
 const xAxisLabel = "cyclesSoFar";
 
@@ -107,7 +105,7 @@ function addDensityInfo(data) {
   const dataWithDensity = [];
   // The array used for holding the "picked" datum with their density
 
-  /* Now go to the depthStd deep node and count the density and record the 
+  /* Now go to the depthStd deep node and count the density and record the
   information to result[] */
   quadtree.visit(function (node) {
     if (!node.length) {
@@ -201,6 +199,8 @@ function draw(data) {
     .domain([yScaleMax, 0])
     .range([0, height]);
   const densityMax = findMax(data, "density");
+
+  svg.attr("viewBox", `0 0 ${widthWithPadding} ${heightWithPadding}`)
 
   /* Actual drawing */
   drawAxes(xScale, yScale, svg);
@@ -610,19 +610,3 @@ function drawLegend(densityMax, svg) {
 //     buttonFunc.clear.call(this, d, i);
 //   });
 // }
-/* ******************************* Resizing ********************************* */
-// FIX: No idea if this should be in here. Might be handled by CSS.
-window.addEventListener("resize", resizeChartSVG, false);
-function resizeChartSVG() {
-  const chartSVG = d3.select("#plot");
-
-  // Calculate the width and height based on the size of the window
-  widthWithPadding = document.querySelector("#plot").getBoundingClientRect().width;
-  heightWithPadding = widthWithPadding * ASPECT_RATIO;
-  chartSVG
-    .attr("viewBox", "0 0 " + widthWithPadding + " " + heightWithPadding)
-    .attr("width", widthWithPadding)
-    .attr("height", heightWithPadding);
-  width = 0.9 * widthWithPadding;
-  height = 0.9 * heightWithPadding;
-}
