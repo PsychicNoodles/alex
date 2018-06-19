@@ -46,16 +46,32 @@ void *__imposter(void *arg) {
   free(d);
   perf_event_attr attr;
   DEBUG(tid << ": initting perf attr");
-  init_perf_event_attr(&attr);
+  try {
+    init_perf_event_attr(&attr);
+  } catch (std::invalid_argument &e) {
+    DEBUG(tid << ": init_perf_event_attr invalid arg");
+    shutdown(subject_pid, result_file, ENV_ERROR);
+  } catch (std::out_of_range &e) {
+    DEBUG(tid << ": init_perf_event_attr out of range");
+    shutdown(subject_pid, result_file, ENV_ERROR);
+  }
   perf_buffer buf;
   DEBUG(tid << ": setting up monitoring");
   if (setup_monitoring(&buf, &attr, 0) != SAMPLER_MONITOR_SUCCESS) {
-    DEBUG("failed to setup monitoring in " << tid);
+    DEBUG(tid << ": failed to setup monitoring");
+    shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
   DEBUG(tid << ": setting ready signal");
   set_ready_signal(subject_pid, PERF_NOTIFY_SIGNAL, buf.fd);
   sigset_t sigs;
   setup_sigset(subject_pid, PERF_NOTIFY_SIGNAL, &sigs);
+  DEBUG(tid << ": starting monitoring");
+  if (start_monitoring(buf.fd) != SAMPLER_MONITOR_SUCCESS) {
+    DEBUG(tid << ": failed to start monitoring");
+    shutdown(subject_pid, result_file, INTERNAL_ERROR);
+  }
+  DEBUG(tid << ": finished setup, running routine");
+
   return routine(arguments);
 }
 
