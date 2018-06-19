@@ -55,3 +55,9 @@ void shutdown(pid_t pid, FILE* writef, int code) {
   fclose(writef);
   exit(errno);
 }
+
+string getenv_safe(const char* var, const char* fallback) {
+  const char* value = getenv(var);
+  if (!value) value = fallback;
+  return string(value);
+}
