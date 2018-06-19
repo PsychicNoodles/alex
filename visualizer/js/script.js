@@ -35,8 +35,20 @@ should send off the data to be drawn. */
 function process(data) {
   data = convertXsToCumulative(data);
   data = convertYsToRate(data);
-  data = addDensityInfo(data);
-  draw(data);
+
+  const xScaleMax = data[data.length - 1].cyclesSoFar;
+  const yScaleMax = findMax(data, yAxisLabel);
+  const xScale = d3
+    .scaleLinear()
+    .domain([0, xScaleMax])
+    .range([0, width]);
+  const yScale = d3
+    .scaleLinear()
+    .domain([yScaleMax, 0])
+    .range([0, height]);
+  data = addDensityInfo(data, xScale, yScale);
+
+  draw(data, xScale, yScale);
 }
 
 // Convert instructions and CPU cycles to be cumulative
@@ -72,17 +84,7 @@ function convertYsToRate(data) {
 
 /* This function will make a array of the density information and the "fake"
 xAxis and yAxis information */
-function addDensityInfo(data) {
-  const xScaleMax = data[data.length - 1].cyclesSoFar;
-  const yScaleMax = findMax(data, yAxisLabel);
-  const xScale = d3
-    .scaleLinear()
-    .domain([0, xScaleMax])
-    .range([0, width]);
-  const yScale = d3
-    .scaleLinear()
-    .domain([yScaleMax, 0])
-    .range([0, height]);
+function addDensityInfo(data, xScale, yScale) {
   // NOTE: no idea why we do this but nothing else works
   for (let i = 0; i < data.length; i++) {
     data[i].x = Math.round(xScale(data[i].cyclesSoFar));
@@ -182,20 +184,10 @@ function calculateAvgDensity(dataWithDensity) {
 /* ******************************** Drawing ********************************* */
 /* This region should deal ONLY with the drawing of data into an SVG or various
 d3 constructs needed for this to occur. */
-function draw(data) {
+function draw(data, xScale, yScale) {
   /* SVG / D3 constructs needed by multiple subfunctions */
   const svg = d3.select("#plot");
   const svgLegend = d3.select("#legend"); // change to be part of main svg
-  const xScaleMax = data[data.length - 1].cyclesSoFar;
-  const yScaleMax = findMax(data, yAxisLabel);
-  const xScale = d3
-    .scaleLinear()
-    .domain([0, xScaleMax])
-    .range([0, width]);
-  const yScale = d3
-    .scaleLinear()
-    .domain([yScaleMax, 0])
-    .range([0, height]);
   const densityMax = findMax(data, "density");
 
   svg.attr("viewBox", `0 0 ${width} ${height}`)
