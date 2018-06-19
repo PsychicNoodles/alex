@@ -9,6 +9,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "debug.hpp"
+
 #define EVENT "perf_count_hw_cache_misses"
 #define SAMPLE 0
 #define EVENT_ACCURACY 100000

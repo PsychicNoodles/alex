@@ -1,5 +1,42 @@
 #include "perf_sampler.hpp"
 
+void init_perf_event_attr(perf_event_attr *attr) {
+  static long long period = stoll(getenv_safe("COLLECTOR_PERIOD", "10000000"));
+
+  memset(attr, 0, sizeof(perf_event_attr));
+  attr->disabled = true;
+  attr->size = sizeof(perf_event_attr);
+  attr->type = PERF_TYPE_HARDWARE;
+  attr->config = PERF_COUNT_HW_CPU_CYCLES;
+  attr->sample_type = SAMPLE_TYPE;
+  attr->sample_period = period;
+  attr->wakeup_events = 1;
+}
+
+/*
+ * Sets a file descriptor to send a signal everytime an event is recorded.
+ */
+void set_ready_signal(int pid, FILE *result_file, int sig, int fd) {
+  // Set the perf_event file to async
+  if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_ASYNC)) {
+    perror("couldn't set perf_event file to async");
+    shutdown(pid, result_file, INTERNAL_ERROR);
+  }
+
+  // Set the notification signal for the perf file
+  if (fcntl(fd, F_SETSIG, sig)) {
+    perror("couldn't set notification signal for perf file");
+    shutdown(pid, result_file, INTERNAL_ERROR);
+  }
+
+  // Set the current thread as the owner of the file (to target signal delivery)
+  pid_t tid = syscall(SYS_gettid);
+  if (fcntl(fd, F_SETOWN, tid)) {
+    perror("couldn't set the current thread as the owner of the file");
+    shutdown(pid, result_file, INTERNAL_ERROR);
+  }
+}
+
 int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
   int fd = perf_event_open(attr, pid, -1, -1, 0);
 

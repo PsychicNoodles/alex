@@ -27,7 +27,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <fcntl.h>
 #include <inttypes.h>
 #include <link.h>
 
@@ -42,6 +41,8 @@
 using namespace std;
 
 struct sample {
+  uint32_t pid;
+  uint32_t tid;
   uint64_t time;
   uint64_t num_instruction_pointers;
   uint64_t instruction_pointers[];
@@ -60,30 +61,6 @@ bool ready = false;
 bool done = false;
 
 /*
- * Sets a file descriptor to send a signal everytime an event is recorded.
- */
-void set_ready_signal(int pid, FILE *result_file, int sig, int fd) {
-  // Set the perf_event file to async
-  if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_ASYNC)) {
-    perror("couldn't set perf_event file to async");
-    shutdown(pid, result_file, INTERNAL_ERROR);
-  }
-
-  // Set the notification signal for the perf file
-  if (fcntl(fd, F_SETSIG, sig)) {
-    perror("couldn't set notification signal for perf file");
-    shutdown(pid, result_file, INTERNAL_ERROR);
-  }
-
-  // Set the current thread as the owner of the file (to target signal delivery)
-  pid_t tid = syscall(SYS_gettid);
-  if (fcntl(fd, F_SETOWN, tid)) {
-    perror("couldn't set the current thread as the owner of the file");
-    shutdown(pid, result_file, INTERNAL_ERROR);
-  }
-}
-
-/*
  * Preps the system for using sigset.
  */
 void setup_sigset(int pid, FILE *result_file, int signum, sigset_t *sigset) {
@@ -94,7 +71,7 @@ void setup_sigset(int pid, FILE *result_file, int signum, sigset_t *sigset) {
   }
 
   // adding signum to sigset
-  if (sigaddset(sigset, SIGUSR1)) {
+  if (sigaddset(sigset, signum)) {
     perror("couldn't add to signal set");
     shutdown(pid, result_file, INTERNAL_ERROR);
   }
@@ -130,26 +107,16 @@ int collect_perf_data(int subject_pid, FILE *result_file,
   DEBUG("cpd: initializing pfm");
   pfm_initialize();
 
-  DEBUG("cpd: setting up period from env var");
-  long long period;
+  // set up the cpu cycles perf buffer
+  perf_event_attr cpu_cycles_attr;
   try {
-    period = stoll(getenv_safe("COLLECTOR_PERIOD", "10000000"));
+    init_perf_event_attr(&cpu_cycles_attr);
+    // catch stoll exceptions
   } catch (std::invalid_argument &e) {
     shutdown(subject_pid, result_file, ENV_ERROR);
   } catch (std::out_of_range &e) {
     shutdown(subject_pid, result_file, ENV_ERROR);
   }
-
-  // set up the cpu cycles perf buffer
-  perf_event_attr cpu_cycles_attr;
-  memset(&cpu_cycles_attr, 0, sizeof(cpu_cycles_attr));
-  cpu_cycles_attr.disabled = true;
-  cpu_cycles_attr.size = sizeof(cpu_cycles_attr);
-  cpu_cycles_attr.type = PERF_TYPE_HARDWARE;
-  cpu_cycles_attr.config = PERF_COUNT_HW_CPU_CYCLES;
-  cpu_cycles_attr.sample_type = SAMPLE_TYPE;
-  cpu_cycles_attr.sample_period = period;
-  cpu_cycles_attr.wakeup_events = 1;
 
   perf_buffer cpu_cycles_perf;
   if (setup_monitoring(&cpu_cycles_perf, &cpu_cycles_attr, subject_pid) !=
@@ -158,9 +125,9 @@ int collect_perf_data(int subject_pid, FILE *result_file,
   }
 
   DEBUG("cpd: setting ready signal for SIGUSR1");
-  set_ready_signal(subject_pid, result_file, SIGUSR1, cpu_cycles_perf.fd);
+  set_ready_signal(subject_pid, result_file, PERF_NOTIFY_SIGNAL, cpu_cycles_perf.fd);
   sigset_t signal_set;
-  setup_sigset(subject_pid, result_file, SIGUSR1, &signal_set);
+  setup_sigset(subject_pid, result_file, PERF_NOTIFY_SIGNAL, &signal_set);
 
   // set up the instruction file descriptor
   perf_event_attr instruction_count_attr;
@@ -255,8 +222,6 @@ int collect_perf_data(int subject_pid, FILE *result_file,
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
 
-
-
     if (!has_next_sample(&cpu_cycles_perf)) {
       DEBUG("cpd: SKIPPED SAMPLE PERIOD");
     } else {
@@ -284,9 +249,12 @@ int collect_perf_data(int subject_pid, FILE *result_file,
                   "time": %lu,
                   "numCPUCycles": %lld,
                   "numInstructions": %lld,
+                  "pid": %u,
+                  "tid": %u,
                   "events": {
               )",
-              perf_sample->time, num_cycles, num_instructions);
+              perf_sample->time, num_cycles, num_instructions, perf_sample->pid,
+              perf_sample->tid);
 
       DEBUG("cpd: reading from each fd");
       for (int i = 0; i < number; i++) {
@@ -466,7 +434,7 @@ void done_handler(int signum) {
 
     // Signal analyzer function to continue its loop so it can read the done
     // flag
-    kill(getpid(), SIGUSR1);
+    kill(getpid(), PERF_NOTIFY_SIGNAL);
   }
 }
 
@@ -483,7 +451,7 @@ static int collector_main(int argc, char **argv, char **env) {
   sigaction(SIGUSR2, &ready_act, NULL);
 
   int collector_pid = getpid();
-  int subject_pid = fork();
+  subject_pid = fork();
   if (subject_pid == 0) {
     DEBUG(
         "collector_main: in child process, waiting for parent to be ready "
@@ -513,7 +481,7 @@ static int collector_main(int argc, char **argv, char **env) {
         << collector_pid << ")");
     string env_res = getenv_safe("COLLECTOR_RESULT_FILE", "result.txt");
     DEBUG("collector_main: result file " << env_res);
-    FILE *result_file = fopen(env_res.c_str(), "w");
+    result_file = fopen(env_res.c_str(), "w");
 
     if (result_file == NULL) {
       perror("couldn't open result file");

@@ -1,3 +1,4 @@
+#include <fcntl.h>
 #include <linux/perf_event.h>
 #include <perfmon/perf_event.h>
 #include <perfmon/pfmlib.h>
@@ -7,6 +8,10 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <string>
+
+#include "const.hpp"
+#include "util.hpp"
 
 #define PAGE_SIZE 0x1000LL
 #define NUM_DATA_PAGES \
@@ -23,6 +28,12 @@ struct perf_buffer {
   void *data;
   size_t data_size;
 };
+
+pid_t subject_pid;
+FILE *result_file;
+
+void init_perf_event_attr(perf_event_attr *perf);
+void set_ready_signal(int pid, FILE *result_file, int sig, int fd);
 
 // Configure the perf buffer
 int setup_monitoring(perf_buffer *perf, perf_event_attr *attr, int pid);

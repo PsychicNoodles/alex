@@ -1,8 +1,22 @@
 #include "ourpthread.hpp"
 
+#include <vector>
+#include "perf_sampler.hpp"
+
+using namespace std;
+
 pthread_create_fn_t real_pthread_create;
 
 static int thread_read_pipe, thread_write_pipe;
+vector<perf_buffer> thread_perfs;
+
+vector<perf_buffer>::const_iterator get_thread_perfs() {
+  return thread_perfs.cbegin();
+}
+
+vector<perf_buffer>::const_iterator get_thread_perfs_end() {
+  return thread_perfs.cend();
+}
 
 void create_raw_event_attr(struct perf_event_attr *attr, const char *event_name,
                            uint64_t sample_type, uint64_t sample_period) {
@@ -27,19 +41,22 @@ void create_raw_event_attr(struct perf_event_attr *attr, const char *event_name,
 }
 
 void *__imposter(void *arg) {
+  pthread_t tid = pthread_self();
+  DEBUG(tid << ": in imposter");
   disguise_t *d = (disguise_t *)arg;
   routine_fn_t routine = d->victim;
   void *arguments = d->args;
   free(d);
-  struct perf_event_attr attr;
-  create_raw_event_attr(&attr, EVENT, SAMPLE, EVENT_ACCURACY);
-  int fd = perf_event_open(&attr, 0, -1, -1, 0);
-  ioctl(fd, PERF_EVENT_IOC_RESET, 0);
-  ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
-  if (write(thread_write_pipe, &fd, sizeof(int)) == -1) {
-    perror("write failed");
-    exit(2);
+  perf_event_attr attr;
+  DEBUG(tid << ": initting perf attr");
+  init_perf_event_attr(&attr);
+  perf_buffer buf;
+  DEBUG(tid << ": setting up monitoring");
+  if (setup_monitoring(&buf, &attr, 0) != SAMPLER_MONITOR_SUCCESS) {
+    DEBUG("failed to setup monitoring in " << tid);
   }
+  DEBUG(tid << ": setting ready signal");
+  set_ready_signal(subject_pid, result_file, PERF_NOTIFY_SIGNAL, buf.fd);
   return routine(arguments);
 }
 
@@ -48,6 +65,7 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   disguise_t *d = (disguise_t *)malloc(sizeof(disguise_t));
   d->victim = start_routine;
   d->args = arg;
+  DEBUG("pthread_created");
   return real_pthread_create(thread, attr, &__imposter, d);
 }
 
