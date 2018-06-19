@@ -1,8 +1,5 @@
 #include "ourpthread.hpp"
 
-#include <vector>
-#include "perf_sampler.hpp"
-
 using namespace std;
 
 pthread_create_fn_t real_pthread_create;

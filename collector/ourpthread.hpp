@@ -11,8 +11,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <vector>
 
 #include "debug.hpp"
+#include "perf_sampler.hpp"
 
 #define EVENT "perf_count_hw_cache_misses"
 #define SAMPLE 0
