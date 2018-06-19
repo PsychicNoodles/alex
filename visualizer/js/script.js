@@ -2,6 +2,8 @@
 const { ipcRenderer } = require("electron");
 const d3 = require("d3");
 const { legendColor } = require("d3-svg-legend");
+const fs = require("fs");
+
 require("bootstrap");
 
 /* ******************************* Globals ********************************** */
@@ -19,7 +21,14 @@ const xAxisLabel = "cyclesSoFar";
 /* This region deals ONLY with the loading of the data. AFTER this, it sends off
 the data to be crunched. */
 ipcRenderer.send("result-request");
-ipcRenderer.on("result", (event, result) => {
+ipcRenderer.on("result", (event, resultFile) => {
+  let result;
+  try {
+    result = JSON.parse(fs.readFileSync(resultFile).toString());
+  } catch (err) {
+    alert(`Invalid result file: ${err.message}`);
+    window.close();
+  }
   const data = result.timeslices;
   crunch(data);
 });

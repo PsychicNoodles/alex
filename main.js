@@ -107,6 +107,21 @@ function collect({
 
   const resultFile = resultOption || tempFile(".json");
 
+  console.info("Collecting performance data...");
+
+  const MS_PER_SEC = 1000;
+  const startTime = Date.now();
+  const progressInterval = setInterval(() => {
+    const numSeconds = Math.round((Date.now() - startTime) / MS_PER_SEC);
+    const s = numSeconds === 1 ? "" : "s";
+
+    // Clear previous progress message
+    process.stdout.clearLine();
+    process.stdout.cursorTo(0);
+
+    process.stdout.write(`It's been ${numSeconds} second${s}. Still going...`);
+  }, 1 * MS_PER_SEC);
+
   const collector = spawn(executable, executableArgs, {
     env: {
       ...process.env,
@@ -153,6 +168,15 @@ function collect({
   }
 
   collector.on("exit", code => {
+    clearInterval(progressInterval);
+
+    const numSeconds = (Date.now() - startTime) / MS_PER_SEC;
+
+    // Clear out progress message
+    process.stdout.clearLine();
+    process.stdout.cursorTo(0);
+    console.info(`Finished after collecting for ${numSeconds} seconds.`);
+
     const errorCodes = {
       1: "Internal error.",
       2: "There was a problem with the result file.",
@@ -165,8 +189,6 @@ function collect({
       console.error(errorCodes[code]);
       console.error(`Check ${errFile || "error logs"} for details`);
     } else {
-      console.info("Successfully collected data.");
-
       console.info("Processing results...");
       const result = JSON.parse(fs.readFileSync(resultFile).toString());
       result.header = {
