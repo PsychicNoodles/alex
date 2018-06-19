@@ -10,8 +10,8 @@ require("bootstrap");
 const SPECTRUM = d3.interpolateGreens;
 const widthWithPadding = 500;
 const heightWithPadding = 250;
-const width = 0.9 * widthWithPadding;
-const height = 0.9 * heightWithPadding;
+const width = widthWithPadding;
+const height = heightWithPadding;
 const yAxisLabel = "cache";
 const xAxisLabel = "cyclesSoFar";
 
@@ -203,8 +203,8 @@ function draw(data) {
   svg.attr("viewBox", `0 0 ${widthWithPadding} ${heightWithPadding}`)
 
   /* Actual drawing */
-  drawAxes(xScale, yScale, svg);
   const circles = drawPlot(data, xScale, yScale, densityMax, svg);
+  drawAxes(xScale, yScale, svg);
   drawBrush(data, xScale, svg, circles);
   drawLegend(densityMax, svgLegend);
 }
@@ -237,30 +237,30 @@ function drawAxes(xScale, yScale, svg) {
     .append("g")
     .attr("id", "xAxis")
     .attr("class", "axis")
-    .attr("transform", "translate(0, " + height + ")")
+    .attr("transform", "translate(0, " + heightWithPadding + ")")
     .call(xAxis);
 
   svg
     .append("g")
     .attr("id", "yAxis")
     .attr("class", "axis")
-    .attr("transform", "translate(" + (widthWithPadding - width - 10) + ", 0)")
     .call(yAxis);
+
   // Add labels to the axes
   svg
     .select("#xAxis")
     .append("text")
     .attr("class", "x label")
     .attr("text-anchor", "middle")
-    .attr("x", width / 2 + (widthWithPadding - width))
-    .attr("y", heightWithPadding - height)
+    .attr("x", width / 2)
+    .attr("y", 50)
     .text(xAxisLabel);
   svg
     .select("#yAxis")
     .append("text")
     .attr("class", "y label")
     .attr("text-anchor", "middle")
-    .attr("y", height - heightWithPadding)
+    .attr("y", -40)
     .attr("x", -(height / 2))
     .attr("transform", "rotate(-90)")
     .text(yAxisLabel);
