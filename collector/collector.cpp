@@ -183,10 +183,9 @@ int collect_perf_data(int subject_pid, FILE *result_file,
   DEBUG("cpd: events: '" << events_env << "'");
   auto events = str_split(events_env, ",");
 
-  int number = events.size();
   DEBUG("cpd: setting up perf events");
-  int event_fds[number];
-  for (int i = 0; i < number; i++) {
+  int event_fds[events.size()];
+  for (int i = 0; i < events.size(); i++) {
     perf_event_attr attr;
     memset(&attr, 0, sizeof(perf_event_attr));
 
@@ -212,7 +211,7 @@ int collect_perf_data(int subject_pid, FILE *result_file,
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
 
-  for (int i = 0; i < number; i++) {
+  for (int i = 0; i < events.size(); i++) {
     if (start_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
@@ -287,7 +286,7 @@ int collect_perf_data(int subject_pid, FILE *result_file,
               perf_sample->time, num_cycles, num_instructions);
 
       DEBUG("cpd: reading from each fd");
-      for (int i = 0; i < number; i++) {
+      for (int i = 0; i < events.size(); i++) {
         if (i > 0) {
           fprintf(result_file, ",");
         }
