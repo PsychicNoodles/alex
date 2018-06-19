@@ -57,6 +57,8 @@ void *__imposter(void *arg) {
   }
   DEBUG(tid << ": setting ready signal");
   set_ready_signal(subject_pid, result_file, PERF_NOTIFY_SIGNAL, buf.fd);
+  sigset_t sigs;
+  setup_sigset(subject_pid, result_file, PERF_NOTIFY_SIGNAL, &sigs);
   return routine(arguments);
 }
 

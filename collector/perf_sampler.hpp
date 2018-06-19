@@ -34,6 +34,7 @@ FILE *result_file;
 
 void init_perf_event_attr(perf_event_attr *perf);
 void set_ready_signal(int pid, FILE *result_file, int sig, int fd);
+void setup_sigset(int pid, FILE *result_file, int signum, sigset_t *sigset);
 
 // Configure the perf buffer
 int setup_monitoring(perf_buffer *perf, perf_event_attr *attr, int pid);

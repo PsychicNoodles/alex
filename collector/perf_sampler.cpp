@@ -37,6 +37,28 @@ void set_ready_signal(int pid, FILE *result_file, int sig, int fd) {
   }
 }
 
+/*
+ * Preps the system for using sigset.
+ */
+void setup_sigset(int pid, FILE *result_file, int signum, sigset_t *sigset) {
+  // emptying the set
+  if (sigemptyset(sigset)) {
+    perror("couldn't empty the signal set");
+    shutdown(pid, result_file, INTERNAL_ERROR);
+  }
+
+  // adding signum to sigset
+  if (sigaddset(sigset, signum)) {
+    perror("couldn't add to signal set");
+    shutdown(pid, result_file, INTERNAL_ERROR);
+  }
+
+  if (pthread_sigmask(SIG_BLOCK, sigset, NULL)) {
+    perror("couldn't mask signal set");
+    shutdown(pid, result_file, INTERNAL_ERROR);
+  }
+}
+
 int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
   int fd = perf_event_open(attr, pid, -1, -1, 0);
 
