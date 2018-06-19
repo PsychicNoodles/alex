@@ -219,7 +219,7 @@ function findMax(timeslices, attr) {
 function drawAxes(xScale, yScale, svg) {
   // Create axes and format the ticks
   const formatAsPercentage = d3.format(".0%");
-  const abbrev = d3.format(".0s");
+  const abbrev = d3.format(".2s");
   const xAxis = d3.axisBottom(xScale).tickFormat(abbrev);
   const yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage);
   // Add the axes to the svg object
