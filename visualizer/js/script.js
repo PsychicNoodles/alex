@@ -18,25 +18,25 @@ const yAxisLabel = "cache";
 const xAxisLabel = "cyclesSoFar";
 
 /* ******************************** Loading ********************************* */
-/* This region deals ONLY with the loading of the data. AFTER this, it sends off
-the data to be crunched. */
+/* This region should deal ONLY with the loading of the data. AFTER this, it
+should send off the data to be processed. */
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, resultFile) => {
   let result;
   try {
     result = JSON.parse(fs.readFileSync(resultFile).toString());
   } catch (err) {
-    alert(`Invalid result file: ${err.message}`);
+    console.error(`Invalid result file: ${err.message}`);
     window.close();
   }
   const data = result.timeslices;
-  crunch(data);
+  process(data);
 });
 
 /* ***************************** Data crunching ***************************** */
-/* This region deals ONLY with the modification of data. AFTER this, it sends
-off the data to be drawn. */
-function crunch(data) {
+/* This region should deal ONLY with the MODIFICATION of data. AFTER this, it
+should send off the data to be drawn. */
+function process(data) {
   data = convertXsToCumulative(data);
   data = convertYsToRate(data);
   data = addDensityInfo(data);
@@ -77,14 +77,31 @@ function convertYsToRate(data) {
 /* This function will make a array of the density information and the "fake"
 xAxis and yAxis information */
 function addDensityInfo(data) {
+  const xScaleMax = data[data.length - 1].cyclesSoFar;
+  const yScaleMax = findMax(data, yAxisLabel);
+  const xScale = d3
+    .scaleLinear()
+    .domain([0, xScaleMax])
+    .range([widthWithPadding - width, widthWithPadding]);
+  const yScale = d3
+    .scaleLinear()
+    .domain([yScaleMax, 0])
+    .range([0, height]);
+  // NOTE: no idea why we do this but nothing else works
+  for (let i = 0; i < data.length; i++) {
+    data[i].x = Math.round(xScale(data[i].cyclesSoFar));
+    // needs to be more generic
+    data[i].y = Math.round(yScale(data[i].events.missRate));
+    // needs to be more generic
+  }
   // For now, just take in missRate, and cyclesSoFar
   const quadtree = d3.quadtree(
     data,
     function (d) {
-      return d.cyclesSoFar;
+      return d.x;
     },
     function (d) {
-      return d.events.missRate;
+      return d.y;
     }
   ); // Build a quadtree with all datum
   const dataWithDensity = [];
@@ -105,9 +122,11 @@ function addDensityInfo(data) {
     }
   });
 
-  calculateAvgDensity(quadtree, dataWithDensity);
+  calculateAvgDensity(dataWithDensity);
   return dataWithDensity;
 }
+
+
 
 // Calculates how many points are in this node
 function getDensity(node) {
@@ -119,7 +138,16 @@ function getDensity(node) {
   return count;
 }
 
-function calculateAvgDensity(quadtree, dataWithDensity) {
+function calculateAvgDensity(dataWithDensity) {
+  const quadtree = d3.quadtree(
+    dataWithDensity,
+    function (d) {
+      return d.x;
+    },
+    function (d) {
+      return d.y;
+    }
+  );
   for (let i = 0; i < dataWithDensity.length; i++) {
     const x0 = dataWithDensity[i].x - 2;
     const x3 = dataWithDensity[i].x + 2;
@@ -140,7 +168,7 @@ function calculateAvgDensity(quadtree, dataWithDensity) {
             arr.push(node.data.density);
           }
         } while ((node = node.next));
-        // FIX: Is there a different way we can do this? ^
+        // FIX: Is there a different way we can do the above line?
       }
       return x1 >= x3 || y1 >= y3 || x2 <= x0 || y2 <= y0;
     });
@@ -156,6 +184,8 @@ function calculateAvgDensity(quadtree, dataWithDensity) {
 }
 
 /* ******************************** Drawing ********************************* */
+/* This region should deal ONLY with the drawing of data into an SVG or various
+d3 constructs needed for this to occur. */
 function draw(data) {
   /* SVG / D3 constructs needed by multiple subfunctions */
   const svg = d3.select("#plot");
@@ -174,7 +204,7 @@ function draw(data) {
 
   /* Actual drawing */
   drawAxes(xScale, yScale, svg);
-  const circles = drawPlot(data, xScale, yScale, densityMax, svg, circles);
+  const circles = drawPlot(data, xScale, yScale, densityMax, svg);
   drawBrush(data, xScale, svg, circles);
   drawLegend(densityMax, svgLegend);
 }
@@ -237,11 +267,11 @@ function drawAxes(xScale, yScale, svg) {
 }
 
 /* This func makes the scatter plot */
-function drawPlot(data, xScale, yScale, densityMax, svg, circles) {
+function drawPlot(data, xScale, yScale, densityMax, svg) {
   // Create the points and position them in the graph
   const graph = svg.append("g").attr("id", "graph");
 
-  circles = graph
+  const circles = graph
     .append("g")
     .attr("class", "circles")
     .selectAll("circle")
