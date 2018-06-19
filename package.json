@@ -5,12 +5,13 @@
   "description": "AnaLysis of EXecution",
   "repository": {
     "type": "git",
-    "url": "https://github.com/curtsinger-lab/perf-analyzer"
+    "url": "https://github.com/curtsinger-lab/alex"
   },
   "scripts": {
     "start": "node .",
-    "clean": "rm -f out-* err-* result-*",
-    "example": "npm run clean && node . collect --in examples/inputs/matrix-1000x1000.in -p cache -- examples/build/matrixmultiplier"
+    "eslint:fix": "eslint --fix .",
+    "clean:outfiles": "rm -f out-* err-* result-*",
+    "example": "npm run clean:outfiles && node . collect --in examples/inputs/matrix-500x500.in -- examples/build/matrixmultiplier"
   },
   "bin": {
     "alex": "main.js"
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@types/yargs": "^11.0.0",
+    "babel-eslint": "^8.2.3",
     "eslint": "^4.19.1"
   },
   "eslintConfig": {
@@ -37,9 +39,12 @@
       "node": true
     },
     "extends": "eslint:recommended",
+    "parser": "babel-eslint",
     "rules": {
       "no-console": "off",
-      "no-var": "error"
+      "no-var": "error",
+      "prefer-const": "warn",
+      "no-unused-vars": "warn"
     }
   }
 }

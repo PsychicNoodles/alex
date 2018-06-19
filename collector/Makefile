@@ -29,10 +29,7 @@ clean:
 clean-res:
 	@rm -f err-* out-* res-*
 
-<<<<<<< HEAD
-collector.$(SHLIB_SUFFIX): collector.cpp debug.cpp perf_sampler.cpp ourpthread.cpp
-=======
-collector.$(SHLIB_SUFFIX): collector.cpp util.cpp debug.cpp perf_sampler.cpp
->>>>>>> 4a69c1ace4c4ffa4e91943b970061b20c91f7cd0
+
+collector.$(SHLIB_SUFFIX): collector.cpp const.cpp util.cpp debug.cpp perf_sampler.cpp
 	$(CXXLIB) $(CFLAGS) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -ldl -lpfm -pthread -rdynamic
 
