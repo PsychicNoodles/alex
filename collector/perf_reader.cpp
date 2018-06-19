@@ -58,7 +58,7 @@ size_t sample_fd_count = 0;
 
 void set_sigterm_fd(int fd) { sigterm_fd = fd; }
 
-void add_perf_fd(int fd) {
+void add_sample_fd(int fd) {
   DEBUG("adding a perf fd: " << fd);
   // only listen for read events in non-edge mode
   epoll_event evt = {EPOLLIN, 0};
@@ -69,6 +69,88 @@ void add_perf_fd(int fd) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
   sample_fd_count++;
+}
+
+void setup_perf(pid_t target_pid, bool setup_events) {
+  DEBUG("setting up perf for " << target_pid << " (in pid " << getpid()
+                               << ", tid " << pthread_self() << ")");
+
+  // set up the cpu cycles perf buffer
+  perf_event_attr cpu_cycles_attr;
+  try {
+    init_perf_event_attr(&cpu_cycles_attr);
+    // catch stoll exceptions
+  } catch (std::invalid_argument &e) {
+    shutdown(subject_pid, result_file, ENV_ERROR);
+  } catch (std::out_of_range &e) {
+    shutdown(subject_pid, result_file, ENV_ERROR);
+  }
+
+  perf_buffer cpu_cycles_perf;
+  if (setup_monitoring(&cpu_cycles_perf, &cpu_cycles_attr, target_pid) !=
+      SAMPLER_MONITOR_SUCCESS) {
+    shutdown(subject_pid, result_file, INTERNAL_ERROR);
+  }
+  DEBUG("adding fd to epoll");
+  add_sample_fd(cpu_cycles_perf.fd);
+  // only need to add the group parent, since the children will be synced up
+  // the group is maintained per thread/process
+
+  // set up the instruction file descriptor
+  perf_event_attr instruction_count_attr;
+  memset(&instruction_count_attr, 0, sizeof(instruction_count_attr));
+  instruction_count_attr.disabled = true;
+  instruction_count_attr.size = sizeof(instruction_count_attr);
+  instruction_count_attr.type = PERF_TYPE_HARDWARE;
+  instruction_count_attr.config = PERF_COUNT_HW_INSTRUCTIONS;
+
+  int instruction_count_fd = perf_event_open(
+      &instruction_count_attr, target_pid, -1, cpu_cycles_perf.fd, 0);
+  if (instruction_count_fd == -1) {
+    perror("couldn't perf_event_open for instruction count");
+    shutdown(subject_pid, result_file, INTERNAL_ERROR);
+  }
+
+  if (setup_events) {
+    // Set up event counters
+    static auto events = str_split(getenv_safe("COLLECTOR_EVENTS"), ",");
+
+    int number = events.size();
+    DEBUG("setting up perf events");
+    int event_fds[number];
+    for (int i = 0; i < number; i++) {
+      perf_event_attr attr;
+      memset(&attr, 0, sizeof(perf_event_attr));
+
+      // Parse out event name with PFM.  Must be done first.
+      int pfm_result = setup_pfm_os_event(&attr, (char *)events.at(i).c_str());
+      if (pfm_result != PFM_SUCCESS) {
+        fprintf(stderr, "pfm encoding error: %s", pfm_strerror(pfm_result));
+        shutdown(subject_pid, result_file, INTERNAL_ERROR);
+      }
+
+      event_fds[i] =
+          perf_event_open(&attr, target_pid, -1, cpu_cycles_perf.fd, 0);
+      if (event_fds[i] == -1) {
+        perror("couldn't perf_event_open for event");
+        shutdown(subject_pid, result_file, INTERNAL_ERROR);
+      }
+    }
+
+    for (int i = 0; i < number; i++) {
+      if (start_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
+        shutdown(subject_pid, result_file, INTERNAL_ERROR);
+      }
+    }
+  }
+
+  if (start_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
+    shutdown(subject_pid, result_file, INTERNAL_ERROR);
+  }
+
+  if (start_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS) {
+    shutdown(subject_pid, result_file, INTERNAL_ERROR);
+  }
 }
 
 /*
@@ -95,80 +177,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms) {
   DEBUG("cpd: initializing pfm");
   pfm_initialize();
 
-  // set up the cpu cycles perf buffer
-  perf_event_attr cpu_cycles_attr;
-  try {
-    init_perf_event_attr(&cpu_cycles_attr);
-    // catch stoll exceptions
-  } catch (std::invalid_argument &e) {
-    shutdown(subject_pid, result_file, ENV_ERROR);
-  } catch (std::out_of_range &e) {
-    shutdown(subject_pid, result_file, ENV_ERROR);
-  }
-
-  perf_buffer cpu_cycles_perf;
-  if (setup_monitoring(&cpu_cycles_perf, &cpu_cycles_attr, subject_pid) !=
-      SAMPLER_MONITOR_SUCCESS) {
-    shutdown(subject_pid, result_file, INTERNAL_ERROR);
-  }
-  DEBUG("cpd: adding cpu_cycles_perf fd to epoll");
-  add_perf_fd(cpu_cycles_perf.fd);
-
-  // set up the instruction file descriptor
-  perf_event_attr instruction_count_attr;
-  memset(&instruction_count_attr, 0, sizeof(instruction_count_attr));
-  instruction_count_attr.disabled = true;
-  instruction_count_attr.size = sizeof(instruction_count_attr);
-  instruction_count_attr.type = PERF_TYPE_HARDWARE;
-  instruction_count_attr.config = PERF_COUNT_HW_INSTRUCTIONS;
-
-  int instruction_count_fd =
-      perf_event_open(&instruction_count_attr, subject_pid, -1, -1, 0);
-  if (instruction_count_fd == -1) {
-    perror("couldn't perf_event_open for instruction count");
-    shutdown(subject_pid, result_file, INTERNAL_ERROR);
-  }
-
-  // Set up event counters
-  DEBUG("cpd: getting events from env var");
-  auto events_env = getenv_safe("COLLECTOR_EVENTS");
-  DEBUG("cpd: events: '" << events_env << "'");
-  auto events = str_split(events_env, ",");
-
-  int number = events.size();
-  DEBUG("cpd: setting up perf events");
-  int event_fds[number];
-  for (int i = 0; i < number; i++) {
-    perf_event_attr attr;
-    memset(&attr, 0, sizeof(perf_event_attr));
-
-    // Parse out event name with PFM.  Must be done first.
-    int pfm_result = setup_pfm_os_event(&attr, (char *)events.at(i).c_str());
-    if (pfm_result != PFM_SUCCESS) {
-      fprintf(stderr, "pfm encoding error: %s", pfm_strerror(pfm_result));
-      shutdown(subject_pid, result_file, INTERNAL_ERROR);
-    }
-
-    event_fds[i] = perf_event_open(&attr, subject_pid, -1, -1, 0);
-    if (event_fds[i] == -1) {
-      perror("couldn't perf_event_open for event");
-      shutdown(subject_pid, result_file, INTERNAL_ERROR);
-    }
-  }
-
-  if (start_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
-    shutdown(subject_pid, result_file, INTERNAL_ERROR);
-  }
-
-  if (start_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS) {
-    shutdown(subject_pid, result_file, INTERNAL_ERROR);
-  }
-
-  for (int i = 0; i < number; i++) {
-    if (start_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
-      shutdown(subject_pid, result_file, INTERNAL_ERROR);
-    }
-  }
+  setup_perf(subject_pid);
 
   DEBUG("cpd: printing result header");
   fprintf(result_file,
