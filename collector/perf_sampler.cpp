@@ -13,52 +13,6 @@ void init_perf_event_attr(perf_event_attr *attr) {
   attr->wakeup_events = 1;
 }
 
-/*
- * Sets a file descriptor to send a signal everytime an event is recorded.
- */
-void set_ready_signal(int pid, int sig, int fd) {
-  // Set the perf_event file to async
-  if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_ASYNC)) {
-    perror("couldn't set perf_event file to async");
-    shutdown(pid, result_file, INTERNAL_ERROR);
-  }
-
-  // Set the notification signal for the perf file
-  if (fcntl(fd, F_SETSIG, sig)) {
-    perror("couldn't set notification signal for perf file");
-    shutdown(pid, result_file, INTERNAL_ERROR);
-  }
-
-  // Set the current thread as the owner of the file (to target signal delivery)
-  pid_t tid = syscall(SYS_gettid);
-  if (fcntl(fd, F_SETOWN, tid)) {
-    perror("couldn't set the current thread as the owner of the file");
-    shutdown(pid, result_file, INTERNAL_ERROR);
-  }
-}
-
-/*
- * Preps the system for using sigset.
- */
-void setup_sigset(int pid, int signum, sigset_t *sigset) {
-  // emptying the set
-  if (sigemptyset(sigset)) {
-    perror("couldn't empty the signal set");
-    shutdown(pid, result_file, INTERNAL_ERROR);
-  }
-
-  // adding signum to sigset
-  if (sigaddset(sigset, signum)) {
-    perror("couldn't add to signal set");
-    shutdown(pid, result_file, INTERNAL_ERROR);
-  }
-
-  if (pthread_sigmask(SIG_BLOCK, sigset, NULL)) {
-    perror("couldn't mask signal set");
-    shutdown(pid, result_file, INTERNAL_ERROR);
-  }
-}
-
 int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
   int fd = perf_event_open(attr, pid, -1, -1, 0);
 

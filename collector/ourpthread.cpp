@@ -61,16 +61,16 @@ void *__imposter(void *arg) {
     DEBUG(tid << ": failed to setup monitoring");
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
-  DEBUG(tid << ": setting ready signal");
-  set_ready_signal(subject_pid, PERF_NOTIFY_SIGNAL, buf.fd);
-  sigset_t sigs;
-  setup_sigset(subject_pid, PERF_NOTIFY_SIGNAL, &sigs);
-  DEBUG(tid << ": starting monitoring");
-  if (start_monitoring(buf.fd) != SAMPLER_MONITOR_SUCCESS) {
-    DEBUG(tid << ": failed to start monitoring");
-    shutdown(subject_pid, result_file, INTERNAL_ERROR);
-  }
-  DEBUG(tid << ": finished setup, running routine");
+  // DEBUG(tid << ": setting ready signal");
+  // set_ready_signal(subject_pid, PERF_NOTIFY_SIGNAL, buf.fd);
+  // sigset_t sigs;
+  // setup_sigset(subject_pid, PERF_NOTIFY_SIGNAL, &sigs);
+  // DEBUG(tid << ": starting monitoring");
+  // if (start_monitoring(buf.fd) != SAMPLER_MONITOR_SUCCESS) {
+  //   DEBUG(tid << ": failed to start monitoring");
+  //   shutdown(subject_pid, result_file, INTERNAL_ERROR);
+  // }
+  // DEBUG(tid << ": finished setup, running routine");
 
   return routine(arguments);
 }
@@ -80,7 +80,7 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   disguise_t *d = (disguise_t *)malloc(sizeof(disguise_t));
   d->victim = start_routine;
   d->args = arg;
-  DEBUG("pthread_created");
+  DEBUG("pthread_created in " << getpid());
   return real_pthread_create(thread, attr, &__imposter, d);
 }
 

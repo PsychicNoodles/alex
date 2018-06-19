@@ -34,8 +34,6 @@ struct perf_buffer {
 };
 
 void init_perf_event_attr(perf_event_attr *perf);
-void set_ready_signal(int pid, int sig, int fd);
-void setup_sigset(int pid, int signum, sigset_t *sigset);
 
 // Configure the perf buffer
 int setup_monitoring(perf_buffer *perf, perf_event_attr *attr, int pid);

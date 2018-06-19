@@ -2,6 +2,8 @@
 #include <dlfcn.h>
 #include <elf.h>
 #include <fcntl.h>
+#include <inttypes.h>
+#include <link.h>
 #include <linux/perf_event.h>
 #include <perfmon/perf_event.h>
 #include <perfmon/pfmlib.h>
@@ -9,9 +11,12 @@
 #include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/epoll.h>
 #include <sys/mman.h>
+#include <sys/signalfd.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/wait.h>
@@ -23,9 +28,6 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-
-#include <inttypes.h>
-#include <link.h>
 
 #include <libelfin/dwarf/dwarf++.hh>
 #include <libelfin/elf/elf++.hh>
@@ -50,9 +52,24 @@ struct sample {
   uint64_t instruction_pointers[];
 };
 
-bool done = false;
+int sigterm_fd;
+int sample_epfd = epoll_create1(0);
+size_t sample_fd_count = 0;
 
-void set_done() { done = true; }
+void set_sigterm_fd(int fd) { sigterm_fd = fd; }
+
+void add_perf_fd(int fd) {
+  DEBUG("adding a perf fd: " << fd);
+  // only listen for read events in non-edge mode
+  epoll_event evt = {EPOLLIN, 0};
+  if (epoll_ctl(sample_epfd, fd, EPOLL_CTL_ADD, &evt) == -1) {
+    char buf[128];
+    snprintf(buf, 128, "error adding perf fd %d", fd);
+    perror(buf);
+    shutdown(subject_pid, result_file, INTERNAL_ERROR);
+  }
+  sample_fd_count++;
+}
 
 /*
  * Looks up an address in the kernel sym map. Accounts for addresses that
@@ -94,11 +111,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms) {
       SAMPLER_MONITOR_SUCCESS) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
-
-  DEBUG("cpd: setting ready signal for SIGUSR1");
-  set_ready_signal(subject_pid, PERF_NOTIFY_SIGNAL, cpu_cycles_perf.fd);
-  sigset_t signal_set;
-  setup_sigset(subject_pid, PERF_NOTIFY_SIGNAL, &signal_set);
+  DEBUG("cpd: adding cpu_cycles_perf fd to epoll");
+  add_perf_fd(cpu_cycles_perf.fd);
 
   // set up the instruction file descriptor
   perf_event_attr instruction_count_attr;
@@ -168,16 +182,45 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms) {
 
   bool is_first_timeslice = true;
 
-  DEBUG("cpd: entering SIGUSR1 ready loop");
+  DEBUG("cpd: entering epoll ready loop");
   while (true) {
-    // waits until it receives SIGUSR1
-    DEBUG("cpd: waiting for SIGUSR1");
-    int sig;
-    sigwait(&signal_set, &sig);
-    DEBUG("cpd: received SIGUSR1");
+    DEBUG("cpd: epolling for results or new threads");
+    epoll_event *evlist =
+        (epoll_event *)malloc(sizeof(epoll_event) * sample_fd_count);
+    int ready_fds =
+        epoll_wait(sample_epfd, evlist, sample_fd_count, SAMPLE_EPOLL_TIMEOUT);
 
-    if (done) {
-      break;
+    if (ready_fds == -1) {
+      if (errno == EINTR) {
+        // test for sigterm
+        char buf[sizeof(signalfd_siginfo)];
+        // sigterm_fd is in non-blocking mode, so if there's nothing to read it
+        // should error
+        if (read(sigterm_fd, buf, sizeof(signalfd_siginfo)) == -1) {
+          if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            // was NOT sigterm
+            fprintf(stderr, "sample epoll was interrupted: %s\n",
+                    strerror((int)EINTR));
+            shutdown(subject_pid, result_file, INTERNAL_ERROR);
+          }
+        } else {
+          // yup it was a sigterm
+          free(evlist);
+          break;
+        }
+      } else {
+        perror("sample epoll wait was unsuccessful");
+        shutdown(subject_pid, result_file, INTERNAL_ERROR);
+      }
+    } else if (ready_fds == 0) {
+      DEBUG("cpd: no sample fds were ready within the timeout ("
+            << SAMPLE_EPOLL_TIMEOUT << ")");
+      free(evlist);
+      continue;
+    } else {
+      // write_header();
+      // write_counts();
+      // write_samples();
     }
 
     long long num_cycles = 0;
@@ -346,6 +389,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms) {
                 }
               )");
     }
+    free(evlist);
   }
 
   fprintf(result_file,

@@ -3,12 +3,10 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
-#include <signal.h>
 
 #define PAGE_SIZE 0x1000LL
 // this needs to be a power of two :'( (an hour was spent here)
 #define NUM_DATA_PAGES 256
-#define PERF_NOTIFY_SIGNAL SIGUSR1
 
 // kill failure. Not really a fail but a security hazard.
 #define INTERNAL_ERROR 1     // Problem with something internal, see error logs
@@ -31,5 +29,7 @@ bool is_callchain_marker(uint64_t instruction_pointers);
 const char* callchain_str(uint64_t callchain);
 
 #define SAMPLE_TYPE (PERF_SAMPLE_TIME | PERF_SAMPLE_CALLCHAIN | PERF_SAMPLE_TID)
+// wait "forever"
+#define SAMPLE_EPOLL_TIMEOUT -1
 
 #endif
