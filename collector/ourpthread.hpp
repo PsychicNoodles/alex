@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "debug.hpp"
+#include "global.hpp"
 #include "perf_sampler.hpp"
 
 #define EVENT "perf_count_hw_cache_misses"

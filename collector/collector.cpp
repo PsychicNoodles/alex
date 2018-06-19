@@ -35,8 +35,12 @@
 
 #include "const.hpp"
 #include "debug.hpp"
+#include "global.hpp"
 #include "perf_sampler.hpp"
 #include "util.hpp"
+
+pid_t subject_pid;
+FILE *result_file;
 
 using namespace std;
 

@@ -14,6 +14,7 @@
 #include <string>
 
 #include "const.hpp"
+#include "global.hpp"
 #include "util.hpp"
 
 #define PAGE_SIZE 0x1000LL
@@ -31,9 +32,6 @@ struct perf_buffer {
   void *data;
   size_t data_size;
 };
-
-extern pid_t subject_pid;
-extern FILE *result_file;
 
 void init_perf_event_attr(perf_event_attr *perf);
 void set_ready_signal(int pid, int sig, int fd);
