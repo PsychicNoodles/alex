@@ -38,8 +38,14 @@
 #include "perf_sampler.hpp"
 #include "util.hpp"
 
+struct child_fds {
+  int inst_count_fd;
+  int *event_fds;
+};
+
 pid_t subject_pid;
 FILE *result_file;
+map<int, child_fds> child_fd_mappings;
 // mutex perf_fds_mutex;
 
 using namespace std;
@@ -106,6 +112,8 @@ void setup_perf(pid_t target_pid, bool setup_events) {
   // only need to add the group parent, since the children will be synced up
   // the group is maintained per thread/process
 
+  child_fds children;
+
   // set up the instruction file descriptor
   perf_event_attr instruction_count_attr;
   memset(&instruction_count_attr, 0, sizeof(instruction_count_attr));
@@ -119,13 +127,14 @@ void setup_perf(pid_t target_pid, bool setup_events) {
     perror("couldn't perf_event_open for instruction count");
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
+  children.inst_count_fd = instruction_count_fd;
 
   if (setup_events) {
     // Set up event counters
     static auto events = str_split(getenv_safe("COLLECTOR_EVENTS"), ",");
 
     DEBUG("setting up perf events");
-    int event_fds[events.size()];
+    children.event_fds = (int *)malloc(sizeof(int) * events.size());
     for (int i = 0; i < events.size(); i++) {
       perf_event_attr attr;
       memset(&attr, 0, sizeof(perf_event_attr));
@@ -137,9 +146,9 @@ void setup_perf(pid_t target_pid, bool setup_events) {
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
       }
 
-      event_fds[i] =
+      children.event_fds[i] =
           perf_event_open(&attr, target_pid, -1, cpu_cycles_perf.fd, 0);
-      if (event_fds[i] == -1) {
+      if (children.event_fds[i] == -1) {
         perror("couldn't perf_event_open for event");
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
       }
@@ -149,6 +158,7 @@ void setup_perf(pid_t target_pid, bool setup_events) {
   if (start_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
+  child_fd_mappings.insert(make_pair(cpu_cycles_perf.fd, children));
 }
 
 /*
