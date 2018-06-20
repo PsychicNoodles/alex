@@ -48,7 +48,8 @@
       "prefer-const": "warn",
       "prefer-arrow-callback": "warn",
       "arrow-body-style": "warn",
-      "no-unused-vars": "warn"
+      "no-unused-vars": "warn",
+      "no-empty": "warn"
     }
   }
 }

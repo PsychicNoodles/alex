@@ -1,5 +1,3 @@
-/* ******************************* Require ********************************** */
-const d3 = require("d3");
 const { ipcRenderer } = require("electron");
 const fs = require("fs");
 
@@ -7,13 +5,8 @@ require("bootstrap");
 
 const processData = require("./js/process-data");
 const draw = require("./js/draw");
+const {onXAxisSelect, renderXAxisSelect} = require("./js/x-axis-select")
 
-const yAxisLabel = "cache";
-const xAxisLabel = "cyclesSoFar";
-
-/* ******************************** Loading ********************************* */
-/* This region should deal ONLY with the loading of the data. AFTER this, it
-should send off the data to be processed. */
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, resultFile) => {
   let result;
@@ -24,43 +17,25 @@ ipcRenderer.on("result", (event, resultFile) => {
     window.close();
   }
 
-  const processedData = processData(result.timeslices, xAxisLabel, yAxisLabel);
-  draw(processedData, xAxisLabel, yAxisLabel);
+  renderXAxisSelect()
 
-  document.querySelector("#buttons").addEventListener("change", event => {
-    const xAxisLabel = event.target.value;
-    const processedData = processData(result.timeslices, xAxisLabel, yAxisLabel);
-    draw(processedData, xAxisLabel, yAxisLabel);
+  onXAxisSelect(xAxisOption => {
+    const getIndependentVariable = d => d[xAxisOption.independentVariable];
+
+    const yAxisLabel = "Cache Miss Rate";
+    const getDependentVariable = d => d.events.missRate;
+
+    const processedData = processData(
+      result.timeslices,
+      getIndependentVariable,
+      getDependentVariable
+    );
+    draw(
+      processedData,
+      getIndependentVariable,
+      getDependentVariable,
+      xAxisOption.label,
+      yAxisLabel
+    );
   });
 });
-
-/* *************************** UI to choose xAxis *************************** */
-const button = function() {
-  function my(selection) {
-    selection.each(function(d) {
-      const label = d3.select(this).text(d);
-
-      label
-        .append("input")
-        .attr("type", "radio")
-        .attr("name", "radio")
-        .attr("value", d);
-
-      label.append("span").attr("class", "checkmark");
-    });
-  }
-  return my;
-};
-
-const data = ["cyclesSoFar", "instructionsSoFar"];
-
-const buttonFunc = button();
-
-// Add buttons
-d3.select("#buttons")
-  .selectAll(".container")
-  .data(data)
-  .enter()
-  .append("label")
-  .attr("class", "container")
-  .call(buttonFunc);

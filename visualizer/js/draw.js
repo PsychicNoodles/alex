@@ -5,21 +5,18 @@
 const d3 = require("d3");
 const { legendColor } = require("d3-svg-legend");
 
-const { findMax, PLOT_WIDTH, PLOT_HEIGHT } = require("./util");
+const { PLOT_WIDTH, PLOT_HEIGHT} = require("./util")
 
 module.exports = draw;
 
 const SPECTRUM = d3.interpolateGreens;
 
-function draw(data, xAxisLabel, yAxisLabel) {
+function draw(data, getIndependentVariable, getDependentVariable, xAxisLabel, yAxisLabel) {
   /* SVG / D3 constructs needed by multiple subfunctions */
   const svg = d3.select("#plot");
   const svgLegend = d3.select("#legend"); // change to be part of main svg
-  const xScaleMax =
-    "cyclesSoFar" == xAxisLabel
-      ? data[data.length - 1].cyclesSoFar
-      : data[data.length - 1].instructionsSoFar;
-  const yScaleMax = findMax(data, yAxisLabel);
+  const xScaleMax = getIndependentVariable(data[data.length - 1]);
+  const yScaleMax = d3.max(data, getDependentVariable);
   const xScale = d3
     .scaleLinear()
     .domain([0, xScaleMax])
@@ -28,7 +25,7 @@ function draw(data, xAxisLabel, yAxisLabel) {
     .scaleLinear()
     .domain([yScaleMax, 0])
     .range([0, PLOT_HEIGHT]);
-  const densityMax = findMax(data, "density");
+  const densityMax = d3.max(data, d => d.densityAvg);
 
   svg.attr("viewBox", `0 0 ${PLOT_WIDTH} ${PLOT_HEIGHT}`);
 
@@ -36,7 +33,7 @@ function draw(data, xAxisLabel, yAxisLabel) {
   svg.selectAll("*").remove();
 
   /* Actual drawing */
-  const circles = drawPlot(data, xScale, yScale, xAxisLabel, densityMax, svg);
+  const circles = drawPlot(data, xScale, yScale, getIndependentVariable, densityMax, svg);
   drawAxes(xScale, yScale, xAxisLabel, yAxisLabel, svg);
   drawBrush(data, xScale, svg, circles);
   drawLegend(densityMax, svgLegend);
@@ -83,7 +80,7 @@ function drawAxes(xScale, yScale, xAxisLabel, yAxisLabel, svg) {
 }
 
 /* This func makes the scatter plot */
-function drawPlot(data, xScale, yScale, xAxisLabel, densityMax, svg) {
+function drawPlot(data, xScale, yScale, getIndependentVariable, densityMax, svg) {
   // Create the points and position them in the graph
   const graph = svg.append("g").attr("id", "graph");
 
@@ -94,9 +91,7 @@ function drawPlot(data, xScale, yScale, xAxisLabel, densityMax, svg) {
     .data(data)
     .enter()
     .append("circle")
-    .attr("cx", d =>
-      xScale(xAxisLabel == "cyclesSoFar" ? d.cyclesSoFar : d.instructionsSoFar)
-    )
+    .attr("cx", d => xScale(getIndependentVariable(d)))
     .attr("cy", d => yScale(d.events.missRate))
     .attr("r", 1)
     .style("fill", d =>
