@@ -5,7 +5,7 @@ require("bootstrap");
 
 const processData = require("./js/process-data");
 const draw = require("./js/draw");
-const {onXAxisSelect, renderXAxisSelect} = require("./js/x-axis-select")
+const { onXAxisSelect, renderXAxisSelect } = require("./js/x-axis-select");
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, resultFile) => {
@@ -17,7 +17,7 @@ ipcRenderer.on("result", (event, resultFile) => {
     window.close();
   }
 
-  renderXAxisSelect()
+  renderXAxisSelect();
 
   onXAxisSelect(xAxisOption => {
     const getIndependentVariable = d => d[xAxisOption.independentVariable];
