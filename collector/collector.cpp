@@ -11,6 +11,7 @@
 
 #include "const.hpp"
 #include "debug.hpp"
+#include "ourpthread.hpp"
 #include "perf_reader.hpp"
 #include "util.hpp"
 
@@ -96,6 +97,8 @@ static int collector_main(int argc, char **argv, char **env) {
         "(pid: "
         << getpid() << ")");
 
+    set_perf_register_fd(pipefds[1]);
+
     if (kill(collector_pid, SIGUSR2)) {
       perror("couldn't signal collector process");
       exit(INTERNAL_ERROR);
@@ -142,8 +145,8 @@ static int collector_main(int argc, char **argv, char **env) {
 
     DEBUG("collector_main: received child ready signal, starting analyzer");
     try {
-      result = collect_perf_data(subject_pid, kernel_syms, sigterm_fd,
-                                 pipefds[0], pipefds[1]);
+      result =
+          collect_perf_data(subject_pid, kernel_syms, sigterm_fd, pipefds[0]);
     } catch (std::exception &e) {
       DEBUG("collector_main: uncaught error in analyzer: " << e.what());
       result = INTERNAL_ERROR;

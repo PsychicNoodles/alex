@@ -6,6 +6,7 @@ pthread_create_fn_t real_pthread_create;
 
 static int thread_read_pipe, thread_write_pipe;
 vector<perf_buffer> thread_perfs;
+int perf_register_fd;
 
 vector<perf_buffer>::const_iterator get_thread_perfs() {
   return thread_perfs.cbegin();
@@ -14,6 +15,8 @@ vector<perf_buffer>::const_iterator get_thread_perfs() {
 vector<perf_buffer>::const_iterator get_thread_perfs_end() {
   return thread_perfs.cend();
 }
+
+void set_perf_register_fd(int fd) { perf_register_fd = fd; }
 
 void create_raw_event_attr(struct perf_event_attr *attr, const char *event_name,
                            uint64_t sample_type, uint64_t sample_period) {
@@ -35,6 +38,18 @@ void create_raw_event_attr(struct perf_event_attr *attr, const char *event_name,
   attr->sample_type = sample_type;
   attr->sample_period = sample_period;
   // setting up the rest of attr
+}
+
+/*
+ * Sends a request to register a perf event from the current thread to the main
+ * cpd process and thread
+ */
+void register_perf() {
+  pthread_t tid = pthread_self();
+  DEBUG("registering perf in " << tid);
+  if (write(perf_register_fd, &tid, sizeof(pthread_t)) == -1) {
+    perror("failed to write to perf register fd");
+  }
 }
 
 void *__imposter(void *arg) {

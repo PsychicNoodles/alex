@@ -61,8 +61,6 @@ struct sample {
   uint64_t instruction_pointers[];
 };
 
-int perf_register_read;
-int perf_register_write;
 int sample_epfd = epoll_create1(0);
 size_t sample_fd_count = 0;
 
@@ -165,15 +163,6 @@ void setup_perf(pid_t target, bool setup_events = true) {
 }
 
 /*
- * Sends a request to register a perf event from the current thread to the main
- * cpd process and thread
- */
-void register_perf() {
-  pthread_t tid = pthread_self();
-  write(perf_register_write, &tid, sizeof(pthread_t));
-}
-
-/*
  * Looks up an address in the kernel sym map. Accounts for addresses that
  * may be in the middle of a kernel function.
  */
@@ -194,12 +183,11 @@ uint64_t lookup_kernel_addr(map<uint64_t, kernel_sym> kernel_syms,
  * result file.
  */
 int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
-                      int sigt_fd, int pipe_read, int pipe_write) {
+                      int sigt_fd, int perf_register_read) {
   DEBUG("collector_main: registering " << sigt_fd << " as sigterm fd");
   add_sample_fd(sigt_fd);
 
-  perf_register_read = pipe_read;
-  perf_register_write = pipe_write;
+  DEBUG("registering read pipe " << perf_register_read);
   add_sample_fd(perf_register_read);
 
   DEBUG("cpd: initializing pfm");
@@ -252,6 +240,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           DEBUG("cpd: received request to register new thread");
           pthread_t tid;
           read(perf_register_read, &tid, sizeof(pthread_t));
+          DEBUG("cpd: request tid is " << tid);
           setup_perf(tid);
         } else {
           child_fds children;

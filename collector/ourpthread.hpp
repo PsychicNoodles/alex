@@ -29,4 +29,6 @@ typedef struct disguise {
   void *args;
 } disguise_t;
 
+void set_perf_register_fd(int fd);
+
 #endif
