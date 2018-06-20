@@ -39,12 +39,14 @@
 #include "util.hpp"
 
 struct child_fds {
+  perf_buffer sample_buf;
   int inst_count_fd;
   int *event_fds;
 };
 
 pid_t subject_pid;
 FILE *result_file;
+vector<string> events;
 map<int, child_fds> child_fd_mappings;
 // mutex perf_fds_mutex;
 
@@ -113,6 +115,7 @@ void setup_perf(pid_t target_pid, bool setup_events) {
   // the group is maintained per thread/process
 
   child_fds children;
+  children.sample_buf = cpu_cycles_perf;
 
   // set up the instruction file descriptor
   perf_event_attr instruction_count_attr;
@@ -131,8 +134,6 @@ void setup_perf(pid_t target_pid, bool setup_events) {
 
   if (setup_events) {
     // Set up event counters
-    static auto events = str_split(getenv_safe("COLLECTOR_EVENTS"), ",");
-
     DEBUG("setting up perf events");
     children.event_fds = (int *)malloc(sizeof(int) * events.size());
     for (int i = 0; i < events.size(); i++) {
@@ -185,6 +186,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms) {
   DEBUG("cpd: initializing pfm");
   pfm_initialize();
 
+  events = str_split(getenv_safe("COLLECTOR_EVENTS"), ",");
   setup_perf(subject_pid);
 
   DEBUG("cpd: printing result header");
@@ -236,20 +238,22 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms) {
         epoll_event evt = evlist[i];
         DEBUG("cpd: perf fd " << evt.data.fd << " is ready");
 
+        child_fds children = child_fd_mappings.at(evt.data.fd);
+
         long long num_cycles = 0;
-        read(cpu_cycles_perf.fd, &num_cycles, sizeof(num_cycles));
-        if (reset_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
+        read(evt.data.fd, &num_cycles, sizeof(num_cycles));
+        if (reset_monitoring(evt.data.fd) != SAMPLER_MONITOR_SUCCESS) {
           shutdown(subject_pid, result_file, INTERNAL_ERROR);
         }
 
         long long num_instructions = 0;
-        read(instruction_count_fd, &num_instructions, sizeof(num_instructions));
+        read(children.inst_count_fd, &num_instructions, sizeof(num_instructions));
         DEBUG("cpd: read in num of inst: " << num_instructions);
-        if (reset_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS) {
+        if (reset_monitoring(children.inst_count_fd) != SAMPLER_MONITOR_SUCCESS) {
           shutdown(subject_pid, result_file, INTERNAL_ERROR);
         }
 
-        if (!has_next_sample(&cpu_cycles_perf)) {
+        if (!has_next_sample(&children.sample_buf)) {
           DEBUG("cpd: SKIPPED SAMPLE PERIOD");
         } else {
           if (is_first_timeslice) {
@@ -261,13 +265,13 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms) {
           int sample_type;
           int sample_size;
           sample *perf_sample = (sample *)get_next_sample(
-              &cpu_cycles_perf, &sample_type, &sample_size);
+              &children.sample_buf, &sample_type, &sample_size);
           if (sample_type != PERF_RECORD_SAMPLE) {
             shutdown(subject_pid, result_file, INTERNAL_ERROR);
           }
-          while (has_next_sample(&cpu_cycles_perf)) {
+          while (has_next_sample(&children.sample_buf)) {
             int temp_type, temp_size;
-            get_next_sample(&cpu_cycles_perf, &temp_type, &temp_size);
+            get_next_sample(&children.sample_buf, &temp_type, &temp_size);
           }
 
           fprintf(result_file,
@@ -290,8 +294,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms) {
             }
 
             long long count = 0;
-            read(event_fds[i], &count, sizeof(long long));
-            if (reset_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
+            read(children.event_fds[i], &count, sizeof(long long));
+            if (reset_monitoring(children.event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
               shutdown(subject_pid, result_file, INTERNAL_ERROR);
             }
 

@@ -44,23 +44,23 @@ void *__imposter(void *arg) {
   routine_fn_t routine = d->victim;
   void *arguments = d->args;
   free(d);
-  perf_event_attr attr;
-  DEBUG(tid << ": initting perf attr");
-  try {
-    init_sample_event_attr(&attr);
-  } catch (std::invalid_argument &e) {
-    DEBUG(tid << ": init_sample_event_attr invalid arg");
-    shutdown(subject_pid, result_file, ENV_ERROR);
-  } catch (std::out_of_range &e) {
-    DEBUG(tid << ": init_sample_event_attr out of range");
-    shutdown(subject_pid, result_file, ENV_ERROR);
-  }
-  perf_buffer buf;
-  DEBUG(tid << ": setting up monitoring");
-  if (setup_monitoring(&buf, &attr, 0) != SAMPLER_MONITOR_SUCCESS) {
-    DEBUG(tid << ": failed to setup monitoring");
-    shutdown(subject_pid, result_file, INTERNAL_ERROR);
-  }
+  // perf_event_attr attr;
+  // DEBUG(tid << ": initting perf attr");
+  // try {
+  //   init_sample_event_attr(&attr);
+  // } catch (std::invalid_argument &e) {
+  //   DEBUG(tid << ": init_sample_event_attr invalid arg");
+  //   shutdown(subject_pid, result_file, ENV_ERROR);
+  // } catch (std::out_of_range &e) {
+  //   DEBUG(tid << ": init_sample_event_attr out of range");
+  //   shutdown(subject_pid, result_file, ENV_ERROR);
+  // }
+  // perf_buffer buf;
+  // DEBUG(tid << ": setting up monitoring");
+  // if (setup_monitoring(&buf, &attr, 0) != SAMPLER_MONITOR_SUCCESS) {
+  //   DEBUG(tid << ": failed to setup monitoring");
+  //   shutdown(subject_pid, result_file, INTERNAL_ERROR);
+  // }
   // DEBUG(tid << ": setting ready signal");
   // set_ready_signal(subject_pid, PERF_NOTIFY_SIGNAL, buf.fd);
   // sigset_t sigs;
