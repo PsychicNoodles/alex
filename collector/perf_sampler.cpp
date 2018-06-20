@@ -4,7 +4,7 @@ int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
   int fd = perf_event_open(attr, pid, -1, -1, 0);
 
   if (fd == -1) {
-    perror("start_monitoring: perf_event_open");
+    perror("setup_monitoring: perf_event_open");
     return SAMPLER_MONITOR_ERROR;
   }
 
@@ -12,7 +12,7 @@ int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
   void *buffer =
       mmap(0, buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (buffer == MAP_FAILED) {
-    perror("start_monitoring: mmap");
+    perror("setup_monitoring: mmap");
     return SAMPLER_MONITOR_ERROR;
   }
 
