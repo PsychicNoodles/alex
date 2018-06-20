@@ -113,7 +113,7 @@ void setup_perf(pid_t target_pid, bool setup_events) {
       SAMPLER_MONITOR_SUCCESS) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
-  DEBUG("adding fd to epoll");
+  DEBUG("adding fd " << cpu_cycles_perf.fd << " to epoll");
   add_sample_fd(cpu_cycles_perf.fd);
   // only need to add the group parent, since the children will be synced up
   // the group is maintained per thread/process
@@ -163,6 +163,7 @@ void setup_perf(pid_t target_pid, bool setup_events) {
   if (start_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
+  DEBUG("inserting mapping for fd " << cpu_cycles_perf.fd);
   lock_guard<mutex> lock(cfm_mutex);
   child_fd_mappings.insert(make_pair(cpu_cycles_perf.fd, children));
 }
@@ -235,7 +236,14 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms) {
           break;
         }
 
-        child_fds children = child_fd_mappings.at(evt.data.fd);
+        child_fds children;
+        try {
+          children = child_fd_mappings.at(evt.data.fd);
+        } catch (out_of_range &e) {
+          DEBUG("cpd: tried looking up a perf fd that has no info ("
+                << evt.data.fd << ")");
+          shutdown(subject_pid, result_file, INTERNAL_ERROR);
+        }
 
         long long num_cycles = 0;
         read(evt.data.fd, &num_cycles, sizeof(num_cycles));
