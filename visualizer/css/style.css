@@ -35,9 +35,7 @@ tr:nth-child(even) {
 }
 
 .brushed {
-  fill: #ff3399;
-  stroke: #8e1b54;
-  opacity: 1;
+  fill: #8e1b54 !important;
 }
 
 /* Wrapper around each radio button */
