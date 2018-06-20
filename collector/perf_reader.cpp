@@ -64,8 +64,6 @@ int sigterm_fd;
 int sample_epfd = epoll_create1(0);
 size_t sample_fd_count = 0;
 
-void set_sigterm_fd(int fd) { sigterm_fd = fd; }
-
 void add_sample_fd(int fd) {
   DEBUG("adding " << fd << " to epoll " << sample_epfd);
   // only listen for read events in non-edge mode
@@ -77,6 +75,11 @@ void add_sample_fd(int fd) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
   sample_fd_count++;
+}
+
+void set_sigterm_fd(int fd) {
+  sigterm_fd = fd;
+  add_sample_fd(fd);
 }
 
 void setup_perf(pid_t target_pid, bool setup_events) {
@@ -234,6 +237,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms) {
       DEBUG("cpd: no sample fds were ready within the timeout ("
             << SAMPLE_EPOLL_TIMEOUT << ")");
     } else {
+      DEBUG("cpd: " << ready_fds << " sample fds were ready");
       for (int i = 0; i < ready_fds; i++) {
         epoll_event evt = evlist[i];
         DEBUG("cpd: perf fd " << evt.data.fd << " is ready");
@@ -242,14 +246,17 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms) {
 
         long long num_cycles = 0;
         read(evt.data.fd, &num_cycles, sizeof(num_cycles));
+        DEBUG("cpd: read in num of cycles: " << num_cycles);
         if (reset_monitoring(evt.data.fd) != SAMPLER_MONITOR_SUCCESS) {
           shutdown(subject_pid, result_file, INTERNAL_ERROR);
         }
 
         long long num_instructions = 0;
-        read(children.inst_count_fd, &num_instructions, sizeof(num_instructions));
+        read(children.inst_count_fd, &num_instructions,
+             sizeof(num_instructions));
         DEBUG("cpd: read in num of inst: " << num_instructions);
-        if (reset_monitoring(children.inst_count_fd) != SAMPLER_MONITOR_SUCCESS) {
+        if (reset_monitoring(children.inst_count_fd) !=
+            SAMPLER_MONITOR_SUCCESS) {
           shutdown(subject_pid, result_file, INTERNAL_ERROR);
         }
 
@@ -295,7 +302,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms) {
 
             long long count = 0;
             read(children.event_fds[i], &count, sizeof(long long));
-            if (reset_monitoring(children.event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
+            if (reset_monitoring(children.event_fds[i]) !=
+                SAMPLER_MONITOR_SUCCESS) {
               shutdown(subject_pid, result_file, INTERNAL_ERROR);
             }
 

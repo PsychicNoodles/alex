@@ -63,20 +63,12 @@ void setup_sigterm_handler() {
   sigset_t done_mask;
   sigemptyset(&done_mask);
   sigaddset(&done_mask, SIGTERM);
-  int sigterm_fd = signalfd(-1, &done_mask, 0);
-  int sigterm_fd_flags;
-  if ((sigterm_fd_flags = fcntl(sigterm_fd, F_GETFL)) == -1) {
-    perror("setting up sigterm handler");
-    shutdown(subject_pid, result_file, INTERNAL_ERROR);
-  }
-  if (fcntl(sigterm_fd, F_SETFL, sigterm_fd_flags & O_NONBLOCK) == -1) {
-    perror("setting sigterm fd to non-blocking");
-    shutdown(subject_pid, result_file, INTERNAL_ERROR);
-  }
+  int sigterm_fd = signalfd(-1, &done_mask, SFD_NONBLOCK);
 
   // prevent default behavior of immediately killing program
   signal(SIGTERM, SIG_IGN);
 
+  DEBUG("collector_main: registering " << sigterm_fd << " as sigterm fd");
   set_sigterm_fd(sigterm_fd);
 }
 
@@ -111,6 +103,7 @@ static int collector_main(int argc, char **argv, char **env) {
         "main");
     result = subject_main_fn(argc, argv, env);
 
+    DEBUG("collector_main: finished in child, killing parent");
     if (kill(collector_pid, SIGTERM)) {
       perror("couldn't kill collector process");
       exit(INTERNAL_ERROR);
