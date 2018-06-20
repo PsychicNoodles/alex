@@ -10,8 +10,8 @@ a string */
 function findMax(timeslices, attr) {
   switch (attr) {
     case "cache":
-      return d3.max(timeslices, (d) => d.events.missRate);
+      return d3.max(timeslices, d => d.events.missRate);
     case "density":
-      return d3.max(timeslices, (d) => d.densityAvg);
+      return d3.max(timeslices, d => d.densityAvg);
   }
 }

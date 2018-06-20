@@ -55,8 +55,7 @@ const data = ["CPUCyclesAcc", "instructionsAcc"];
 const buttonFunc = button();
 
 // Add buttons
-d3
-  .select("#buttons")
+d3.select("#buttons")
   .selectAll(".container")
   .data(data)
   .enter()

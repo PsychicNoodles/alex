@@ -1,31 +1,26 @@
-let button = function() {
+const button = function() {
   function my(selection) {
     selection.each(function(d, i) {
-      let label = d3
-        .select(this)
-        .text(d);
+      const label = d3.select(this).text(d);
 
-      let input = label.append("input")
+      const input = label
+        .append("input")
         .attr("type", "radio")
         .attr("name", "radio")
-        .attr("value", d)
-        ;
+        .attr("value", d);
 
-      label.append("span")
-      .attr("class","checkmark");
-
+      label.append("span").attr("class", "checkmark");
     });
   }
   return my;
 };
 
-let data = ["CPUCyclesAcc","instructionsAcc"];
+const data = ["CPUCyclesAcc", "instructionsAcc"];
 
-let buttonFunc = button()
-  ;
+const buttonFunc = button();
 
 // Add buttons
-let buttons = d3
+const buttons = d3
   .select("#buttons")
   .selectAll(".container")
   .data(data)
@@ -34,9 +29,8 @@ let buttons = d3
   .attr("class", "container")
   .call(buttonFunc);
 
-
-  document.querySelector("#buttons").addEventListener("change",function(event) {
-    chooseXAxis = event.target.value;
-    let densityMax = drawPlot(timeslices);
-    legend(densityMax);
-  })
+document.querySelector("#buttons").addEventListener("change", event => {
+  chooseXAxis = event.target.value;
+  let densityMax = drawPlot(timeslices);
+  legend(densityMax);
+});

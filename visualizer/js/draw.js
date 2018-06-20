@@ -5,7 +5,7 @@
 const d3 = require("d3");
 const { legendColor } = require("d3-svg-legend");
 
-const { findMax, PLOT_WIDTH, PLOT_HEIGHT} = require("./util")
+const { findMax, PLOT_WIDTH, PLOT_HEIGHT } = require("./util");
 
 module.exports = draw;
 
@@ -15,7 +15,10 @@ function draw(data, xAxisLabel, yAxisLabel) {
   /* SVG / D3 constructs needed by multiple subfunctions */
   const svg = d3.select("#plot");
   const svgLegend = d3.select("#legend"); // change to be part of main svg
-  const xScaleMax = ("cyclesSoFar" == xAxisLabel ? data[data.length - 1].cyclesSoFar : data[data.length - 1].instructionsSoFar);
+  const xScaleMax =
+    "cyclesSoFar" == xAxisLabel
+      ? data[data.length - 1].cyclesSoFar
+      : data[data.length - 1].instructionsSoFar;
   const yScaleMax = findMax(data, yAxisLabel);
   const xScale = d3
     .scaleLinear()
@@ -88,10 +91,14 @@ function drawPlot(data, xScale, yScale, xAxisLabel, densityMax, svg) {
     .data(data)
     .enter()
     .append("circle")
-    .attr("cx", d => xScale(xAxisLabel == "cyclesSoFar" ? d.cyclesSoFar : d.instructionsSoFar))
+    .attr("cx", d =>
+      xScale(xAxisLabel == "cyclesSoFar" ? d.cyclesSoFar : d.instructionsSoFar)
+    )
     .attr("cy", d => yScale(d.events.missRate))
     .attr("r", 1)
-    .style("fill", (d) => d3.scaleSequential(SPECTRUM)(d.densityAvg / densityMax));
+    .style("fill", d =>
+      d3.scaleSequential(SPECTRUM)(d.densityAvg / densityMax)
+    );
   return circles; // FIX: this is gross
 }
 
@@ -152,7 +159,11 @@ function brushCentered(brush, x) {
     x1 = cx + dx / 2;
   d3.select(this.parentNode).call(
     brush.move,
-    x1 > PLOT_WIDTH ? [PLOT_WIDTH - dx, PLOT_WIDTH] : x0 < 0 ? [0, dx] : [x0, x1]
+    x1 > PLOT_WIDTH
+      ? [PLOT_WIDTH - dx, PLOT_WIDTH]
+      : x0 < 0
+        ? [0, dx]
+        : [x0, x1]
   );
 }
 
@@ -217,7 +228,6 @@ function createTable(data) {
 }
 
 function drawLegend(densityMax, svg) {
-
   // If the SVG has anything in it, get rid of it. We want a clean slate.
   svg.selectAll("*").remove();
 

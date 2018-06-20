@@ -47,12 +47,15 @@ function processData(data, xAxisLabel, metric) {
     .domain([yScaleMax, 0])
     .range([0, PLOT_HEIGHT]);
 
-
-
-
   // NOTE: no idea why we do this but nothing else works ??? wut??? do you mean the part below?
   for (let i = 0; i < data.length; i++) {
-    data[i].x = Math.round(xScale(xAxisLabel == "cyclesSoFar" ? data[i].cyclesSoFar : data[i].instructionsSoFar));
+    data[i].x = Math.round(
+      xScale(
+        xAxisLabel == "cyclesSoFar"
+          ? data[i].cyclesSoFar
+          : data[i].instructionsSoFar
+      )
+    );
     // needs to be more generic
     data[i].y = Math.round(yScale(data[i].events.missRate));
     // needs to be more generic
@@ -122,5 +125,5 @@ function processData(data, xAxisLabel, metric) {
     dataWithDensity[i].densityAvg = avg;
   }
 
-  return dataWithDensity
+  return dataWithDensity;
 }
