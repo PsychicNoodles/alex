@@ -61,7 +61,6 @@ struct sample {
   uint64_t instruction_pointers[];
 };
 
-int sigterm_fd;
 int perf_register_read;
 int perf_register_write;
 int sample_epfd = epoll_create1(0);
@@ -196,8 +195,9 @@ uint64_t lookup_kernel_addr(map<uint64_t, kernel_sym> kernel_syms,
  */
 int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       int sigt_fd, int pipe_read, int pipe_write) {
-  DEBUG("collector_main: registering " << sigterm_fd << " as sigterm fd");
-  sigterm_fd = sigt_fd;
+  DEBUG("collector_main: registering " << sigt_fd << " as sigterm fd");
+  add_sample_fd(sigt_fd);
+
   perf_register_read = pipe_read;
   perf_register_write = pipe_write;
   add_sample_fd(perf_register_read);
@@ -243,7 +243,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
         DEBUG("cpd: perf fd " << evt.data.fd << " is ready");
 
         // check if it's sigterm or request to register thread
-        if (evt.data.fd == sigterm_fd) {
+        if (evt.data.fd == sigt_fd) {
           DEBUG("cpd: received sigterm, stopping");
           done = true;
           // don't ready the other perf fds, just stop immediately
