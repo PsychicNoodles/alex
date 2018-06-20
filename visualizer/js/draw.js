@@ -5,7 +5,7 @@
 const d3 = require("d3");
 const { legendColor } = require("d3-svg-legend");
 
-const { PLOT_WIDTH, PLOT_HEIGHT } = require("./util");
+const { CHART_WIDTH, CHART_HEIGHT } = require("./util");
 
 module.exports = draw;
 
@@ -19,23 +19,23 @@ function draw(
   yAxisLabel
 ) {
   /* SVG / D3 constructs needed by multiple subfunctions */
-  const svg = d3.select("#plot");
+  const svg = d3.select("#chart");
   const svgLegend = d3.select("#legend"); // change to be part of main svg
   const xScaleMax = getIndependentVariable(data[data.length - 1]);
   const yScaleMax = d3.max(data, getDependentVariable);
   const xScale = d3
     .scaleLinear()
     .domain([0, xScaleMax])
-    .range([0, PLOT_WIDTH]);
+    .range([0, CHART_WIDTH]);
   const yScale = d3
     .scaleLinear()
     .domain([yScaleMax, 0])
-    .range([0, PLOT_HEIGHT]);
+    .range([0, CHART_HEIGHT]);
   const densityMax = d3.max(data, d => d.densityAvg);
 
-  svg.attr("viewBox", `0 0 ${PLOT_WIDTH} ${PLOT_HEIGHT}`);
+  svg.attr("viewBox", `0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`);
 
-  // Clear the plot
+  // Clear the chart
   svg.selectAll("*").remove();
 
   /* Actual drawing */
@@ -63,7 +63,7 @@ function drawAxes(xScale, yScale, xAxisLabel, yAxisLabel, svg) {
     .append("g")
     .attr("id", "xAxis")
     .attr("class", "axis")
-    .attr("transform", "translate(0, " + PLOT_HEIGHT + ")")
+    .attr("transform", "translate(0, " + CHART_HEIGHT + ")")
     .call(xAxis);
 
   svg
@@ -78,7 +78,7 @@ function drawAxes(xScale, yScale, xAxisLabel, yAxisLabel, svg) {
     .append("text")
     .attr("class", "x label")
     .attr("text-anchor", "middle")
-    .attr("x", PLOT_WIDTH / 2)
+    .attr("x", CHART_WIDTH / 2)
     .attr("y", 50)
     .text(xAxisLabel);
   svg
@@ -87,7 +87,7 @@ function drawAxes(xScale, yScale, xAxisLabel, yAxisLabel, svg) {
     .attr("class", "y label")
     .attr("text-anchor", "middle")
     .attr("y", -40)
-    .attr("x", -(PLOT_HEIGHT / 2))
+    .attr("x", -(CHART_HEIGHT / 2))
     .attr("transform", "rotate(-90)")
     .text(yAxisLabel);
 }
@@ -101,10 +101,10 @@ function drawPlot(
   densityMax,
   svg
 ) {
-  // Create the points and position them in the graph
-  const graph = svg.append("g").attr("id", "graph");
+  // Create the points and position them in the plot
+  const plot = svg.append("g").attr("id", "plot");
 
-  const circles = graph
+  const circles = plot
     .append("g")
     .attr("class", "circles")
     .selectAll("circle")
@@ -124,12 +124,12 @@ function drawBrush(data, xScale, svg, circles) {
   const x = d3
     .scaleLinear()
     .domain([0, 20])
-    .range([0, PLOT_WIDTH]);
+    .range([0, CHART_WIDTH]);
 
   // Create brush
   const brush = d3
     .brushX()
-    .extent([[0, 0], [PLOT_WIDTH, PLOT_HEIGHT]])
+    .extent([[0, 0], [CHART_WIDTH, CHART_HEIGHT]])
     .on("brush", function() {
       brushed.call(this, data, xScale, circles);
     })
@@ -137,14 +137,14 @@ function drawBrush(data, xScale, svg, circles) {
 
   // Add brush to SVG object
   svg
-    .select("#graph")
+    .select("#plot")
     .append("g")
     .attr("class", "brush")
     .call(brush)
     .call(brush.move, [x(0), x(1)])
     .selectAll(".overlay")
-    .attr("width", PLOT_WIDTH)
-    .attr("height", PLOT_HEIGHT)
+    .attr("width", CHART_WIDTH)
+    .attr("height", CHART_HEIGHT)
     .each(d => {
       d.type = "selection";
     })
@@ -153,7 +153,7 @@ function drawBrush(data, xScale, svg, circles) {
     });
 }
 
-// Re-center brush when the user clicks somewhere in the graph
+// Re-center brush when the user clicks somewhere in the plot
 function brushCentered(brush, x) {
   const dx = x(1) - x(0), // Use a fixed width when recentering.
     cx = d3.mouse(this)[0],
@@ -161,8 +161,8 @@ function brushCentered(brush, x) {
     x1 = cx + dx / 2;
   d3.select(this.parentNode).call(
     brush.move,
-    x1 > PLOT_WIDTH
-      ? [PLOT_WIDTH - dx, PLOT_WIDTH]
+    x1 > CHART_WIDTH
+      ? [CHART_WIDTH - dx, CHART_WIDTH]
       : x0 < 0
         ? [0, dx]
         : [x0, x1]

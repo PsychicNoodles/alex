@@ -6,7 +6,7 @@
 const d3 = require("d3");
 const { cloneDeep } = require("lodash");
 
-const { PLOT_WIDTH, PLOT_HEIGHT } = require("./util");
+const { CHART_WIDTH, CHART_HEIGHT } = require("./util");
 
 module.exports = processData;
 
@@ -48,11 +48,11 @@ function processData(
   const xScale = d3
     .scaleLinear()
     .domain([0, xScaleMax])
-    .range([0, PLOT_WIDTH]);
+    .range([0, CHART_WIDTH]);
   const yScale = d3
     .scaleLinear()
     .domain([yScaleMax, 0])
-    .range([0, PLOT_HEIGHT]);
+    .range([0, CHART_HEIGHT]);
 
   // NOTE: no idea why we do this but nothing else works ??? wut??? do you mean the part below?
   for (let i = 0; i < data.length; i++) {
