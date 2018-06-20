@@ -47,12 +47,12 @@ void *__imposter(void *arg) {
   perf_event_attr attr;
   DEBUG(tid << ": initting perf attr");
   try {
-    init_perf_event_attr(&attr);
+    init_sample_event_attr(&attr);
   } catch (std::invalid_argument &e) {
-    DEBUG(tid << ": init_perf_event_attr invalid arg");
+    DEBUG(tid << ": init_sample_event_attr invalid arg");
     shutdown(subject_pid, result_file, ENV_ERROR);
   } catch (std::out_of_range &e) {
-    DEBUG(tid << ": init_perf_event_attr out of range");
+    DEBUG(tid << ": init_sample_event_attr out of range");
     shutdown(subject_pid, result_file, ENV_ERROR);
   }
   perf_buffer buf;

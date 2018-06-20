@@ -33,8 +33,6 @@ struct perf_buffer {
   size_t data_size;
 };
 
-void init_perf_event_attr(perf_event_attr *perf);
-
 // Configure the perf buffer
 int setup_monitoring(perf_buffer *perf, perf_event_attr *attr, int pid);
 

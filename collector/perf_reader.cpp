@@ -61,7 +61,7 @@ void set_sigterm_fd(int fd) { sigterm_fd = fd; }
 void add_sample_fd(int fd) {
   DEBUG("adding a perf fd: " << fd);
   // only listen for read events in non-edge mode
-  epoll_event evt = {EPOLLIN, {.fd=fd}};
+  epoll_event evt = {EPOLLIN, {.fd = fd}};
   if (epoll_ctl(sample_epfd, fd, EPOLL_CTL_ADD, &evt) == -1) {
     char buf[128];
     snprintf(buf, 128, "error adding perf fd %d", fd);
@@ -78,7 +78,17 @@ void setup_perf(pid_t target_pid, bool setup_events) {
   // set up the cpu cycles perf buffer
   perf_event_attr cpu_cycles_attr;
   try {
-    init_perf_event_attr(&cpu_cycles_attr);
+    static long long period =
+        stoll(getenv_safe("COLLECTOR_PERIOD", "10000000"));
+
+    memset(&cpu_cycles_attr, 0, sizeof(perf_event_attr));
+    cpu_cycles_attr.disabled = true;
+    cpu_cycles_attr.size = sizeof(perf_event_attr);
+    cpu_cycles_attr.type = PERF_TYPE_HARDWARE;
+    cpu_cycles_attr.config = PERF_COUNT_HW_CPU_CYCLES;
+    cpu_cycles_attr.sample_type = SAMPLE_TYPE;
+    cpu_cycles_attr.sample_period = period;
+    cpu_cycles_attr.wakeup_events = 1;
     // catch stoll exceptions
   } catch (std::invalid_argument &e) {
     shutdown(subject_pid, result_file, ENV_ERROR);
@@ -99,7 +109,6 @@ void setup_perf(pid_t target_pid, bool setup_events) {
   // set up the instruction file descriptor
   perf_event_attr instruction_count_attr;
   memset(&instruction_count_attr, 0, sizeof(instruction_count_attr));
-  instruction_count_attr.disabled = true;
   instruction_count_attr.size = sizeof(instruction_count_attr);
   instruction_count_attr.type = PERF_TYPE_HARDWARE;
   instruction_count_attr.config = PERF_COUNT_HW_INSTRUCTIONS;
@@ -135,19 +144,9 @@ void setup_perf(pid_t target_pid, bool setup_events) {
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
       }
     }
-
-    for (int i = 0; i < events.size(); i++) {
-      if (start_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
-        shutdown(subject_pid, result_file, INTERNAL_ERROR);
-      }
-    }
   }
 
   if (start_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
-    shutdown(subject_pid, result_file, INTERNAL_ERROR);
-  }
-
-  if (start_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
 }

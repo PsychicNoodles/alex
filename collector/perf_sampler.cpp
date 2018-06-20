@@ -1,18 +1,5 @@
 #include "perf_sampler.hpp"
 
-void init_perf_event_attr(perf_event_attr *attr) {
-  static long long period = stoll(getenv_safe("COLLECTOR_PERIOD", "10000000"));
-
-  memset(attr, 0, sizeof(perf_event_attr));
-  attr->disabled = true;
-  attr->size = sizeof(perf_event_attr);
-  attr->type = PERF_TYPE_HARDWARE;
-  attr->config = PERF_COUNT_HW_CPU_CYCLES;
-  attr->sample_type = SAMPLE_TYPE;
-  attr->sample_period = period;
-  attr->wakeup_events = 1;
-}
-
 int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
   int fd = perf_event_open(attr, pid, -1, -1, 0);
 
