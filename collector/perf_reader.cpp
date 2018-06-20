@@ -45,22 +45,6 @@ struct child_fds {
   int *event_fds;
 };
 
-pid_t subject_pid;
-FILE *result_file;
-vector<string> events;
-map<int, child_fds> child_fd_mappings;
-mutex cfm_mutex;
-
-using namespace std;
-
-struct sample {
-  uint32_t pid;
-  uint32_t tid;
-  uint64_t time;
-  uint64_t num_instruction_pointers;
-  uint64_t instruction_pointers[];
-};
-
 union pid_tid {
   pid_t pid;
   pthread_t tid;
@@ -70,7 +54,24 @@ struct monitoring_attempt {
   pid_tid target;
   bool is_tid;
   bool setup_events;
-  int tries;
+  int setup_perf_tries;
+};
+
+pid_t subject_pid;
+FILE *result_file;
+vector<string> events;
+map<int, child_fds> child_fd_mappings;
+mutex cfm_mutex;
+vector<monitoring_attempt> setup_perf_tries;
+
+using namespace std;
+
+struct sample {
+  uint32_t pid;
+  uint32_t tid;
+  uint64_t time;
+  uint64_t num_instruction_pointers;
+  uint64_t instruction_pointers[];
 };
 
 int sample_epfd = epoll_create1(0);
@@ -180,46 +181,43 @@ bool setup_child_perf_events(pid_tid target, bool is_tid, bool setup_events) {
   return true;
 }
 
+void retry_setup_perf_events() {
+  DEBUG("retrying previous attempts");
+  // https://stackoverflow.com/a/4600592
+  auto it = setup_perf_tries.begin();
+  while (it != setup_perf_tries.end()) {
+    DEBUG("retrying setup for "
+          << (it->is_tid ? "tid" : "pid") << " "
+          << (it->is_tid ? it->target.tid : it->target.pid));
+    if (setup_child_perf_events(it->target, it->is_tid, it->setup_events)) {
+      DEBUG("retry of previous attempt successful");
+      setup_perf_tries.erase(it);
+    } else {
+      it->setup_perf_tries++;
+      DEBUG("retry of previous attempt failed, now at " << it->setup_perf_tries
+                                                        << " setup_perf_tries");
+      if (it->setup_perf_tries >= MAX_MONITORING_SETUP_ATTEMPTS) {
+        DEBUG("exceeded max attempts at setting up monitoring for "
+              << (it->is_tid ? "tid" : "pid") << " "
+              << (it->is_tid ? it->target.tid : it->target.pid));
+        shutdown(subject_pid, result_file, INTERNAL_ERROR);
+      }
+      ++it;
+    }
+  }
+}
+
 void setup_perf_events(pid_tid target, bool is_tid = false,
                        bool setup_events = true) {
   DEBUG("in perf setup for " << (is_tid ? "tid" : "pid") << " "
                              << (is_tid ? target.tid : target.pid));
 
-  static vector<monitoring_attempt> tries;
-
-  // first retry previous monitoring attempts
-  // https://stackoverflow.com/a/4600592
-  if (tries.empty()) {
-    DEBUG("no previous attempts remaining");
-  } else {
-    DEBUG("retrying previous attempts");
-    auto it = tries.begin();
-    while (it != tries.end()) {
-      DEBUG("retrying setup for "
-            << (it->is_tid ? "tid" : "pid") << " "
-            << (it->is_tid ? it->target.tid : it->target.pid));
-      if (setup_child_perf_events(it->target, it->is_tid, it->setup_events)) {
-        DEBUG("retry of previous attempt successful");
-        tries.erase(it);
-      } else {
-        it->tries++;
-        DEBUG("retry of previous attempt failed, now at " << it->tries
-                                                          << " tries");
-        if (it->tries >= MAX_MONITORING_SETUP_ATTEMPTS) {
-          DEBUG("exceeded max attempts at setting up monitoring for "
-                << (it->is_tid ? "tid" : "pid") << " "
-                << (it->is_tid ? it->target.tid : it->target.pid));
-          shutdown(subject_pid, result_file, INTERNAL_ERROR);
-        }
-        ++it;
-      }
-    }
-  }
+  retry_setup_perf_events();
 
   DEBUG("starting original setup attempt");
   if (!setup_child_perf_events(target, is_tid, setup_events)) {
     DEBUG("setup failed, retrying later");
-    tries.push_back({target, is_tid, setup_events, 1});
+    setup_perf_tries.push_back({target, is_tid, setup_events, 1});
   }
 }
 
@@ -287,6 +285,11 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             << SAMPLE_EPOLL_TIMEOUT << ")");
     } else {
       DEBUG("cpd: " << ready_fds << " sample fds were ready");
+
+      if (!setup_perf_tries.empty()) {
+        retry_setup_perf_events();
+      }
+
       for (int i = 0; i < ready_fds; i++) {
         epoll_event evt = evlist[i];
         DEBUG("cpd: perf fd " << evt.data.fd << " is ready");
