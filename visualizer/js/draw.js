@@ -129,7 +129,7 @@ function drawBrush(data, xScale, svg, circles) {
   // Create brush
   const brush = d3
     .brushX()
-    .extent([[0, 0], [PLOT_WIDTH, 0]])
+    .extent([[0, 0], [PLOT_WIDTH, PLOT_HEIGHT]])
     .on("brush", function() {
       brushed.call(this, data, xScale, circles);
     })
@@ -137,36 +137,20 @@ function drawBrush(data, xScale, svg, circles) {
 
   // Add brush to SVG object
   svg
-    .select(".graph")
+    .select("#graph")
     .append("g")
     .attr("class", "brush")
     .call(brush)
-    .call(brush.move, [0, PLOT_WIDTH])
+    .call(brush.move, [x(0), x(1)])
     .selectAll(".overlay")
     .attr("width", PLOT_WIDTH)
     .attr("height", PLOT_HEIGHT)
     .each(d => {
       d.type = "selection";
     })
-    .on("mousedown touchstart", function() {
+    .on("click", function() {
       brushCentered.call(this, brush, x);
     });
-
-  svg
-    .select(".graph")
-    .select(".brush")
-    .select(".selection")
-    .attr("height", PLOT_HEIGHT);
-  svg
-    .select(".graph")
-    .select(".brush")
-    .select(".handle handle--e")
-    .attr("height", PLOT_HEIGHT);
-  svg
-    .select(".graph")
-    .select(".brush")
-    .select(".handle handle--w")
-    .attr("height", PLOT_HEIGHT);
 }
 
 // Re-center brush when the user clicks somewhere in the graph
@@ -187,7 +171,7 @@ function brushCentered(brush, x) {
 
 // Re-color the circles in the region that was selected by the user
 function brushed(data, xScale, circles) {
-  if (d3.event.selection != null) {
+  if (d3.event.selection !== null) {
     circles.attr("class", "circle");
     const brushArea = d3.brushSelection(this);
 
@@ -238,7 +222,7 @@ function createTable(data) {
           .data(data)
           .enter()
           .append("td")
-          .attr("align", (d, i) => (i == 0 ? "left" : "right"))
+          .attr("align", (d, i) => (i === 0 ? "left" : "right"))
           .text(d => d);
       }
     });
