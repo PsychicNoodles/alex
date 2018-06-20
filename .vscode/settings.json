@@ -9,6 +9,9 @@
     "timeslices"
   ],
   "files.associations": {
-    "typeinfo": "cpp"
+    "typeinfo": "cpp",
+    "functional": "cpp",
+    "stdexcept": "cpp",
+    "chrono": "cpp"
   }
 }

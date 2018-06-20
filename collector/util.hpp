@@ -12,6 +12,7 @@ size_t time_ms();
 char* int_to_hex(uint64_t i);
 vector<string> str_split(string str, string delim);
 void shutdown(pid_t pid, FILE* writef, int code);
+pid_t gettid();
 
 string getenv_safe(const char* var, const char* fallback = "");
 

@@ -1,6 +1,8 @@
 #include <signal.h>
 #include <stdlib.h>
+#include <sys/syscall.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 #include "const.hpp"
 #include "util.hpp"
@@ -55,6 +57,8 @@ void shutdown(pid_t pid, FILE* writef, int code) {
   fclose(writef);
   exit(errno);
 }
+
+pid_t gettid() { return syscall(SYS_gettid); }
 
 string getenv_safe(const char* var, const char* fallback) {
   const char* value = getenv(var);

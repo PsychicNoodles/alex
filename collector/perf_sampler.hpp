@@ -14,6 +14,7 @@
 #include <string>
 
 #include "const.hpp"
+#include "debug.hpp"
 #include "perf_reader.hpp"
 #include "util.hpp"
 

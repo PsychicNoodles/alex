@@ -61,6 +61,11 @@ struct sample {
   uint64_t instruction_pointers[];
 };
 
+union pid_tid {
+  pid_t pid;
+  pthread_t tid;
+};
+
 int sample_epfd = epoll_create1(0);
 size_t sample_fd_count = 0;
 
@@ -77,9 +82,9 @@ void add_sample_fd(int fd) {
   sample_fd_count++;
 }
 
-void setup_perf(pid_t target, bool setup_events = true) {
-  DEBUG("setting up perf for " << target << " (in pid " << getpid() << ", tid "
-                               << pthread_self() << ")");
+void setup_perf(pid_tid target, bool is_tid = false, bool setup_events = true) {
+  DEBUG("setting up perf for " << (is_tid ? "tid" : "pid") << " "
+                               << (is_tid ? target.tid : target.pid));
 
   // set up the cpu cycles perf buffer
   perf_event_attr cpu_cycles_attr;
@@ -103,7 +108,8 @@ void setup_perf(pid_t target, bool setup_events = true) {
   }
 
   perf_buffer cpu_cycles_perf;
-  if (setup_monitoring(&cpu_cycles_perf, &cpu_cycles_attr, target) !=
+  if (setup_monitoring(&cpu_cycles_perf, &cpu_cycles_attr,
+                       (is_tid ? target.tid : target.pid)) !=
       SAMPLER_MONITOR_SUCCESS) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
@@ -122,7 +128,8 @@ void setup_perf(pid_t target, bool setup_events = true) {
   instruction_count_attr.type = PERF_TYPE_HARDWARE;
   instruction_count_attr.config = PERF_COUNT_HW_INSTRUCTIONS;
 
-  int instruction_count_fd = perf_event_open(&instruction_count_attr, target,
+  int instruction_count_fd = perf_event_open(&instruction_count_attr,
+                                             (is_tid ? target.tid : target.pid),
                                              -1, cpu_cycles_perf.fd, 0);
   if (instruction_count_fd == -1) {
     perror("couldn't perf_event_open for instruction count");
@@ -145,8 +152,8 @@ void setup_perf(pid_t target, bool setup_events = true) {
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
       }
 
-      children.event_fds[i] =
-          perf_event_open(&attr, target, -1, cpu_cycles_perf.fd, 0);
+      children.event_fds[i] = perf_event_open(
+          &attr, (is_tid ? target.tid : target.pid), -1, cpu_cycles_perf.fd, 0);
       if (children.event_fds[i] == -1) {
         perror("couldn't perf_event_open for event");
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
@@ -194,7 +201,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   pfm_initialize();
 
   events = str_split(getenv_safe("COLLECTOR_EVENTS"), ",");
-  setup_perf(subject_pid);
+  setup_perf({.pid = subject_pid});
 
   DEBUG("cpd: printing result header");
   fprintf(result_file,
@@ -241,7 +248,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           pthread_t tid;
           read(perf_register_read, &tid, sizeof(pthread_t));
           DEBUG("cpd: request tid is " << tid);
-          setup_perf(tid);
+          setup_perf({.tid = tid}, true);
         } else {
           child_fds children;
           try {

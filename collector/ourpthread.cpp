@@ -45,7 +45,7 @@ void create_raw_event_attr(struct perf_event_attr *attr, const char *event_name,
  * cpd process and thread
  */
 void register_perf() {
-  pthread_t tid = pthread_self();
+  pthread_t tid = gettid();
   DEBUG("registering perf in " << tid);
   if (write(perf_register_fd, &tid, sizeof(pthread_t)) == -1) {
     perror("failed to write to perf register fd");
@@ -53,7 +53,7 @@ void register_perf() {
 }
 
 void *__imposter(void *arg) {
-  pthread_t tid = pthread_self();
+  pthread_t tid = gettid();
   DEBUG(tid << ": in imposter");
   disguise_t *d = (disguise_t *)arg;
   routine_fn_t routine = d->victim;
