@@ -45,7 +45,7 @@ void *__imposter(void *arg) {
   void *arguments = d->args;
   free(d);
 
-  // setup_perf();
+  register_perf();
 
   return routine(arguments);
 }
