@@ -59,7 +59,7 @@ map<uint64_t, kernel_sym> read_kernel_syms(
   return syms;
 }
 
-void setup_sigterm_handler() {
+int setup_sigterm_handler() {
   sigset_t done_mask;
   sigemptyset(&done_mask);
   sigaddset(&done_mask, SIGTERM);
@@ -68,8 +68,7 @@ void setup_sigterm_handler() {
   // prevent default behavior of immediately killing program
   sigprocmask(SIG_BLOCK, &done_mask, NULL);
 
-  DEBUG("collector_main: registering " << sigterm_fd << " as sigterm fd");
-  set_sigterm_fd(sigterm_fd);
+  return sigterm_fd;
 }
 
 static int collector_main(int argc, char **argv, char **env) {
@@ -82,6 +81,12 @@ static int collector_main(int argc, char **argv, char **env) {
   sigemptyset(&ready_act.sa_mask);
   ready_act.sa_flags = 0;
   sigaction(SIGUSR2, &ready_act, NULL);
+
+  int pipefds[2];
+  if (pipe(pipefds) == -1) {
+    perror("setting up shared pipe");
+    exit(INTERNAL_ERROR);
+  }
 
   int collector_pid = getpid();
   subject_pid = fork();
@@ -123,7 +128,7 @@ static int collector_main(int argc, char **argv, char **env) {
       exit(INTERNAL_ERROR);
     }
 
-    setup_sigterm_handler();
+    int sigterm_fd = setup_sigterm_handler();
 
     map<uint64_t, kernel_sym> kernel_syms = read_kernel_syms();
 
@@ -137,7 +142,8 @@ static int collector_main(int argc, char **argv, char **env) {
 
     DEBUG("collector_main: received child ready signal, starting analyzer");
     try {
-      result = collect_perf_data(subject_pid, kernel_syms);
+      result = collect_perf_data(subject_pid, kernel_syms, sigterm_fd,
+                                 pipefds[0], pipefds[1]);
     } catch (std::exception &e) {
       DEBUG("collector_main: uncaught error in analyzer: " << e.what());
       result = INTERNAL_ERROR;
