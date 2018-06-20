@@ -4,19 +4,28 @@
 //
 
 const d3 = require("d3");
+const { cloneDeep } = require("lodash");
 
 const { findMax, PLOT_WIDTH, PLOT_HEIGHT } = require("./util");
 
 module.exports = processData;
 
-// Convert instructions and CPU cycles to be cumulative
-function processData(data, xAxisLabel, metric) {
-  data[0].instructionsSoFar = data[0].numInstructions;
-  data[0].cyclesSoFar = data[0].numCPUCycles;
+function processData(immutableData, independentVariable, dependentVariable) {
+  const data = cloneDeep(immutableData);
+
+  // Accumulate independent variable
+  const accumulationVariable =
+    independentVariable === "instructionsSoFar"
+      ? "numInstructions"
+      : independentVariable === "cyclesSoFar"
+        ? "numCPUCycles"
+        : null;
+
+  data[0][independentVariable] = data[0][accumulationVariable];
   for (let i = 1; i < data.length; i++) {
     const cur = data[i];
-    cur.cyclesSoFar = cur.numCPUCycles + data[i - 1].cyclesSoFar;
-    cur.instructionsSoFar = cur.numInstructions + data[i - 1].instructionsSoFar;
+    cur[independentVariable] =
+      cur[accumulationVariable] + data[i - 1][independentVariable];
     cur.selected = false;
   }
 
@@ -36,8 +45,8 @@ function processData(data, xAxisLabel, metric) {
 
   // Scale and round all the points so that points that would share a pixel have
   // the exact same x and y values
-  const xScaleMax = data[data.length - 1].cyclesSoFar;
-  const yScaleMax = findMax(data, metric);
+  const xScaleMax = data[data.length - 1][independentVariable];
+  const yScaleMax = findMax(data, dependentVariable);
   const xScale = d3
     .scaleLinear()
     .domain([0, xScaleMax])
@@ -49,13 +58,7 @@ function processData(data, xAxisLabel, metric) {
 
   // NOTE: no idea why we do this but nothing else works ??? wut??? do you mean the part below?
   for (let i = 0; i < data.length; i++) {
-    data[i].x = Math.round(
-      xScale(
-        xAxisLabel == "cyclesSoFar"
-          ? data[i].cyclesSoFar
-          : data[i].instructionsSoFar
-      )
-    );
+    data[i].x = Math.round(xScale(data[i][independentVariable]));
     // needs to be more generic
     data[i].y = Math.round(yScale(data[i].events.missRate));
     // needs to be more generic

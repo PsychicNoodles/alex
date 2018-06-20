@@ -24,11 +24,13 @@ ipcRenderer.on("result", (event, resultFile) => {
     window.close();
   }
 
-  const processedData = processData(result.timeslices, yAxisLabel, xAxisLabel);
+  const processedData = processData(result.timeslices, xAxisLabel, yAxisLabel);
   draw(processedData, xAxisLabel, yAxisLabel);
 
   document.querySelector("#buttons").addEventListener("change", event => {
-    draw(processedData, event.target.value, yAxisLabel);
+    const xAxisLabel = event.target.value;
+    const processedData = processData(result.timeslices, xAxisLabel, yAxisLabel);
+    draw(processedData, xAxisLabel, yAxisLabel);
   });
 });
 
@@ -50,7 +52,7 @@ const button = function() {
   return my;
 };
 
-const data = ["CPUCyclesAcc", "instructionsAcc"];
+const data = ["cyclesSoFar", "instructionsSoFar"];
 
 const buttonFunc = button();
 

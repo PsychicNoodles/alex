@@ -32,6 +32,9 @@ function draw(data, xAxisLabel, yAxisLabel) {
 
   svg.attr("viewBox", `0 0 ${PLOT_WIDTH} ${PLOT_HEIGHT}`);
 
+  // Clear the plot
+  svg.selectAll("*").remove();
+
   /* Actual drawing */
   const circles = drawPlot(data, xScale, yScale, xAxisLabel, densityMax, svg);
   drawAxes(xScale, yScale, xAxisLabel, yAxisLabel, svg);
@@ -42,7 +45,7 @@ function draw(data, xAxisLabel, yAxisLabel) {
 function drawAxes(xScale, yScale, xAxisLabel, yAxisLabel, svg) {
   // Create axes and format the ticks
   const formatAsPercentage = d3.format(".0%");
-  const abbrev = d3.format(".0s");
+  const abbrev = d3.format(".2s");
   const xAxis = d3.axisBottom(xScale).tickFormat(abbrev);
   const yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage);
   // Add the axes to the svg object
