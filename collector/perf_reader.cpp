@@ -67,10 +67,10 @@ size_t sample_fd_count = 0;
 void set_sigterm_fd(int fd) { sigterm_fd = fd; }
 
 void add_sample_fd(int fd) {
-  DEBUG("adding a perf fd: " << fd);
+  DEBUG("adding " << fd << " to epoll " << sample_epfd);
   // only listen for read events in non-edge mode
   epoll_event evt = {EPOLLIN, {.fd = fd}};
-  if (epoll_ctl(sample_epfd, fd, EPOLL_CTL_ADD, &evt) == -1) {
+  if (epoll_ctl(sample_epfd, EPOLL_CTL_ADD, fd, &evt) == -1) {
     char buf[128];
     snprintf(buf, 128, "error adding perf fd %d", fd);
     perror(buf);
