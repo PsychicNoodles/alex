@@ -11,13 +11,13 @@ const xAxisOptions = [
   }
 ];
 
-module.exports = {onXAxisSelect, renderXAxisSelect}
+module.exports = { onXAxisSelect, renderXAxisSelect };
 
 function onXAxisSelect(callback) {
-  d3.selectAll(".x-axis-select__option-container input").on("change", callback)
+  d3.selectAll(".x-axis-select__option-container input")
+    .on("change", callback)
     .filter(":checked")
-    .each(callback)
-  ;
+    .each(callback);
 }
 
 function renderXAxisSelect() {
@@ -29,18 +29,18 @@ function renderXAxisSelect() {
     .append("label")
     .attr("class", "x-axis-select__option-container")
     .each(function(data, index) {
-        const label = d3.select(this).text(data.label);
+      const label = d3.select(this).text(data.label);
 
-        const input = label
-          .append("input")
-          .attr("type", "radio")
-          .attr("name", "xAxis")
-          .attr("value", data.independentVariable);
+      const input = label
+        .append("input")
+        .attr("type", "radio")
+        .attr("name", "xAxis")
+        .attr("value", data.independentVariable);
 
-        if (index === 0) {
-          input.attr("checked", "");
-        }
+      if (index === 0) {
+        input.attr("checked", "");
+      }
 
-        label.append("span").attr("class", "x-axis-select__option-checkbox");
-      });
+      label.append("span").attr("class", "x-axis-select__option-checkbox");
+    });
 }

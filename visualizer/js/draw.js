@@ -5,13 +5,19 @@
 const d3 = require("d3");
 const { legendColor } = require("d3-svg-legend");
 
-const { PLOT_WIDTH, PLOT_HEIGHT} = require("./util")
+const { PLOT_WIDTH, PLOT_HEIGHT } = require("./util");
 
 module.exports = draw;
 
 const SPECTRUM = d3.interpolateGreens;
 
-function draw(data, getIndependentVariable, getDependentVariable, xAxisLabel, yAxisLabel) {
+function draw(
+  data,
+  getIndependentVariable,
+  getDependentVariable,
+  xAxisLabel,
+  yAxisLabel
+) {
   /* SVG / D3 constructs needed by multiple subfunctions */
   const svg = d3.select("#plot");
   const svgLegend = d3.select("#legend"); // change to be part of main svg
@@ -33,7 +39,14 @@ function draw(data, getIndependentVariable, getDependentVariable, xAxisLabel, yA
   svg.selectAll("*").remove();
 
   /* Actual drawing */
-  const circles = drawPlot(data, xScale, yScale, getIndependentVariable, densityMax, svg);
+  const circles = drawPlot(
+    data,
+    xScale,
+    yScale,
+    getIndependentVariable,
+    densityMax,
+    svg
+  );
   drawAxes(xScale, yScale, xAxisLabel, yAxisLabel, svg);
   drawBrush(data, xScale, svg, circles);
   drawLegend(densityMax, svgLegend);
@@ -80,7 +93,14 @@ function drawAxes(xScale, yScale, xAxisLabel, yAxisLabel, svg) {
 }
 
 /* This func makes the scatter plot */
-function drawPlot(data, xScale, yScale, getIndependentVariable, densityMax, svg) {
+function drawPlot(
+  data,
+  xScale,
+  yScale,
+  getIndependentVariable,
+  densityMax,
+  svg
+) {
   // Create the points and position them in the graph
   const graph = svg.append("g").attr("id", "graph");
 

@@ -10,7 +10,11 @@ const { PLOT_WIDTH, PLOT_HEIGHT } = require("./util");
 
 module.exports = processData;
 
-function processData(immutableData, getIndependentVariable, getDependentVariable) {
+function processData(
+  immutableData,
+  getIndependentVariable,
+  getDependentVariable
+) {
   const data = cloneDeep(immutableData);
 
   // Accumulate cycles and instructions
