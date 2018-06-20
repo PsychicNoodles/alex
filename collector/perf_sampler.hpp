@@ -26,6 +26,7 @@
 
 #define SAMPLER_MONITOR_SUCCESS 0
 #define SAMPLER_MONITOR_ERROR 1
+#define SAMPLER_MONITOR_PROCESS_NOT_FOUND 2
 
 struct perf_buffer {
   int fd;

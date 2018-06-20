@@ -5,6 +5,10 @@ int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
   int fd = perf_event_open(attr, pid, -1, -1, 0);
 
   if (fd == -1) {
+    if (errno == ESRCH) {
+      // couldn't find process/thread, try again next cycle
+      return SAMPLER_MONITOR_PROCESS_NOT_FOUND;
+    }
     perror("setup_monitoring: perf_event_open");
     return SAMPLER_MONITOR_ERROR;
   }
