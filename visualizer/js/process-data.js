@@ -33,7 +33,7 @@ function processData(
     const total =
       cur.events["MEM_LOAD_RETIRED.L3_MISS"] +
       cur.events["MEM_LOAD_RETIRED.L3_HIT"];
-    if (total == 0) {
+    if (total === 0) {
       cur.events.missRate = 0;
     } else {
       cur.events.missRate = cur.events["MEM_LOAD_RETIRED.L3_MISS"] / total;
@@ -71,7 +71,7 @@ function processData(
   quadtree.visit(node => {
     if (!node.length) {
       // Is a leaf
-      if (node.data != null) {
+      if (node.data !== null) {
         // Calculate how many points are in this node
         node.data.density = 1;
         for (

@@ -49,6 +49,7 @@
     "rules": {
       "no-console": "off",
       "no-var": "error",
+      "eqeqeq": "error",
       "prefer-const": "warn",
       "prefer-arrow-callback": "warn",
       "arrow-body-style": "warn",
