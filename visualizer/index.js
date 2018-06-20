@@ -32,6 +32,7 @@ app
     win = new BrowserWindow({
       width: 1000,
       height: 550,
+      minWidth: 900,
       show: false,
       icon: path.join(__dirname, "./icons/launcher-128x128.png")
     });

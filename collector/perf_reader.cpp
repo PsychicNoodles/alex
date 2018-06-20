@@ -115,10 +115,9 @@ void setup_perf(pid_t target_pid, bool setup_events) {
     // Set up event counters
     static auto events = str_split(getenv_safe("COLLECTOR_EVENTS"), ",");
 
-    int number = events.size();
     DEBUG("setting up perf events");
-    int event_fds[number];
-    for (int i = 0; i < number; i++) {
+    int event_fds[events.size()];
+    for (int i = 0; i < events.size(); i++) {
       perf_event_attr attr;
       memset(&attr, 0, sizeof(perf_event_attr));
 
@@ -137,7 +136,7 @@ void setup_perf(pid_t target_pid, bool setup_events) {
       }
     }
 
-    for (int i = 0; i < number; i++) {
+    for (int i = 0; i < events.size(); i++) {
       if (start_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
       }
@@ -280,7 +279,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms) {
               perf_sample->tid);
 
       DEBUG("cpd: reading from each fd");
-      for (int i = 0; i < number; i++) {
+      for (int i = 0; i < events.size(); i++) {
         if (i > 0) {
           fprintf(result_file, ",");
         }

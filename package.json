@@ -44,6 +44,8 @@
       "no-console": "off",
       "no-var": "error",
       "prefer-const": "warn",
+      "prefer-arrow-callback": "warn",
+      "arrow-body-style": "warn",
       "no-unused-vars": "warn"
     }
   }
