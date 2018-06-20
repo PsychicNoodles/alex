@@ -24,6 +24,7 @@
 #include <exception>
 #include <fstream>
 #include <iostream>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -48,7 +49,7 @@ pid_t subject_pid;
 FILE *result_file;
 vector<string> events;
 map<int, child_fds> child_fd_mappings;
-// mutex perf_fds_mutex;
+mutex cfm_mutex;
 
 using namespace std;
 
@@ -162,6 +163,7 @@ void setup_perf(pid_t target_pid, bool setup_events) {
   if (start_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
+  lock_guard<mutex> lock(cfm_mutex);
   child_fd_mappings.insert(make_pair(cpu_cycles_perf.fd, children));
 }
 
