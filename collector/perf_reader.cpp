@@ -203,36 +203,19 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms) {
           )");
 
   bool is_first_timeslice = true;
+  bool done = false;
 
   DEBUG("cpd: entering epoll ready loop");
   epoll_event *evlist =
       (epoll_event *)malloc(sizeof(epoll_event) * sample_fd_count);
-  while (true) {
+  while (!done) {
     DEBUG("cpd: epolling for results or new threads");
     int ready_fds =
         epoll_wait(sample_epfd, evlist, sample_fd_count, SAMPLE_EPOLL_TIMEOUT);
 
     if (ready_fds == -1) {
-      if (errno == EINTR) {
-        // test for sigterm
-        char buf[sizeof(signalfd_siginfo)];
-        // sigterm_fd is in non-blocking mode, so if there's nothing to read it
-        // should error
-        if (read(sigterm_fd, buf, sizeof(signalfd_siginfo)) == -1) {
-          if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            // was NOT sigterm
-            fprintf(stderr, "sample epoll was interrupted: %s\n",
-                    strerror((int)EINTR));
-            shutdown(subject_pid, result_file, INTERNAL_ERROR);
-          }
-        } else {
-          // yup it was a sigterm
-          break;
-        }
-      } else {
-        perror("sample epoll wait was unsuccessful");
-        shutdown(subject_pid, result_file, INTERNAL_ERROR);
-      }
+      perror("sample epoll wait was unsuccessful");
+      shutdown(subject_pid, result_file, INTERNAL_ERROR);
     } else if (ready_fds == 0) {
       DEBUG("cpd: no sample fds were ready within the timeout ("
             << SAMPLE_EPOLL_TIMEOUT << ")");
@@ -241,6 +224,14 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms) {
       for (int i = 0; i < ready_fds; i++) {
         epoll_event evt = evlist[i];
         DEBUG("cpd: perf fd " << evt.data.fd << " is ready");
+
+        // check if it's sigterm
+        if (evt.data.fd == sigterm_fd) {
+          DEBUG("cpd: received sigterm, stopping");
+          done = true;
+          // don't ready the other perf fds, just stop immediately
+          break;
+        }
 
         child_fds children = child_fd_mappings.at(evt.data.fd);
 

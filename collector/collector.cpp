@@ -66,7 +66,8 @@ void setup_sigterm_handler() {
   int sigterm_fd = signalfd(-1, &done_mask, SFD_NONBLOCK);
 
   // prevent default behavior of immediately killing program
-  signal(SIGTERM, SIG_IGN);
+  // signal(SIGTERM, SIG_IGN);
+  sigprocmask(SIG_BLOCK, &done_mask, NULL);
 
   DEBUG("collector_main: registering " << sigterm_fd << " as sigterm fd");
   set_sigterm_fd(sigterm_fd);
