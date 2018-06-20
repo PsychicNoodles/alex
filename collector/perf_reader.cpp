@@ -224,6 +224,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   DEBUG("cpd: entering epoll ready loop");
   epoll_event *evlist =
       (epoll_event *)malloc(sizeof(epoll_event) * sample_fd_count);
+  int sample_period_skips = 0;
   while (!done) {
     DEBUG("cpd: epolling for results or new threads");
     int ready_fds =
@@ -279,8 +280,17 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           }
 
           if (!has_next_sample(&children.sample_buf)) {
-            DEBUG("cpd: SKIPPED SAMPLE PERIOD");
+            sample_period_skips++;
+            DEBUG("cpd: SKIPPED SAMPLE PERIOD (" << sample_period_skips
+                                                 << " in a row)");
+            if (sample_period_skips >= MAX_SAMPLE_PERIOD_SKIPS) {
+              DEBUG(
+                  "cpd: reached max number of consecutive sample period skips, "
+                  "exitting");
+              shutdown(subject_pid, result_file, INTERNAL_ERROR);
+            }
           } else {
+            sample_period_skips = 0;
             if (is_first_timeslice) {
               is_first_timeslice = false;
             } else {
