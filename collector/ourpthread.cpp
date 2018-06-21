@@ -60,6 +60,9 @@ void *__imposter(void *arg) {
   void *arguments = d->args;
   free(d);
 
+  timespec spec{0, 100000000};
+  nanosleep(&spec, NULL);
+
   register_perf();
 
   return routine(arguments);
