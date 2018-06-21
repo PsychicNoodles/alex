@@ -5,7 +5,18 @@ require("bootstrap");
 
 const { processData } = require("./js/process-data");
 const { draw } = require("./js/draw");
-const { onXAxisSelect, renderXAxisSelect } = require("./js/x-axis-select");
+const { XAxisSelect } = require("./js/x-axis-select");
+
+const xAxisOptions = [
+  {
+    independentVariable: "cyclesSoFar",
+    label: "CPU Cycles"
+  },
+  {
+    independentVariable: "instructionsSoFar",
+    label: "Instructions Executed"
+  }
+];
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, resultFile) => {
@@ -17,25 +28,27 @@ ipcRenderer.on("result", (event, resultFile) => {
     window.close();
   }
 
-  renderXAxisSelect();
+  const xAxisSelect = new XAxisSelect({
+    onOptionSelect: xAxisOption => {
+      const getIndependentVariable = d => d[xAxisOption.independentVariable];
 
-  onXAxisSelect(xAxisOption => {
-    const getIndependentVariable = d => d[xAxisOption.independentVariable];
+      const yAxisLabel = "Cache Miss Rate";
+      const getDependentVariable = d => d.events.missRate;
 
-    const yAxisLabel = "Cache Miss Rate";
-    const getDependentVariable = d => d.events.missRate;
-
-    const processedData = processData(
-      result.timeslices,
-      getIndependentVariable,
-      getDependentVariable
-    );
-    draw(
-      processedData,
-      getIndependentVariable,
-      getDependentVariable,
-      xAxisOption.label,
-      yAxisLabel
-    );
+      const processedData = processData(
+        result.timeslices,
+        getIndependentVariable,
+        getDependentVariable
+      );
+      draw(
+        processedData,
+        getIndependentVariable,
+        getDependentVariable,
+        xAxisOption.label,
+        yAxisLabel
+      );
+    }
   });
+
+  xAxisSelect.options = xAxisOptions;
 });
