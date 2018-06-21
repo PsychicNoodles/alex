@@ -17,6 +17,7 @@
 #include <sys/epoll.h>
 #include <sys/mman.h>
 #include <sys/signalfd.h>
+#include <sys/socket.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/wait.h>
@@ -192,7 +193,41 @@ bool setup_perf_events(pid_t target, bool setup_events, int *fd,
 //   }
 // }
 
-void handle_perf_setup_result(int fd, child_fds *children) {
+bool receive_perf_registration(int socket, int *fd, child_fds *children) {
+  struct msghdr msg = {0};
+
+  // fill recvmsg data into fd and children
+  iovec ios[] = {{children, sizeof(child_fds)}};
+
+  msg.msg_iov = ios;
+  msg.msg_iovlen = 1;
+
+  char c_buffer[256];
+  msg.msg_control = c_buffer;
+  msg.msg_controllen = sizeof(c_buffer);
+
+  if (recvmsg(socket, &msg, 0) < 0) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+      DEBUG("cpd: no more messages to read from socket");
+      return false;
+    } else {
+      DEBUG("failed to receive fd");
+      shutdown(subject_pid, result_file, INTERNAL_ERROR);
+    }
+  }
+
+  struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+
+  DEBUG("cpd: extracting fd");
+  int recv_fd;
+  memmove(&recv_fd, CMSG_DATA(cmsg), sizeof(int));
+  DEBUG("cpd: extracted fd " << recv_fd);
+  *fd = recv_fd;
+
+  return true;
+}
+
+void handle_perf_register(int fd, child_fds *children) {
   DEBUG("cpd: handling perf_setup_result for fd " << fd << ", adding to epoll");
   add_sample_fd(fd);
   DEBUG("cpd:inserting mapping for fd " << fd);
@@ -221,12 +256,12 @@ uint64_t lookup_kernel_addr(map<uint64_t, kernel_sym> kernel_syms,
  * result file.
  */
 int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
-                      int sigt_fd, int perf_register_read) {
+                      int sigt_fd, int socket) {
   DEBUG("collector_main: registering " << sigt_fd << " as sigterm fd");
   add_sample_fd(sigt_fd);
 
-  DEBUG("registering read pipe " << perf_register_read);
-  add_sample_fd(perf_register_read);
+  DEBUG("registering socket " << socket);
+  add_sample_fd(socket);
 
   DEBUG("cpd: initializing pfm");
   pfm_initialize();
@@ -234,9 +269,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   events = str_split(getenv_safe("COLLECTOR_EVENTS"), ",");
   int subject_fd;
   child_fds subject_children;
-  setup_perf_events(subject_pid, HANDLE_EVENTS, &subject_fd,
-                    &subject_children);
-  handle_perf_setup_result(subject_fd, &subject_children);
+  setup_perf_events(subject_pid, HANDLE_EVENTS, &subject_fd, &subject_children);
+  handle_perf_register(subject_fd, &subject_children);
 
   DEBUG("cpd: printing result header");
   fprintf(result_file,
@@ -283,17 +317,17 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           done = true;
           // don't ready the other perf fds, just stop immediately
           break;
-        } else if (evt.data.fd == perf_register_read) {
-          DEBUG("cpd: received request to register new thread");
+        } else if (evt.data.fd == socket) {
+          DEBUG(
+              "cpd: received request to register new thread, receiving new "
+              "file descriptors");
           int fd;
           child_fds children;
-          if (read(perf_register_read, &fd, sizeof(int)) == -1 ||
-              read(perf_register_read, &children, sizeof(child_fds)) == -1) {
-            perror("failed to read from perf register pipe");
-            shutdown(subject_pid, result_file, INTERNAL_ERROR);
+          while (receive_perf_registration(socket, &fd, &children)) {
+            DEBUG("cpd: received request for fd " << fd);
+            handle_perf_register(fd, &children);
           }
-          DEBUG("cpd: request is for fd " << fd);
-          handle_perf_setup_result(fd, &children);
+          DEBUG("cpd: exhausted requests");
         } else {
           child_fds children;
           try {

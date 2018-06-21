@@ -1,5 +1,8 @@
 #include "ourpthread.hpp"
 
+#include <string.h>
+#include <sys/socket.h>
+
 using namespace std;
 
 pthread_create_fn_t real_pthread_create;
@@ -7,6 +10,7 @@ pthread_create_fn_t real_pthread_create;
 static int thread_read_pipe, thread_write_pipe;
 vector<perf_buffer> thread_perfs;
 int perf_register_fd;
+int perf_register_sock;
 
 vector<perf_buffer>::const_iterator get_thread_perfs() {
   return thread_perfs.cbegin();
@@ -17,6 +21,8 @@ vector<perf_buffer>::const_iterator get_thread_perfs_end() {
 }
 
 void set_perf_register_fd(int fd) { perf_register_fd = fd; }
+
+void set_perf_register_sock(int sock) { perf_register_sock = sock; }
 
 void create_raw_event_attr(struct perf_event_attr *attr, const char *event_name,
                            uint64_t sample_type, uint64_t sample_period) {
@@ -44,18 +50,37 @@ void create_raw_event_attr(struct perf_event_attr *attr, const char *event_name,
  * Sends a request to register a perf event from the current thread to the main
  * cpd process and thread
  */
-void register_perf(int *fd, child_fds *children) {
-  if (write(perf_register_fd, fd, sizeof(int)) == -1 ||
-      write(perf_register_fd, children, sizeof(child_fds)) == -1) {
-    perror("failed to write to perf register pipe");
-    shutdown(collector_pid, result_file, INTERNAL_ERROR);
+bool register_perf(int socket, int fd, child_fds *children) {
+  struct msghdr msg = {0};
+  char buf[CMSG_SPACE(sizeof(fd))];
+  memset(buf, '\0', sizeof(buf));
+
+  iovec ios[] = {{children, sizeof(child_fds)}};
+
+  msg.msg_iov = ios;
+  msg.msg_iovlen = 1;
+  msg.msg_control = buf;
+  msg.msg_controllen = sizeof(buf);
+
+  struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+  cmsg->cmsg_level = SOL_SOCKET;
+  cmsg->cmsg_type = SCM_RIGHTS;
+  cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
+
+  memmove(CMSG_DATA(cmsg), &fd, sizeof(fd));
+
+  msg.msg_controllen = cmsg->cmsg_len;
+
+  if (sendmsg(socket, &msg, 0) < 0) {
+    DEBUG("failed to send fd " << fd);
+    return false;
   }
-  DEBUG(gettid() << ": write successful");
+  return true;
 }
 
 void *__imposter(void *arg) {
   pid_t tid = gettid();
-  DEBUG(tid << ": in imposter");
+  DEBUG(tid << ": in imposter, pid " << getpid());
   disguise_t *d = (disguise_t *)arg;
   routine_fn_t routine = d->victim;
   void *arguments = d->args;
@@ -69,10 +94,16 @@ void *__imposter(void *arg) {
   DEBUG(tid << ": setting up perf events");
   setup_perf_events(tid, HANDLE_EVENTS, &fd, &children);
   DEBUG(tid << ": registering fd " << fd << " with collector for bookkeeping");
-  register_perf(&fd, &children);
+  if (!register_perf(perf_register_sock, fd, &children)) {
+    perror("failed to send new thread's fd");
+    shutdown(collector_pid, result_file, INTERNAL_ERROR);
+  }
 
   DEBUG(tid << ": starting routine");
-  return routine(arguments);
+  void *ret = routine(arguments);
+  // DEBUG(tid << ": returned as long " << *((long *)ret));
+  DEBUG(tid << ": finished routine");
+  return ret;
 }
 
 int pthread_create(pthread_t *thread, const pthread_attr_t *attr,

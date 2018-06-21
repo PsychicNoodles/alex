@@ -31,5 +31,6 @@ typedef struct disguise {
 } disguise_t;
 
 void set_perf_register_fd(int fd);
+void set_perf_register_sock(int sock);
 
 #endif

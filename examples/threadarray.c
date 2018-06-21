@@ -1,12 +1,12 @@
 #include <stdio.h>
 #include <pthread.h>
 
-#define NTHREADS 4
+#define NTHREADS 1
 void * calculate_sum(void *);
 int  counter = 0;
 
 #define N 10000
-#define M 1000
+#define M 5000
 
 int dimensional_array[N][M];
 
@@ -15,6 +15,7 @@ void* calculate_sum(void* args)
 {
 	int *argPtr = (int*) args;
 	int threadindex = *argPtr;
+	long *loops = (long *)malloc(sizeof(long));
 
 	for(int i = 0; i <= N-1; i++) {
 		if (i % NTHREADS != threadindex) continue;
@@ -27,10 +28,11 @@ void* calculate_sum(void* args)
 				}
 			}
 			dimensional_array[i][j] = sum;
+			*loops++;
 		}
 	}
 
-	return NULL;
+	return loops;
 }
 
 int main(void) {
@@ -52,11 +54,15 @@ int main(void) {
 
 	for(i=0; i < NTHREADS; i++) {
 		thread_args[i] = i;
+		fprintf(stderr, "starting thread %d\n", i);
 		pthread_create( &thread_id[i], NULL, calculate_sum, &thread_args[i]);
 	}
 
 	for(j=0; j < NTHREADS; j++) {
-		pthread_join( thread_id[j], NULL);
+		fprintf(stderr, "joining thread %d\n", j);
+		long loops;
+		pthread_join( thread_id[j], &loops);
+		fprintf(stderr, "joined thread %d with result %ld\n", j, loops);
 	}
 
 	printf("\n\n\n");
