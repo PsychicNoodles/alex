@@ -29,5 +29,5 @@ clean:
 clean-res:
 	@rm -f err-* out-* res-*
 
-collector.$(SHLIB_SUFFIX): collector.cpp const.cpp util.cpp debug.cpp perf_sampler.cpp
+collector.$(SHLIB_SUFFIX): collector.cpp const.cpp util.cpp debug.cpp perf_sampler.cpp power.cpp
 	$(CXXLIB) $(CFLAGS) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -ldl -lpfm -pthread -rdynamic

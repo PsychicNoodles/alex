@@ -30,6 +30,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <link.h>
+#include <perfmon/pfmlib.h>
 
 #include <libelfin/dwarf/dwarf++.hh>
 #include <libelfin/elf/elf++.hh>
@@ -38,16 +39,19 @@
 #include "debug.hpp"
 #include "perf_sampler.hpp"
 #include "util.hpp"
+#include "power.hpp"
 
 using namespace std;
 
-struct sample {
+struct sample
+{
   uint64_t time;
   uint64_t num_instruction_pointers;
   uint64_t instruction_pointers[];
 };
 
-struct kernel_sym {
+struct kernel_sym
+{
   char type;
   string sym;
   string cat;
@@ -62,22 +66,26 @@ bool done = false;
 /*
  * Sets a file descriptor to send a signal everytime an event is recorded.
  */
-void set_ready_signal(int pid, FILE *result_file, int sig, int fd) {
+void set_ready_signal(int pid, FILE *result_file, int sig, int fd)
+{
   // Set the perf_event file to async
-  if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_ASYNC)) {
+  if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_ASYNC))
+  {
     perror("couldn't set perf_event file to async");
     shutdown(pid, result_file, INTERNAL_ERROR);
   }
 
   // Set the notification signal for the perf file
-  if (fcntl(fd, F_SETSIG, sig)) {
+  if (fcntl(fd, F_SETSIG, sig))
+  {
     perror("couldn't set notification signal for perf file");
     shutdown(pid, result_file, INTERNAL_ERROR);
   }
 
   // Set the current thread as the owner of the file (to target signal delivery)
   pid_t tid = syscall(SYS_gettid);
-  if (fcntl(fd, F_SETOWN, tid)) {
+  if (fcntl(fd, F_SETOWN, tid))
+  {
     perror("couldn't set the current thread as the owner of the file");
     shutdown(pid, result_file, INTERNAL_ERROR);
   }
@@ -86,20 +94,24 @@ void set_ready_signal(int pid, FILE *result_file, int sig, int fd) {
 /*
  * Preps the system for using sigset.
  */
-void setup_sigset(int pid, FILE *result_file, int signum, sigset_t *sigset) {
+void setup_sigset(int pid, FILE *result_file, int signum, sigset_t *sigset)
+{
   // emptying the set
-  if (sigemptyset(sigset)) {
+  if (sigemptyset(sigset))
+  {
     perror("couldn't empty the signal set");
     shutdown(pid, result_file, INTERNAL_ERROR);
   }
 
   // adding signum to sigset
-  if (sigaddset(sigset, SIGUSR1)) {
+  if (sigaddset(sigset, SIGUSR1))
+  {
     perror("couldn't add to signal set");
     shutdown(pid, result_file, INTERNAL_ERROR);
   }
 
-  if (pthread_sigmask(SIG_BLOCK, sigset, NULL)) {
+  if (pthread_sigmask(SIG_BLOCK, sigset, NULL))
+  {
     perror("couldn't mask signal set");
     shutdown(pid, result_file, INTERNAL_ERROR);
   }
@@ -110,10 +122,13 @@ void setup_sigset(int pid, FILE *result_file, int signum, sigset_t *sigset) {
  * may be in the middle of a kernel function.
  */
 uint64_t lookup_kernel_addr(map<uint64_t, kernel_sym> kernel_syms,
-                            uint64_t addr) {
+                            uint64_t addr)
+{
   auto prev = kernel_syms.begin()->first;
-  for (auto const &next : kernel_syms) {
-    if (prev < addr && addr < next.first) {
+  for (auto const &next : kernel_syms)
+  {
+    if (prev < addr && addr < next.first)
+    {
       return prev;
     }
     prev = next.first;
@@ -126,17 +141,23 @@ uint64_t lookup_kernel_addr(map<uint64_t, kernel_sym> kernel_syms,
  * result file.
  */
 int collect_perf_data(int subject_pid, FILE *result_file,
-                      map<uint64_t, kernel_sym> kernel_syms) {
+                      map<uint64_t, kernel_sym> kernel_syms)
+{
   DEBUG("cpd: initializing pfm");
   pfm_initialize();
 
   DEBUG("cpd: setting up period from env var");
   long long period;
-  try {
+  try
+  {
     period = stoll(getenv_safe("COLLECTOR_PERIOD", "10000000"));
-  } catch (std::invalid_argument &e) {
+  }
+  catch (std::invalid_argument &e)
+  {
     shutdown(subject_pid, result_file, ENV_ERROR);
-  } catch (std::out_of_range &e) {
+  }
+  catch (std::out_of_range &e)
+  {
     shutdown(subject_pid, result_file, ENV_ERROR);
   }
 
@@ -153,7 +174,8 @@ int collect_perf_data(int subject_pid, FILE *result_file,
 
   perf_buffer cpu_cycles_perf;
   if (setup_monitoring(&cpu_cycles_perf, &cpu_cycles_attr, subject_pid) !=
-      SAMPLER_MONITOR_SUCCESS) {
+      SAMPLER_MONITOR_SUCCESS)
+  {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
 
@@ -172,7 +194,8 @@ int collect_perf_data(int subject_pid, FILE *result_file,
 
   int instruction_count_fd =
       perf_event_open(&instruction_count_attr, subject_pid, -1, -1, 0);
-  if (instruction_count_fd == -1) {
+  if (instruction_count_fd == -1)
+  {
     perror("couldn't perf_event_open for instruction count");
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
@@ -185,34 +208,41 @@ int collect_perf_data(int subject_pid, FILE *result_file,
 
   DEBUG("cpd: setting up perf events");
   int event_fds[events.size()];
-  for (int i = 0; i < events.size(); i++) {
+  for (int i = 0; i < events.size(); i++)
+  {
     perf_event_attr attr;
     memset(&attr, 0, sizeof(perf_event_attr));
 
     // Parse out event name with PFM.  Must be done first.
     int pfm_result = setup_pfm_os_event(&attr, (char *)events.at(i).c_str());
-    if (pfm_result != PFM_SUCCESS) {
+    if (pfm_result != PFM_SUCCESS)
+    {
       fprintf(stderr, "pfm encoding error: %s", pfm_strerror(pfm_result));
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
 
     event_fds[i] = perf_event_open(&attr, subject_pid, -1, -1, 0);
-    if (event_fds[i] == -1) {
+    if (event_fds[i] == -1)
+    {
       perror("couldn't perf_event_open for event");
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
   }
 
-  if (start_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
+  if (start_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS)
+  {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
 
-  if (start_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS) {
+  if (start_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS)
+  {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
 
-  for (int i = 0; i < events.size(); i++) {
-    if (start_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
+  for (int i = 0; i < events.size(); i++)
+  {
+    if (start_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS)
+    {
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
   }
@@ -230,36 +260,46 @@ int collect_perf_data(int subject_pid, FILE *result_file,
   bool is_first_timeslice = true;
 
   DEBUG("cpd: entering SIGUSR1 ready loop");
-  while (true) {
+  while (true)
+  {
     // waits until it receives SIGUSR1
     DEBUG("cpd: waiting for SIGUSR1");
     int sig;
     sigwait(&signal_set, &sig);
     DEBUG("cpd: received SIGUSR1");
 
-    if (done) {
+    if (done)
+    {
       break;
     }
 
     long long num_cycles = 0;
     read(cpu_cycles_perf.fd, &num_cycles, sizeof(num_cycles));
-    if (reset_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
+    if (reset_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS)
+    {
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
 
     long long num_instructions = 0;
     read(instruction_count_fd, &num_instructions, sizeof(num_instructions));
     DEBUG("cpd: read in num of inst: " << num_instructions);
-    if (reset_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS) {
+    if (reset_monitoring(instruction_count_fd) != SAMPLER_MONITOR_SUCCESS)
+    {
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
 
-    if (!has_next_sample(&cpu_cycles_perf)) {
+    if (!has_next_sample(&cpu_cycles_perf))
+    {
       DEBUG("cpd: SKIPPED SAMPLE PERIOD");
-    } else {
-      if (is_first_timeslice) {
+    }
+    else
+    {
+      if (is_first_timeslice)
+      {
         is_first_timeslice = false;
-      } else {
+      }
+      else
+      {
         fprintf(result_file, ",");
       }
 
@@ -267,10 +307,12 @@ int collect_perf_data(int subject_pid, FILE *result_file,
       int sample_size;
       sample *perf_sample = (sample *)get_next_sample(
           &cpu_cycles_perf, &sample_type, &sample_size);
-      if (sample_type != PERF_RECORD_SAMPLE) {
+      if (sample_type != PERF_RECORD_SAMPLE)
+      {
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
       }
-      while (has_next_sample(&cpu_cycles_perf)) {
+      while (has_next_sample(&cpu_cycles_perf))
+      {
         int temp_type, temp_size;
         get_next_sample(&cpu_cycles_perf, &temp_type, &temp_size);
       }
@@ -286,24 +328,36 @@ int collect_perf_data(int subject_pid, FILE *result_file,
               perf_sample->time, num_cycles, num_instructions);
 
       DEBUG("cpd: reading from each fd");
-      for (int i = 0; i < events.size(); i++) {
-        if (i > 0) {
+      for (int i = 0; i < events.size(); i++)
+      {
+        if (i > 0)
+        {
           fprintf(result_file, ",");
         }
 
         long long count = 0;
         read(event_fds[i], &count, sizeof(long long));
-        if (reset_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
+        if (reset_monitoring(event_fds[i]) != SAMPLER_MONITOR_SUCCESS)
+        {
           shutdown(subject_pid, result_file, INTERNAL_ERROR);
         }
 
         fprintf(result_file, R"("%s": %lld)", events.at(i).c_str(), count);
       }
 
-      int fd = open((char *)"/proc/self/exe", O_RDONLY);
-      if (fd < 0) {
-        perror("cannot open executable (/proc/self/exe)");
-        shutdown(subject_pid, result_file, EXECUTABLE_FILE_ERROR);
+      ///////////////////////////////////////////////////////////////////////
+       map<string, uint64_t> readings = measure_energy();
+      map<string, uint64_t> ::iterator itr;
+      for (itr = readings.begin(); itr != readings.end(); ++itr) {
+        fprintf(result_file, ",");
+        fprintf(result_file, R"("%s": %lu)", itr->first.c_str(), itr->second);
+      }
+        ///////////////////////////////////////////////////////////////////////
+
+        int fd = open((char *)"/proc/self/exe", O_RDONLY);
+        if (fd < 0) {
+          perror("cannot open executable (/proc/self/exe)");
+          shutdown(subject_pid, result_file, EXECUTABLE_FILE_ERROR);
       }
 
       elf::elf ef(elf::create_mmap_loader(fd));
@@ -317,15 +371,18 @@ int collect_perf_data(int subject_pid, FILE *result_file,
 
       bool is_first = true;
       uint64_t callchain_section;
-      for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
+      for (int i = 0; i < perf_sample->num_instruction_pointers; i++)
+      {
         uint64_t inst_ptr = perf_sample->instruction_pointers[i];
-        if (is_callchain_marker(inst_ptr)) {
+        if (is_callchain_marker(inst_ptr))
+        {
           callchain_section = inst_ptr;
           continue;
         }
         DEBUG("cpd: on instruction pointer " << int_to_hex(inst_ptr));
 
-        if (!is_first) {
+        if (!is_first)
+        {
           fprintf(result_file, ",");
         }
         is_first = false;
@@ -339,20 +396,25 @@ int collect_perf_data(int subject_pid, FILE *result_file,
         string sym_name_str;
         const char *sym_name = NULL, *file_name = NULL;
         void *file_base = NULL, *sym_addr = NULL;
-        if (callchain_section == CALLCHAIN_USER) {
+        if (callchain_section == CALLCHAIN_USER)
+        {
           DEBUG("cpd: looking up user stack frame");
           Dl_info info;
           // Lookup the name of the function given the function pointer
-          if (dladdr((void *)inst_ptr, &info) != 0) {
+          if (dladdr((void *)inst_ptr, &info) != 0)
+          {
             sym_name = info.dli_sname;
             file_name = info.dli_fname;
             file_base = info.dli_fbase;
             sym_addr = info.dli_saddr;
           }
-        } else if (callchain_section == CALLCHAIN_KERNEL) {
+        }
+        else if (callchain_section == CALLCHAIN_KERNEL)
+        {
           DEBUG("cpd: looking up kernel stack frame");
           uint64_t addr = lookup_kernel_addr(kernel_syms, inst_ptr);
-          if (addr != -1) {
+          if (addr != -1)
+          {
             auto ks = kernel_syms.at(addr);
             sym_name_str = ks.sym;
             sym_name = sym_name_str.c_str();
@@ -378,12 +440,15 @@ int collect_perf_data(int subject_pid, FILE *result_file,
         auto line = -1, column = -1;
         char *fullLocation = NULL;
 
-        for (auto &cu : dw.compilation_units()) {
-          if (die_pc_range(cu.root()).contains(pc)) {
+        for (auto &cu : dw.compilation_units())
+        {
+          if (die_pc_range(cu.root()).contains(pc))
+          {
             // Map PC to a line
             auto &lt = cu.get_line_table();
             auto it = lt.find_address(pc);
-            if (it != lt.end()) {
+            if (it != lt.end())
+            {
               line = it->line;
               column = it->column;
               fullLocation = (char *)it->file->path.c_str();
@@ -415,18 +480,22 @@ int collect_perf_data(int subject_pid, FILE *result_file,
   return 0;
 }
 
-void ready_handler(int signum) {
-  if (signum == SIGUSR2) {
+void ready_handler(int signum)
+{
+  if (signum == SIGUSR2)
+  {
     ready = true;
   }
 }
 
 map<uint64_t, kernel_sym> read_kernel_syms(
-    const char *path = "/proc/kallsyms") {
+    const char *path = "/proc/kallsyms")
+{
   ifstream input(path);
   map<uint64_t, kernel_sym> syms;
 
-  for (string line; getline(input, line);) {
+  for (string line; getline(input, line);)
+  {
     kernel_sym sym;
     istringstream line_stream(line);
     string addr_s, type_s, tail;
@@ -438,10 +507,13 @@ map<uint64_t, kernel_sym> read_kernel_syms(
     sym.type = type_s[0];
     getline(line_stream, tail);
     size_t tab;
-    if ((tab = tail.find("\t")) == string::npos) {
+    if ((tab = tail.find("\t")) == string::npos)
+    {
       sym.sym = tail;
       sym.cat = "";
-    } else {
+    }
+    else
+    {
       sym.sym = tail.substr(0, tab);
       sym.cat = tail.substr(tab + 1);
     }
@@ -455,8 +527,10 @@ map<uint64_t, kernel_sym> read_kernel_syms(
 /*
  *
  */
-void done_handler(int signum) {
-  if (signum == SIGTERM) {
+void done_handler(int signum)
+{
+  if (signum == SIGTERM)
+  {
     DEBUG("done_handler: Received SIGTERM, asking analyzer to finish");
 
     done = true;
@@ -467,7 +541,8 @@ void done_handler(int signum) {
   }
 }
 
-static int collector_main(int argc, char **argv, char **env) {
+static int collector_main(int argc, char **argv, char **env)
+{
   enable_segfault_trace();
 
   int result = 0;
@@ -481,13 +556,15 @@ static int collector_main(int argc, char **argv, char **env) {
 
   int collector_pid = getpid();
   int subject_pid = fork();
-  if (subject_pid == 0) {
+  if (subject_pid == 0)
+  {
     DEBUG(
         "collector_main: in child process, waiting for parent to be ready "
         "(pid: "
         << getpid() << ")");
 
-    if (kill(collector_pid, SIGUSR2)) {
+    if (kill(collector_pid, SIGUSR2))
+    {
       perror("couldn't signal collector process");
       exit(INTERNAL_ERROR);
     }
@@ -499,11 +576,14 @@ static int collector_main(int argc, char **argv, char **env) {
         "main");
     result = subject_main_fn(argc, argv, env);
 
-    if (kill(collector_pid, SIGTERM)) {
+    if (kill(collector_pid, SIGTERM))
+    {
       perror("couldn't kill collector process");
       exit(INTERNAL_ERROR);
     }
-  } else if (subject_pid > 0) {
+  }
+  else if (subject_pid > 0)
+  {
     DEBUG(
         "collector_main: in parent process, opening result file for writing "
         "(pid: "
@@ -512,7 +592,8 @@ static int collector_main(int argc, char **argv, char **env) {
     DEBUG("collector_main: result file " << env_res);
     FILE *result_file = fopen(env_res.c_str(), "w");
 
-    if (result_file == NULL) {
+    if (result_file == NULL)
+    {
       perror("couldn't open result file");
       kill(subject_pid, SIGKILL);
       exit(INTERNAL_ERROR);
@@ -532,16 +613,21 @@ static int collector_main(int argc, char **argv, char **env) {
       ;
 
     DEBUG("collector_main: received child ready signal, starting analyzer");
-    try {
+    try
+    {
       result = collect_perf_data(subject_pid, result_file, kernel_syms);
-    } catch (std::exception &e) {
+    }
+    catch (std::exception &e)
+    {
       DEBUG("collector_main: uncaught error in analyzer: " << e.what());
       result = INTERNAL_ERROR;
     }
     DEBUG("collector_main: finished analyzer, closing file");
 
     fclose(result_file);
-  } else {
+  }
+  else
+  {
     exit(INTERNAL_ERROR);
   }
 
@@ -550,7 +636,8 @@ static int collector_main(int argc, char **argv, char **env) {
 
 extern "C" int __libc_start_main(main_fn_t main_fn, int argc, char **argv,
                                  void (*init)(), void (*fini)(),
-                                 void (*rtld_fini)(), void *stack_end) {
+                                 void (*rtld_fini)(), void *stack_end)
+{
   auto real_libc_start_main =
       (decltype(__libc_start_main) *)dlsym(RTLD_NEXT, "__libc_start_main");
   subject_main_fn = main_fn;
