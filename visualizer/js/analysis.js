@@ -1,27 +1,72 @@
 const { partition } = require("lodash");
 
-module.exports = chiSquared;
+module.exports = chiSquaredTest;
 
 /**
- * Compares selected data's function use to that of the unselected data.
- * (at least according to my current understanding)
- *
- * @param data all data available, not just selected data
- * @returns not sure yet!
- * @todo Best to test the performance of forEach, partition, etc against simple
- * for loops here. Performance on a dataset of this size is critical. jsperf.com
+ * Conducts a chi-squared test on the given data, intended to determine whether
+ * the functions found in the selected region are independent of their location
+ * (i.e. selected data ISN'T special) or dependent on their location (i.e.
+ * selected data IS special). Intended null hypothesis: Each datapoint's
+ * associated function is independent of the datapoint's selected state.
+ * 
+ * @param data All data collected by the collector
+ * @returns {number} The chi-squared value
+ * @todo Change return -1 to something more sensible.
+ * @todo Determine if the first "else" branch is entered when no data has been
+ * assigned a value for selected.
+ * @todo: Figure out how to determine if the chi-squared value is grounds for
+ * rejecting the null hypothesis.
+ * @todo Convert forEach calls into for loops when need for performance
+ * outweighs need for readability.
  */
-function chiSquared(data) {
-    /* Compile a list that contains every function entered by the collector. */
-    const collectedFunctions = [];
+function chiSquaredTest(data) {
+    /* "Associative arrays", containing counts of function appearances within a
+    region. Key = function name. Value = function count. */
+    const selected = [];
+    const unselected = []; 
+
+    /* Normal array, containing one of each function collected. We need this
+    because we are summing over each function. (At least, I'm pretty sure.) */
+    const uniqueFunctions = [];
+
     data.forEach(datum => {
-        if (!(collectedFunctions.includes(datum.function))) {
-            collectedFunctions.push(datum.function);
+        if (datum.selected) {
+            /* Add 1 to the number of times this datum's associated function
+            appeared in the selected region. */
+            selected[datum.function]++;
+            selected.total++;
+        } else {
+            // Ditto above, but for unselected region.
+            unselected[datum.function]++;
+            unselected.total++;
+        }
+
+        // If we haven't encountered this function before, add it to our list
+        if (!(uniqueFunctions.includes(datum.function))) {
+            uniqueFunctions.push(datum.function);
         }
     });
-    /* Splits data into one object containing two groups. The first group 
-    contains selected data. The second contains unselected data. */
-    const partitioned = partition(data, "selected");
-    const selected = partitioned[0];
-    const unselected = partitioned[1];
+
+    // We need these checks to avoid divide-by-zero errors.
+    if (selected.total === 0) {
+        console.error("Chi-squared test called with no selected data.");
+        return -1;
+    } else if (unselected.total === 0) {
+        console.error("Chi-squared test called with all data selected.");
+        return -1;
+    }
+
+    let chiSquared = 0;
+    let observed;
+    let expected;
+    uniqueFunctions.forEach(uniqueFunction => {
+        observed = selected[uniqueFunction] / selected.total;
+        expected = unselected[uniqueFunction] / unselected.total;
+        // Avoid divide-by-zero
+        if (expected === 0) {
+            return; // Only exits this iteration of the "loop".
+        }
+        chiSquared += Math.pow((observed - expected), 2) / expected;
+    });
+    return chiSquared;
 }
