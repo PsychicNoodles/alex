@@ -96,7 +96,7 @@ void *__imposter(void *arg) {
   DEBUG(tid << ": registering fd " << fd << " with collector for bookkeeping");
   if (!send_perf_fds(perf_register_sock, fd, &children)) {
     perror("failed to send new thread's fd");
-    shutdown(collector_pid, result_file, INTERNAL_ERROR);
+    shutdown(collector_pid, NULL, INTERNAL_ERROR);
   }
 
   DEBUG(tid << ": starting routine");

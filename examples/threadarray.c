@@ -17,6 +17,7 @@ void* calculate_sum(void* args)
 	int *argPtr = (int*) args;
 	int threadindex = *argPtr;
 	long *loops = (long *)malloc(sizeof(long));
+	*loops = 0;
 
 	for(int i = 0; i <= N-1; i++) {
 		if (i % NTHREADS != threadindex) continue;
@@ -29,7 +30,7 @@ void* calculate_sum(void* args)
 				}
 			}
 			dimensional_array[i][j] = sum;
-			*loops++;
+			(*loops)++;
 		}
 	}
 
@@ -62,7 +63,7 @@ int main(void) {
 	for(j=0; j < NTHREADS; j++) {
 		fprintf(stderr, "joining thread %d\n", j);
 		long loops;
-		pthread_join( thread_id[j], &loops);
+		pthread_join( thread_id[j], (void*)&loops);
 		fprintf(stderr, "joined thread %d with result %ld\n", j, loops);
 	}
 

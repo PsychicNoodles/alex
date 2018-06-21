@@ -214,9 +214,9 @@ bool recv_perf_fds(int socket, int *fd, child_fds *children) {
   struct iovec ios[] = {{&tid, sizeof(pid_t)}};
 
   msg.msg_iov = ios;
-  msg.msg_iovlen = 2;
+  msg.msg_iovlen = 1;
   msg.msg_control = buf;
-  msg.msg_controllen = sizeof(buf);
+  msg.msg_controllen = sizeof(struct cmsghdr) + sizeof(int) * n_fds;
 
   struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
   cmsg->cmsg_len = msg.msg_controllen;
@@ -224,7 +224,9 @@ bool recv_perf_fds(int socket, int *fd, child_fds *children) {
   cmsg->cmsg_type = SCM_RIGHTS;
 
   DEBUG("receiving perf fds");
-  if (recvmsg(socket, &msg, 0) < 0) {
+  int received = recvmsg(socket, &msg, 0);
+  DEBUG("received " << received);
+  if (received < 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK) {
       DEBUG("no more messages to read from socket");
       return false;
@@ -234,13 +236,14 @@ bool recv_perf_fds(int socket, int *fd, child_fds *children) {
     }
   }
 
-  int fds[n_fds];
-  memmove(fds, CMSG_DATA(cmsg), sizeof(int));
-  *fd = fds[0];
-  children->sample_buf.fd = fds[0];
-  children->inst_count_fd = fds[1];
+  *fd = CMSG_DATA(cmsg)[0];
+  DEBUG("fd[0] = " << CMSG_DATA(cmsg)[0]);
+  children->sample_buf.fd = *fd;
+  children->inst_count_fd = CMSG_DATA(cmsg)[1];
+  DEBUG("fd[1] = " << CMSG_DATA(cmsg)[1]);
   for (int i = 2; i < n_fds; i++) {
-    children->event_fds[i - 2] = fds[i];
+    children->event_fds[i - 2] = CMSG_DATA(cmsg)[i];
+    DEBUG("fd[" << i << "] = " << CMSG_DATA(cmsg)[i]);
   }
 
   return true;
@@ -256,25 +259,28 @@ bool send_perf_fds(int socket, int fd, child_fds *children) {
   struct iovec ios[] = {{&tid, sizeof(pid_t)}};
 
   msg.msg_iov = ios;
-  msg.msg_iovlen = 2;
+  msg.msg_iovlen = 1;
   msg.msg_control = (void *)&buf;
-  msg.msg_controllen = sizeof(cmsghdr) + sizeof(int) * n_fds;
+  msg.msg_controllen = sizeof(struct cmsghdr) + sizeof(int) * n_fds;
 
   struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
   cmsg->cmsg_len = msg.msg_controllen;
   cmsg->cmsg_level = SOL_SOCKET;
   cmsg->cmsg_type = SCM_RIGHTS;
 
-  int fds[n_fds];
-  fds[0] = fd;
-  fds[1] = children->inst_count_fd;
+  DEBUG("fds[0] = " << fd);
+  ((int *)CMSG_DATA(cmsg))[0] = fd;
+  DEBUG("fds[1] = " << children->inst_count_fd);
+  ((int *)CMSG_DATA(cmsg))[1] = children->inst_count_fd;
   for (int i = 2; i < n_fds; i++) {
-    fds[i] = children->event_fds[i - 2];
+    DEBUG("fds[" << i << "] = " << children->event_fds[i - 2]);
+    ((int *)CMSG_DATA(cmsg))[i] = children->event_fds[i - 2];
   }
-  memcpy(CMSG_DATA(cmsg), fds, n_fds);
 
   DEBUG("sending perf fds");
-  return sendmsg(socket, &msg, 0) == 0;
+  int sent = sendmsg(socket, &msg, 0);
+  DEBUG("sent " << sent);
+  return sent > 0;
 }
 
 void handle_perf_register(int fd, child_fds *children) {

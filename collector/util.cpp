@@ -55,7 +55,7 @@ vector<string> str_split(string str, string delim) {
 
 void shutdown(pid_t pid, FILE* writef, int code) {
   kill(pid, SIGKILL);
-  fclose(writef);
+  if (writef != NULL) fclose(writef);
   exit(errno);
 }
 
