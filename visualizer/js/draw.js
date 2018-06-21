@@ -201,34 +201,43 @@ function brushed(data, xScale, circles) {
 
 // Create a table of the points selected by the brush
 function createTable(data) {
-  d3.selectAll(".row_data").remove();
-  d3.select("table").style("visibility", "visible");
+  const functionRuntimesMap = {};
+  for (const timeSlice of data) {
+    if (timeSlice.selected) {
+      const functionName = timeSlice.stackFrames[0].name;
+      functionRuntimesMap[functionName] =
+        (functionRuntimesMap[functionName] || 0) + timeSlice.numCPUCycles;
+    }
+  }
 
-  const circlesSelected = d3.selectAll(".brushed").data();
-
-  if (circlesSelected.length > 0) {
-    data.forEach(d => {
-      if (d.selected) {
-        const formatRate = d3.format(".1%");
-        const data = [
-          d.cyclesSoFar,
-          d.events["MEM_LOAD_RETIRED.L3_MISS"],
-          d.events["MEM_LOAD_RETIRED.L3_HIT"],
-          formatRate(d.events.missRate)
-        ];
-
-        d3.select("table")
-          .append("tr")
-          .attr("class", "row_data")
-          .selectAll("td")
-          .data(data)
-          .enter()
-          .append("td")
-          .attr("align", (d, i) => (i === 0 ? "left" : "right"))
-          .text(d => d);
-      }
+  const functionRuntimesArray = [];
+  for (const functionName in functionRuntimesMap) {
+    functionRuntimesArray.push({
+      name: functionName,
+      selfTime: functionRuntimesMap[functionName]
     });
   }
+
+  functionRuntimesArray.sort((a, b) => b.selfTime - a.selfTime);
+
+  const tableDataSelection = d3
+    .select(".function-runtimes")
+    .selectAll(".function-runtimes__datum")
+    .data(functionRuntimesArray.slice(0, 100));
+
+  tableDataSelection
+    .enter()
+    .append("tr")
+    .attr("class", "function-runtimes__datum")
+    .merge(tableDataSelection)
+    .each(function({ name, selfTime }) {
+      const row = d3.select(this);
+      row.selectAll("td").remove();
+      row.append("td").text(name);
+      row.append("td").text(String(selfTime));
+    });
+
+  tableDataSelection.exit().remove();
 }
 
 function drawLegend(densityMax, svg) {
