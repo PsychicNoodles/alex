@@ -212,7 +212,9 @@ void setup_perf_events(pid_tid target, bool is_tid = false,
   DEBUG("in perf setup for " << (is_tid ? "tid" : "pid") << " "
                              << (is_tid ? target.tid : target.pid));
 
-  retry_setup_perf_events();
+  if (!setup_perf_tries.empty()) {
+    retry_setup_perf_events();
+  }
 
   DEBUG("starting original setup attempt");
   if (!setup_child_perf_events(target, is_tid, setup_events)) {

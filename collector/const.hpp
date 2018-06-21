@@ -31,7 +31,7 @@ const char* callchain_str(uint64_t callchain);
 #define SAMPLE_TYPE (PERF_SAMPLE_TIME | PERF_SAMPLE_CALLCHAIN | PERF_SAMPLE_TID)
 // wait "forever"
 #define SAMPLE_EPOLL_TIMEOUT -1
-#define MAX_SAMPLE_PERIOD_SKIPS 3
+#define MAX_SAMPLE_PERIOD_SKIPS 10
 #define MAX_MONITORING_SETUP_ATTEMPTS 10
 
 #endif
