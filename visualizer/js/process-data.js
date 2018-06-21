@@ -128,15 +128,14 @@ function processData(
 
   return dataWithDensity;
 }
+
 /**
  * Compares selected data's function use to that of the unselected data.
  * (at least according to my current understanding)
- * Also
- * @function
- * @param data: all data available, not just selected data
- * @returns: not sure yet!
+ *
+ * @param data - all data available, not just selected data
+ * @returns - not sure yet!
  */
-
 function chiSquared(data) {
   const selected = data.filter(datum => datum.selected);
   console.log(selected);
