@@ -19,6 +19,10 @@ let graphHeight;
 let svgPlot = d3.select("#plot");
 let svgLegend = d3.select("#legend");
 
+var gBrushes = svgPlot.append('g')
+    .attr("class", "brushes");
+var brushes = [];
+
 /********************************** LOADING ***********************************/
 
 ipcRenderer.send("result-request");
@@ -144,12 +148,11 @@ function findMax(timeslices, attr) {
       return d3.max(timeslices, function(d) {
         return d.numInstructions;
       });
-    case "cache": {
+    case "cache": 
       const max = d3.max(timeslices, function(d) {
         return d.events.missRates;
       });
       return max;
-    }
     case "density":
       return d3.max(timeslices, function(d) {
         return d.densityAver;
@@ -181,7 +184,6 @@ function drawAxes(xScale, yScale) {
     .call(yAxis);
 
   // Add labels to the axes
-  console.log(svg.select("#xAxis"));
   svg
     .select("#xAxis")
     .append("text")
@@ -225,6 +227,7 @@ function scatterPlot(simplifiedData, xScale, yScale) {
     });
 
   createBrush(simplifiedData);
+  drawBrushes();
 
   return densityMax;
 }
@@ -237,38 +240,110 @@ function createBrush(timeslices) {
     .range([plotWidth - graphWidth, plotWidth]);
 
   // Create brush
-  const brush = d3
+  var brush = d3
     .brushX()
-    .extent([[plotWidth - graphWidth, 0], [plotWidth, plotHeight - graphHeight]])
-    .on("brush", function() {
-      brushed.call(this, timeslices);
-    })
-    .on("end", () => createTable(timeslices));
+    .extent([[plotWidth - graphWidth, 0], [plotWidth, graphHeight]])
+    .on("start", function () { brushed(this, timeslices); })
+    .on("brush",  function() { brushed(this, timeslices); })
+    .on("end", function() { brushEnd(this, timeslices); });
 
-  // Add brush to svg object
-  svgPlot
-    .append("g")
-    .call(brush)
-    .call(brush.move, [3, 5].map(x))
-    .selectAll(".overlay")
-    .each(function(d) {
-      d.type = "selection";
-    })
-    .on("mousedown touchstart", function() {
-      brushCentered.call(this, brush, x);
-    });
+  brushes.push({id: brushes.length, brush: brush});
+
+  //Add brush to svg object
+  //svgPlot
+  //  .append("g")
+  //  .attr("class", "brush")
+  //  .attr('id', 'brush-' + (brushes.length - 1))
+  //  .call(brush);
+    //.selectAll(".overlay");
 }
 
-// Re-center brush when the user clicks somewhere in the graph
-function brushCentered(brush, x) {
-  const dx = x(1) - x(0), // Use a fixed width when recentering.
-    cx = d3.mouse(this)[0],
-    x0 = cx - dx / 2,
-    x1 = cx + dx / 2;
-  d3.select(this.parentNode).call(
-    brush.move,
-    x1 > plotWidth ? [plotWidth - dx, plotWidth] : x0 < 0 ? [0, dx] : [x0, x1]
-  );
+function brushEnd(context, timeslices) {
+  createTable(timeslices);
+  var lastBrushId = brushes[brushes.length - 1].id;
+  var lastBrush = document.getElementById('brush-' + lastBrushId);
+  var selection = d3.brushSelection(lastBrush);
+
+  if(selection && selection[0] !== selection[1]) {
+    createBrush(timeslices);
+  }
+
+  drawBrushes(context);
+}
+
+function drawBrushes(context) {
+  var brushSelection = gBrushes
+    .selectAll('.brush')
+    .data(brushes);
+  console.log("data: ", brushSelection.data());
+  console.log("brushes: ", brushes);
+
+  brushSelection.exit()
+    .remove();
+
+  // brushSelection.enter()
+  //   .insert("g", '.brush')
+  //   .attr('class', 'brush')
+  //   .attr('id', function(brush) { return 'brush-' + brush.id; })
+  //   .each(function(brushObject) {
+  //     brushObject.brush(d3.select(context));
+  //   });
+
+  brushSelection.enter().append('brush')
+    .attr('class', 'brush')
+    .merge(brushSelection)
+    .attr('id', function(brush) { return 'brush-' + brush.id; });
+    //.each(function(brushObject) {
+    //  brushObject.brush(d3.select(context));
+    //});
+
+ 
+  //console.log("last brush: ", brushes[brushes.length]);
+
+  brushSelection
+    .each(function (brushObject) {
+      d3.select(context)
+        .attr('class', 'brush')
+        .selectAll('.overlay')
+        .style('pointer-events',
+          function() {
+            var brush = brushObject.brush;
+            //console.log("brush: ", brushObject);
+            //console.log("id: " + brushObject.id + ", length: " + brushes.length);
+            if (brushObject.id === brushes.length - 1 && brush != undefined) {
+              //console.log("true");
+              return 'all';
+            } else {
+              //console.log("false");
+              return 'none';
+            }
+          });
+    })
+}
+
+// Re-color the circles in the region that was selected by the user
+function brushed(context, timeslices) {
+  if (d3.event.selection != null) {
+    circles.attr("class", "circle");
+    const brushArea = d3.brushSelection(context);
+
+    circles
+      .filter(function () {
+        const cx = d3.select(context).attr("cx");
+        return brushArea[0] <= cx && cx <= brushArea[1];
+      })
+      .attr("class", "brushed");
+
+    for (let i = 0; i < timeslices.length; i++) {
+      timeslices[i].selected = false;
+    }
+
+    timeslices.map(function (d) {
+      if (brushArea[0] <= xScale(d.totalCycles) && xScale(d.totalCycles) <= brushArea[1]) {
+        d.selected = true;
+      }
+    });
+  }
 }
 
 // Create a table of the points selected by the brush
@@ -298,34 +373,6 @@ function createTable(timeslices) {
           .append("td")
           .attr("align", (d, i) => (i == 0 ? "left" : "right"))
           .text(d => d);
-      }
-    });
-  }
-}
-
-// Re-color the circles in the region that was selected by the user
-function brushed(timeslices) {
-  if (d3.event.selection != null) {
-    circles.attr("class", "circle");
-    const brushArea = d3.brushSelection(this);
-
-    circles
-      .filter(function() {
-        const cx = d3.select(this).attr("cx");
-        return brushArea[0] <= cx && cx <= brushArea[1];
-      })
-      .attr("class", "brushed");
-
-    for (let i = 0; i < timeslices.length; i++) {
-      timeslices[i].selected = false;
-    }
-
-    timeslices.map(function(d) {
-      if (
-        brushArea[0] <= xScale(d.totalCycles) &&
-        xScale(d.totalCycles) <= brushArea[1]
-      ) {
-        d.selected = true;
       }
     });
   }
