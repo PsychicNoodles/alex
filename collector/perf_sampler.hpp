@@ -20,6 +20,7 @@
 #define PAGE_SIZE 0x1000LL
 #define NUM_DATA_PAGES \
   256  // this needs to be a power of two :'( (an hour was spent here)
+#define BUFFER_SIZE (1 + NUM_DATA_PAGES) * PAGE_SIZE
 
 #define SAMPLE_ADDR_AND_IP (PERF_SAMPLE_ADDR | PERF_SAMPLE_IP)
 
@@ -31,11 +32,13 @@ struct perf_buffer {
   int fd;
   perf_event_mmap_page *info;
   void *data;
-  size_t data_size;
 };
+
+inline size_t perf_buffer_data_size() { return BUFFER_SIZE - PAGE_SIZE; }
 
 // Configure the perf buffer
 int setup_monitoring(perf_buffer *perf, perf_event_attr *attr, int pid);
+int setup_buffer(perf_buffer *result, int fd);
 
 // Control monitoring
 int reset_monitoring(int fd);

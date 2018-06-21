@@ -67,6 +67,14 @@ struct sample {
 int sample_epfd = epoll_create1(0);
 size_t sample_fd_count = 0;
 
+/*
+ * Calculates the number of perf file descriptors per thread
+ * #1 cpu cycles and samples
+ * #2 instruction counter
+ * #3-? each event
+ */
+inline size_t num_perf_fds() { return 2 * events.size(); }
+
 void add_sample_fd(int fd) {
   DEBUG("adding " << fd << " to epoll " << sample_epfd);
   // only listen for read events in non-edge mode
@@ -162,6 +170,9 @@ bool setup_perf_events(pid_t target, bool setup_events, int *fd,
   if (start_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
+
+  DEBUG("setup perf events: cpu cycles "
+        << cpu_cycles_perf.fd << ", inst count " << children->inst_count_fd);
   return true;
 }
 
@@ -193,38 +204,77 @@ bool setup_perf_events(pid_t target, bool setup_events, int *fd,
 //   }
 // }
 
-bool receive_perf_registration(int socket, int *fd, child_fds *children) {
+bool recv_perf_fds(int socket, int *fd, child_fds *children) {
+  size_t n_fds = num_perf_fds();
   struct msghdr msg = {0};
+  char buf[CMSG_SPACE(n_fds)];
+  memset(buf, 0, sizeof(buf));
 
-  // fill recvmsg data into fd and children
-  iovec ios[] = {{children, sizeof(child_fds)}};
+  pid_t tid;
+  struct iovec ios[] = {{&tid, sizeof(pid_t)}};
 
   msg.msg_iov = ios;
-  msg.msg_iovlen = 1;
+  msg.msg_iovlen = 2;
+  msg.msg_control = buf;
+  msg.msg_controllen = sizeof(buf);
 
-  char c_buffer[256];
-  msg.msg_control = c_buffer;
-  msg.msg_controllen = sizeof(c_buffer);
+  struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+  cmsg->cmsg_len = msg.msg_controllen;
+  cmsg->cmsg_level = SOL_SOCKET;
+  cmsg->cmsg_type = SCM_RIGHTS;
 
+  DEBUG("receiving perf fds");
   if (recvmsg(socket, &msg, 0) < 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK) {
-      DEBUG("cpd: no more messages to read from socket");
+      DEBUG("no more messages to read from socket");
       return false;
     } else {
-      DEBUG("failed to receive fd");
+      perror("failed to receive fd");
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
   }
 
-  struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
-
-  DEBUG("cpd: extracting fd");
-  int recv_fd;
-  memmove(&recv_fd, CMSG_DATA(cmsg), sizeof(int));
-  DEBUG("cpd: extracted fd " << recv_fd);
-  *fd = recv_fd;
+  int fds[n_fds];
+  memmove(fds, CMSG_DATA(cmsg), sizeof(int));
+  *fd = fds[0];
+  children->sample_buf.fd = fds[0];
+  children->inst_count_fd = fds[1];
+  for (int i = 2; i < n_fds; i++) {
+    children->event_fds[i - 2] = fds[i];
+  }
 
   return true;
+}
+
+bool send_perf_fds(int socket, int fd, child_fds *children) {
+  size_t n_fds = num_perf_fds();
+  msghdr msg = {0};
+  char buf[CMSG_SPACE(n_fds)];
+  memset(buf, 0, sizeof(buf));
+
+  pid_t tid = gettid();
+  struct iovec ios[] = {{&tid, sizeof(pid_t)}};
+
+  msg.msg_iov = ios;
+  msg.msg_iovlen = 2;
+  msg.msg_control = (void *)&buf;
+  msg.msg_controllen = sizeof(cmsghdr) + sizeof(int) * n_fds;
+
+  struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+  cmsg->cmsg_len = msg.msg_controllen;
+  cmsg->cmsg_level = SOL_SOCKET;
+  cmsg->cmsg_type = SCM_RIGHTS;
+
+  int fds[n_fds];
+  fds[0] = fd;
+  fds[1] = children->inst_count_fd;
+  for (int i = 2; i < n_fds; i++) {
+    fds[i] = children->event_fds[i - 2];
+  }
+  memcpy(CMSG_DATA(cmsg), fds, n_fds);
+
+  DEBUG("sending perf fds");
+  return sendmsg(socket, &msg, 0) == 0;
 }
 
 void handle_perf_register(int fd, child_fds *children) {
@@ -270,6 +320,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   int subject_fd;
   child_fds subject_children;
   setup_perf_events(subject_pid, HANDLE_EVENTS, &subject_fd, &subject_children);
+  setup_buffer(&subject_children.sample_buf, subject_fd);
   handle_perf_register(subject_fd, &subject_children);
 
   DEBUG("cpd: printing result header");
@@ -323,8 +374,13 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               "file descriptors");
           int fd;
           child_fds children;
-          while (receive_perf_registration(socket, &fd, &children)) {
-            DEBUG("cpd: received request for fd " << fd);
+          while (recv_perf_fds(socket, &fd, &children)) {
+            DEBUG("cpd: received request for fd " << fd
+                                                  << ", setting up buffer");
+            if (setup_buffer(&children.sample_buf, fd) !=
+                SAMPLER_MONITOR_SUCCESS) {
+              shutdown(subject_pid, result_file, INTERNAL_ERROR);
+            }
             handle_perf_register(fd, &children);
           }
           DEBUG("cpd: exhausted requests");
@@ -340,7 +396,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
           long long num_cycles = 0;
           read(evt.data.fd, &num_cycles, sizeof(num_cycles));
-          DEBUG("cpd: read in num of cycles: " << num_cycles);
+          DEBUG("cpd: read in from fd " << evt.data.fd
+                                        << " num of cycles: " << num_cycles);
           if (reset_monitoring(evt.data.fd) != SAMPLER_MONITOR_SUCCESS) {
             shutdown(subject_pid, result_file, INTERNAL_ERROR);
           }
@@ -348,7 +405,9 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           long long num_instructions = 0;
           read(children.inst_count_fd, &num_instructions,
                sizeof(num_instructions));
-          DEBUG("cpd: read in num of inst: " << num_instructions);
+          DEBUG("cpd: read in from fd "
+                << children.inst_count_fd
+                << " num of inst: " << num_instructions);
           if (reset_monitoring(children.inst_count_fd) !=
               SAMPLER_MONITOR_SUCCESS) {
             shutdown(subject_pid, result_file, INTERNAL_ERROR);
@@ -374,12 +433,14 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
             int sample_type;
             int sample_size;
+            DEBUG("cpd: getting next sample");
             sample *perf_sample = (sample *)get_next_sample(
                 &children.sample_buf, &sample_type, &sample_size);
             if (sample_type != PERF_RECORD_SAMPLE) {
               shutdown(subject_pid, result_file, INTERNAL_ERROR);
             }
             while (has_next_sample(&children.sample_buf)) {
+              DEBUG("cpd: clearing extra samples");
               int temp_type, temp_size;
               get_next_sample(&children.sample_buf, &temp_type, &temp_size);
             }

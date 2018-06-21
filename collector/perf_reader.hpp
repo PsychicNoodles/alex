@@ -31,4 +31,6 @@ bool setup_perf_events(pid_t target, bool setup_events, int* fd,
 int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       int sigt_fd, int socket);
 
+bool send_perf_fds(int socket, int fd, child_fds* children);
+
 #endif

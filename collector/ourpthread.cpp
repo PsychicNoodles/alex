@@ -46,37 +46,37 @@ void create_raw_event_attr(struct perf_event_attr *attr, const char *event_name,
   // setting up the rest of attr
 }
 
-/*
- * Sends a request to register a perf event from the current thread to the main
- * cpd process and thread
- */
-bool register_perf(int socket, int fd, child_fds *children) {
-  struct msghdr msg = {0};
-  char buf[CMSG_SPACE(sizeof(fd))];
-  memset(buf, '\0', sizeof(buf));
+// /*
+//  * Sends a request to register a perf event from the current thread to the main
+//  * cpd process and thread
+//  */
+// bool register_perf(int socket, int fd, child_fds *children) {
+//   struct msghdr msg = {0};
+//   char buf[CMSG_SPACE(sizeof(fd))];
+//   memset(buf, '\0', sizeof(buf));
 
-  iovec ios[] = {{children, sizeof(child_fds)}};
+//   iovec ios[] = {{children, sizeof(child_fds)}};
 
-  msg.msg_iov = ios;
-  msg.msg_iovlen = 1;
-  msg.msg_control = buf;
-  msg.msg_controllen = sizeof(buf);
+//   msg.msg_iov = ios;
+//   msg.msg_iovlen = 1;
+//   msg.msg_control = buf;
+//   msg.msg_controllen = sizeof(buf);
 
-  struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
-  cmsg->cmsg_level = SOL_SOCKET;
-  cmsg->cmsg_type = SCM_RIGHTS;
-  cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
+//   struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+//   cmsg->cmsg_level = SOL_SOCKET;
+//   cmsg->cmsg_type = SCM_RIGHTS;
+//   cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
 
-  memmove(CMSG_DATA(cmsg), &fd, sizeof(fd));
+//   memmove(CMSG_DATA(cmsg), &fd, sizeof(fd));
 
-  msg.msg_controllen = cmsg->cmsg_len;
+//   msg.msg_controllen = cmsg->cmsg_len;
 
-  if (sendmsg(socket, &msg, 0) < 0) {
-    DEBUG("failed to send fd " << fd);
-    return false;
-  }
-  return true;
-}
+//   if (sendmsg(socket, &msg, 0) < 0) {
+//     DEBUG("failed to send fd " << fd);
+//     return false;
+//   }
+//   return true;
+// }
 
 void *__imposter(void *arg) {
   pid_t tid = gettid();
@@ -94,7 +94,7 @@ void *__imposter(void *arg) {
   DEBUG(tid << ": setting up perf events");
   setup_perf_events(tid, HANDLE_EVENTS, &fd, &children);
   DEBUG(tid << ": registering fd " << fd << " with collector for bookkeeping");
-  if (!register_perf(perf_register_sock, fd, &children)) {
+  if (!send_perf_fds(perf_register_sock, fd, &children)) {
     perror("failed to send new thread's fd");
     shutdown(collector_pid, result_file, INTERNAL_ERROR);
   }

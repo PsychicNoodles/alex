@@ -12,6 +12,9 @@
     "typeinfo": "cpp",
     "functional": "cpp",
     "stdexcept": "cpp",
-    "chrono": "cpp"
+    "chrono": "cpp",
+    "istream": "cpp",
+    "iosfwd": "cpp",
+    "cerrno": "cpp"
   }
 }

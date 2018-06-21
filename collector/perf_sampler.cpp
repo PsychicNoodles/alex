@@ -15,19 +15,21 @@ int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
     return SAMPLER_MONITOR_ERROR;
   }
 
-  size_t buffer_size = (1 + NUM_DATA_PAGES) * PAGE_SIZE;
+  result->fd = fd;
+  
+  return SAMPLER_MONITOR_SUCCESS;
+}
+
+int setup_buffer(perf_buffer *result, int fd) {
   void *buffer =
-      mmap(0, buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+      mmap(0, BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (buffer == MAP_FAILED) {
     perror("setup_monitoring: mmap");
     return SAMPLER_MONITOR_ERROR;
   }
-
-  result->fd = fd;
   result->info = (perf_event_mmap_page *)buffer;
   result->data = (char *)buffer + PAGE_SIZE;
-  result->data_size = buffer_size - PAGE_SIZE;
-
+  
   return SAMPLER_MONITOR_SUCCESS;
 }
 

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <pthread.h>
+#include <stdlib.h>
 
 #define NTHREADS 1
 void * calculate_sum(void *);
