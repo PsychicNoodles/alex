@@ -3,8 +3,8 @@ const fs = require("fs");
 
 require("bootstrap");
 
-const processData = require("./js/process-data");
-const draw = require("./js/draw");
+const { processData } = require("./js/process-data");
+const { draw } = require("./js/draw");
 const { onXAxisSelect, renderXAxisSelect } = require("./js/x-axis-select");
 
 ipcRenderer.send("result-request");

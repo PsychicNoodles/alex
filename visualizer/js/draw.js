@@ -7,7 +7,7 @@ const { legendColor } = require("d3-svg-legend");
 
 const { CHART_WIDTH, CHART_HEIGHT } = require("./util");
 
-module.exports = draw;
+module.exports = { draw };
 
 const SPECTRUM = d3.interpolateGreens;
 
@@ -44,6 +44,7 @@ function draw(
     xScale,
     yScale,
     getIndependentVariable,
+    getDependentVariable,
     densityMax,
     svg
   );
@@ -98,6 +99,7 @@ function drawPlot(
   xScale,
   yScale,
   getIndependentVariable,
+  getDependentVariable,
   densityMax,
   svg
 ) {
@@ -112,7 +114,7 @@ function drawPlot(
     .enter()
     .append("circle")
     .attr("cx", d => xScale(getIndependentVariable(d)))
-    .attr("cy", d => yScale(d.events.missRate))
+    .attr("cy", d => yScale(getDependentVariable(d)))
     .attr("r", 1)
     .style("fill", d =>
       d3.scaleSequential(SPECTRUM)(d.densityAvg / densityMax)
