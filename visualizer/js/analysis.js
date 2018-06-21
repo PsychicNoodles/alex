@@ -8,8 +8,16 @@ module.exports = chiSquared;
  *
  * @param data all data available, not just selected data
  * @returns not sure yet!
+ * @todo Best to test if partition is more performant than a simple loop.
  */
 function chiSquared(data) {
+    /* Compile a list that contains every function entered by the collector. */
+    const functionList = [];
+    for (const datum of data) {
+        if (!(functionList.includes(datum.function))) {
+            functionList.push(datum.function);
+        }
+    }
     /* Splits data into one object containing two groups. The first group 
     contains selected data. The second contains unselected data. */
     const partitioned = partition(data, "selected");
