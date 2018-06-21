@@ -12,13 +12,15 @@ module.exports = chiSquared;
  */
 function chiSquared(data) {
     /* Compile a list that contains every function entered by the collector. */
-    const functionList = [];
+    const collectedFunctions = [];
     for (const datum of data) {
-        if (!(functionList.includes(datum.function))) {
-            functionList.push(datum.function);
+        if (!(collectedFunctions.includes(datum.function))) {
+            collectedFunctions.push(datum.function);
         }
     }
     /* Splits data into one object containing two groups. The first group 
     contains selected data. The second contains unselected data. */
     const partitioned = partition(data, "selected");
+    const selected = partitioned[0];
+    const unselected = partitioned[1];
 }
