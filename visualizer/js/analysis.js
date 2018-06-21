@@ -10,5 +10,7 @@ module.exports = chiSquared;
  * @returns not sure yet!
  */
 function chiSquared(data) {
+    /* Splits data into one object containing two groups. The first group 
+    contains selected data. The second contains unselected data. */
     const partitioned = partition(data, "selected");
 }
