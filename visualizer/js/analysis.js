@@ -8,7 +8,8 @@ module.exports = chiSquared;
  *
  * @param data all data available, not just selected data
  * @returns not sure yet!
- * @todo Best to test if partition is more performant than a simple loop.
+ * @todo Best to test the performance of forEach, partition, etc against simple
+ * for loops here. Performance on a dataset of this size is critical. jsperf.com
  */
 function chiSquared(data) {
     /* Compile a list that contains every function entered by the collector. */
