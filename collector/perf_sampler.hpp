@@ -15,7 +15,6 @@
 
 #include "const.hpp"
 #include "debug.hpp"
-#include "perf_reader.hpp"
 #include "util.hpp"
 
 #define PAGE_SIZE 0x1000LL

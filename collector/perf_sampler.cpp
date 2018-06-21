@@ -1,5 +1,7 @@
 #include "perf_sampler.hpp"
 
+#include "perf_reader.hpp"
+
 int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
   DEBUG("setting up monitoring for pid " << pid);
   int fd = perf_event_open(attr, pid, -1, -1, 0);

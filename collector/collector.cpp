@@ -89,7 +89,7 @@ static int collector_main(int argc, char **argv, char **env) {
     exit(INTERNAL_ERROR);
   }
 
-  int collector_pid = getpid();
+  collector_pid = getpid();
   subject_pid = fork();
   if (subject_pid == 0) {
     DEBUG(

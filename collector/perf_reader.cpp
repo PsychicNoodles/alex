@@ -36,28 +36,17 @@
 #include "const.hpp"
 #include "debug.hpp"
 #include "perf_reader.hpp"
-#include "perf_sampler.hpp"
 #include "util.hpp"
 
-struct child_fds {
-  perf_buffer sample_buf;
-  int inst_count_fd;
-  int *event_fds;
-};
-
-union pid_tid {
-  pid_t pid;
-  pthread_t tid;
-};
-
 struct monitoring_attempt {
-  pid_tid target;
+  pid_t target;
   bool is_tid;
   bool setup_events;
   int setup_perf_tries;
 };
 
 pid_t subject_pid;
+pid_t collector_pid;
 FILE *result_file;
 vector<string> events;
 map<int, child_fds> child_fd_mappings;
@@ -90,7 +79,8 @@ void add_sample_fd(int fd) {
   sample_fd_count++;
 }
 
-bool setup_child_perf_events(pid_tid target, bool is_tid, bool setup_events) {
+bool setup_perf_events(pid_t target, bool setup_events, int *fd,
+                       child_fds *children) {
   // set up the cpu cycles perf buffer
   perf_event_attr cpu_cycles_attr;
   static long long period;
@@ -115,21 +105,19 @@ bool setup_child_perf_events(pid_tid target, bool is_tid, bool setup_events) {
 
   perf_buffer cpu_cycles_perf;
   int monitoring_result;
-  if ((monitoring_result = setup_monitoring(
-           &cpu_cycles_perf, &cpu_cycles_attr,
-           (is_tid ? target.tid : target.pid))) != SAMPLER_MONITOR_SUCCESS) {
-    if (monitoring_result == SAMPLER_MONITOR_PROCESS_NOT_FOUND) {
-      return false;
-    }
+  if ((monitoring_result =
+           setup_monitoring(&cpu_cycles_perf, &cpu_cycles_attr, target)) !=
+      SAMPLER_MONITOR_SUCCESS) {
+    // if (monitoring_result == SAMPLER_MONITOR_PROCESS_NOT_FOUND) {
+    //   return false;
+    // }
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
-  DEBUG("adding fd " << cpu_cycles_perf.fd << " to epoll");
-  add_sample_fd(cpu_cycles_perf.fd);
+  *fd = cpu_cycles_perf.fd;
   // only need to add the group parent, since the children will be synced up
   // the group is maintained per thread/process
 
-  child_fds children;
-  children.sample_buf = cpu_cycles_perf;
+  children->sample_buf = cpu_cycles_perf;
 
   // set up the instruction file descriptor
   perf_event_attr instruction_count_attr;
@@ -138,19 +126,18 @@ bool setup_child_perf_events(pid_tid target, bool is_tid, bool setup_events) {
   instruction_count_attr.type = PERF_TYPE_HARDWARE;
   instruction_count_attr.config = PERF_COUNT_HW_INSTRUCTIONS;
 
-  int instruction_count_fd = perf_event_open(&instruction_count_attr,
-                                             (is_tid ? target.tid : target.pid),
+  int instruction_count_fd = perf_event_open(&instruction_count_attr, target,
                                              -1, cpu_cycles_perf.fd, 0);
   if (instruction_count_fd == -1) {
     perror("couldn't perf_event_open for instruction count");
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
-  children.inst_count_fd = instruction_count_fd;
+  children->inst_count_fd = instruction_count_fd;
 
   if (setup_events) {
     // Set up event counters
     DEBUG("setting up perf events");
-    children.event_fds = (int *)malloc(sizeof(int) * events.size());
+    children->event_fds = (int *)malloc(sizeof(int) * events.size());
     for (int i = 0; i < events.size(); i++) {
       perf_event_attr attr;
       memset(&attr, 0, sizeof(perf_event_attr));
@@ -162,9 +149,9 @@ bool setup_child_perf_events(pid_tid target, bool is_tid, bool setup_events) {
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
       }
 
-      children.event_fds[i] = perf_event_open(
-          &attr, (is_tid ? target.tid : target.pid), -1, cpu_cycles_perf.fd, 0);
-      if (children.event_fds[i] == -1) {
+      children->event_fds[i] =
+          perf_event_open(&attr, target, -1, cpu_cycles_perf.fd, 0);
+      if (children->event_fds[i] == -1) {
         perror("couldn't perf_event_open for event");
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
       }
@@ -174,53 +161,43 @@ bool setup_child_perf_events(pid_tid target, bool is_tid, bool setup_events) {
   if (start_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
-  DEBUG("inserting mapping for fd " << cpu_cycles_perf.fd);
-  lock_guard<mutex> lock(cfm_mutex);
-  child_fd_mappings.insert(make_pair(cpu_cycles_perf.fd, children));
-
   return true;
 }
 
-void retry_setup_perf_events() {
-  DEBUG("retrying previous attempts");
-  // https://stackoverflow.com/a/4600592
-  auto it = setup_perf_tries.begin();
-  while (it != setup_perf_tries.end()) {
-    DEBUG("retrying setup for "
-          << (it->is_tid ? "tid" : "pid") << " "
-          << (it->is_tid ? it->target.tid : it->target.pid));
-    if (setup_child_perf_events(it->target, it->is_tid, it->setup_events)) {
-      DEBUG("retry of previous attempt successful");
-      setup_perf_tries.erase(it);
-    } else {
-      it->setup_perf_tries++;
-      DEBUG("retry of previous attempt failed, now at " << it->setup_perf_tries
-                                                        << " setup_perf_tries");
-      if (it->setup_perf_tries >= MAX_MONITORING_SETUP_ATTEMPTS) {
-        DEBUG("exceeded max attempts at setting up monitoring for "
-              << (it->is_tid ? "tid" : "pid") << " "
-              << (it->is_tid ? it->target.tid : it->target.pid));
-        shutdown(subject_pid, result_file, INTERNAL_ERROR);
-      }
-      ++it;
-    }
-  }
-}
+// void retry_setup_perf_events() {
+//   DEBUG("retrying previous attempts");
+//   // https://stackoverflow.com/a/4600592
+//   auto it = setup_perf_tries.begin();
+//   while (it != setup_perf_tries.end()) {
+//     DEBUG("retrying setup for "
+//           << (it->is_tid ? "tid" : "pid") << " "
+//           << (it->is_tid ? it->target.tid : it->target.pid));
+//     if (setup_perf_events(it->target, it->is_tid, it->setup_events)) {
+//       DEBUG("retry of previous attempt successful");
+//       setup_perf_tries.erase(it);
+//     } else {
+//       it->setup_perf_tries++;
+//       DEBUG("retry of previous attempt failed, now at " <<
+//       it->setup_perf_tries
+//                                                         << "
+//                                                         setup_perf_tries");
+//       if (it->setup_perf_tries >= MAX_MONITORING_SETUP_ATTEMPTS) {
+//         DEBUG("exceeded max attempts at setting up monitoring for "
+//               << (it->is_tid ? "tid" : "pid") << " "
+//               << (it->is_tid ? it->target.tid : it->target.pid));
+//         shutdown(subject_pid, result_file, INTERNAL_ERROR);
+//       }
+//       ++it;
+//     }
+//   }
+// }
 
-void setup_perf_events(pid_tid target, bool is_tid = false,
-                       bool setup_events = true) {
-  DEBUG("in perf setup for " << (is_tid ? "tid" : "pid") << " "
-                             << (is_tid ? target.tid : target.pid));
-
-  if (!setup_perf_tries.empty()) {
-    retry_setup_perf_events();
-  }
-
-  DEBUG("starting original setup attempt");
-  if (!setup_child_perf_events(target, is_tid, setup_events)) {
-    DEBUG("setup failed, retrying later");
-    setup_perf_tries.push_back({target, is_tid, setup_events, 1});
-  }
+void handle_perf_setup_result(int fd, child_fds *children) {
+  DEBUG("cpd: handling perf_setup_result for fd " << fd << ", adding to epoll");
+  add_sample_fd(fd);
+  DEBUG("cpd:inserting mapping for fd " << fd);
+  lock_guard<mutex> lock(cfm_mutex);
+  child_fd_mappings.insert(make_pair(fd, *children));
 }
 
 /*
@@ -255,7 +232,11 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   pfm_initialize();
 
   events = str_split(getenv_safe("COLLECTOR_EVENTS"), ",");
-  setup_perf_events({.pid = subject_pid});
+  int subject_fd;
+  child_fds subject_children;
+  setup_perf_events(subject_pid, HANDLE_EVENTS, &subject_fd,
+                    &subject_children);
+  handle_perf_setup_result(subject_fd, &subject_children);
 
   DEBUG("cpd: printing result header");
   fprintf(result_file,
@@ -288,9 +269,9 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
     } else {
       DEBUG("cpd: " << ready_fds << " sample fds were ready");
 
-      if (!setup_perf_tries.empty()) {
-        retry_setup_perf_events();
-      }
+      // if (!setup_perf_tries.empty()) {
+      //   retry_setup_perf_events();
+      // }
 
       for (int i = 0; i < ready_fds; i++) {
         epoll_event evt = evlist[i];
@@ -304,10 +285,15 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           break;
         } else if (evt.data.fd == perf_register_read) {
           DEBUG("cpd: received request to register new thread");
-          pthread_t tid;
-          read(perf_register_read, &tid, sizeof(pthread_t));
-          DEBUG("cpd: request tid is " << tid);
-          setup_perf_events({.tid = tid}, true);
+          int fd;
+          child_fds children;
+          if (read(perf_register_read, &fd, sizeof(int)) == -1 ||
+              read(perf_register_read, &children, sizeof(child_fds)) == -1) {
+            perror("failed to read from perf register pipe");
+            shutdown(subject_pid, result_file, INTERNAL_ERROR);
+          }
+          DEBUG("cpd: request is for fd " << fd);
+          handle_perf_setup_result(fd, &children);
         } else {
           child_fds children;
           try {

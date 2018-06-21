@@ -44,27 +44,34 @@ void create_raw_event_attr(struct perf_event_attr *attr, const char *event_name,
  * Sends a request to register a perf event from the current thread to the main
  * cpd process and thread
  */
-void register_perf() {
-  pthread_t tid = gettid();
-  DEBUG("registering perf in " << tid);
-  if (write(perf_register_fd, &tid, sizeof(pthread_t)) == -1) {
-    perror("failed to write to perf register fd");
+void register_perf(int *fd, child_fds *children) {
+  if (write(perf_register_fd, fd, sizeof(int)) == -1 ||
+      write(perf_register_fd, children, sizeof(child_fds)) == -1) {
+    perror("failed to write to perf register pipe");
+    shutdown(collector_pid, result_file, INTERNAL_ERROR);
   }
+  DEBUG(gettid() << ": write successful");
 }
 
 void *__imposter(void *arg) {
-  pthread_t tid = gettid();
+  pid_t tid = gettid();
   DEBUG(tid << ": in imposter");
   disguise_t *d = (disguise_t *)arg;
   routine_fn_t routine = d->victim;
   void *arguments = d->args;
   free(d);
 
-  timespec spec{0, 500000000};
-  nanosleep(&spec, NULL);
+  // timespec spec{0, 500000000};
+  // nanosleep(&spec, NULL);
 
-  register_perf();
+  int fd;
+  child_fds children;
+  DEBUG(tid << ": setting up perf events");
+  setup_perf_events(tid, HANDLE_EVENTS, &fd, &children);
+  DEBUG(tid << ": registering fd " << fd << " with collector for bookkeeping");
+  register_perf(&fd, &children);
 
+  DEBUG(tid << ": starting routine");
   return routine(arguments);
 }
 
