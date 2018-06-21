@@ -8,8 +8,6 @@ const { legendColor } = require("d3-svg-legend");
 const chiSquaredTest = require("./analysis");
 const { CHART_WIDTH, CHART_HEIGHT } = require("./util");
 
-module.exports = { draw };
-
 const SPECTRUM = d3.interpolateGreens;
 
 function draw(
@@ -253,3 +251,5 @@ function drawLegend(densityMax, svg) {
 
   svg.select(".legendSequential").call(legendSequential);
 }
+
+module.exports = { draw };

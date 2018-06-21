@@ -8,8 +8,6 @@ const { cloneDeep } = require("lodash");
 
 const { CHART_WIDTH, CHART_HEIGHT } = require("./util");
 
-module.exports = { processData };
-
 function processData(
   immutableData,
   getIndependentVariable,
@@ -128,3 +126,5 @@ function processData(
 
   return dataWithDensity;
 }
+
+module.exports = { processData };
