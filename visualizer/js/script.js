@@ -273,10 +273,8 @@ function brushEnd(context, timeslices) {
 
 function drawBrushes(context) {
   var brushSelection = gBrushes
-    .selectAll('.brush')
+    .selectAll('brush')
     .data(brushes);
-  console.log("data: ", brushSelection.data());
-  console.log("brushes: ", brushes);
 
   brushSelection.exit()
     .remove();
@@ -290,13 +288,15 @@ function drawBrushes(context) {
   //   });
 
   brushSelection.enter().append('brush')
-    .attr('class', 'brush')
+    //.attr('class', 'brush')
     .merge(brushSelection)
-    .attr('id', function(brush) { return 'brush-' + brush.id; });
-    //.each(function(brushObject) {
-    //  brushObject.brush(d3.select(context));
-    //});
+    .attr('id', function(brush) { return 'brush-' + brush.id; })
+    .each(function(brushObject) {
+      brushObject.brush(d3.select(context));
+    });
 
+  console.log("data: ", brushSelection.data());
+  console.log("brushes: ", brushes);
  
   //console.log("last brush: ", brushes[brushes.length]);
 
