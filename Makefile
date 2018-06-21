@@ -1,6 +1,6 @@
 all: node_modules collector examples
 
-node_modules:
+node_modules: package.json
 	npm install
 
 collector:
@@ -10,11 +10,11 @@ examples:
 	$(MAKE) -C examples
 
 clean:
-	$(MAKE) -C collector clean 
-	$(MAKE) -C examples clean 
+	$(RM) -rf node_modules
+	$(MAKE) -C collector clean
+	$(MAKE) -C examples clean
 
 run-example: node_modules collector examples
 	npm run example
 
-.PHONY: all collector examples run-example
-
+.PHONY: all collector examples clean run-example

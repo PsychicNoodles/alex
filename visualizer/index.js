@@ -4,7 +4,6 @@
 //
 
 const { app, BrowserWindow, ipcMain } = require("electron");
-const fs = require("fs");
 const path = require("path");
 
 console.info("Starting app...");
@@ -14,12 +13,10 @@ if (!resultFile) {
   throw new Error("No result file specified.");
 }
 
-const result = JSON.parse(fs.readFileSync(resultFile).toString());
-
 ipcMain.on("result-request", event => {
   console.info("Sending results...");
 
-  event.sender.send("result", result);
+  event.sender.send("result", resultFile);
 });
 
 // Keep a global reference of the window object, if you don't, the window will
@@ -35,8 +32,9 @@ app
     win = new BrowserWindow({
       width: 1000,
       height: 550,
+      minWidth: 900,
       show: false,
-      icon: path.join(__dirname, "./icons/launcher-64x64.png")
+      icon: path.join(__dirname, "./icons/launcher-128x128.png")
     });
 
     win.loadFile(path.join(__dirname, "./index.html"));

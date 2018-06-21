@@ -5,12 +5,14 @@
   "description": "AnaLysis of EXecution",
   "repository": {
     "type": "git",
-    "url": "https://github.com/curtsinger-lab/perf-analyzer"
+    "url": "https://github.com/curtsinger-lab/alex"
   },
   "scripts": {
     "start": "node .",
-    "clean": "rm -f out-* err-* result-*",
-    "example": "npm run clean && node . collect --in examples/inputs/matrix-1000x1000.in -p cache -- examples/build/matrixmultiplier"
+    "precommit": "lint-staged",
+    "eslint:fix": "eslint --fix .",
+    "clean:outfiles": "rm -f out-* err-* result-*",
+    "example": "npm run clean:outfiles && node . collect --in examples/inputs/matrix-500x500.in -- examples/build/matrixmultiplier"
   },
   "bin": {
     "alex": "main.js"
@@ -21,8 +23,12 @@
     "d3": "^5.4.0",
     "d3-svg-legend": "^2.25.6",
     "electron": "^2.0.2",
+    "husky": "^0.14.3",
     "jquery": "^3.3.1",
+    "lint-staged": "^7.2.0",
+    "lodash": "^4.17.10",
     "popper.js": "^1.14.3",
+    "prettier": "^1.13.5",
     "tempfile": "^2.0.0",
     "yargs": "^11.0.0"
   },
@@ -37,9 +43,29 @@
       "node": true
     },
     "extends": "eslint:recommended",
+    "parserOptions": {
+      "ecmaVersion": 2018
+    },
     "rules": {
       "no-console": "off",
-      "no-var": "error"
+      "no-var": "error",
+      "eqeqeq": "error",
+      "prefer-const": "warn",
+      "prefer-arrow-callback": "warn",
+      "arrow-body-style": "warn",
+      "no-unused-vars": "warn",
+      "no-empty": "warn"
     }
+  },
+  "lint-staged": {
+    "*.{json,css,md}": [
+      "prettier --write",
+      "git add"
+    ],
+    "*.js": [
+      "eslint --fix",
+      "prettier --write",
+      "git add"
+    ]
   }
 }

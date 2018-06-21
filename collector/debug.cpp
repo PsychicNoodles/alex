@@ -17,7 +17,7 @@
 #include <fcntl.h>
 
 #include "debug.hpp"
-#include "const.h"
+#include "const.hpp"
 
 /* This structure mirrors the one found in /usr/include/asm/ucontext.h */
 typedef struct _sig_ucontext {
@@ -101,7 +101,7 @@ int dump_table_and_symbol(char *path) {
   int fd = open(path, O_RDONLY);
   if (fd < 0) {
     perror(path);
-    return OPENERROR;
+    return DEBUG_SYMBOLS_FILE_ERROR;
   }
 
   elf::elf ef(elf::create_mmap_loader(fd));
