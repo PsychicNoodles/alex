@@ -91,6 +91,8 @@ static int collector_main(int argc, char **argv, char **env) {
     exit(INTERNAL_ERROR);
   }
 
+  events = str_split(getenv_safe("COLLECTOR_EVENTS"), ",");
+
   collector_pid = getpid();
   subject_pid = fork();
   if (subject_pid == 0) {

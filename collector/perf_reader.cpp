@@ -206,22 +206,23 @@ bool setup_perf_events(pid_t target, bool setup_events, int *fd,
 
 bool recv_perf_fds(int socket, int *fd, child_fds *children) {
   size_t n_fds = num_perf_fds();
+  DEBUG("recv n_fds " << n_fds);
   struct msghdr msg = {0};
-  char buf[CMSG_SPACE(n_fds)];
-  memset(buf, 0, sizeof(buf));
+  ANCIL_FD_BUFFER(ANCIL_MAX_N_FDS) buf;
 
   pid_t tid;
   struct iovec ios[] = {{&tid, sizeof(pid_t)}};
 
   msg.msg_iov = ios;
   msg.msg_iovlen = 1;
-  msg.msg_control = buf;
+  msg.msg_control = (void *)&buf;
   msg.msg_controllen = sizeof(struct cmsghdr) + sizeof(int) * n_fds;
 
   struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
   cmsg->cmsg_len = msg.msg_controllen;
   cmsg->cmsg_level = SOL_SOCKET;
   cmsg->cmsg_type = SCM_RIGHTS;
+  memset(CMSG_DATA(cmsg), 0, n_fds);
 
   DEBUG("receiving perf fds");
   int received = recvmsg(socket, &msg, 0);
@@ -235,6 +236,8 @@ bool recv_perf_fds(int socket, int *fd, child_fds *children) {
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
   }
+
+  DEBUG("received tid " << tid);
 
   *fd = CMSG_DATA(cmsg)[0];
   DEBUG("fd[0] = " << CMSG_DATA(cmsg)[0]);
@@ -251,12 +254,13 @@ bool recv_perf_fds(int socket, int *fd, child_fds *children) {
 
 bool send_perf_fds(int socket, int fd, child_fds *children) {
   size_t n_fds = num_perf_fds();
+  DEBUG("send n_fds " << n_fds);
   msghdr msg = {0};
-  char buf[CMSG_SPACE(n_fds)];
-  memset(buf, 0, sizeof(buf));
+  ANCIL_FD_BUFFER(ANCIL_MAX_N_FDS) buf;
 
   pid_t tid = gettid();
   struct iovec ios[] = {{&tid, sizeof(pid_t)}};
+  DEBUG("sending tid " << tid);
 
   msg.msg_iov = ios;
   msg.msg_iovlen = 1;
@@ -322,7 +326,6 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   DEBUG("cpd: initializing pfm");
   pfm_initialize();
 
-  events = str_split(getenv_safe("COLLECTOR_EVENTS"), ",");
   int subject_fd;
   child_fds subject_children;
   setup_perf_events(subject_pid, HANDLE_EVENTS, &subject_fd, &subject_children);
