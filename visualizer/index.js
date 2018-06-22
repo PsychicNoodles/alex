@@ -14,8 +14,6 @@ if (!resultFile) {
 }
 
 ipcMain.on("result-request", event => {
-  console.info("Sending results...");
-
   event.sender.send("result", resultFile);
 });
 
