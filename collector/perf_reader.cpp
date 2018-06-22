@@ -34,6 +34,7 @@
 #include <libelfin/dwarf/dwarf++.hh>
 #include <libelfin/elf/elf++.hh>
 
+#include "ancillary.hpp"
 #include "const.hpp"
 #include "debug.hpp"
 #include "perf_reader.hpp"
@@ -152,7 +153,7 @@ bool setup_perf_events(pid_t target, bool setup_events, int *fd,
   if (setup_events && !events.empty()) {
     // Set up event counters
     DEBUG("setting up events");
-    for(auto &e : events) {
+    for (auto &e : events) {
       DEBUG("event: " << e);
     }
     children->event_fds = (int *)malloc(sizeof(int) * events.size());
@@ -219,91 +220,38 @@ bool setup_perf_events(pid_t target, bool setup_events, int *fd,
 
 bool recv_perf_fds(int socket, int *fd, child_fds *children) {
   size_t n_fds = num_perf_fds();
-  DEBUG("recv n_fds " << n_fds);
-  struct msghdr msg = {0};
-  ANCIL_FD_BUFFER(ANCIL_MAX_N_FDS) buf;
-
-  pid_t tid;
-  struct iovec ios[] = {{&tid, sizeof(pid_t)}};
-
-  msg.msg_iov = ios;
-  msg.msg_iovlen = 1;
-  msg.msg_control = (void *)&buf;
-  msg.msg_controllen = sizeof(struct cmsghdr) + sizeof(int) * n_fds;
-
-  struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
-  cmsg->cmsg_len = msg.msg_controllen;
-  cmsg->cmsg_level = SOL_SOCKET;
-  cmsg->cmsg_type = SCM_RIGHTS;
-  memset(CMSG_DATA(cmsg), 0, n_fds);
-
-  DEBUG("receiving perf fds");
-  int received = recvmsg(socket, &msg, 0);
-  DEBUG("received " << received);
-  if (received < 0) {
-    if (errno == EAGAIN || errno == EWOULDBLOCK) {
-      DEBUG("no more messages to read from socket");
-      return false;
-    } else {
-      perror("failed to receive fd");
-      shutdown(subject_pid, result_file, INTERNAL_ERROR);
+  int ancil_fds[n_fds];
+  int n_recv = ancil_recv_fds(socket, ancil_fds, n_fds);
+  DEBUG("received " << n_recv << " new fds");
+  if (n_recv > 0) {
+    for (int i = 0; i < n_fds; i++) {
+      DEBUG("recv fds[" << i << "]: " << ancil_fds[i]);
     }
+    *fd = ancil_fds[0];
+    children->inst_count_fd = ancil_fds[1];
+    for (int i = 2; i < n_fds; i++) {
+      children->event_fds[i - 2] = ancil_fds[i];
+    }
+    return true;
   }
-
-  DEBUG("received tid " << tid);
-
-  *fd = CMSG_DATA(cmsg)[0];
-  DEBUG("fd[0] = " << (int)CMSG_DATA(cmsg)[0]);
-  children->sample_buf.fd = *fd;
-  children->inst_count_fd = CMSG_DATA(cmsg)[1];
-  DEBUG("fd[1] = " << (int)CMSG_DATA(cmsg)[1]);
-  for (int i = 2; i < n_fds; i++) {
-    children->event_fds[i - 2] = CMSG_DATA(cmsg)[i];
-    DEBUG("fd[" << i << "] = " << (int)CMSG_DATA(cmsg)[i]);
-  }
-
-  return true;
+  return false;
 }
 
 bool send_perf_fds(int socket, int fd, child_fds *children) {
   size_t n_fds = num_perf_fds();
-  DEBUG("send n_fds " << n_fds);
-  msghdr msg = {0};
-  ANCIL_FD_BUFFER(ANCIL_MAX_N_FDS) buf;
-
-  pid_t tid = gettid();
-  struct iovec ios[] = {{&tid, sizeof(pid_t)}};
-  DEBUG("sending tid " << tid);
-
-  msg.msg_iov = ios;
-  msg.msg_iovlen = 1;
-  msg.msg_control = (void *)&buf;
-  msg.msg_controllen = sizeof(struct cmsghdr) + sizeof(int) * n_fds;
-
-  struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
-  cmsg->cmsg_len = msg.msg_controllen;
-  cmsg->cmsg_level = SOL_SOCKET;
-  cmsg->cmsg_type = SCM_RIGHTS;
-
-  DEBUG("fds[0] = " << fd);
-  ((int *)CMSG_DATA(cmsg))[0] = fd;
-  DEBUG("fds[1] = " << children->inst_count_fd);
-  ((int *)CMSG_DATA(cmsg))[1] = children->inst_count_fd;
+  int ancil_fds[n_fds];
+  ancil_fds[0] = fd;
+  ancil_fds[1] = children->inst_count_fd;
   for (int i = 2; i < n_fds; i++) {
-    DEBUG("fds[" << i << "] = " << children->event_fds[i - 2]);
-    ((int *)CMSG_DATA(cmsg))[i] = children->event_fds[i - 2];
+    ancil_fds[i] = children->event_fds[i - 2];
   }
-
-  DEBUG("sending perf fds");
-  int sent = sendmsg(socket, &msg, 0);
-  DEBUG("sent " << sent);
-  return sent > 0;
+  return ancil_send_fds(socket, ancil_fds, n_fds) == 0;
 }
 
 void handle_perf_register(int fd, child_fds *children) {
   DEBUG("cpd: handling perf_setup_result for fd " << fd << ", adding to epoll");
   add_sample_fd(fd);
-  DEBUG("cpd:inserting mapping for fd " << fd);
+  DEBUG("cpd: inserting mapping for fd " << fd);
   lock_guard<mutex> lock(cfm_mutex);
   child_fd_mappings.insert(make_pair(fd, *children));
 }
@@ -394,8 +342,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           int fd;
           child_fds children;
           while (recv_perf_fds(socket, &fd, &children)) {
-            DEBUG("cpd: received request for fd " << fd
-                                                  << ", setting up buffer");
+            DEBUG("cpd: setting up buffer for fd " << fd);
             if (setup_buffer(&children.sample_buf, fd) !=
                 SAMPLER_MONITOR_SUCCESS) {
               shutdown(subject_pid, result_file, INTERNAL_ERROR);
@@ -423,7 +370,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           }
 
           long long num_instructions = 0;
-          DEBUG("cpd: reading from fd " << children.inst_count_fd);`
+          DEBUG("cpd: reading from fd " << children.inst_count_fd);
           read(children.inst_count_fd, &num_instructions,
                sizeof(num_instructions));
           DEBUG("cpd: read in from fd "
@@ -486,6 +433,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               }
 
               long long count = 0;
+              DEBUG("cpd: reading from fd " << children.event_fds[i]);
               read(children.event_fds[i], &count, sizeof(long long));
               if (reset_monitoring(children.event_fds[i]) !=
                   SAMPLER_MONITOR_SUCCESS) {
