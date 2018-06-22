@@ -6,22 +6,19 @@ const d3 = require("d3");
 function render(root, { data }) {
   const functionRuntimesMap = {};
   for (const timeSlice of data) {
-    if (timeSlice.selected) {
-      for (const i in timeSlice.stackFrames) {
-        const functionName = timeSlice.stackFrames[i].name;
-        if (functionName !== "(null)") {
-          functionRuntimesMap[functionName] = functionRuntimesMap[
-            functionName
-          ] || {
-            selfTime: 0,
-            cumulativeTime: 0
-          };
-          functionRuntimesMap[functionName].cumulativeTime +=
-            timeSlice.numCPUCycles;
-          if (+i === 0) {
-            functionRuntimesMap[functionName].selfTime +=
-              timeSlice.numCPUCycles;
-          }
+    for (const i in timeSlice.stackFrames) {
+      const functionName = timeSlice.stackFrames[i].name;
+      if (functionName !== "(null)") {
+        functionRuntimesMap[functionName] = functionRuntimesMap[
+          functionName
+        ] || {
+          selfTime: 0,
+          cumulativeTime: 0
+        };
+        functionRuntimesMap[functionName].cumulativeTime +=
+          timeSlice.numCPUCycles;
+        if (+i === 0) {
+          functionRuntimesMap[functionName].selfTime += timeSlice.numCPUCycles;
         }
       }
     }

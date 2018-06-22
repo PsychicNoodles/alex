@@ -116,7 +116,9 @@ function drawBrush({ data, xScale, svg, circles, getIndependentVariable }) {
       brushed({ brush: this, data, xScale, circles, getIndependentVariable });
     })
     .on("end", () =>
-      d3.select(".function-runtimes").call(functionRuntimes.render, { data })
+      d3
+        .select(".function-runtimes")
+        .call(functionRuntimes.render, { data: data.filter(d => d.selected) })
     );
 
   // Add brush to SVG object
