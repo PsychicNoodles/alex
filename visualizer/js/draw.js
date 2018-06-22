@@ -207,7 +207,7 @@ function brushed(context, timeslices, circles, xScale) {
       }
     });
   }
-  const chiSquared = chiSquaredTest(data);
+  const chiSquared = chiSquaredTest(timeslices);
 }
 
 // Create a table of the points selected by the brush
