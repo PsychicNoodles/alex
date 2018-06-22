@@ -1,7 +1,7 @@
 const d3 = require("d3");
 
 /* This func makes the scatter plot */
-function renderPlot({ data, densityMax, svg, spectrum }) {
+function render({ data, densityMax, svg, spectrum }) {
   // Create the points and position them in the plot
   const plot = svg.append("g").attr("id", "plot");
 
@@ -103,4 +103,4 @@ function getPlotData({
   return renderableData;
 }
 
-module.exports = { renderPlot, getPlotData };
+module.exports = { render, getPlotData };

@@ -7,8 +7,8 @@ const { legendColor } = require("d3-svg-legend");
 
 const chiSquaredTest = require("./analysis");
 const { CHART_WIDTH, CHART_HEIGHT } = require("./util");
-const { renderPlot, getPlotData } = require("./plot");
-const { renderFunctionRuntimes } = require("./function-runtimes");
+const plot = require("./plot");
+const functionRuntimes = require("./function-runtimes");
 
 const spectrum = d3.interpolateGreens;
 
@@ -32,7 +32,7 @@ function draw(
     .scaleLinear()
     .domain([yScaleMax, 0])
     .range([0, CHART_HEIGHT]);
-  const plotData = getPlotData({
+  const plotData = plot.getPlotData({
     data,
     xScale,
     yScale,
@@ -47,7 +47,7 @@ function draw(
   svg.selectAll("*").remove();
 
   /* Actual drawing */
-  const circles = renderPlot({
+  const circles = plot.render({
     data: plotData,
     xScale,
     yScale,
@@ -116,7 +116,7 @@ function drawBrush({ data, xScale, svg, circles, getIndependentVariable }) {
       brushed({ brush: this, data, xScale, circles, getIndependentVariable });
     })
     .on("end", () =>
-      d3.select(".function-runtimes").call(renderFunctionRuntimes, { data })
+      d3.select(".function-runtimes").call(functionRuntimes.render, { data })
     );
 
   // Add brush to SVG object

@@ -1,6 +1,6 @@
 const d3 = require("d3");
 
-function renderXAxisSelect(root, { onOptionSelect, options }) {
+function render(root, { onOptionSelect, options }) {
   const optionContainers = root
     .selectAll(".x-axis-select__option-container")
     .data(options);
@@ -29,4 +29,4 @@ function renderXAxisSelect(root, { onOptionSelect, options }) {
   optionContainers.exit().remove();
 }
 
-module.exports = { renderXAxisSelect };
+module.exports = { render };

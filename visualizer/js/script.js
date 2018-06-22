@@ -6,7 +6,7 @@ require("bootstrap");
 
 const { processData } = require("./process-data");
 const { draw } = require("./draw");
-const { renderXAxisSelect } = require("./x-axis-select");
+const xAxisSelect = require("./x-axis-select");
 
 const xAxisOptions = [
   {
@@ -31,7 +31,7 @@ ipcRenderer.on("result", (event, resultFile) => {
 
   const processedData = processData(result.timeslices);
 
-  d3.select(".x-axis-select").call(renderXAxisSelect, {
+  d3.select(".x-axis-select").call(xAxisSelect.render, {
     options: xAxisOptions,
     onOptionSelect: xAxisOption => {
       const getIndependentVariable = d => d[xAxisOption.independentVariable];

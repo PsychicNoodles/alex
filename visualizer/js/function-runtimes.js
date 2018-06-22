@@ -3,7 +3,7 @@ const d3 = require("d3");
 /**
  * Create a table of function runtimes
  */
-function renderFunctionRuntimes(root, { data }) {
+function render(root, { data }) {
   const functionRuntimesMap = {};
   for (const timeSlice of data) {
     if (timeSlice.selected) {
@@ -73,4 +73,4 @@ function renderFunctionRuntimes(root, { data }) {
   tableDataSelection.exit().remove();
 }
 
-module.exports = { renderFunctionRuntimes };
+module.exports = { render };
