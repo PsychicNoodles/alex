@@ -112,8 +112,8 @@ function createBrush(timeslices, circles, brushes, gBrushes, xScale, getIndepend
   var brush = d3
     .brushX()
     .extent([[0, 0], [CHART_WIDTH, CHART_HEIGHT]])
-    .on("start", function () { brushed({ brush: this, timeslices, xScale, circles, getIndependentVariable }); })
-    .on("brush", function () { brushed({ brush: this, timeslices, xScale, circles, getIndependentVariable }); })
+    .on("start", function () { brushed({ brush: this, gBrushes, timeslices, xScale, circles, getIndependentVariable }); })
+    .on("brush", function () { brushed({ brush: this, gBrushes, timeslices, xScale, circles, getIndependentVariable }); })
     .on("end", function () { brushEnd(timeslices, brushes, gBrushes, circles, xScale, getIndependentVariable); });
 
   // Add brush to array of objects
@@ -164,22 +164,35 @@ function drawBrushes(gBrushes, brushes) {
 }
 
 // Re-color the circles in the region that was selected by the user
-function brushed({ brush, timeslices, xScale, circles, getIndependentVariable }) {
+function brushed({ gBrushes, timeslices, xScale, circles, getIndependentVariable }) {
   if (d3.event.selection !== null) {
     circles.attr("class", "circle");
-    const brushArea = d3.brushSelection(brush);
-
-    circles
-      .filter(function () {
-        const cx = d3.select(brush).attr("cx");
-        return brushArea[0] <= cx && cx <= brushArea[1];
-      })
-      .attr("class", "brushed");
 
     for (const timeslice of timeslices) {
-      const x = xScale(getIndependentVariable(timeslice));
-      timeslice.selected = brushArea[0] <= x && x <= brushArea[1];
+      timeslice.selected = false;
     }
+
+    gBrushes.selectAll("g.brush").each(
+      function() {
+        const brushArea = d3.brushSelection(this);
+
+        circles
+          .filter(function () {
+            const cx = d3.select(this).attr("cx");
+            return brushArea[0] <= cx && cx <= brushArea[1];
+          })
+          .attr("class", "brushed");
+
+        for (const timeslice of timeslices) {
+          const x = xScale(getIndependentVariable(timeslice));
+          if (brushArea[0] <= x && x <= brushArea[1]) {
+            timeslice.selected = true;
+          }
+        }
+      }
+    )
+
+    
   }
   const chiSquared = chiSquaredTest(timeslices);
 }
