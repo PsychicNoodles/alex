@@ -1,8 +1,7 @@
 const d3 = require("d3");
 
-function renderXAxisSelect({ onOptionSelect, options }) {
-  const optionContainers = d3
-    .select(".x-axis-select")
+function renderXAxisSelect(root, { onOptionSelect, options }) {
+  const optionContainers = root
     .selectAll(".x-axis-select__option-container")
     .data(options);
 

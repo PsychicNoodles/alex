@@ -8,6 +8,7 @@ const { legendColor } = require("d3-svg-legend");
 const chiSquaredTest = require("./analysis");
 const { CHART_WIDTH, CHART_HEIGHT } = require("./util");
 const { renderPlot, getPlotData } = require("./plot");
+const { renderFunctionRuntimes } = require("./function-runtimes");
 
 const spectrum = d3.interpolateGreens;
 
@@ -121,7 +122,9 @@ function drawBrush({
     .on("brush", function() {
       brushed({ brush: this, data, xScale, circles, getIndependentVariable });
     })
-    .on("end", () => createTable({ data, xAxisLabel, getIndependentVariable }));
+    .on("end", () =>
+      d3.select(".function-runtimes").call(renderFunctionRuntimes, { data })
+    );
 
   // Add brush to SVG object
   svg
@@ -176,79 +179,6 @@ function brushed({ brush, data, xScale, circles, getIndependentVariable }) {
     }
   }
   const chiSquared = chiSquaredTest(data);
-}
-
-// Create a table of the points selected by the brush
-function createTable({ data }) {
-  const functionRuntimesMap = {};
-  for (const timeSlice of data) {
-    if (timeSlice.selected) {
-      for (const i in timeSlice.stackFrames) {
-        const functionName = timeSlice.stackFrames[i].name;
-        if (functionName !== "(null)") {
-          functionRuntimesMap[functionName] = functionRuntimesMap[
-            functionName
-          ] || {
-            selfTime: 0,
-            cumulativeTime: 0
-          };
-          functionRuntimesMap[functionName].cumulativeTime +=
-            timeSlice.numCPUCycles;
-          if (+i === 0) {
-            functionRuntimesMap[functionName].selfTime +=
-              timeSlice.numCPUCycles;
-          }
-        }
-      }
-    }
-  }
-
-  const functionRuntimesArray = [];
-  for (const functionName in functionRuntimesMap) {
-    functionRuntimesArray.push({
-      ...functionRuntimesMap[functionName],
-      name: functionName
-    });
-  }
-
-  functionRuntimesArray.sort((a, b) => {
-    if (a.selfTime === b.selfTime) {
-      return b.cumulativeTime - a.cumulativeTime;
-    } else {
-      return b.selfTime - a.selfTime;
-    }
-  });
-
-  d3.select(".function-runtimes__header-row").remove();
-  const headerRowSelection = d3
-    .select(".function-runtimes")
-    .insert("tr", "tr")
-    .attr("class", "function-runtimes__header-row");
-  headerRowSelection.append("th").text("Function Name");
-  headerRowSelection.append("th").text(`Self Time (CPU Cycles)`);
-  headerRowSelection.append("th").text(`Cumulative Time (CPU Cycles)`);
-
-  const tableDataSelection = d3
-    .select(".function-runtimes")
-    .selectAll(".function-runtimes__data-row")
-    .data(functionRuntimesArray.slice(0, 100));
-
-  tableDataSelection
-    .enter()
-    .append("tr")
-    .attr("class", "function-runtimes__data-row")
-    .merge(tableDataSelection)
-    .each(function({ name, selfTime, cumulativeTime }) {
-      const row = d3.select(this);
-      row.selectAll("td").remove();
-      row.append("td").text(name);
-
-      const numberFormatter = d3.format(".4s");
-      row.append("td").text(numberFormatter(selfTime));
-      row.append("td").text(numberFormatter(cumulativeTime));
-    });
-
-  tableDataSelection.exit().remove();
 }
 
 function drawLegend(densityMax, svg) {

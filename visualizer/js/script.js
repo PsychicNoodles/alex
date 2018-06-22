@@ -1,3 +1,4 @@
+const d3 = require("d3");
 const { ipcRenderer } = require("electron");
 const fs = require("fs");
 
@@ -30,7 +31,7 @@ ipcRenderer.on("result", (event, resultFile) => {
 
   const processedData = processData(result.timeslices);
 
-  renderXAxisSelect({
+  d3.select(".x-axis-select").call(renderXAxisSelect, {
     options: xAxisOptions,
     onOptionSelect: xAxisOption => {
       const getIndependentVariable = d => d[xAxisOption.independentVariable];
