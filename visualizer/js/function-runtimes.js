@@ -61,13 +61,23 @@ function render(root, { data }) {
     .attr("class", "function-runtimes__data-row")
     .merge(tableDataSelection)
     .each(function({ name, selfTime, cumulativeTime }) {
-      const row = d3.select(this);
-      row.selectAll("td").remove();
-      row.append("td").text(name);
-
       const numberFormatter = d3.format(".4s");
-      row.append("td").text(numberFormatter(selfTime));
-      row.append("td").text(numberFormatter(cumulativeTime));
+      const row = d3
+        .select(this)
+        .selectAll("td")
+        .data([
+          name,
+          numberFormatter(selfTime),
+          numberFormatter(cumulativeTime)
+        ]);
+
+      row
+        .enter()
+        .append("td")
+        .merge(row)
+        .text(text => text);
+
+      row.exit().remove();
     });
 
   tableDataSelection.exit().remove();
