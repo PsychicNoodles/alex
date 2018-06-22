@@ -35,7 +35,7 @@ clean-res:
 tidy:
 	@for src in $(SOURCES) ; do \
 		echo "Running $(TIDY) on $$src..." ; \
-		$(TIDY) -extra-arg=-std=c++11 -checks"=clang-analyzer-*,readability-*"\
+		$(TIDY) -extra-arg=-std=c++11 -checks"=clang-analyzer-*"\
 			"$(SRC_DIR)/$$src" -- "$(SRC_DIR)/$$src" ; \
 	done
 	@echo "Finished tidying"

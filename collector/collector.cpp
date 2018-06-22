@@ -120,6 +120,7 @@ static int collector_main(int argc, char **argv, char **env) {
     result = subject_main_fn(argc, argv, env);
 
     DEBUG("collector_main: finished in child, killing parent");
+    close(sockets[1]);
     if (kill(collector_pid, SIGTERM)) {
       perror("couldn't kill collector process");
       exit(INTERNAL_ERROR);
@@ -151,16 +152,13 @@ static int collector_main(int argc, char **argv, char **env) {
       ;
 
     DEBUG("collector_main: received child ready signal, starting analyzer");
-    try {
-      result =
-          collect_perf_data(subject_pid, kernel_syms, sigterm_fd, sockets[0]);
-    } catch (std::exception &e) {
-      DEBUG("collector_main: uncaught error in analyzer: " << e.what());
-      result = INTERNAL_ERROR;
-    }
+    result =
+        collect_perf_data(subject_pid, kernel_syms, sigterm_fd, sockets[0]);
+
     DEBUG("collector_main: finished analyzer, closing file");
 
     fclose(result_file);
+    close(sockets[0]);
   } else {
     exit(INTERNAL_ERROR);
   }
