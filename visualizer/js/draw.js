@@ -48,7 +48,7 @@ function draw(
     svg
   );
   drawAxes(xScale, yScale, xAxisLabel, yAxisLabel, svg);
-  drawBrush(data, xScale, svg, circles);
+  drawBrush({ data, xScale, svg, circles, xAxisLabel, getIndependentVariable });
   drawLegend(densityMax, svgLegend);
 }
 
@@ -121,7 +121,14 @@ function drawPlot(
   return circles; // FIX: this is gross
 }
 
-function drawBrush(data, xScale, svg, circles) {
+function drawBrush({
+  data,
+  xScale,
+  svg,
+  circles,
+  xAxisLabel,
+  getIndependentVariable
+}) {
   const x = d3
     .scaleLinear()
     .domain([0, 20])
@@ -134,7 +141,7 @@ function drawBrush(data, xScale, svg, circles) {
     .on("brush", function() {
       brushed.call(this, data, xScale, circles);
     })
-    .on("end", () => createTable(data));
+    .on("end", () => createTable({ data, xAxisLabel, getIndependentVariable }));
 
   // Add brush to SVG object
   svg
@@ -200,41 +207,73 @@ function brushed(data, xScale, circles) {
 }
 
 // Create a table of the points selected by the brush
-function createTable(data) {
+function createTable({ data }) {
   const functionRuntimesMap = {};
   for (const timeSlice of data) {
     if (timeSlice.selected) {
-      const functionName = timeSlice.stackFrames[0].name;
-      functionRuntimesMap[functionName] =
-        (functionRuntimesMap[functionName] || 0) + timeSlice.numCPUCycles;
+      for (const i in timeSlice.stackFrames) {
+        const functionName = timeSlice.stackFrames[i].name;
+        if (functionName !== "(null)") {
+          functionRuntimesMap[functionName] = functionRuntimesMap[
+            functionName
+          ] || {
+            selfTime: 0,
+            cumulativeTime: 0
+          };
+          functionRuntimesMap[functionName].cumulativeTime +=
+            timeSlice.numCPUCycles;
+          if (+i === 0) {
+            functionRuntimesMap[functionName].selfTime +=
+              timeSlice.numCPUCycles;
+          }
+        }
+      }
     }
   }
 
   const functionRuntimesArray = [];
   for (const functionName in functionRuntimesMap) {
     functionRuntimesArray.push({
-      name: functionName,
-      selfTime: functionRuntimesMap[functionName]
+      ...functionRuntimesMap[functionName],
+      name: functionName
     });
   }
 
-  functionRuntimesArray.sort((a, b) => b.selfTime - a.selfTime);
+  functionRuntimesArray.sort((a, b) => {
+    if (a.selfTime === b.selfTime) {
+      return b.cumulativeTime - a.cumulativeTime;
+    } else {
+      return b.selfTime - a.selfTime;
+    }
+  });
+
+  d3.select(".function-runtimes__header-row").remove();
+  const headerRowSelection = d3
+    .select(".function-runtimes")
+    .insert("tr", "tr")
+    .attr("class", "function-runtimes__header-row");
+  headerRowSelection.append("th").text("Function Name");
+  headerRowSelection.append("th").text(`Self Time (CPU Cycles)`);
+  headerRowSelection.append("th").text(`Cumulative Time (CPU Cycles)`);
 
   const tableDataSelection = d3
     .select(".function-runtimes")
-    .selectAll(".function-runtimes__datum")
+    .selectAll(".function-runtimes__data-row")
     .data(functionRuntimesArray.slice(0, 100));
 
   tableDataSelection
     .enter()
     .append("tr")
-    .attr("class", "function-runtimes__datum")
+    .attr("class", "function-runtimes__data-row")
     .merge(tableDataSelection)
-    .each(function({ name, selfTime }) {
+    .each(function({ name, selfTime, cumulativeTime }) {
       const row = d3.select(this);
       row.selectAll("td").remove();
       row.append("td").text(name);
-      row.append("td").text(String(selfTime));
+
+      const numberFormatter = d3.format(".4s");
+      row.append("td").text(numberFormatter(selfTime));
+      row.append("td").text(numberFormatter(cumulativeTime));
     });
 
   tableDataSelection.exit().remove();
