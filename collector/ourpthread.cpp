@@ -89,12 +89,11 @@ void *__imposter(void *arg) {
   // timespec spec{0, 500000000};
   // nanosleep(&spec, NULL);
 
-  int fd;
-  child_fds children;
+  perf_fd_info info;
   DEBUG(tid << ": setting up perf events");
-  setup_perf_events(tid, HANDLE_EVENTS, &fd, &children);
-  DEBUG(tid << ": registering fd " << fd << " with collector for bookkeeping");
-  if (!send_perf_fds(perf_register_sock, fd, &children)) {
+  setup_perf_events(tid, HANDLE_EVENTS, &info);
+  DEBUG(tid << ": registering fd " << info.cpu_cycles_fd << " with collector for bookkeeping");
+  if (!send_perf_fds(perf_register_sock, &info)) {
     perror("failed to send new thread's fd");
     shutdown(collector_pid, NULL, INTERNAL_ERROR);
   }

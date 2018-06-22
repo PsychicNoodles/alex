@@ -13,8 +13,23 @@
 #include <unistd.h>
 #include <string>
 
+struct perf_buffer {
+  int fd;
+  perf_event_mmap_page *info;
+  void *data;
+};
+
+struct perf_fd_info {
+  int cpu_cycles_fd;
+  pid_t tid;
+  perf_buffer sample_buf;
+  int inst_count_fd;
+  int *event_fds;
+};
+
 #include "const.hpp"
 #include "debug.hpp"
+#include "perf_reader.hpp"
 #include "util.hpp"
 
 #define PAGE_SIZE 0x1000LL
@@ -28,17 +43,11 @@
 #define SAMPLER_MONITOR_ERROR 1
 #define SAMPLER_MONITOR_PROCESS_NOT_FOUND 2
 
-struct perf_buffer {
-  int fd;
-  perf_event_mmap_page *info;
-  void *data;
-};
-
 inline size_t perf_buffer_data_size() { return BUFFER_SIZE - PAGE_SIZE; }
 
 // Configure the perf buffer
 int setup_monitoring(perf_buffer *perf, perf_event_attr *attr, int pid);
-int setup_buffer(perf_buffer *result, int fd);
+int setup_buffer(perf_fd_info *info);
 
 // Control monitoring
 int reset_monitoring(int fd);

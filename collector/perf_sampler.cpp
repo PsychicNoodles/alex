@@ -16,20 +16,20 @@ int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
   }
 
   result->fd = fd;
-  
+
   return SAMPLER_MONITOR_SUCCESS;
 }
 
-int setup_buffer(perf_buffer *result, int fd) {
-  void *buffer =
-      mmap(0, BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+int setup_buffer(perf_fd_info *info) {
+  void *buffer = mmap(0, BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED,
+                      info->cpu_cycles_fd, 0);
   if (buffer == MAP_FAILED) {
     perror("setup_monitoring: mmap");
     return SAMPLER_MONITOR_ERROR;
   }
-  result->info = (perf_event_mmap_page *)buffer;
-  result->data = (char *)buffer + PAGE_SIZE;
-  
+  info->sample_buf.info = (perf_event_mmap_page *)buffer;
+  info->sample_buf.data = (char *)buffer + PAGE_SIZE;
+
   return SAMPLER_MONITOR_SUCCESS;
 }
 
@@ -95,7 +95,7 @@ int setup_pfm_os_event(perf_event_attr *attr, char *event_name) {
   int pfm_result = pfm_get_os_event_encoding(event_name, PFM_PLM3,
                                              PFM_OS_PERF_EVENT_EXT, &pfm);
   DEBUG("encoding result: " << pfm_result);
-  
+
   attr->disabled = true;
   attr->size = sizeof(perf_event_attr);
   attr->exclude_kernel = true;
