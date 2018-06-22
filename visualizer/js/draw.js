@@ -112,15 +112,15 @@ function createBrush(timeslices, circles, brushes, gBrushes, xScale, getIndepend
   var brush = d3
     .brushX()
     .extent([[0, 0], [CHART_WIDTH, CHART_HEIGHT]])
-    .on("start", function () { brushed({ brush: this, data, xScale, circles, getIndependentVariable }); })
-    .on("brush", function () { brushed({ brush: this, data, xScale, circles, getIndependentVariable }); })
-    .on("end", function () { brushEnd(timeslices, brushes, gBrushes, circles, xScale); });
+    .on("start", function () { brushed({ brush: this, timeslices, xScale, circles, getIndependentVariable }); })
+    .on("brush", function () { brushed({ brush: this, timeslices, xScale, circles, getIndependentVariable }); })
+    .on("end", function () { brushEnd(timeslices, brushes, gBrushes, circles, xScale, getIndependentVariable); });
 
   // Add brush to array of objects
   brushes.push({ id: brushes.length, brush: brush });
 }
 
-function brushEnd(timeslices, brushes, gBrushes, circles, xScale) {
+function brushEnd(timeslices, brushes, gBrushes, circles, xScale, getIndependentVariable) {
   d3.select(".function-runtimes").call(functionRuntimes.render, { data: timeslices.filter(d => d.selected) });
   var lastBrushId = brushes[brushes.length - 1].id;
   var lastBrush = document.getElementById('brush-' + lastBrushId);
@@ -128,7 +128,7 @@ function brushEnd(timeslices, brushes, gBrushes, circles, xScale) {
 
   // If the latest brush has a selection, make a new one
   if (selection && selection[0] !== selection[1]) {
-    createBrush(timeslices, circles, brushes, gBrushes, xScale);
+    createBrush(timeslices, circles, brushes, gBrushes, xScale, getIndependentVariable);
   }
 
   drawBrushes(gBrushes, brushes);
@@ -164,21 +164,21 @@ function drawBrushes(gBrushes, brushes) {
 }
 
 // Re-color the circles in the region that was selected by the user
-function brushed({ brush, data, xScale, circles, getIndependentVariable }) {
+function brushed({ brush, timeslices, xScale, circles, getIndependentVariable }) {
   if (d3.event.selection !== null) {
     circles.attr("class", "circle");
     const brushArea = d3.brushSelection(brush);
 
     circles
       .filter(function () {
-        const cx = d3.select(context).attr("cx");
+        const cx = d3.select(brush).attr("cx");
         return brushArea[0] <= cx && cx <= brushArea[1];
       })
       .attr("class", "brushed");
 
-    for (const d of data) {
-      const x = xScale(getIndependentVariable(d));
-      d.selected = brushArea[0] <= x && x <= brushArea[1];
+    for (const timeslice of timeslices) {
+      const x = xScale(getIndependentVariable(timeslice));
+      timeslice.selected = brushArea[0] <= x && x <= brushArea[1];
     }
   }
   const chiSquared = chiSquaredTest(timeslices);
