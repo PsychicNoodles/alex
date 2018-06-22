@@ -15,6 +15,12 @@
     "chrono": "cpp",
     "istream": "cpp",
     "iosfwd": "cpp",
-    "cerrno": "cpp"
+    "cerrno": "cpp",
+    "fstream": "cpp",
+    "*.tcc": "cpp",
+    "deque": "cpp",
+    "list": "cpp",
+    "unordered_map": "cpp",
+    "vector": "cpp"
   }
 }

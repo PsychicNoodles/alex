@@ -47,7 +47,8 @@ void create_raw_event_attr(struct perf_event_attr *attr, const char *event_name,
 }
 
 // /*
-//  * Sends a request to register a perf event from the current thread to the main
+//  * Sends a request to register a perf event from the current thread to the
+//  main
 //  * cpd process and thread
 //  */
 // bool register_perf(int socket, int fd, child_fds *children) {
@@ -92,7 +93,8 @@ void *__imposter(void *arg) {
   perf_fd_info info;
   DEBUG(tid << ": setting up perf events");
   setup_perf_events(tid, HANDLE_EVENTS, &info);
-  DEBUG(tid << ": registering fd " << info.cpu_cycles_fd << " with collector for bookkeeping");
+  DEBUG(tid << ": registering fd " << info.cpu_cycles_fd
+            << " with collector for bookkeeping");
   if (!send_perf_fds(perf_register_sock, &info)) {
     perror("failed to send new thread's fd");
     shutdown(collector_pid, NULL, INTERNAL_ERROR);
@@ -101,7 +103,9 @@ void *__imposter(void *arg) {
   DEBUG(tid << ": starting routine");
   void *ret = routine(arguments);
   // DEBUG(tid << ": returned as long " << *((long *)ret));
-  DEBUG(tid << ": finished routine");
+  DEBUG(tid << ": finished routine, unregistering fd " << info.cpu_cycles_fd);
+  remove_perf_fds(perf_register_sock, &info);
+  DEBUG(tid << ": exiting");
   return ret;
 }
 

@@ -22,10 +22,10 @@
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <algorithm>
 #include <exception>
 #include <fstream>
 #include <iostream>
-#include <mutex>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -55,7 +55,6 @@ pid_t collector_pid;
 FILE *result_file;
 vector<string> events;
 map<int, perf_fd_info> perf_info_mappings;
-mutex cfm_mutex;
 vector<monitoring_attempt> setup_perf_tries;
 
 using namespace std;
@@ -90,6 +89,18 @@ void add_sample_fd(int fd) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
   sample_fd_count++;
+}
+
+void remove_sample_fd(int fd) {
+  DEBUG("removing " << fd << " from epoll " << sample_epfd);
+  epoll_event evt = {NULL, {.fd = fd}};
+  if (epoll_ctl(sample_epfd, EPOLL_CTL_DEL, fd, &evt) == -1) {
+    char buf[128];
+    snprintf(buf, 128, "error removing perf fd %d", fd);
+    perror(buf);
+    shutdown(subject_pid, result_file, INTERNAL_ERROR);
+  }
+  sample_fd_count--;
 }
 
 bool setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
@@ -220,6 +231,12 @@ bool setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
 //   }
 // }
 
+inline map<int, perf_fd_info>::iterator find_perf_info_by_thread(pid_t tid) {
+  return find_if(
+      perf_info_mappings.begin(), perf_info_mappings.end(),
+      [tid](const pair<int, perf_fd_info> &p) { return p.second.tid == tid; });
+}
+
 bool recv_perf_fds(int socket, perf_fd_info *info) {
   size_t n_fds = num_perf_fds();
   int ancil_fds[n_fds];
@@ -231,6 +248,7 @@ bool recv_perf_fds(int socket, perf_fd_info *info) {
   if (n_recv > 0) {
     DEBUG("received tid " << tid << ", cmd " << cmd);
     if (cmd == SOCKET_CMD_REGISTER) {
+      DEBUG("registering new fds for tid " << tid);
       for (int i = 0; i < n_fds; i++) {
         DEBUG("recv fds[" << i << "]: " << ancil_fds[i]);
       }
@@ -239,9 +257,31 @@ bool recv_perf_fds(int socket, perf_fd_info *info) {
       for (int i = 2; i < n_fds; i++) {
         info->event_fds[i - 2] = ancil_fds[i];
       }
+      info->tid = tid;
       return true;
     } else if (cmd == SOCKET_CMD_UNREGISTER) {
-      // todo
+      DEBUG("unregistering fds for tid " << tid);
+      auto pair = find_perf_info_by_thread(tid);
+      if (pair != perf_info_mappings.end()) {
+        auto &info = pair->second;
+        DEBUG("found associated info (fd " << info.cpu_cycles_fd
+                                           << "), removing from epoll");
+        remove_sample_fd(info.cpu_cycles_fd);
+        DEBUG("closing all associated fds");
+        close(info.cpu_cycles_fd);
+        close(info.inst_count_fd);
+        for (int i = 0; i < n_fds - 2; i++) {
+          close(info.event_fds[i]);
+        }
+        DEBUG("removing mapping");
+        perf_info_mappings.erase(pair->first);
+
+        DEBUG("successfully removed fd " << info.cpu_cycles_fd
+                                         << " and associated fds for thread "
+                                         << tid);
+      } else {
+        DEBUG("couldn't find perf info for thread " << tid);
+      }
     } else {
       DEBUG("received invalid socket cmd");
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
@@ -265,12 +305,19 @@ bool send_perf_fds(int socket, perf_fd_info *info) {
   return ancil_send_fds_with_msg(socket, ancil_fds, n_fds, ios, 2) == 0;
 }
 
+bool remove_perf_fds(int socket, perf_fd_info *info) {
+  pid_t tid = gettid();
+  int cmd = SOCKET_CMD_UNREGISTER;
+  DEBUG("sending tid " << tid << ", cmd " << cmd);
+  struct iovec ios[]{{&tid, sizeof(pid_t)}, {&cmd, sizeof(int)}};
+  return ancil_send_fds_with_msg(socket, NULL, 0, ios, 2) == 0;
+}
+
 void handle_perf_register(perf_fd_info *info) {
   DEBUG("cpd: handling perf_setup_result for fd " << info->cpu_cycles_fd
                                                   << ", adding to epoll");
   add_sample_fd(info->cpu_cycles_fd);
   DEBUG("cpd: inserting mapping for fd " << info->cpu_cycles_fd);
-  lock_guard<mutex> lock(cfm_mutex);
   perf_info_mappings.insert(make_pair(info->cpu_cycles_fd, *info));
 }
 
