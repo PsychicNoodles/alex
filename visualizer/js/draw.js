@@ -58,8 +58,7 @@ function draw(
     spectrum
   });
 
-  const gBrushes = svg.append('g')
-    .attr("class", "brushes");
+  const gBrushes = svg.append("g").attr("class", "brushes");
   const brushes = [];
 
   drawAxes(xScale, yScale, xAxisLabel, yAxisLabel, svg);
@@ -108,69 +107,120 @@ function drawAxes(xScale, yScale, xAxisLabel, yAxisLabel, svg) {
     .text(yAxisLabel);
 }
 
-function createBrush(timeslices, circles, brushes, gBrushes, xScale, getIndependentVariable) {
-  var brush = d3
+function createBrush(
+  timeslices,
+  circles,
+  brushes,
+  gBrushes,
+  xScale,
+  getIndependentVariable
+) {
+  const brush = d3
     .brushX()
     .extent([[0, 0], [CHART_WIDTH, CHART_HEIGHT]])
-    .on("start", function () { brushed({ brush: this, timeslices, xScale, circles, getIndependentVariable }); })
-    .on("brush", function () { brushed({ brush: this, timeslices, xScale, circles, getIndependentVariable }); })
-    .on("end", function () { brushEnd(timeslices, brushes, gBrushes, circles, xScale, getIndependentVariable); });
+    .on("start", function() {
+      brushed({
+        brush: this,
+        timeslices,
+        xScale,
+        circles,
+        getIndependentVariable
+      });
+    })
+    .on("brush", function() {
+      brushed({
+        brush: this,
+        timeslices,
+        xScale,
+        circles,
+        getIndependentVariable
+      });
+    })
+    .on("end", () => {
+      brushEnd(
+        timeslices,
+        brushes,
+        gBrushes,
+        circles,
+        xScale,
+        getIndependentVariable
+      );
+    });
 
   // Add brush to array of objects
   brushes.push({ id: brushes.length, brush: brush });
 }
 
-function brushEnd(timeslices, brushes, gBrushes, circles, xScale, getIndependentVariable) {
-  d3.select(".function-runtimes").call(functionRuntimes.render, { data: timeslices.filter(d => d.selected) });
-  var lastBrushId = brushes[brushes.length - 1].id;
-  var lastBrush = document.getElementById('brush-' + lastBrushId);
-  var selection = d3.brushSelection(lastBrush);
+function brushEnd(
+  timeslices,
+  brushes,
+  gBrushes,
+  circles,
+  xScale,
+  getIndependentVariable
+) {
+  d3.select(".function-runtimes").call(functionRuntimes.render, {
+    data: timeslices.filter(d => d.selected)
+  });
+  const lastBrushId = brushes[brushes.length - 1].id;
+  const lastBrush = document.getElementById("brush-" + lastBrushId);
+  const selection = d3.brushSelection(lastBrush);
 
   // If the latest brush has a selection, make a new one
   if (selection && selection[0] !== selection[1]) {
-    createBrush(timeslices, circles, brushes, gBrushes, xScale, getIndependentVariable);
+    createBrush(
+      timeslices,
+      circles,
+      brushes,
+      gBrushes,
+      xScale,
+      getIndependentVariable
+    );
   }
 
   drawBrushes(gBrushes, brushes);
 }
 
 function drawBrushes(gBrushes, brushes) {
-  var brushSelection = gBrushes
-      .selectAll("g.brush")
-      .data(brushes, function(d) { return d.id; });
+  const brushSelection = gBrushes.selectAll("g.brush").data(brushes, d => d.id);
 
-  brushSelection.enter()
-      .insert('g', '.brush')
-      .attr('class', 'brush')
+  brushSelection
+    .enter()
+    .insert("g", ".brush")
+    .attr("class", "brush")
     .merge(brushSelection)
-      .attr('id', function (brush) { return 'brush-' + brush.id; })
-      .each(function (brushObject) {
-        brushObject.brush(d3.select(this));
-        d3.select(this)
-          .selectAll('.overlay')
-          .style('pointer-events', 
-            function () {
-              var brush = brushObject.brush;
-              if (brushObject.id === brushes.length - 1 && brush != undefined) {
-                return 'all';
-              } else {
-                return 'none';
-              }
-            });
+    .attr("id", brush => "brush-" + brush.id)
+    .each(function(brushObject) {
+      brushObject.brush(d3.select(this));
+      d3.select(this)
+        .selectAll(".overlay")
+        .style("pointer-events", () => {
+          const brush = brushObject.brush;
+          if (brushObject.id === brushes.length - 1 && brush !== undefined) {
+            return "all";
+          } else {
+            return "none";
+          }
+        });
     });
 
-  brushSelection.exit()
-    .remove();
+  brushSelection.exit().remove();
 }
 
 // Re-color the circles in the region that was selected by the user
-function brushed({ brush, timeslices, xScale, circles, getIndependentVariable }) {
+function brushed({
+  brush,
+  timeslices,
+  xScale,
+  circles,
+  getIndependentVariable
+}) {
   if (d3.event.selection !== null) {
     circles.attr("class", "circle");
     const brushArea = d3.brushSelection(brush);
 
     circles
-      .filter(function () {
+      .filter(() => {
         const cx = d3.select(brush).attr("cx");
         return brushArea[0] <= cx && cx <= brushArea[1];
       })
