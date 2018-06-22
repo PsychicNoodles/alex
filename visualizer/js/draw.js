@@ -7,10 +7,10 @@ const { legendColor } = require("d3-svg-legend");
 
 const chiSquaredTest = require("./analysis");
 const { CHART_WIDTH, CHART_HEIGHT } = require("./util");
+const plot = require("./plot");
+const functionRuntimes = require("./function-runtimes");
 
-module.exports = { draw };
-
-const SPECTRUM = d3.interpolateGreens;
+const spectrum = d3.interpolateGreens;
 
 function draw(
   data,
@@ -32,7 +32,14 @@ function draw(
     .scaleLinear()
     .domain([yScaleMax, 0])
     .range([0, CHART_HEIGHT]);
-  const densityMax = d3.max(data, d => d.densityAvg);
+  const plotData = plot.getPlotData({
+    data,
+    xScale,
+    yScale,
+    getIndependentVariable,
+    getDependentVariable
+  });
+  const densityMax = d3.max(plotData, d => d.densityAvg);
 
   svg.attr("viewBox", `0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`);
 
@@ -40,22 +47,23 @@ function draw(
   svg.selectAll("*").remove();
 
   /* Actual drawing */
-  const circles = drawPlot(
-    data,
+  const circles = plot.render({
+    data: plotData,
     xScale,
     yScale,
     getIndependentVariable,
     getDependentVariable,
     densityMax,
-    svg
-  );
+    svg,
+    spectrum
+  });
 
   const gBrushes = svg.append('g')
     .attr("class", "brushes");
   const brushes = [];
 
   drawAxes(xScale, yScale, xAxisLabel, yAxisLabel, svg);
-  createBrush(data, circles, brushes, gBrushes, xScale);
+  createBrush(data, circles, brushes, gBrushes, xScale, getIndependentVariable);
   drawBrushes(gBrushes, brushes);
   drawLegend(densityMax, svgLegend);
 }
@@ -100,41 +108,12 @@ function drawAxes(xScale, yScale, xAxisLabel, yAxisLabel, svg) {
     .text(yAxisLabel);
 }
 
-/* This func makes the scatter plot */
-function drawPlot(
-  data,
-  xScale,
-  yScale,
-  getIndependentVariable,
-  getDependentVariable,
-  densityMax,
-  svg
-) {
-  // Create the points and position them in the plot
-  const plot = svg.append("g").attr("id", "plot");
-
-  const circles = plot
-    .append("g")
-    .attr("class", "circles")
-    .selectAll("circle")
-    .data(data)
-    .enter()
-    .append("circle")
-    .attr("cx", d => xScale(getIndependentVariable(d)))
-    .attr("cy", d => yScale(getDependentVariable(d)))
-    .attr("r", 1)
-    .style("fill", d =>
-      d3.scaleSequential(SPECTRUM)(d.densityAvg / densityMax)
-    );
-  return circles; // FIX: this is gross
-}
-
-function createBrush(timeslices, circles, brushes, gBrushes, xScale) {
+function createBrush(timeslices, circles, brushes, gBrushes, xScale, getIndependentVariable) {
   var brush = d3
     .brushX()
     .extent([[0, 0], [CHART_WIDTH, CHART_HEIGHT]])
-    .on("start", function () { brushed(this, timeslices, circles, xScale); })
-    .on("brush", function () { brushed(this, timeslices, circles, xScale); })
+    .on("start", function () { brushed({ brush: this, data, xScale, circles, getIndependentVariable }); })
+    .on("brush", function () { brushed({ brush: this, data, xScale, circles, getIndependentVariable }); })
     .on("end", function () { brushEnd(timeslices, brushes, gBrushes, circles, xScale); });
 
   // Add brush to array of objects
@@ -142,7 +121,7 @@ function createBrush(timeslices, circles, brushes, gBrushes, xScale) {
 }
 
 function brushEnd(timeslices, brushes, gBrushes, circles, xScale) {
-  createTable(timeslices);
+  d3.select(".function-runtimes").call(functionRuntimes.render, { data: timeslices.filter(d => d.selected) });
   var lastBrushId = brushes[brushes.length - 1].id;
   var lastBrush = document.getElementById('brush-' + lastBrushId);
   var selection = d3.brushSelection(lastBrush);
@@ -184,11 +163,11 @@ function drawBrushes(gBrushes, brushes) {
     .remove();
 }
 
-// Re-color the selected circles and mark them as selected in the array
-function brushed(context, timeslices, circles, xScale) {
-  if (d3.event.selection != null) {
+// Re-color the circles in the region that was selected by the user
+function brushed({ brush, data, xScale, circles, getIndependentVariable }) {
+  if (d3.event.selection !== null) {
     circles.attr("class", "circle");
-    const brushArea = d3.brushSelection(context);
+    const brushArea = d3.brushSelection(brush);
 
     circles
       .filter(function () {
@@ -197,56 +176,19 @@ function brushed(context, timeslices, circles, xScale) {
       })
       .attr("class", "brushed");
 
-    for (let i = 0; i < timeslices.length; i++) {
-      timeslices[i].selected = false;
+    for (const d of data) {
+      const x = xScale(getIndependentVariable(d));
+      d.selected = brushArea[0] <= x && x <= brushArea[1];
     }
-
-    timeslices.map(function (d) {
-      if (brushArea[0] <= xScale(d.totalCycles) && xScale(d.totalCycles) <= brushArea[1]) {
-        d.selected = true;
-      }
-    });
   }
   const chiSquared = chiSquaredTest(timeslices);
-}
-
-// Create a table of the points selected by the brush
-function createTable(timeslices) {
-  d3.selectAll(".row_data").remove();
-  d3.select("table").style("visibility", "visible");
-
-  const circlesSelected = d3.selectAll(".brushed").data();
-
-  if (circlesSelected.length > 0) {
-    timeslices.forEach(function (d) {
-      if (d.selected) {
-        const formatRate = d3.format(".1%");
-        const data = [
-          d.totalCycles,
-          d.events["MEM_LOAD_RETIRED.L3_MISS"],
-          d.events["MEM_LOAD_RETIRED.L3_HIT"],
-          formatRate(d.events.missRates)
-        ];
-
-        d3.select("table")
-          .append("tr")
-          .attr("class", "row_data")
-          .selectAll("td")
-          .data(data)
-          .enter()
-          .append("td")
-          .attr("align", (d, i) => (i == 0 ? "left" : "right"))
-          .text(d => d);
-      }
-    });
-  }
 }
 
 function drawLegend(densityMax, svg) {
   // If the SVG has anything in it, get rid of it. We want a clean slate.
   svg.selectAll("*").remove();
 
-  const sequentialScale = d3.scaleSequential(SPECTRUM).domain([0, densityMax]);
+  const sequentialScale = d3.scaleSequential(spectrum).domain([0, densityMax]);
 
   svg
     .append("g")
@@ -262,3 +204,5 @@ function drawLegend(densityMax, svg) {
 
   svg.select(".legendSequential").call(legendSequential);
 }
+
+module.exports = { draw };

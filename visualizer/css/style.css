@@ -2,19 +2,6 @@ body {
   min-width: 900px;
 }
 
-table {
-  visibility: hidden;
-  position: absolute;
-  top: 0px;
-  left: 1550px;
-  font-family: sans-serif;
-  font-size: 0.7em;
-}
-
-tr:nth-child(even) {
-  background-color: #d9d9d9;
-}
-
 #chart {
   overflow: visible;
   margin-left: 10%;
@@ -36,68 +23,4 @@ tr:nth-child(even) {
 
 .brushed {
   fill: #8e1b54 !important;
-}
-
-/* Wrapper around each radio button */
-.x-axis-select__option-container {
-  display: block;
-  position: relative;
-  padding-left: 35px;
-  margin-bottom: 12px;
-  cursor: pointer;
-  font-size: 18px;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-}
-
-/* Hide the browser's default radio button */
-.x-axis-select__option-container input {
-  position: absolute;
-  opacity: 0;
-  cursor: pointer;
-}
-
-/* Create a custom radio button */
-.x-axis-select__option-checkbox {
-  position: absolute;
-  top: 2;
-  left: 0;
-  height: 25px;
-  width: 25px;
-  background-color: #eee;
-  border-radius: 50%;
-}
-
-/* On mouse-over, add a grey background color */
-.x-axis-select__option-container:hover .x-axis-select__option-checkbox {
-  background-color: #ccc;
-}
-
-/* When the radio button is checked, add a blue background */
-.x-axis-select__option-container
-  input:checked
-  ~ .x-axis-select__option-checkbox {
-  background-color: #2196f3;
-}
-
-/* The indicator (the dot/circle - hidden when not checked) */
-.x-axis-select__option-checkbox::after {
-  content: "";
-  position: absolute;
-  display: none;
-  top: 9px;
-  left: 9px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: white;
-}
-
-/* Show the indicator (dot/circle) when checked */
-.x-axis-select__option-container
-  input:checked
-  ~ .x-axis-select__option-checkbox::after {
-  display: block;
 }
