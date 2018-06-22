@@ -4,7 +4,7 @@
 <head>
   <title>ALEX</title>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-Qd0uiJ2KSbhEP4AkyK6udfUscZ6aVyRNBrLeiwPZ8Yg='">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
   <link rel="stylesheet" href="../node_modules/bootstrap/dist/css/bootstrap.css">
@@ -27,7 +27,8 @@
       </table>
     </div>
   </div>
-  <script src="./js/script.js"></script>
+
+  <script>require("./js/script")</script>
 </body>
 
 </html>

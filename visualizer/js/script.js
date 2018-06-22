@@ -3,9 +3,9 @@ const fs = require("fs");
 
 require("bootstrap");
 
-const { processData } = require("./js/process-data");
-const { draw } = require("./js/draw");
-const { renderXAxisSelect } = require("./js/x-axis-select");
+const { processData } = require("./process-data");
+const { draw } = require("./draw");
+const { renderXAxisSelect } = require("./x-axis-select");
 
 const xAxisOptions = [
   {
@@ -28,6 +28,8 @@ ipcRenderer.on("result", (event, resultFile) => {
     window.close();
   }
 
+  const processedData = processData(result.timeslices);
+
   renderXAxisSelect({
     options: xAxisOptions,
     onOptionSelect: xAxisOption => {
@@ -36,11 +38,6 @@ ipcRenderer.on("result", (event, resultFile) => {
       const yAxisLabel = "Cache Miss Rate";
       const getDependentVariable = d => d.events.missRate;
 
-      const processedData = processData(
-        result.timeslices,
-        getIndependentVariable,
-        getDependentVariable
-      );
       draw(
         processedData,
         getIndependentVariable,
