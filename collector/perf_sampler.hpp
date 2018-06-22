@@ -27,11 +27,6 @@ struct perf_fd_info {
   int *event_fds;
 };
 
-#include "const.hpp"
-#include "debug.hpp"
-#include "perf_reader.hpp"
-#include "util.hpp"
-
 #define PAGE_SIZE 0x1000LL
 #define NUM_DATA_PAGES \
   256  // this needs to be a power of two :'( (an hour was spent here)

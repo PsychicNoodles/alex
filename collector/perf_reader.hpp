@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <cstdio>
 #include <map>
+#include <vector>
 
 #include "perf_sampler.hpp"
 
@@ -25,8 +26,8 @@ bool setup_perf_events(pid_t target, bool setup_events, perf_fd_info* info);
 int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       int sigt_fd, int socket);
 
-bool send_perf_fds(int socket, perf_fd_info* info);
-bool remove_perf_fds(int socket, perf_fd_info* info);
+bool register_perf_fds(int socket, perf_fd_info* info);
+bool unregister_perf_fds(int socket, perf_fd_info* info);
 
 #define ANCIL_MAX_N_FDS 960
 

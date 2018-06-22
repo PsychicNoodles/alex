@@ -13,10 +13,6 @@
 #include <unistd.h>
 #include <vector>
 
-#include "debug.hpp"
-#include "perf_reader.hpp"
-#include "perf_sampler.hpp"
-
 #define EVENT "perf_count_hw_cache_misses"
 #define SAMPLE 0
 #define EVENT_ACCURACY 100000
@@ -30,7 +26,6 @@ typedef struct disguise {
   void *args;
 } disguise_t;
 
-void set_perf_register_fd(int fd);
 void set_perf_register_sock(int sock);
 
 #endif

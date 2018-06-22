@@ -11,7 +11,6 @@
 #include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
@@ -29,7 +28,6 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
-#include <vector>
 
 #include <libelfin/dwarf/dwarf++.hh>
 #include <libelfin/elf/elf++.hh>
@@ -55,7 +53,6 @@ pid_t collector_pid;
 FILE *result_file;
 vector<string> events;
 map<int, perf_fd_info> perf_info_mappings;
-vector<monitoring_attempt> setup_perf_tries;
 
 using namespace std;
 
@@ -93,7 +90,7 @@ void add_sample_fd(int fd) {
 
 void remove_sample_fd(int fd) {
   DEBUG("removing " << fd << " from epoll " << sample_epfd);
-  epoll_event evt = {NULL, {.fd = fd}};
+  epoll_event evt = {0, {.fd = fd}};
   if (epoll_ctl(sample_epfd, EPOLL_CTL_DEL, fd, &evt) == -1) {
     char buf[128];
     snprintf(buf, 128, "error removing perf fd %d", fd);
@@ -203,34 +200,6 @@ bool setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   return true;
 }
 
-// void retry_setup_perf_events() {
-//   DEBUG("retrying previous attempts");
-//   // https://stackoverflow.com/a/4600592
-//   auto it = setup_perf_tries.begin();
-//   while (it != setup_perf_tries.end()) {
-//     DEBUG("retrying setup for "
-//           << (it->is_tid ? "tid" : "pid") << " "
-//           << (it->is_tid ? it->target.tid : it->target.pid));
-//     if (setup_perf_events(it->target, it->is_tid, it->setup_events)) {
-//       DEBUG("retry of previous attempt successful");
-//       setup_perf_tries.erase(it);
-//     } else {
-//       it->setup_perf_tries++;
-//       DEBUG("retry of previous attempt failed, now at " <<
-//       it->setup_perf_tries
-//                                                         << "
-//                                                         setup_perf_tries");
-//       if (it->setup_perf_tries >= MAX_MONITORING_SETUP_ATTEMPTS) {
-//         DEBUG("exceeded max attempts at setting up monitoring for "
-//               << (it->is_tid ? "tid" : "pid") << " "
-//               << (it->is_tid ? it->target.tid : it->target.pid));
-//         shutdown(subject_pid, result_file, INTERNAL_ERROR);
-//       }
-//       ++it;
-//     }
-//   }
-// }
-
 inline map<int, perf_fd_info>::iterator find_perf_info_by_thread(pid_t tid) {
   return find_if(
       perf_info_mappings.begin(), perf_info_mappings.end(),
@@ -289,7 +258,8 @@ bool recv_perf_fds(int socket, perf_fd_info *info) {
   return false;
 }
 
-bool send_perf_fds(int socket, perf_fd_info *info) {
+bool register_perf_fds(int socket, perf_fd_info *info) {
+  DEBUG("registering perf fds");
   size_t n_fds = num_perf_fds();
   int ancil_fds[n_fds];
   ancil_fds[0] = info->cpu_cycles_fd;
@@ -304,7 +274,8 @@ bool send_perf_fds(int socket, perf_fd_info *info) {
   return ancil_send_fds_with_msg(socket, ancil_fds, n_fds, ios, 2) == 0;
 }
 
-bool remove_perf_fds(int socket, perf_fd_info *info) {
+bool unregister_perf_fds(int socket, perf_fd_info *info) {
+  DEBUG("unregistering perf fds");
   pid_t tid = gettid();
   int cmd = SOCKET_CMD_UNREGISTER;
   DEBUG("sending tid " << tid << ", cmd " << cmd);
@@ -383,10 +354,6 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             << SAMPLE_EPOLL_TIMEOUT << ")");
     } else {
       DEBUG("cpd: " << ready_fds << " sample fds were ready");
-
-      // if (!setup_perf_tries.empty()) {
-      //   retry_setup_perf_events();
-      // }
 
       for (int i = 0; i < ready_fds; i++) {
         epoll_event evt = evlist[i];
@@ -522,7 +489,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               )");
 
             bool is_first = true;
-            uint64_t callchain_section;
+            uint64_t callchain_section = 0;
             for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
               uint64_t inst_ptr = perf_sample->instruction_pointers[i];
               if (is_callchain_marker(inst_ptr)) {

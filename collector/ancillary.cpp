@@ -57,6 +57,7 @@ int ancil_send_fds_with_msg(int sock, const int *fds, unsigned n_fds,
   msghdr.msg_control = (void *)&buffer;
   msghdr.msg_controllen = sizeof(struct cmsghdr) + sizeof(int) * n_fds;
   cmsg = CMSG_FIRSTHDR(&msghdr);
+  assert(cmsg != NULL);
   cmsg->cmsg_len = msghdr.msg_controllen;
   cmsg->cmsg_level = SOL_SOCKET;
   cmsg->cmsg_type = SCM_RIGHTS;
@@ -79,6 +80,7 @@ int ancil_recv_fds_with_msg(int sock, int *fds, unsigned n_fds,
   msghdr.msg_control = (void *)&buffer;
   msghdr.msg_controllen = sizeof(struct cmsghdr) + sizeof(int) * n_fds;
   cmsg = CMSG_FIRSTHDR(&msghdr);
+  assert(cmsg != NULL);
   cmsg->cmsg_len = msghdr.msg_controllen;
   cmsg->cmsg_level = SOL_SOCKET;
   cmsg->cmsg_type = SCM_RIGHTS;
