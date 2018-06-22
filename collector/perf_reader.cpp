@@ -244,11 +244,10 @@ bool recv_perf_fds(int socket, perf_fd_info *info) {
   int cmd;
   struct iovec ios[]{{&tid, sizeof(pid_t)}, {&cmd, sizeof(int)}};
   int n_recv = ancil_recv_fds_with_msg(socket, ancil_fds, n_fds, ios, 2);
-  DEBUG("received " << n_recv << " new fds");
   if (n_recv > 0) {
     DEBUG("received tid " << tid << ", cmd " << cmd);
     if (cmd == SOCKET_CMD_REGISTER) {
-      DEBUG("registering new fds for tid " << tid);
+      DEBUG("registering " << n_recv << " new fds for tid " << tid);
       for (int i = 0; i < n_fds; i++) {
         DEBUG("recv fds[" << i << "]: " << ancil_fds[i]);
       }
@@ -412,6 +411,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             handle_perf_register(&info);
           }
           DEBUG("cpd: exhausted requests");
+          // re-poll for data
+          break;
         } else {
           perf_fd_info info;
           try {
@@ -466,6 +467,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             if (sample_type != PERF_RECORD_SAMPLE) {
               shutdown(subject_pid, result_file, INTERNAL_ERROR);
             }
+            DEBUG("cpd: sample pid = " << perf_sample->pid
+                                       << ", tid = " << perf_sample->tid);
             while (has_next_sample(&info.sample_buf)) {
               DEBUG("cpd: clearing extra samples");
               int temp_type, temp_size;
