@@ -90,18 +90,24 @@ void add_sample_fd(int fd) {
 
 bool setup_perf_events(pid_t target, bool setup_events, int *fd,
                        child_fds *children) {
+  DEBUG("setting up perf events for target " << target);
   // set up the cpu cycles perf buffer
   perf_event_attr cpu_cycles_attr;
-  static long long period;
+  static long long period = -1;
 
-  try {
-    period = stoll(getenv_safe("COLLECTOR_PERIOD", "10000000"));
-    // catch stoll exceptions
-  } catch (std::invalid_argument &e) {
-    shutdown(subject_pid, result_file, ENV_ERROR);
-  } catch (std::out_of_range &e) {
-    shutdown(subject_pid, result_file, ENV_ERROR);
+  if (period == -1) {
+    try {
+      period = stoll(getenv_safe("COLLECTOR_PERIOD", "10000000"));
+      // catch stoll exceptions
+    } catch (std::invalid_argument &e) {
+      DEBUG("failed to get period: Invalid argument");
+      shutdown(subject_pid, result_file, ENV_ERROR);
+    } catch (std::out_of_range &e) {
+      DEBUG("failed to get period: Out of range");
+      shutdown(subject_pid, result_file, ENV_ERROR);
+    }
   }
+  DEBUG("period is " << period);
 
   memset(&cpu_cycles_attr, 0, sizeof(perf_event_attr));
   cpu_cycles_attr.disabled = true;
@@ -143,21 +149,27 @@ bool setup_perf_events(pid_t target, bool setup_events, int *fd,
   }
   children->inst_count_fd = instruction_count_fd;
 
-  if (setup_events) {
+  if (setup_events && !events.empty()) {
     // Set up event counters
-    DEBUG("setting up perf events");
+    DEBUG("setting up events");
+    for(auto &e : events) {
+      DEBUG("event: " << e);
+    }
     children->event_fds = (int *)malloc(sizeof(int) * events.size());
     for (int i = 0; i < events.size(); i++) {
+      DEBUG("setting up event " << i);
       perf_event_attr attr;
       memset(&attr, 0, sizeof(perf_event_attr));
 
       // Parse out event name with PFM.  Must be done first.
+      DEBUG("parsing pfm event name");
       int pfm_result = setup_pfm_os_event(&attr, (char *)events.at(i).c_str());
       if (pfm_result != PFM_SUCCESS) {
-        fprintf(stderr, "pfm encoding error: %s", pfm_strerror(pfm_result));
+        DEBUG("pfm encoding error: " << pfm_strerror(pfm_result));
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
       }
 
+      DEBUG("opening thru perf event");
       children->event_fds[i] =
           perf_event_open(&attr, target, -1, cpu_cycles_perf.fd, 0);
       if (children->event_fds[i] == -1) {
@@ -167,6 +179,7 @@ bool setup_perf_events(pid_t target, bool setup_events, int *fd,
     }
   }
 
+  DEBUG("starting monitoring for " << target);
   if (start_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
@@ -322,9 +335,6 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
   DEBUG("registering socket " << socket);
   add_sample_fd(socket);
-
-  DEBUG("cpd: initializing pfm");
-  pfm_initialize();
 
   int subject_fd;
   child_fds subject_children;

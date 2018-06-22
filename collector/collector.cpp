@@ -91,7 +91,11 @@ static int collector_main(int argc, char **argv, char **env) {
     exit(INTERNAL_ERROR);
   }
 
+  DEBUG("collector_main: getting events from env var");
   events = str_split(getenv_safe("COLLECTOR_EVENTS"), ",");
+
+  DEBUG("collector_main: initializing pfm");
+  pfm_initialize();
 
   collector_pid = getpid();
   subject_pid = fork();
@@ -131,8 +135,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
     if (result_file == NULL) {
       perror("couldn't open result file");
-      kill(subject_pid, SIGKILL);
-      exit(INTERNAL_ERROR);
+      shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
 
     int sigterm_fd = setup_sigterm_handler();

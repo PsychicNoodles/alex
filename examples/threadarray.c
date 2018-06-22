@@ -42,11 +42,13 @@ int main(void) {
 	int thread_args[NTHREADS];
 	int i, j;
 
+	fprintf(stderr, "initial pass at array (N=%d, M=%d)\n", N, M);
 	for (i = 0; i <= N - 1; i++ )
 		for( j = 0; j <= M - 1; j++) {
 			dimensional_array[i][j] = i * N + j;
 		}
 
+	fprintf(stderr, "printing values of array\n");
 	for(int i = 0; i <= N-1; i++) {
 		for (int j = 0; j <= M-1; j++) {
 	 		printf("%10d", dimensional_array[i][j]);
@@ -54,6 +56,7 @@ int main(void) {
 	printf("\n");
 	}
 
+	fprintf(stderr, "starting threads\n");
 	for(i=0; i < NTHREADS; i++) {
 		thread_args[i] = i;
 		fprintf(stderr, "starting thread %d\n", i);

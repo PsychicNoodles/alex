@@ -86,13 +86,16 @@ int reset_monitoring(int fd) {
 }
 
 int setup_pfm_os_event(perf_event_attr *attr, char *event_name) {
+  DEBUG("setting up pfm os event");
   pfm_perf_encode_arg_t pfm;
   pfm.attr = attr;
   pfm.fstr = 0;
   pfm.size = sizeof(pfm_perf_encode_arg_t);
+  DEBUG("getting encoding");
   int pfm_result = pfm_get_os_event_encoding(event_name, PFM_PLM3,
                                              PFM_OS_PERF_EVENT_EXT, &pfm);
-
+  DEBUG("encoding result: " << pfm_result);
+  
   attr->disabled = true;
   attr->size = sizeof(perf_event_attr);
   attr->exclude_kernel = true;
