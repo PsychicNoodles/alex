@@ -253,13 +253,13 @@ bool recv_perf_fds(int socket, int *fd, child_fds *children) {
   DEBUG("received tid " << tid);
 
   *fd = CMSG_DATA(cmsg)[0];
-  DEBUG("fd[0] = " << CMSG_DATA(cmsg)[0]);
+  DEBUG("fd[0] = " << (int)CMSG_DATA(cmsg)[0]);
   children->sample_buf.fd = *fd;
   children->inst_count_fd = CMSG_DATA(cmsg)[1];
-  DEBUG("fd[1] = " << CMSG_DATA(cmsg)[1]);
+  DEBUG("fd[1] = " << (int)CMSG_DATA(cmsg)[1]);
   for (int i = 2; i < n_fds; i++) {
     children->event_fds[i - 2] = CMSG_DATA(cmsg)[i];
-    DEBUG("fd[" << i << "] = " << CMSG_DATA(cmsg)[i]);
+    DEBUG("fd[" << i << "] = " << (int)CMSG_DATA(cmsg)[i]);
   }
 
   return true;
@@ -414,6 +414,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           }
 
           long long num_cycles = 0;
+          DEBUG("cpd: reading from fd " << evt.data.fd);
           read(evt.data.fd, &num_cycles, sizeof(num_cycles));
           DEBUG("cpd: read in from fd " << evt.data.fd
                                         << " num of cycles: " << num_cycles);
@@ -422,6 +423,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           }
 
           long long num_instructions = 0;
+          DEBUG("cpd: reading from fd " << children.inst_count_fd);`
           read(children.inst_count_fd, &num_instructions,
                sizeof(num_instructions));
           DEBUG("cpd: read in from fd "

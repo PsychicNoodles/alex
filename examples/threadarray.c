@@ -42,13 +42,13 @@ int main(void) {
 	int thread_args[NTHREADS];
 	int i, j;
 
-	fprintf(stderr, "initial pass at array (N=%d, M=%d)\n", N, M);
+	fprintf(stderr, "threadarray: initial pass at array (N=%d, M=%d)\n", N, M);
 	for (i = 0; i <= N - 1; i++ )
 		for( j = 0; j <= M - 1; j++) {
 			dimensional_array[i][j] = i * N + j;
 		}
 
-	fprintf(stderr, "printing values of array\n");
+	fprintf(stderr, "threadarray: printing values of array\n");
 	for(int i = 0; i <= N-1; i++) {
 		for (int j = 0; j <= M-1; j++) {
 	 		printf("%10d", dimensional_array[i][j]);
@@ -56,22 +56,24 @@ int main(void) {
 	printf("\n");
 	}
 
-	fprintf(stderr, "starting threads\n");
+	fprintf(stderr, "threadarray: starting threads\n");
 	for(i=0; i < NTHREADS; i++) {
 		thread_args[i] = i;
-		fprintf(stderr, "starting thread %d\n", i);
+		fprintf(stderr, "threadarray: starting thread %d\n", i);
 		pthread_create( &thread_id[i], NULL, calculate_sum, &thread_args[i]);
 	}
 
+	fprintf(stderr, "threadarray: joining threads\n");
 	for(j=0; j < NTHREADS; j++) {
-		fprintf(stderr, "joining thread %d\n", j);
+		fprintf(stderr, "threadarray: joining thread %d\n", j);
 		long loops;
 		pthread_join( thread_id[j], (void*)&loops);
-		fprintf(stderr, "joined thread %d with result %ld\n", j, loops);
+		fprintf(stderr, "threadarray: joined thread %d with result %ld\n", j, loops);
 	}
 
 	printf("\n\n\n");
 
+	fprintf(stderr, "threadarray: printing final values\n");
 	for(int i = 0; i <= N-1; i++) {
 		for (int j = 0; j <= M-1; j++) {
 	 		printf("%10d", dimensional_array[i][j]);
@@ -79,5 +81,7 @@ int main(void) {
 	printf("\n");
 	}
 
+	fprintf(stderr, "threadarray: 2finished\n");
+	fflush(stderr);
 }
 
