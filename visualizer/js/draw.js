@@ -5,6 +5,7 @@
 const d3 = require("d3");
 const { legendColor } = require("d3-svg-legend");
 
+const chiSquaredTest = require("./analysis");
 const { CHART_WIDTH, CHART_HEIGHT } = require("./util");
 
 module.exports = { draw };
@@ -206,6 +207,7 @@ function brushed(context, timeslices, circles, xScale) {
       }
     });
   }
+  const chiSquared = chiSquaredTest(data);
 }
 
 // Create a table of the points selected by the brush

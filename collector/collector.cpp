@@ -30,6 +30,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <link.h>
+#include <perfmon/pfmlib.h>
 
 #include <libelfin/dwarf/dwarf++.hh>
 #include <libelfin/elf/elf++.hh>
@@ -37,6 +38,7 @@
 #include "const.hpp"
 #include "debug.hpp"
 #include "perf_sampler.hpp"
+#include "power.hpp"
 #include "util.hpp"
 
 using namespace std;
@@ -299,6 +301,15 @@ int collect_perf_data(int subject_pid, FILE *result_file,
 
         fprintf(result_file, R"("%s": %lld)", events.at(i).c_str(), count);
       }
+
+      ///////////////////////////////////////////////////////////////////////
+      map<string, uint64_t> readings = measure_energy();
+      map<string, uint64_t>::iterator itr;
+      for (itr = readings.begin(); itr != readings.end(); ++itr) {
+        fprintf(result_file, ",");
+        fprintf(result_file, R"("%s": %lu)", itr->first.c_str(), itr->second);
+      }
+      ///////////////////////////////////////////////////////////////////////
 
       int fd = open((char *)"/proc/self/exe", O_RDONLY);
       if (fd < 0) {

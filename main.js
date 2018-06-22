@@ -24,7 +24,7 @@ yargs
         .option("preset", {
           alias: "p",
           description: "Sensible performance metrics.",
-          choices: ["all", "cpu", "cache"],
+          choices: ["all", "cpu", "cache", "power"],
           default: "all"
         })
         .option("events", {
@@ -122,6 +122,7 @@ function collect({
     process.stdout.write(`It's been ${numSeconds} second${s}. Still going...`);
   }, 1 * MS_PER_SEC);
 
+  console.log(presetEvents[preset]);
   const collector = spawn(executable, executableArgs, {
     env: {
       ...process.env,
