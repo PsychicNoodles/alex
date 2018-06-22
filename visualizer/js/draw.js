@@ -58,7 +58,7 @@ function draw(
     spectrum
   });
   drawAxes(xScale, yScale, xAxisLabel, yAxisLabel, svg);
-  drawBrush({ data, xScale, svg, circles, xAxisLabel, getIndependentVariable });
+  drawBrush({ data, xScale, svg, circles, getIndependentVariable });
   drawLegend(densityMax, svgLegend);
 }
 
@@ -102,14 +102,7 @@ function drawAxes(xScale, yScale, xAxisLabel, yAxisLabel, svg) {
     .text(yAxisLabel);
 }
 
-function drawBrush({
-  data,
-  xScale,
-  svg,
-  circles,
-  xAxisLabel,
-  getIndependentVariable
-}) {
+function drawBrush({ data, xScale, svg, circles, getIndependentVariable }) {
   const x = d3
     .scaleLinear()
     .domain([0, 20])
