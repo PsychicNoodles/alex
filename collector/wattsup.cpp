@@ -24,61 +24,62 @@
 #include <signal.h>
 
 #include "debug.hpp"
+#include "util.hpp"
+#include "wattsup.hpp"
 
 #define STRING_SIZE 256
 
 /* start the external logging of power info */
 /* #L,W,3,E,<Reserved>,<Interval>; */
-static int wu_start_external_log(int wu_fd, int interval) {
+int wu_start_external_log(int wu_fd, int interval) {
   char command[BUFSIZ];
   int ret, length;
 
   DEBUG("Enabling logging...");
 
   sprintf(command, "#L,W,3,E,1,%d;", interval);
-  DEBUG(command);
+  // DEBUG(command);
 
   length = strlen(command);
 
   ret = write(wu_fd, command, length);
   if (ret != length) {
-                DEBUG("Error starting logging %s!"),
-			strerror(errno));
-                return -1;
+    // DEBUG("Error starting logging " <<	strerror(errno) << "!");
+    return -1;
   }
 
-  // sleep(1);
+  // sleep(10);
 
   return 0;
 }
 
 /* stop the external logging of power info */
 /* #L,R,0; */
-static int wu_stop_external_log(int wu_fd) {
+int wu_stop_external_log(int wu_fd) {
   char command[BUFSIZ];
   int ret, length;
 
-  DEBUG("Disabling logging...");
+  // DEBUG("Disabling logging...");
 
   sprintf(command, "#L,R,0;");
-  DEBUG(command);
+  // DEBUG(command);
 
   length = strlen(command);
 
   ret = write(wu_fd, command, length);
   if (ret != length) {
-    DEBUG("Error stopping logging");
-    DEBUG(strerror(errno));
+    // DEBUG("Error stopping logging");
+    // DEBUG(strerror(errno));
     return -1;
   }
 
-  sleep(1);
+  // sleep(10);
 
   return 0;
 }
 
 /* Open our device, probably ttyUSB0 */
-static int open_device(char* device_name) {
+int open_device(char* device_name) {
   struct stat s;
   int ret;
   char full_device_name[BUFSIZ];
@@ -88,32 +89,32 @@ static int open_device(char* device_name) {
 
   ret = stat(full_device_name, &s);
   if (ret < 0) {
-    sprintf(errm, "Problem statting %s, %s\n", full_device_name,
-            strerror(errno));
-    DEBUG(errm);
+    // sprintf(errm, "Problem statting %s, %s\n", full_device_name,
+    // strerror(errno));
+    // DEBUG(errm);
     return -1;
   }
 
   if (!S_ISCHR(s.st_mode)) {
-    sprintf(errm, "Error: %s is not a TTY character device.", full_device_name);
-    DEBUG(errm);
+    // sprintf(errm, "Error: %s is not a TTY character device.",
+    // full_device_name); DEBUG(errm);
     return -1;
   }
 
   ret = access(full_device_name, R_OK | W_OK);
   if (ret) {
-    sprintf(errm, "Error: %s is not writable, %s.", full_device_name,
-            strerror(errno));
-    DEBUG(errm);
+    // sprintf(errm, "Error: %s is not writable, %s.", full_device_name,
+    // strerror(errno));
+    // DEBUG(errm);
     return -1;
   }
 
   /* Not NONBLOCK */
   ret = open(full_device_name, O_RDWR);
   if (ret < 0) {
-    sprintf(errm, "Error! Could not open %s, %s", full_device_name,
-            strerror(errno));
-    DEBUG(errm);
+    // sprintf(errm, "Error! Could not open %s, %s", full_device_name,
+    // strerror(errno));
+    // DEBUG(errm);
     return -1;
   }
 
@@ -121,7 +122,7 @@ static int open_device(char* device_name) {
 }
 
 /* Do the annoying Linux serial setup */
-static int setup_serial_device(int fd) {
+int setup_serial_device(int fd) {
   struct termios t;
   int ret;
   char* errm;
@@ -129,8 +130,8 @@ static int setup_serial_device(int fd) {
   /* get the current attributes */
   ret = tcgetattr(fd, &t);
   if (ret) {
-    sprintf(errm, "tcgetattr failed, %s\n", strerror(errno));
-    DEBUG(errm);
+    // sprintf(errm, "tcgetattr failed, %s\n", strerror(errno));
+    // DEBUG(errm);
     return ret;
   }
 
@@ -157,8 +158,8 @@ static int setup_serial_device(int fd) {
   ret = tcsetattr(fd, TCSANOW, &t);
 
   if (ret) {
-    sprintf(errm, "ERROR: setting terminal attributes, %s\n", strerror(errno));
-    DEBUG(errm);
+    // sprintf(errm, "ERROR: setting terminal attributes, %s\n",
+    // strerror(errno)); DEBUG(errm);
     return ret;
   }
 
@@ -166,7 +167,7 @@ static int setup_serial_device(int fd) {
 }
 
 /* Read from the meter */
-static int wu_read(int fd, FILE* result_file) {
+double wu_read(int fd, FILE* result_file) {
   int ret = -1;
   int offset = 0;
 
@@ -175,18 +176,16 @@ static int wu_read(int fd, FILE* result_file) {
 
   memset(string, 0, STRING_SIZE);
 
-  while (ret < 0) {
+  while (ret < 0 || string[0] != '#') {
     ret = read(fd, string, STRING_SIZE);
+    DEBUG("Read return bytes read: " << ret);
+    DEBUG("Read returned " << string);
     if ((ret < 0) && (ret != EAGAIN)) {
-      sprintf(errm, "error reading from device %s\n", strerror(errno));
-      DEBUG(errm);
+      DEBUG("error reading from device" << strerror(errno));
     }
-  }
-
-  if (string[0] != '#') {
-    sprintf(errm, "Protocol error with string %s\n", string);
-    DEBUG(errm);
-    return ret;
+    if (string[0] != '#') {
+      DEBUG("Protocol error with string " << string);
+    }
   }
 
   offset = ret;
@@ -218,20 +217,14 @@ static int wu_read(int fd, FILE* result_file) {
   watts = atof(watts_string);
   watts /= 10.0;
 
-  fprintf(result_file, R"("wattsup": %1lf)", watts);
-  usleep(500000);
-
-  return 0;
+  return (watts);
 }
 
 int wattsupSetUp() {
-  //   static int done_running = 0;
-  static int missed_samples = 0;
   char* errm;
-
+  char* device_name =
+      (char*)getenv_safe("COLLECTOR_WATTSUP_DEVICE", "ttyUSB0").c_str();
   int ret;
-  char device_name[BUFSIZ];
-  strncpy(device_name, "ttyUSB0", BUFSIZ);
   int wu_fd = 0;
 
   /*************************/
@@ -242,8 +235,7 @@ int wattsupSetUp() {
     return wu_fd;
   }
 
-  sprintf(errm, "DEBUG: %s is opened\n", device_name);
-  DEBUG(errm);
+  DEBUG("DEBUG: " << device_name << " is opened");
 
   ret = setup_serial_device(wu_fd);
   if (ret) {
@@ -254,15 +246,15 @@ int wattsupSetUp() {
   /* Enable logging */
   ret = wu_start_external_log(wu_fd, 1);
   if (ret) {
-    fprintf(stderr, "Error enabling logging\n");
-    close(wu_fd);
+    DEBUG("Error enabling logging");
+
     return -1;
   }
 
   return wu_fd;
 }
 
-int wattsupTurnOff(int wu_fd) {
+void wattsupTurnOff(int wu_fd) {
   wu_stop_external_log(wu_fd);
   close(wu_fd);
 }

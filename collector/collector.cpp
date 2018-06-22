@@ -39,6 +39,7 @@
 #include "debug.hpp"
 #include "perf_sampler.hpp"
 #include "power.hpp"
+#include "wattsup.hpp"
 #include "util.hpp"
 
 using namespace std;
@@ -128,7 +129,7 @@ uint64_t lookup_kernel_addr(map<uint64_t, kernel_sym> kernel_syms,
  * result file.
  */
 int collect_perf_data(int subject_pid, FILE *result_file,
-                      map<uint64_t, kernel_sym> kernel_syms) {
+                      map<uint64_t, kernel_sym> kernel_syms,int wu_fd) {
   DEBUG("cpd: initializing pfm");
   pfm_initialize();
 
@@ -302,14 +303,17 @@ int collect_perf_data(int subject_pid, FILE *result_file,
         fprintf(result_file, R"("%s": %lld)", events.at(i).c_str(), count);
       }
 
-      ///////////////////////////////////////////////////////////////////////
+      //power
       map<string, uint64_t> readings = measure_energy();
       map<string, uint64_t>::iterator itr;
       for (itr = readings.begin(); itr != readings.end(); ++itr) {
         fprintf(result_file, ",");
         fprintf(result_file, R"("%s": %lu)", itr->first.c_str(), itr->second);
       }
-      ///////////////////////////////////////////////////////////////////////
+
+      //wattsup
+      fprintf(result_file, ",");
+      fprintf(result_file, R"("wattsup": %1lf)", wu_read(wu_fd, result_file));
 
       int fd = open((char *)"/proc/self/exe", O_RDONLY);
       if (fd < 0) {
@@ -534,6 +538,9 @@ static int collector_main(int argc, char **argv, char **env) {
 
     map<uint64_t, kernel_sym> kernel_syms = read_kernel_syms();
 
+    //setting up wattsup
+    int wu_fd = wattsupSetUp();
+
     DEBUG(
         "collector_main: result file opened, sending ready (SIGUSR2) signal to "
         "child");
@@ -544,13 +551,14 @@ static int collector_main(int argc, char **argv, char **env) {
 
     DEBUG("collector_main: received child ready signal, starting analyzer");
     try {
-      result = collect_perf_data(subject_pid, result_file, kernel_syms);
+      result = collect_perf_data(subject_pid, result_file, kernel_syms, wu_fd);
     } catch (std::exception &e) {
       DEBUG("collector_main: uncaught error in analyzer: " << e.what());
       result = INTERNAL_ERROR;
     }
     DEBUG("collector_main: finished analyzer, closing file");
 
+    wattsupTurnOff(wu_fd);
     fclose(result_file);
   } else {
     exit(INTERNAL_ERROR);

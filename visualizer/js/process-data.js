@@ -16,7 +16,7 @@ function processData(
   getDependentVariable
 ) {
   const data = cloneDeep(immutableData);
-
+  console.log(data.length);
   // Accumulate cycles and instructions
   data[0].cyclesSoFar = data[0].numCPUCycles;
   data[0].instructionsSoFar = data[0].numInstructions;
