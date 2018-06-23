@@ -4,22 +4,31 @@
 <head>
   <title>ALEX</title>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-Qd0uiJ2KSbhEP4AkyK6udfUscZ6aVyRNBrLeiwPZ8Yg='">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
   <link rel="stylesheet" href="../node_modules/bootstrap/dist/css/bootstrap.css">
-  <link rel="stylesheet" type="text/css" href="css/style.css" />
+  <link rel="stylesheet" type="text/css" href="./css/style.css" />
+  <link rel="stylesheet" type="text/css" href="./css/x-axis-select.css" />
+  <link rel="stylesheet" type="text/css" href="./css/function-runtimes.css" />
 </head>
 
 <body>
-	<div class="container-fluid">
-		<div class="row">
-			<svg id="plot" class="col-lg-6"></svg>
-			<svg id="legend" class="col-lg-1"></svg>
-			<g id="buttons" class="col-lg-5"> </g>
-		</div>
-	</div>
-	<script src="./js/script.js"></script>
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-sm-8">
+        <svg id="chart"></svg>
+      </div>
+			<svg id="legend" class="col-sm-1"></svg>
+      <div class="x-axis-select col-sm-3"></div>
+    </div>
+    <div class="row">
+      <table class="function-runtimes">
+      </table>
+    </div>
+  </div>
+
+  <script>require("./js/script")</script>
 </body>
 
 </html>

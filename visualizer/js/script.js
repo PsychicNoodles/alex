@@ -1,18 +1,24 @@
-/* ******************************* Require ********************************** */
+const d3 = require("d3");
 const { ipcRenderer } = require("electron");
 const fs = require("fs");
 
 require("bootstrap");
 
-const processData = require("./js/process-data");
-const draw = require("./js/draw")
+const { processData } = require("./process-data");
+const { draw } = require("./draw");
+const xAxisSelect = require("./x-axis-select");
 
-const yAxisLabel = "cache";
-const xAxisLabel = "cyclesSoFar";
+const xAxisOptions = [
+  {
+    independentVariable: "cyclesSoFar",
+    label: "CPU Cycles"
+  },
+  {
+    independentVariable: "instructionsSoFar",
+    label: "Instructions Executed"
+  }
+];
 
-/* ******************************** Loading ********************************* */
-/* This region should deal ONLY with the loading of the data. AFTER this, it
-should send off the data to be processed. */
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, resultFile) => {
   let result;
@@ -23,50 +29,23 @@ ipcRenderer.on("result", (event, resultFile) => {
     window.close();
   }
 
-  const processedData = process(result.timeslices, yAxisLabel,xAxisLabel);
-  draw(processedData, xAxisLabel, yAxisLabel);
+  const processedData = processData(result.timeslices);
+
+  d3.select(".x-axis-select").call(xAxisSelect.render, {
+    options: xAxisOptions,
+    onOptionSelect: xAxisOption => {
+      const getIndependentVariable = d => d[xAxisOption.independentVariable];
+
+      const yAxisLabel = "Cache Miss Rate";
+      const getDependentVariable = d => d.events.missRate;
+
+      draw(
+        processedData,
+        getIndependentVariable,
+        getDependentVariable,
+        xAxisOption.label,
+        yAxisLabel
+      );
+    }
+  });
 });
-
-/* *************************** UI to choose xAxis *************************** */
-let button = function() {
-  function my(selection) {
-    selection.each(function(d, i) {
-      let label = d3
-        .select(this)
-        .text(d);
-
-      let input = label.append("input")
-        .attr("type", "radio")
-        .attr("name", "radio")
-        .attr("value", d)
-        ;
-
-      label.append("span")
-      .attr("class","checkmark");
-
-    });
-  }
-  return my;
-};
-
-let data = ["CPUCyclesAcc","instructionsAcc"];
-
-let buttonFunc = button()
-  ;
-
-// Add buttons
-let buttons = d3
-  .select("#buttons")
-  .selectAll(".container")
-  .data(data)
-  .enter()
-  .append("label")
-  .attr("class", "container")
-  .call(buttonFunc);
-
-
-  document.querySelector("#buttons").addEventListener("change",function(event) {
-    chooseXAxis = event.target.value;
-    let densityMax = drawPlot(timeslices);
-    legend(densityMax);
-  })

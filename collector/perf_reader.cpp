@@ -37,6 +37,9 @@
 #include "debug.hpp"
 #include "perf_reader.hpp"
 #include "util.hpp"
+#include "power.hpp"
+
+using namespace std;
 
 #define SOCKET_CMD_REGISTER 1
 #define SOCKET_CMD_UNREGISTER 2
@@ -48,14 +51,6 @@ struct monitoring_attempt {
   int setup_perf_tries;
 };
 
-pid_t subject_pid;
-pid_t collector_pid;
-FILE *result_file;
-vector<string> events;
-map<int, perf_fd_info> perf_info_mappings;
-
-using namespace std;
-
 struct sample {
   uint32_t pid;
   uint32_t tid;
@@ -63,6 +58,15 @@ struct sample {
   uint64_t num_instruction_pointers;
   uint64_t instruction_pointers[];
 };
+
+pid_t subject_pid;
+pid_t collector_pid;
+
+FILE *result_file;
+
+vector<string> events;
+
+map<int, perf_fd_info> perf_info_mappings;
 
 int sample_epfd = epoll_create1(0);
 size_t sample_fd_count = 0;
@@ -471,6 +475,14 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
               fprintf(result_file, R"("%s": %lld)", events.at(i).c_str(),
                       count);
+            }
+
+            map<string, uint64_t> readings = measure_energy();
+            map<string, uint64_t>::iterator itr;
+            for (itr = readings.begin(); itr != readings.end(); ++itr) {
+              fprintf(result_file, ",");
+              fprintf(result_file, R"("%s": %lu)", itr->first.c_str(),
+                      itr->second);
             }
 
             int fd = open((char *)"/proc/self/exe", O_RDONLY);
