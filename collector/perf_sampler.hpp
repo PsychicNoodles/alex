@@ -36,7 +36,6 @@ struct perf_fd_info {
 
 #define SAMPLER_MONITOR_SUCCESS 0
 #define SAMPLER_MONITOR_ERROR 1
-#define SAMPLER_MONITOR_PROCESS_NOT_FOUND 2
 
 inline size_t perf_buffer_data_size() { return BUFFER_SIZE - PAGE_SIZE; }
 
