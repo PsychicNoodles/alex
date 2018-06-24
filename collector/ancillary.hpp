@@ -37,36 +37,28 @@
  * Start of the readable part.
  ***************************************************************************/
 
-#define ANCIL_MAX_N_FDS 960
 /*
  * Maximum number of fds that can be sent or received using the "esay"
  * functions; this is so that all can fit in one page.
  */
+#define ANCIL_MAX_N_FDS 960
 
-int ancil_send_fds_with_msg(int sock, const int *fds, unsigned n_fds,
-                            struct iovec *iov, size_t iovlen);
 /*
- * ancil_send_fds_with_buffer(sock, n_fds, fds, buffer)
- *
  * Sends the file descriptors in the array pointed by fds, of length n_fds
- * on the socket sock.
- * buffer is a writeable memory area large enough to hold the required data
- * structures.
+ * on the socket sock with messages stored in iov of length iovlen.
  * Returns: -1 and errno in case of error, 0 in case of success.
  */
-
-int ancil_recv_fds_with_msg(int sock, int *fds, unsigned n_fds,
+int ancil_send_fds_with_msg(int sock, const int *fds, unsigned n_fds,
                             struct iovec *iov, size_t iovlen);
+
 /*
- * ancil_recv_fds_with_buffer(sock, n_fds, fds, buffer)
- *
  * Receives *n_fds file descriptors into the array pointed by fds
- * from the socket sock.
- * buffer is a writeable memory area large enough to hold the required data
- * structures.
+ * from the socket sock with messages stored in iov of length iovlen.
  * Returns: -1 and errno in case of error, the actual number of received fd
  * in case of success
  */
+int ancil_recv_fds_with_msg(int sock, int *fds, unsigned n_fds,
+                            struct iovec *iov, size_t iovlen);
 
 #define ANCIL_FD_BUFFER(n) \
   struct {                 \
