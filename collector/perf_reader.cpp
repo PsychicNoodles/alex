@@ -371,6 +371,21 @@ uint64_t lookup_kernel_addr(map<uint64_t, kernel_sym> kernel_syms,
 }
 
 /*
+ * Reads the dwarf data stored in the given executable file
+ */
+dwarf::dwarf read_dwarf(const char* file = "/proc/self/exe") {
+  // closed by mmap_loader constructor
+  int fd = open((char *)"/proc/self/exe", O_RDONLY);
+  if (fd < 0) {
+    perror("cannot open executable (/proc/self/exe)");
+    shutdown(subject_pid, result_file, EXECUTABLE_FILE_ERROR);
+  }
+
+  elf::elf ef(elf::create_mmap_loader(fd));
+  return dwarf::dwarf(dwarf::elf::create_loader(ef));
+}
+
+/*
  * Sets up the required events and records performance of subject process into
  * result file.
  */
@@ -551,14 +566,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       itr->second);
             }
 
-            int fd = open((char *)"/proc/self/exe", O_RDONLY);
-            if (fd < 0) {
-              perror("cannot open executable (/proc/self/exe)");
-              shutdown(subject_pid, result_file, EXECUTABLE_FILE_ERROR);
-            }
-
-            elf::elf ef(elf::create_mmap_loader(fd));
-            dwarf::dwarf dw(dwarf::elf::create_loader(ef));
+            static dwarf::dwarf dw = read_dwarf();
 
             fprintf(result_file,
                     R"(
