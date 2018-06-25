@@ -1,0 +1,12 @@
+.function-runtimes th,
+.function-runtimes td {
+  padding: 0 5px;
+}
+
+.function-runtimes__header-row {
+  background-color: #c0c0c0;
+}
+
+.function-runtimes__data-row:nth-child(odd) {
+  background-color: #d9d9d9;
+}

@@ -1,5 +1,5 @@
-#ifndef ALEX_CONST
-#define ALEX_CONST
+#ifndef COLLECTOR_CONST
+#define COLLECTOR_CONST
 
 #include <inttypes.h>
 #include <stdbool.h>
@@ -9,8 +9,8 @@
 #define NUM_DATA_PAGES 256
 
 // kill failure. Not really a fail but a security hazard.
-#define INTERNAL_ERROR 1            // Problem with something internal, see error logs
-#define RESULT_FILE_ERROR 2         // Problem with the result file
+#define INTERNAL_ERROR 1     // Problem with something internal, see error logs
+#define RESULT_FILE_ERROR 2  // Problem with the result file
 #define EXECUTABLE_FILE_ERROR 3     // Problem with the executable file
 #define DEBUG_SYMBOLS_FILE_ERROR 4  // Problem with the debug symbols file
 #define ENV_ERROR 5                 // Cannot get environment variable
@@ -28,6 +28,10 @@
 bool is_callchain_marker(uint64_t instruction_pointers);
 const char* callchain_str(uint64_t callchain);
 
-#define SAMPLE_TYPE (PERF_SAMPLE_TIME | PERF_SAMPLE_CALLCHAIN)
+#define SAMPLE_TYPE (PERF_SAMPLE_TIME | PERF_SAMPLE_CALLCHAIN | PERF_SAMPLE_TID)
+#define SAMPLE_EPOLL_TIMEOUT -1  // wait "forever"
+#define MAX_SAMPLE_PERIOD_SKIPS 10
+#define MAX_MONITORING_SETUP_ATTEMPTS 10
+#define HANDLE_EVENTS true  // an easy way to globally enable/disable events
 
 #endif

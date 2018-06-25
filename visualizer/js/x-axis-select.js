@@ -1,30 +1,11 @@
 const d3 = require("d3");
 
-const xAxisOptions = [
-  {
-    independentVariable: "cyclesSoFar",
-    label: "CPU Cycles"
-  },
-  {
-    independentVariable: "instructionsSoFar",
-    label: "Instructions Executed"
-  }
-];
-
-module.exports = { onXAxisSelect, renderXAxisSelect };
-
-function onXAxisSelect(callback) {
-  d3.selectAll(".x-axis-select__option-container input")
-    .on("change", callback)
-    .filter(":checked")
-    .each(callback);
-}
-
-function renderXAxisSelect() {
-  d3.select(".x-axis-select")
+function render(root, { onOptionSelect, options }) {
+  const optionContainers = root
     .selectAll(".x-axis-select__option-container")
-    .remove()
-    .data(xAxisOptions)
+    .data(options);
+
+  optionContainers
     .enter()
     .append("label")
     .attr("class", "x-axis-select__option-container")
@@ -35,12 +16,17 @@ function renderXAxisSelect() {
         .append("input")
         .attr("type", "radio")
         .attr("name", "xAxis")
-        .attr("value", data.independentVariable);
+        .attr("value", data.independentVariable)
+        .on("change", onOptionSelect);
 
       if (index === 0) {
-        input.attr("checked", "");
+        input.attr("checked", "").each(onOptionSelect);
       }
 
       label.append("span").attr("class", "x-axis-select__option-checkbox");
     });
+
+  optionContainers.exit().remove();
 }
+
+module.exports = { render };
