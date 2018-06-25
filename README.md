@@ -4,8 +4,8 @@ This repository is the home of ALEX, the
 [AnaLysis of EXecution](https://en.wikipedia.org/wiki/Backronym) profiler.
 Alex is a multi-part project that includes:
 
-* C/C++ data collection tool
-* D3.js visualization
+- C/C++ data collection tool
+- D3.js visualization
 
 All bundled in a tidy electron app with a command line interface.
 
@@ -20,8 +20,8 @@ Try `node . --help` to see usage information.
 
 ## Useful Scripts
 
-* `npm run clean:output` deletes the spam of err-xxxx, out-xxxx and result-xxxx files.
-* `npm run eslint:fix` fixes all rule violations that it can while preserving program behavior.
+- `npm run clean:output` deletes the spam of err-xxxx, out-xxxx and result-xxxx files.
+- `npm run eslint:fix` fixes all rule violations that it can while preserving program behavior.
 
 ## Data Collection
 
