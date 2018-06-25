@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
-#include "const.h"
+#include "const.hpp"
 #include "util.hpp"
 using namespace std;
 
@@ -23,6 +23,12 @@ inline string ptr_fmt(void* ptr) {
   char buf[128];
   snprintf(buf, 128, "%p", ptr);
   return string(buf);
+}
+
+char* int_to_hex(uint64_t i) {
+  static char buf[19];
+  snprintf(buf, 19, "%#018lx", i);
+  return buf;
 }
 
 // https://stackoverflow.com/a/14267455
@@ -48,16 +54,4 @@ void shutdown(pid_t pid, FILE* writef, int code) {
   kill(pid, SIGKILL);
   fclose(writef);
   exit(errno);
-}
-
-bool is_callchain_marker(uint64_t instruction_pointers) {
-  if (instruction_pointers == CALLCHAIN_GUEST ||
-      instruction_pointers == CALLCHAIN_GUESTKERNEL ||
-      instruction_pointers == CALLCHAIN_GUESTUSER ||
-      instruction_pointers == CALLCHAIN_HYPERVISOR ||
-      instruction_pointers == CALLCHAIN_USER ||
-      instruction_pointers == CALLCHAIN_KERNEL)
-    return true;
-  else
-    return false;
 }
