@@ -83,38 +83,30 @@ int open_device(char* device_name) {
   struct stat s;
   int ret;
   char full_device_name[BUFSIZ];
-  char* errm;
 
   sprintf(full_device_name, "/dev/%s", device_name);
 
   ret = stat(full_device_name, &s);
   if (ret < 0) {
-    // sprintf(errm, "Problem statting %s, %s\n", full_device_name,
-    // strerror(errno));
-    // DEBUG(errm);
+    DEBUG("Problem statting "<< full_device_name << strerror(errno));
     return -1;
   }
 
   if (!S_ISCHR(s.st_mode)) {
-    // sprintf(errm, "Error: %s is not a TTY character device.",
-    // full_device_name); DEBUG(errm);
+    DEBUG( "Error: " << full_device_name << " is not a TTY character device.");
     return -1;
   }
 
   ret = access(full_device_name, R_OK | W_OK);
   if (ret) {
-    // sprintf(errm, "Error: %s is not writable, %s.", full_device_name,
-    // strerror(errno));
-    // DEBUG(errm);
+    DEBUG( "Error: " << full_device_name << " is not writable, " << strerror(errno));
     return -1;
   }
 
   /* Not NONBLOCK */
   ret = open(full_device_name, O_RDWR);
   if (ret < 0) {
-    // sprintf(errm, "Error! Could not open %s, %s", full_device_name,
-    // strerror(errno));
-    // DEBUG(errm);
+    DEBUG ("Error! Could not open " << full_device_name << strerror(errno));
     return -1;
   }
 
@@ -172,7 +164,12 @@ double wu_read(int fd, FILE* result_file) {
   int offset = 0;
 
   char string[STRING_SIZE];
-  char* errm;
+
+  if (fd == -1) {
+    return -1;
+  } else {
+    DEBUG("WATTSUP fd :" << fd);
+  }
 
   memset(string, 0, STRING_SIZE);
 

@@ -25,9 +25,6 @@
 
 using namespace std;
 
-
-//  vector<map<string, uint64_t>> measurements;
-
 map<string, uint64_t> measure_energy() {
 
   DEBUG("Measuring energy");
@@ -45,9 +42,10 @@ map<string, uint64_t> measure_energy() {
       push_energy_info(&readings, zonedir + sub + "/");
     }
   }
-  // measurements.push_back(readings);
+
+    DEBUG("Finished measuring energy");
   return readings;
-  DEBUG("Finished measuring energy");
+
 }
 
 void push_energy_info (map<string, uint64_t> *readings, string dir) {

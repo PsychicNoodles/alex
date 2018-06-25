@@ -401,13 +401,8 @@ perf_fd_info *create_perf_fd_info() {
  * result file.
  */
 int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
-<<<<<<< HEAD
-                      int sigt_fd, int socket) {
-  DEBUG("cpd: registering " << sigt_fd << " as sigterm fd");
-=======
                       int sigt_fd, int socket, int wu_fd) {
   DEBUG("collector_main: registering " << sigt_fd << " as sigterm fd");
->>>>>>> origin/xinya_merge
   add_fd_to_epoll(sigt_fd);
 
   DEBUG("cpd: registering socket " << socket);

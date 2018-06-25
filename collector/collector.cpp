@@ -146,6 +146,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
     //setting up wattsup
     int wu_fd = wattsupSetUp();
+    DEBUG ("WATTSUP setup, wu_fd is: " << wu_fd);
 
     DEBUG(
         "collector_main: result file opened, sending ready (SIGUSR2) signal to "
