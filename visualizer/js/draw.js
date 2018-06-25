@@ -47,7 +47,7 @@ function draw(
   svg.selectAll("*").remove();
 
   /* Actual drawing */
-  const circles = plot.render({
+  plot.render({
     data: plotData,
     xScale,
     yScale,
@@ -64,7 +64,7 @@ function draw(
   drawAxes({ xScale, yScale, xAxisLabel, yAxisLabel, svg });
   createBrush({
     timeslices,
-    circles,
+    svg,
     brushes,
     gBrushes,
     xScale,
@@ -116,7 +116,7 @@ function drawAxes({ xScale, yScale, xAxisLabel, yAxisLabel, svg }) {
 
 function createBrush({
   timeslices,
-  circles,
+  svg,
   brushes,
   gBrushes,
   xScale,
@@ -125,12 +125,11 @@ function createBrush({
   const brush = d3
     .brushX()
     .extent([[0, 0], [CHART_WIDTH, CHART_HEIGHT]])
-    .on("brush", function() {
+    .on("brush", () => {
       brushed({
-        brush: this,
         timeslices,
         xScale,
-        circles,
+        svg,
         gBrushes,
         getIndependentVariable
       });
@@ -140,7 +139,7 @@ function createBrush({
         timeslices,
         brushes,
         gBrushes,
-        circles,
+        svg,
         xScale,
         getIndependentVariable
       );
@@ -154,7 +153,7 @@ function brushEnd(
   timeslices,
   brushes,
   gBrushes,
-  circles,
+  svg,
   xScale,
   getIndependentVariable
 ) {
@@ -169,7 +168,7 @@ function brushEnd(
   if (selection && selection[0] !== selection[1]) {
     createBrush({
       timeslices,
-      circles,
+      svg,
       brushes,
       gBrushes,
       xScale,
@@ -208,23 +207,16 @@ function drawBrushes(gBrushes, brushes) {
 
 // Re-color the circles in the region that was selected by the user
 function brushed({
-  brush,
   timeslices,
   xScale,
-  circles,
+  svg,
   gBrushes,
   getIndependentVariable
 }) {
   if (d3.event.selection !== null) {
-    circles.attr("class", "circle");
-    const brushArea = d3.brushSelection(brush);
+    const circles = svg.selectAll("circle");
 
-    circles
-      .filter(() => {
-        const cx = d3.select(brush).attr("cx");
-        return brushArea[0] <= cx && cx <= brushArea[1];
-      })
-      .attr("class", "brushed");
+    circles.attr("class", "");
 
     for (const timeslice of timeslices) {
       timeslice.selected = false;

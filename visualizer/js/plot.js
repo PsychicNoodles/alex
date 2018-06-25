@@ -9,16 +9,19 @@ function render({ data, densityMax, svg, spectrum }) {
     .append("g")
     .attr("class", "circles")
     .selectAll("circle")
-    .data(data)
+    .data(data);
+
+  circles
     .enter()
     .append("circle")
+    .merge(circles)
+    .attr("class", "circle")
     .attr("cx", d => d.x)
     .attr("cy", d => d.y)
     .attr("r", 1)
     .style("fill", d =>
       d3.scaleSequential(spectrum)(d.densityAvg / densityMax)
     );
-  return circles; // FIX: this is gross
 }
 
 function getPlotData({

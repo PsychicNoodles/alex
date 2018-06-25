@@ -29,12 +29,4 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 bool register_perf_fds(int socket, perf_fd_info* info);
 bool unregister_perf_fds(int socket, perf_fd_info* info);
 
-#define ANCIL_MAX_N_FDS 960
-
-#define ANCIL_FD_BUFFER(n) \
-  struct {                 \
-    int fd[n];             \
-    struct cmsghdr h;      \
-  }
-
 #endif
