@@ -22,7 +22,7 @@ extern pid_t collector_pid;
 extern FILE* result_file;
 extern vector<string> events;
 
-bool setup_perf_events(pid_t target, bool setup_events, perf_fd_info* info);
+void setup_perf_events(pid_t target, bool setup_events, perf_fd_info* info);
 int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       int sigt_fd, int socket);
 

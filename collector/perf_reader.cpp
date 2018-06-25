@@ -127,7 +127,7 @@ void delete_fd_from_epoll(int fd) {
  * every other event as children in the group. Thus, when the cpu cycles event
  * is started all the others are as well simultaneously
  */
-bool setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
+void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   DEBUG("setting up perf events for target " << target);
 
   static unsigned long long period = -1;
@@ -200,11 +200,12 @@ bool setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
         DEBUG("pfm encoding error: " << pfm_strerror(pfm_result));
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
       }
+      attr.disabled = false;
 
       DEBUG("opening perf event");
       // use cpu cycles event as group leader again
       info->event_fds[i] =
-          perf_event_open(&attr, target, -1, -1, 0);
+          perf_event_open(&attr, target, -1, cpu_cycles_perf.fd, 0);
       if (info->event_fds[i] == -1) {
         perror("couldn't perf_event_open for event");
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
@@ -217,15 +218,9 @@ bool setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   if (start_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
-  for(int i = 0; i < events.size(); i++) {
-    if (start_monitoring(info->event_fds[i]) != SAMPLER_MONITOR_SUCCESS) {
-      shutdown(subject_pid, result_file, INTERNAL_ERROR);
-    }
-  }
 
   DEBUG("setup perf events: cpu cycles "
         << cpu_cycles_perf.fd << ", inst count " << info->inst_count_fd);
-  return true;
 }
 
 inline map<int, perf_fd_info>::iterator find_perf_info_by_thread(pid_t tid) {
