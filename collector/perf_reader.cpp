@@ -351,6 +351,7 @@ void handle_perf_unregister(perf_fd_info *info) {
   DEBUG("cpd: freeing malloced memory");
   munmap(info->sample_buf.info, BUFFER_SIZE);
   free(info->event_fds);
+  free(info);
 
   DEBUG("cpd: successfully removed fd " << info->cpu_cycles_fd
                                         << " and associated fds for thread "
