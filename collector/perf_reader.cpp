@@ -401,13 +401,13 @@ perf_fd_info *create_perf_fd_info() {
  */
 int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       int sigt_fd, int socket) {
-  DEBUG("collector_main: registering " << sigt_fd << " as sigterm fd");
+  DEBUG("cpd: registering " << sigt_fd << " as sigterm fd");
   add_fd_to_epoll(sigt_fd);
 
-  DEBUG("registering socket " << socket);
+  DEBUG("cpd: registering socket " << socket);
   add_fd_to_epoll(socket);
 
-  DEBUG("setting up perf events for main thread in subject");
+  DEBUG("cpd: setting up perf events for main thread in subject");
   perf_fd_info subject_info;
   setup_perf_events(subject_pid, HANDLE_EVENTS, &subject_info);
   setup_buffer(&subject_info);
