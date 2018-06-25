@@ -16,6 +16,7 @@
 #include "ourpthread.hpp"
 #include "perf_reader.hpp"
 #include "util.hpp"
+#include "wattsup.hpp"
 
 using namespace std;
 
@@ -143,6 +144,9 @@ static int collector_main(int argc, char **argv, char **env) {
 
     map<uint64_t, kernel_sym> kernel_syms = read_kernel_syms();
 
+    //setting up wattsup
+    int wu_fd = wattsupSetUp();
+
     DEBUG(
         "collector_main: result file opened, sending ready (SIGUSR2) signal to "
         "child");
@@ -153,10 +157,11 @@ static int collector_main(int argc, char **argv, char **env) {
 
     DEBUG("collector_main: received child ready signal, starting analyzer");
     result =
-        collect_perf_data(subject_pid, kernel_syms, sigterm_fd, sockets[0]);
+        collect_perf_data(subject_pid, kernel_syms, sigterm_fd, sockets[0], wu_fd);
 
     DEBUG("collector_main: finished analyzer, closing file");
 
+    wattsupTurnOff(wu_fd);
     fclose(result_file);
     close(sockets[0]);
   } else {
