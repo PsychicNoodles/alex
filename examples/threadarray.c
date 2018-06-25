@@ -2,7 +2,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 
-#define NTHREADS 1
+#define NTHREADS 4
 void * calculate_sum(void *);
 int  counter = 0;
 

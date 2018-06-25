@@ -259,13 +259,13 @@ int recv_perf_fds(int socket, perf_fd_info *info) {
       return cmd;
     } else if (cmd == SOCKET_CMD_UNREGISTER) {
       DEBUG("request to unregister fds for tid " << tid);
-      auto pair = find_perf_info_by_thread(info->tid);
+      auto pair = find_perf_info_by_thread(tid);
       if (pair != perf_info_mappings.end()) {
         DEBUG("found perf info");
         *info = pair->second;
         return cmd;
       } else {
-        DEBUG("couldn't find perf info for thread " << info->tid);
+        DEBUG("couldn't find perf info for thread " << tid);
       }
     } else {
       DEBUG("received invalid socket cmd");
@@ -324,6 +324,9 @@ void handle_perf_register(perf_fd_info *info) {
     DEBUG("event[" << i << "]: " << info->event_fds[i]);
   }
   perf_info_mappings.emplace(make_pair(info->cpu_cycles_fd, *info));
+  DEBUG("cpd: successfully added fd " << info->cpu_cycles_fd
+                                      << " and associated fds for thread "
+                                      << info->tid);
 }
 
 /*
@@ -331,10 +334,10 @@ void handle_perf_register(perf_fd_info *info) {
  * program.
  */
 void handle_perf_unregister(perf_fd_info *info) {
-  DEBUG("cpd: handling perf unregister request for thread " << info->tid);
+  DEBUG("cpd: handling perf unregister request for thread "
+        << info->tid << ", removing from epoll");
   int n_fds = num_perf_fds();
 
-  DEBUG("cpd: found perf info, removing from epoll");
   delete_fd_from_epoll(info->cpu_cycles_fd);
   DEBUG("cpd: closing all associated fds");
   close(info->cpu_cycles_fd);
@@ -373,7 +376,7 @@ uint64_t lookup_kernel_addr(map<uint64_t, kernel_sym> kernel_syms,
 /*
  * Reads the dwarf data stored in the given executable file
  */
-dwarf::dwarf read_dwarf(const char* file = "/proc/self/exe") {
+dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
   // closed by mmap_loader constructor
   int fd = open((char *)"/proc/self/exe", O_RDONLY);
   if (fd < 0) {
@@ -383,6 +386,12 @@ dwarf::dwarf read_dwarf(const char* file = "/proc/self/exe") {
 
   elf::elf ef(elf::create_mmap_loader(fd));
   return dwarf::dwarf(dwarf::elf::create_loader(ef));
+}
+
+perf_fd_info *create_perf_fd_info() {
+  perf_fd_info *info = (perf_fd_info *)malloc(sizeof(perf_fd_info));
+  info->event_fds = (int *)malloc(sizeof(int) * events.size());
+  return info;
 }
 
 /*
@@ -447,19 +456,19 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
         } else if (fd == socket) {
           DEBUG("cpd: received message from a thread in subject");
           int cmd;
-          perf_fd_info info;
-          int *event_fds = (int *)malloc(sizeof(int) * events.size());
-          info.event_fds = event_fds;
-          while ((cmd = recv_perf_fds(socket, &info)) != -1) {
+          perf_fd_info *info = create_perf_fd_info();
+          for (cmd = recv_perf_fds(socket, info); cmd != -1;
+               info = create_perf_fd_info(),
+              cmd = recv_perf_fds(socket, info)) {
             DEBUG("cpd: received cmd " << cmd);
             if (cmd == SOCKET_CMD_REGISTER) {
-              DEBUG("cpd: setting up buffer for fd " << info.cpu_cycles_fd);
-              if (setup_buffer(&info) != SAMPLER_MONITOR_SUCCESS) {
+              DEBUG("cpd: setting up buffer for fd " << info->cpu_cycles_fd);
+              if (setup_buffer(info) != SAMPLER_MONITOR_SUCCESS) {
                 shutdown(subject_pid, result_file, INTERNAL_ERROR);
               }
-              handle_perf_register(&info);
+              handle_perf_register(info);
             } else if (cmd == SOCKET_CMD_UNREGISTER) {
-              handle_perf_unregister(&info);
+              handle_perf_unregister(info);
             }
           }
           DEBUG("cpd: exhausted requests");
