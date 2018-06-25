@@ -1,9 +1,12 @@
 #include <signal.h>
 #include <stdlib.h>
+#include <sys/syscall.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 #include "const.hpp"
 #include "util.hpp"
+
 using namespace std;
 
 /*
@@ -19,7 +22,7 @@ size_t time_ms() {
   return tv.tv_sec * 1000 + tv.tv_usec / 1000;
 }  // time_ms
 
-inline string ptr_fmt(void* ptr) {
+string ptr_fmt(void* ptr) {
   char buf[128];
   snprintf(buf, 128, "%p", ptr);
   return string(buf);
@@ -52,6 +55,14 @@ vector<string> str_split(string str, string delim) {
 
 void shutdown(pid_t pid, FILE* writef, int code) {
   kill(pid, SIGKILL);
-  fclose(writef);
+  if (writef != NULL) fclose(writef);
   exit(errno);
+}
+
+pid_t gettid() { return syscall(SYS_gettid); }
+
+string getenv_safe(const char* var, const char* fallback) {
+  const char* value = getenv(var);
+  if (!value) value = fallback;
+  return string(value);
 }

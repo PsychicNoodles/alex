@@ -1,25 +1,30 @@
 #include "perf_sampler.hpp"
+#include "debug.hpp"
+#include "perf_reader.hpp"
 
 int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
+  DEBUG("setting up monitoring for pid " << pid);
   int fd = perf_event_open(attr, pid, -1, -1, 0);
 
   if (fd == -1) {
-    perror("start_monitoring: perf_event_open");
-    return SAMPLER_MONITOR_ERROR;
-  }
-
-  size_t buffer_size = (1 + NUM_DATA_PAGES) * PAGE_SIZE;
-  void *buffer =
-      mmap(0, buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-  if (buffer == MAP_FAILED) {
-    perror("start_monitoring: mmap");
+    perror("setup_monitoring: perf_event_open");
     return SAMPLER_MONITOR_ERROR;
   }
 
   result->fd = fd;
-  result->info = (perf_event_mmap_page *)buffer;
-  result->data = (char *)buffer + PAGE_SIZE;
-  result->data_size = buffer_size - PAGE_SIZE;
+
+  return SAMPLER_MONITOR_SUCCESS;
+}
+
+int setup_buffer(perf_fd_info *info) {
+  void *buffer = mmap(0, BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED,
+                      info->cpu_cycles_fd, 0);
+  if (buffer == MAP_FAILED) {
+    perror("setup_monitoring: mmap");
+    return SAMPLER_MONITOR_ERROR;
+  }
+  info->sample_buf.info = (perf_event_mmap_page *)buffer;
+  info->sample_buf.data = (char *)buffer + PAGE_SIZE;
 
   return SAMPLER_MONITOR_SUCCESS;
 }
@@ -77,12 +82,15 @@ int reset_monitoring(int fd) {
 }
 
 int setup_pfm_os_event(perf_event_attr *attr, char *event_name) {
+  DEBUG("setting up pfm os event");
   pfm_perf_encode_arg_t pfm;
   pfm.attr = attr;
   pfm.fstr = 0;
   pfm.size = sizeof(pfm_perf_encode_arg_t);
+  DEBUG("getting encoding");
   int pfm_result = pfm_get_os_event_encoding(event_name, PFM_PLM3,
                                              PFM_OS_PERF_EVENT_EXT, &pfm);
+  DEBUG("encoding result: " << pfm_result);
 
   attr->disabled = true;
   attr->size = sizeof(perf_event_attr);
