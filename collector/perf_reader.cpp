@@ -127,7 +127,7 @@ void delete_fd_from_epoll(int fd) {
  * every other event as children in the group. Thus, when the cpu cycles event
  * is started all the others are as well simultaneously
  */
-bool setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
+void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   DEBUG("setting up perf events for target " << target);
 
   static unsigned long long period = -1;
@@ -221,7 +221,6 @@ bool setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
 
   DEBUG("setup perf events: cpu cycles "
         << cpu_cycles_perf.fd << ", inst count " << info->inst_count_fd);
-  return true;
 }
 
 inline map<int, perf_fd_info>::iterator find_perf_info_by_thread(pid_t tid) {
