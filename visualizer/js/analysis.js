@@ -1,5 +1,3 @@
-const { partition } = require("lodash");
-
 module.exports = chiSquaredTest;
 
 /**
