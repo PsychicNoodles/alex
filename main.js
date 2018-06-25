@@ -24,7 +24,7 @@ yargs
         .option("preset", {
           alias: "p",
           description: "Sensible performance metrics.",
-          choices: ["all", "cpu", "cache", "power"],
+          choices: ["all", "cpu", "cache", "power", "wattsup"],
           default: "all"
         })
         .option("events", {
@@ -54,6 +54,11 @@ yargs
           description: "The period in CPU cycles",
           type: "number",
           default: 10000000
+        })
+        .option("wattsupDevice", {
+          description:
+            'Use "dmesg" after plugging in the device to see what the USB serial port is detected at.',
+          default: "ttyUSB0"
         }),
     argv => {
       collect({
@@ -64,7 +69,8 @@ yargs
         resultOption: argv.result,
         events: argv.events || [],
         executableArgs: argv.args,
-        visualizeOption: argv.visualize
+        visualizeOption: argv.visualize,
+        wattsupDevice: argv.wattsupDevice
       });
     }
   )
@@ -93,7 +99,8 @@ function collect({
   inFile,
   outFile,
   errFile,
-  visualizeOption
+  visualizeOption,
+  wattsupDevice
 }) {
   const presetEvents = {
     cpu: [],
@@ -128,6 +135,7 @@ function collect({
       COLLECTOR_PERIOD: period,
       COLLECTOR_EVENTS: [...presetEvents[preset], ...events].join(","),
       COLLECTOR_RESULT_FILE: resultFile,
+      COLLECTOR_WATTSUP_DEVICE: wattsupDevice,
       LD_PRELOAD: path.join(__dirname, "./collector/collector.so")
     }
   });

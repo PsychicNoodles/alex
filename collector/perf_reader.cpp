@@ -38,6 +38,7 @@
 #include "perf_reader.hpp"
 #include "power.hpp"
 #include "util.hpp"
+#include "wattsup.hpp"
 
 using namespace std;
 
@@ -400,8 +401,13 @@ perf_fd_info *create_perf_fd_info() {
  * result file.
  */
 int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
+<<<<<<< HEAD
                       int sigt_fd, int socket) {
   DEBUG("cpd: registering " << sigt_fd << " as sigterm fd");
+=======
+                      int sigt_fd, int socket, int wu_fd) {
+  DEBUG("collector_main: registering " << sigt_fd << " as sigterm fd");
+>>>>>>> origin/xinya_merge
   add_fd_to_epoll(sigt_fd);
 
   DEBUG("cpd: registering socket " << socket);
@@ -568,6 +574,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       count);
             }
 
+            //power
             map<string, uint64_t> readings = measure_energy();
             map<string, uint64_t>::iterator itr;
             for (itr = readings.begin(); itr != readings.end(); ++itr) {
@@ -575,6 +582,11 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               fprintf(result_file, R"("%s": %lu)", itr->first.c_str(),
                       itr->second);
             }
+
+            // wattsup
+            fprintf(result_file, ",");
+            fprintf(result_file, R"("wattsup": %1lf)",
+                    wu_read(wu_fd, result_file));
 
             static dwarf::dwarf dw = read_dwarf();
 
