@@ -4,7 +4,14 @@
   "C_Cpp.clang_format_style": "Google",
   "prettier.semi": true,
   "eslint.enable": true,
-  "cSpell.words": ["quadtree", "timeslice", "timeslices"],
+  "cSpell.words": [
+    "datapoint's",
+    "performant",
+    "quadtree",
+    "runtimes",
+    "timeslice",
+    "timeslices"
+  ],
   "files.associations": {
     "typeinfo": "cpp",
     "functional": "cpp",
