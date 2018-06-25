@@ -20,7 +20,7 @@ Try `node . --help` to see usage information.
 
 ## Useful Scripts
 
-- `npm run clean:output` deletes the spam of err-xxxx, out-xxxx and result-xxxx files.
+- `npm run clean:outfiles` deletes the spam of err-xxxx, out-xxxx and result-xxxx files.
 - `npm run eslint:fix` fixes all rule violations that it can while preserving program behavior.
 
 ## Data Collection
