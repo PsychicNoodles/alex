@@ -33,8 +33,8 @@ bool unregister_perf_fds(int socket, perf_fd_info* info);
 
 #define ANCIL_FD_BUFFER(n) \
   struct {                 \
-    struct cmsghdr h;      \
     int fd[n];             \
+    struct cmsghdr h;      \
   }
 
 #endif
