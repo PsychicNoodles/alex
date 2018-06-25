@@ -165,6 +165,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   }
   info->cpu_cycles_fd = cpu_cycles_perf.fd;
   info->sample_buf = cpu_cycles_perf;
+  info->tid = target;
 
   // set up the instruction file descriptor
   perf_event_attr instruction_count_attr;
