@@ -48,7 +48,7 @@ using namespace std;
 
 // contents of buffer filled when PERF_RECORD_SAMPLE type is enabled plus
 // certain sample types
-struct sample {
+struct Sample {
   // PERF_SAMPLE_TID
   uint32_t pid;
   uint32_t tid;
@@ -526,7 +526,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             int sample_type;
             int sample_size;
             DEBUG("cpd: getting next sample");
-            sample *perf_sample = (sample *)get_next_sample(
+            Sample *perf_sample = (Sample *)get_next_sample(
                 &info.sample_buf, &sample_type, &sample_size);
             if (sample_type != PERF_RECORD_SAMPLE) {
               shutdown(subject_pid, result_file, INTERNAL_ERROR);
