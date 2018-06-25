@@ -242,7 +242,8 @@ function brushed({
       }
     });
 
-    const chiSquared = chiSquaredTest(timeslices);
+    const probability = Math.round(chiSquaredTest(timeslices));
+    console.log(`The likelihood that this is abnormal is ${probability}%`);
   }
 }
 
