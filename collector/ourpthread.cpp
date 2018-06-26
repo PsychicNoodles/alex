@@ -55,7 +55,24 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 }
 
 pid_t fork (void) {
-  return real_fork();
+  pid_t pid = real_fork();
+  if (pid == 0) {
+    DEBUG("this is child process with pid " << pid);
+  } else if (pid > 0) {
+  perf_fd_info info;
+  DEBUG(pid << ": setting up perf events with PID");
+  setup_perf_events(pid, HANDLE_EVENTS, &info);
+  DEBUG(pid << ": registering fd " << info.cpu_cycles_fd
+            << " with collector for bookkeeping");
+  if (!register_perf_fds(perf_register_sock, &info)) {
+    perror("failed to send new thread's fd");
+    shutdown(collector_pid, NULL, INTERNAL_ERROR);
+  }
+  DEBUG(pid << ": finished routine, unregistering fd " << info.cpu_cycles_fd);
+  unregister_perf_fds(perf_register_sock, &info);
+  DEBUG(pid << ": exiting");
+  }
+  return pid;
 }
 
 __attribute__((constructor)) void init() {
