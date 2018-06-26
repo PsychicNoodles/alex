@@ -429,16 +429,26 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   bool is_first_timeslice = true;
   bool done = false;
   int sample_period_skips = 0;
-  bg_reading energy_reading;
-  map<string, uint64_t> energy_results;
-  setup_reading(&energy_reading,
+
+  // setting up RAPL energy reading
+  bg_reading rapl_reading;
+  setup_reading(&rapl_reading,
                 [](void *_) -> void * {
                   auto m = new map<string, uint64_t>;
                   measure_energy_into_map(m);
                   return m;
                 },
                 NULL);
-  restart_reading(&energy_reading);
+  restart_reading(&rapl_reading);
+
+  // setting up wattsup energy reading
+  bg_reading wattsup_reading;
+  setup_reading(&wattsup_reading, [](void *raw_args) -> void * {
+    int wu_fd = ((int *)raw_args)[0];
+    auto d = new double;
+    *d = wu_read(wu_fd);
+    return d;
+  }, &wu_fd);
 
   DEBUG("cpd: entering epoll ready loop");
   while (!done) {
@@ -583,16 +593,16 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
             // power
             DEBUG("cpd: checking for RAPL energy results");
-            if (has_result(&energy_reading)) {
+            if (has_result(&rapl_reading)) {
               DEBUG("cpd: result found, writing out");
               map<string, uint64_t> nrg =
-                  *((map<string, uint64_t> *)get_result(&energy_reading));
+                  *((map<string, uint64_t> *)get_result(&rapl_reading));
               for (auto &p : nrg) {
                 fprintf(result_file, ",");
                 fprintf(result_file, R"("%s": %lu)", p.first.c_str(), p.second);
               }
               DEBUG("cpd: restarting RAPL energy readings");
-              restart_reading(&energy_reading);
+              restart_reading(&rapl_reading);
             }
 
             // wattsup
@@ -703,7 +713,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
     free(evlist);
   }
   DEBUG("cpd: stopping energy readings thread");
-  stop_reading(&energy_reading);
+  stop_reading(&rapl_reading);
 
   fprintf(result_file,
           R"(
