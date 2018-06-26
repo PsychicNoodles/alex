@@ -62,8 +62,8 @@ int ancil_recv_fds_with_msg(int sock, int *fds, unsigned n_fds,
 
 #define ANCIL_FD_BUFFER(n) \
   struct {                 \
-    struct cmsghdr h;      \
     int fd[n];             \
+    struct cmsghdr h;      \
   }
 
 #endif /* ANCILLARY_H__ */

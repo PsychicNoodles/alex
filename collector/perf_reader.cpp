@@ -38,6 +38,7 @@
 #include "perf_reader.hpp"
 #include "power.hpp"
 #include "util.hpp"
+#include "wattsup.hpp"
 
 using namespace std;
 
@@ -47,7 +48,7 @@ using namespace std;
 
 // contents of buffer filled when PERF_RECORD_SAMPLE type is enabled plus
 // certain sample types
-struct sample {
+struct Sample {
   // PERF_SAMPLE_TID
   uint32_t pid;
   uint32_t tid;
@@ -127,7 +128,7 @@ void delete_fd_from_epoll(int fd) {
  * every other event as children in the group. Thus, when the cpu cycles event
  * is started all the others are as well simultaneously
  */
-bool setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
+void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   DEBUG("setting up perf events for target " << target);
 
   static unsigned long long period = -1;
@@ -165,6 +166,7 @@ bool setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   }
   info->cpu_cycles_fd = cpu_cycles_perf.fd;
   info->sample_buf = cpu_cycles_perf;
+  info->tid = target;
 
   // set up the instruction file descriptor
   perf_event_attr instruction_count_attr;
@@ -200,6 +202,7 @@ bool setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
         DEBUG("pfm encoding error: " << pfm_strerror(pfm_result));
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
       }
+      attr.disabled = false;
 
       DEBUG("opening perf event");
       // use cpu cycles event as group leader again
@@ -220,7 +223,6 @@ bool setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
 
   DEBUG("setup perf events: cpu cycles "
         << cpu_cycles_perf.fd << ", inst count " << info->inst_count_fd);
-  return true;
 }
 
 inline map<int, perf_fd_info>::iterator find_perf_info_by_thread(pid_t tid) {
@@ -400,14 +402,14 @@ perf_fd_info *create_perf_fd_info() {
  * result file.
  */
 int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
-                      int sigt_fd, int socket) {
+                      int sigt_fd, int socket, int wu_fd) {
   DEBUG("collector_main: registering " << sigt_fd << " as sigterm fd");
   add_fd_to_epoll(sigt_fd);
 
-  DEBUG("registering socket " << socket);
+  DEBUG("cpd: registering socket " << socket);
   add_fd_to_epoll(socket);
 
-  DEBUG("setting up perf events for main thread in subject");
+  DEBUG("cpd: setting up perf events for main thread in subject");
   perf_fd_info subject_info;
   setup_perf_events(subject_pid, HANDLE_EVENTS, &subject_info);
   setup_buffer(&subject_info);
@@ -524,7 +526,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             int sample_type;
             int sample_size;
             DEBUG("cpd: getting next sample");
-            sample *perf_sample = (sample *)get_next_sample(
+            Sample *perf_sample = (Sample *)get_next_sample(
                 &info.sample_buf, &sample_type, &sample_size);
             if (sample_type != PERF_RECORD_SAMPLE) {
               shutdown(subject_pid, result_file, INTERNAL_ERROR);
@@ -568,6 +570,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       count);
             }
 
+            //power
             map<string, uint64_t> readings = measure_energy();
             map<string, uint64_t>::iterator itr;
             for (itr = readings.begin(); itr != readings.end(); ++itr) {
@@ -575,6 +578,11 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               fprintf(result_file, R"("%s": %lu)", itr->first.c_str(),
                       itr->second);
             }
+
+            // wattsup
+            fprintf(result_file, ",");
+            fprintf(result_file, R"("wattsup": %1lf)",
+                    wu_read(wu_fd, result_file));
 
             static dwarf::dwarf dw = read_dwarf();
 
