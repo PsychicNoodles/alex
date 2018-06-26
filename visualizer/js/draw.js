@@ -126,8 +126,6 @@ function createBrush({
     .extent([[0, 0], [CHART_WIDTH, CHART_HEIGHT]])
     .on("brush", () => {
       brushed({
-        brushes,
-        brush: this,
         timeslices,
         xScale,
         svg,
@@ -148,7 +146,6 @@ function createBrush({
 
   // Add brush to array of objects
   brushes.push({ id: brushes.length, brush: brush });
-
   drawBrushes(gBrushes, brushes);
 }
 
@@ -179,9 +176,13 @@ function brushEnd(
     });
   }
 
+  const circles = svg.selectAll("circle");
+
   document.getElementById("btnClearBrushes").addEventListener("click", () => {
     clearBrushes({
       brushes,
+      svg,
+      circles,
       timeslices,
       xScale,
       gBrushes,
@@ -218,8 +219,6 @@ function drawBrushes(gBrushes, brushes) {
 
 // Re-color the circles in the region that was selected by the user
 function brushed({
-  brushes,
-  brush,
   timeslices,
   xScale,
   svg,
@@ -267,6 +266,7 @@ function brushed({
 
 function clearBrushes({
   brushes,
+  svg,
   timeslices,
   xScale,
   circles,
@@ -279,7 +279,7 @@ function clearBrushes({
   gBrushes.selectAll(".brush").remove();
   createBrush({
     timeslices,
-    circles,
+    svg,
     brushes,
     gBrushes,
     xScale,
