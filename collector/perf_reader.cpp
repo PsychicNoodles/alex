@@ -608,7 +608,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             // wattsup
             fprintf(result_file, ",");
             fprintf(result_file, R"("wattsup": %1lf)",
-                    wu_read(wu_fd, result_file));
+                    wu_read(wu_fd));
 
             static dwarf::dwarf dw = read_dwarf();
 

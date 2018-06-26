@@ -159,7 +159,7 @@ int setup_serial_device(int fd) {
 }
 
 /* Read from the meter */
-double wu_read(int fd, FILE* result_file) {
+double wu_read(int fd) {
   int ret = -1;
   int offset = 0;
 
