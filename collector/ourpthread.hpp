@@ -19,6 +19,9 @@
 
 typedef int (*pthread_create_fn_t)(pthread_t *, const pthread_attr_t *,
                                    void *(*)(void *), void *);
+
+typedef pid_t (*fork_fn_t) (void);
+
 typedef void *(*routine_fn_t)(void *);
 
 typedef struct disguise {

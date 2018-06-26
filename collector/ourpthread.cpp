@@ -12,6 +12,7 @@
 using namespace std;
 
 pthread_create_fn_t real_pthread_create;
+fork_fn_t real_fork;
 
 int perf_register_sock;
 
@@ -53,10 +54,16 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   return real_pthread_create(thread, attr, &__imposter, d);
 }
 
+pid_t fork (void) {
+  return real_fork();
+}
+
 __attribute__((constructor)) void init() {
   real_pthread_create = (pthread_create_fn_t)dlsym(RTLD_NEXT, "pthread_create");
   if (real_pthread_create == NULL) {
     dlerror();
     exit(2);
   }
+
+  real_fork = (fork_fn_t) dlsym(RTLD_NEXT, "fork");
 }
