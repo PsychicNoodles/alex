@@ -1,6 +1,6 @@
 CXX := clang++
 CFLAGS := $(shell pkg-config --cflags --libs libelf++ libdwarf++)
-SOURCES := collector.cpp perf_reader.cpp const.cpp util.cpp debug.cpp perf_sampler.cpp ourpthread.cpp power.cpp wattsup.cpp ancillary.cpp
+SOURCES := collector.cpp perf_reader.cpp const.cpp util.cpp debug.cpp perf_sampler.cpp ourpthread.cpp power.cpp wattsup.cpp bg_readings.cpp ancillary.cpp
 SRC_DIR := .
 TIDY := clang-tidy
 

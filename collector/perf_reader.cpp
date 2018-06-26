@@ -33,6 +33,7 @@
 #include <libelfin/elf/elf++.hh>
 
 #include "ancillary.hpp"
+#include "bg_readings.hpp"
 #include "const.hpp"
 #include "debug.hpp"
 #include "perf_reader.hpp"
@@ -428,6 +429,16 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   bool is_first_timeslice = true;
   bool done = false;
   int sample_period_skips = 0;
+  bg_reading energy_reading;
+  map<string, uint64_t> energy_results;
+  setup_reading(&energy_reading,
+                [](void *_) -> void * {
+                  auto m = new map<string, uint64_t>;
+                  measure_energy_into_map(m);
+                  return m;
+                },
+                NULL);
+  restart_reading(&energy_reading);
 
   DEBUG("cpd: entering epoll ready loop");
   while (!done) {
@@ -570,13 +581,26 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       count);
             }
 
-            //power
-            map<string, uint64_t> readings = measure_energy();
-            map<string, uint64_t>::iterator itr;
-            for (itr = readings.begin(); itr != readings.end(); ++itr) {
-              fprintf(result_file, ",");
-              fprintf(result_file, R"("%s": %lu)", itr->first.c_str(),
-                      itr->second);
+            // power
+            // map<string, uint64_t> readings = measure_energy();
+            // map<string, uint64_t>::iterator itr;
+            // for (itr = readings.begin(); itr != readings.end(); ++itr) {
+            //   fprintf(result_file, ",");
+            //   fprintf(result_file, R"("%s": %lu)", itr->first.c_str(),
+            //           itr->second);
+            // }
+
+            DEBUG("cpd: checking for RAPL energy results");
+            if (has_result(&energy_reading)) {
+              DEBUG("cpd: result found, writing out");
+              map<string, uint64_t> nrg =
+                  *((map<string, uint64_t> *)get_result(&energy_reading));
+              for (auto &p : nrg) {
+                fprintf(result_file, ",");
+                fprintf(result_file, R"("%s": %lu)", p.first.c_str(), p.second);
+              }
+              DEBUG("cpd: restarting RAPL energy readings");
+              restart_reading(&energy_reading);
             }
 
             // wattsup
@@ -686,6 +710,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
     }
     free(evlist);
   }
+  DEBUG("cpd: stopping energy readings thread");
+  stop_reading(&energy_reading);
 
   fprintf(result_file,
           R"(

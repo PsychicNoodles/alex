@@ -26,26 +26,28 @@
 using namespace std;
 
 map<string, uint64_t> measure_energy() {
+  map<string, uint64_t> m;
+  measure_energy_into_map(&m);
+  return m;
+}
 
+void measure_energy_into_map(map<string, uint64_t> *m) {
   DEBUG("Measuring energy");
-  map<string, uint64_t> readings;
   vector<string> powerzones = find_in_dir(ENERGY_ROOT, "intel-rapl:");
   DEBUG("Found " << powerzones.size() << " zones");
   for (auto &zone : powerzones) {
     DEBUG("Trying zone " << zone);
     string zonedir = string(ENERGY_ROOT) + "/" + zone + "/";
-    push_energy_info(&readings, zonedir);
+    push_energy_info(m, zonedir);
     vector<string> subzones = find_in_dir(zonedir, zone);
     DEBUG("Found " << subzones.size() << " subzones");
     for (auto &sub : subzones) {
       DEBUG("Trying subzone " << sub);
-      push_energy_info(&readings, zonedir + sub + "/");
+      push_energy_info(m, zonedir + sub + "/");
     }
   }
 
-    DEBUG("Finished measuring energy");
-  return readings;
-
+  DEBUG("Finished measuring energy");
 }
 
 void push_energy_info (map<string, uint64_t> *readings, string dir) {
