@@ -582,14 +582,6 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             }
 
             // power
-            // map<string, uint64_t> readings = measure_energy();
-            // map<string, uint64_t>::iterator itr;
-            // for (itr = readings.begin(); itr != readings.end(); ++itr) {
-            //   fprintf(result_file, ",");
-            //   fprintf(result_file, R"("%s": %lu)", itr->first.c_str(),
-            //           itr->second);
-            // }
-
             DEBUG("cpd: checking for RAPL energy results");
             if (has_result(&energy_reading)) {
               DEBUG("cpd: result found, writing out");
