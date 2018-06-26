@@ -242,8 +242,13 @@ function brushed({
       }
     });
 
-    const probability = Math.round(chiSquaredTest(timeslices));
-    console.log(`The likelihood that this is abnormal is ${probability}%`);
+    const probability = chiSquaredTest(timeslices);
+    const probabilityPercentage = probability * 100;
+    if (probability !== -1) {
+      console.log(
+        `The likelihood that your selection is unusual is ~${probabilityPercentage}%`
+      );
+    }
   }
 }
 
