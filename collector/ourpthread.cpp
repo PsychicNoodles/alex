@@ -83,4 +83,8 @@ __attribute__((constructor)) void init() {
   }
 
   real_fork = (fork_fn_t) dlsym(RTLD_NEXT, "fork");
+  if (real_fork == NULL) {
+    dlerror();
+    exit(2);
+  }
 }
