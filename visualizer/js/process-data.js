@@ -21,13 +21,11 @@ function processData(immutableData) {
   // Convert cache to miss-rate data
   for (let i = 0; i < data.length; i++) {
     const cur = data[i];
-    const total =
-      cur.events["MEM_LOAD_RETIRED.L3_MISS"] +
-      cur.events["MEM_LOAD_RETIRED.L3_HIT"];
+    const total = cur.events["cache-references"];
     if (total === 0) {
       cur.events.missRate = 0;
     } else {
-      cur.events.missRate = cur.events["MEM_LOAD_RETIRED.L3_MISS"] / total;
+      cur.events.missRate = cur.events["cache-misses"] / total;
     }
     cur.selected = false;
   }

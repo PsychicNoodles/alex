@@ -104,7 +104,7 @@ function collect({
 }) {
   const presetEvents = {
     cpu: [],
-    cache: ["MEM_LOAD_RETIRED.L3_MISS", "MEM_LOAD_RETIRED.L3_HIT"]
+    cache: ["cache-misses", "cache-references"]
   };
 
   presetEvents.all = Object.keys(presetEvents).reduce(
