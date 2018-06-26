@@ -69,6 +69,7 @@ FILE *result_file;
 
 // a list of the events enumerated in COLLECTOR_EVENTS env var
 vector<string> events;
+set<string> presets;
 
 // map between cpu cycles fd (the only fd in a thread that is sampled) and its
 // related information/fds
@@ -487,23 +488,25 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             shutdown(subject_pid, result_file, INTERNAL_ERROR);
           }
 
-          long long num_cycles = 0;
-          DEBUG("cpd: reading from fd " << fd);
-          read(fd, &num_cycles, sizeof(num_cycles));
-          DEBUG("cpd: read in from fd " << fd
-                                        << " num of cycles: " << num_cycles);
-          if (reset_monitoring(fd) != SAMPLER_MONITOR_SUCCESS) {
-            shutdown(subject_pid, result_file, INTERNAL_ERROR);
-          }
+          // long long num_cycles = 0;
+          // DEBUG("cpd: reading from fd " << fd);
+          // read(fd, &num_cycles, sizeof(num_cycles));
+          // DEBUG("cpd: read in from fd " << fd
+          //                               << " num of cycles: " << num_cycles);
+          // if (reset_monitoring(fd) != SAMPLER_MONITOR_SUCCESS) {
+          //   shutdown(subject_pid, result_file, INTERNAL_ERROR);
+          // }
 
-          long long num_instructions = 0;
-          DEBUG("cpd: reading from fd " << info.inst_count_fd);
-          read(info.inst_count_fd, &num_instructions, sizeof(num_instructions));
-          DEBUG("cpd: read in from fd "
-                << info.inst_count_fd << " num of inst: " << num_instructions);
-          if (reset_monitoring(info.inst_count_fd) != SAMPLER_MONITOR_SUCCESS) {
-            shutdown(subject_pid, result_file, INTERNAL_ERROR);
-          }
+          // long long num_instructions = 0;
+          // DEBUG("cpd: reading from fd " << info.inst_count_fd);
+          // read(info.inst_count_fd, &num_instructions,
+          // sizeof(num_instructions)); DEBUG("cpd: read in from fd "
+          //       << info.inst_count_fd << " num of inst: " <<
+          //       num_instructions);
+          // if (reset_monitoring(info.inst_count_fd) !=
+          // SAMPLER_MONITOR_SUCCESS) {
+          //   shutdown(subject_pid, result_file, INTERNAL_ERROR);
+          // }
 
           if (!has_next_sample(&info.sample_buf)) {
             sample_period_skips++;
@@ -543,14 +546,11 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                     R"(
                 {
                   "time": %lu,
-                  "numCPUCycles": %lld,
-                  "numInstructions": %lld,
                   "pid": %u,
                   "tid": %u,
                   "events": {
               )",
-                    perf_sample->time, num_cycles, num_instructions,
-                    perf_sample->pid, perf_sample->tid);
+                    perf_sample->time, perf_sample->pid, perf_sample->tid);
 
             DEBUG("cpd: reading from each fd");
             for (int i = 0; i < events.size(); i++) {
@@ -570,19 +570,23 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       count);
             }
 
-            //power
-            map<string, uint64_t> readings = measure_energy();
-            map<string, uint64_t>::iterator itr;
-            for (itr = readings.begin(); itr != readings.end(); ++itr) {
-              fprintf(result_file, ",");
-              fprintf(result_file, R"("%s": %lu)", itr->first.c_str(),
-                      itr->second);
+            // power
+            if (presets.find("rapl") != presets.end() ||
+                presets.find("all") != presets.end()) {
+              map<string, uint64_t> readings = measure_energy();
+              map<string, uint64_t>::iterator itr;
+              for (itr = readings.begin(); itr != readings.end(); ++itr) {
+                fprintf(result_file, ",");
+                fprintf(result_file, R"("%s": %lu)", itr->first.c_str(),
+                        itr->second);
+              }
             }
 
             // wattsup
-            fprintf(result_file, ",");
-            fprintf(result_file, R"("wattsup": %1lf)",
-                    wu_read(wu_fd, result_file));
+            if (wu_fd != -1) {
+              fprintf(result_file, ",");
+              fprintf(result_file, R"("wattsup": %1lf)", wu_read(wu_fd, result_file));
+            }
 
             static dwarf::dwarf dw = read_dwarf();
 

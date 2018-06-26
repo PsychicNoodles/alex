@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <map>
 #include <vector>
+#include <set>
 
 #include "perf_sampler.hpp"
 
@@ -21,6 +22,7 @@ extern pid_t subject_pid;
 extern pid_t collector_pid;
 extern FILE* result_file;
 extern vector<string> events;
+extern set<string> presets;
 
 void setup_perf_events(pid_t target, bool setup_events, perf_fd_info* info);
 int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,

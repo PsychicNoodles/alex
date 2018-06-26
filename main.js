@@ -24,7 +24,7 @@ yargs
         .option("preset", {
           alias: "p",
           description: "Sensible performance metrics.",
-          choices: ["all", "cpu", "cache", "power", "wattsup"],
+          choices: ["all", "cpu", "cache", "rapl", "wattsup"],
           default: "all"
         })
         .option("events", {
@@ -102,15 +102,15 @@ function collect({
   visualizeOption,
   wattsupDevice
 }) {
-  const presetEvents = {
-    cpu: [],
-    cache: ["MEM_LOAD_RETIRED.L3_MISS", "MEM_LOAD_RETIRED.L3_HIT"]
-  };
+  // const presetEvents = {
+  //   cpu: [],
+  //   cache: ["MEM_LOAD_RETIRED.L3_MISS", "MEM_LOAD_RETIRED.L3_HIT"]
+  // };
 
-  presetEvents.all = Object.keys(presetEvents).reduce(
-    (events, preset) => [...events, ...presetEvents[preset]],
-    []
-  );
+  // presetEvents.all = Object.keys(presetEvents).reduce(
+  //   (events, preset) => [...events, ...presetEvents[preset]],
+  //   []
+  // );
 
   const resultFile = resultOption || tempFile(".json");
 
@@ -133,7 +133,9 @@ function collect({
     env: {
       ...process.env,
       COLLECTOR_PERIOD: period,
-      COLLECTOR_EVENTS: [...presetEvents[preset], ...events].join(","),
+      // COLLECTOR_EVENTS: [...presetEvents[preset], ...events].join(","),
+      COLLECTOR_PRESETS: preset,
+      COLLECTOR_EVENTS: events,
       COLLECTOR_RESULT_FILE: resultFile,
       COLLECTOR_WATTSUP_DEVICE: wattsupDevice,
       LD_PRELOAD: path.join(__dirname, "./collector/collector.so")
