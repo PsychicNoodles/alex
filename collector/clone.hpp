@@ -1,5 +1,5 @@
-#ifndef COLLECTOR_OURPTHREAD
-#define COLLECTOR_OURPTHREAD
+#ifndef COLLECTOR_CLONE
+#define COLLECTOR_CLONE
 
 #include <dlfcn.h>
 #include <linux/perf_event.h>
@@ -23,6 +23,13 @@ typedef int (*pthread_create_fn_t)(pthread_t *, const pthread_attr_t *,
 typedef pid_t (*fork_fn_t) (void);
 
 typedef void *(*routine_fn_t)(void *);
+
+typedef int (*execve_fn_t)(const char *filename, char *const argv[],
+                   char *const envp[]);
+
+extern pthread_create_fn_t real_pthread_create;
+extern fork_fn_t real_fork;
+extern execve_fn_t real_execve;
 
 typedef struct disguise {
   routine_fn_t victim;

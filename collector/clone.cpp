@@ -1,19 +1,20 @@
-#include "ourpthread.hpp"
+
 
 #include <string.h>
 #include <sys/socket.h>
 
+#include "clone.hpp"
+#include "const.hpp"
 #include "debug.hpp"
 #include "perf_reader.hpp"
 #include "perf_sampler.hpp"
 #include "util.hpp"
-#include "const.hpp"
 
 using namespace std;
 
 pthread_create_fn_t real_pthread_create;
 fork_fn_t real_fork;
-
+execve_fn_t real_execve;
 int perf_register_sock;
 
 void set_perf_register_sock(int sock) { perf_register_sock = sock; }
@@ -57,22 +58,31 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 pid_t fork (void) {
   pid_t pid = real_fork();
   if (pid == 0) {
-    DEBUG("this is child process with pid " << pid);
+    DEBUG("CHILD PROCESS");
   } else if (pid > 0) {
-  perf_fd_info info;
-  DEBUG(pid << ": setting up perf events with PID");
-  setup_perf_events(pid, HANDLE_EVENTS, &info);
-  DEBUG(pid << ": registering fd " << info.cpu_cycles_fd
-            << " with collector for bookkeeping");
-  if (!register_perf_fds(perf_register_sock, &info)) {
-    perror("failed to send new thread's fd");
-    shutdown(collector_pid, NULL, INTERNAL_ERROR);
-  }
-  DEBUG(pid << ": finished routine, unregistering fd " << info.cpu_cycles_fd);
-  unregister_perf_fds(perf_register_sock, &info);
-  DEBUG(pid << ": exiting");
+    DEBUG("THE PID IS " << getpid());
+    DEBUG("parent process PROCESS" << pid);
+    perf_fd_info info;
+    DEBUG(pid << ": setting up PROCESS perf events with PID");
+    setup_perf_events(pid, HANDLE_EVENTS, &info);
+    DEBUG(pid << ": registering PROCESS fd " << info.cpu_cycles_fd
+                   << " with collector for bookkeeping");
+    if (!register_perf_fds(perf_register_sock, &info)) {
+      perror("failed to send PROCESS new thread's fd");
+      shutdown(pid, NULL, INTERNAL_ERROR);
+    }
+    DEBUG(pid << ": finished PROCESS routine, unregistering fd "
+              << info.cpu_cycles_fd);
+    unregister_perf_fds(perf_register_sock, &info);
+    DEBUG(pid << ": exiting PROCESS");
   }
   return pid;
+}
+
+int execve(const char *filename, char *const argv[], char *const envp[]) {
+  int ret = unsetenv("LD_PRELOAD");
+  //char * new_envp  
+  return real_execve(filename, argv, envp);
 }
 
 __attribute__((constructor)) void init() {
@@ -84,6 +94,12 @@ __attribute__((constructor)) void init() {
 
   real_fork = (fork_fn_t) dlsym(RTLD_NEXT, "fork");
   if (real_fork == NULL) {
+    dlerror();
+    exit(2);
+  }
+
+  real_execve = (execve_fn_t) dlsym(RTLD_NEXT, "execve");
+  if (real_execve == NULL) {
     dlerror();
     exit(2);
   }

@@ -514,6 +514,11 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               DEBUG(
                   "cpd: reached max number of consecutive sample period skips, "
                   "exitting");
+              fprintf(result_file,
+                      R"(
+                  ]
+                }
+              )");
               shutdown(subject_pid, result_file, INTERNAL_ERROR);
             }
           } else {
