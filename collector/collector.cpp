@@ -17,6 +17,7 @@
 #include "perf_reader.hpp"
 #include "util.hpp"
 #include "wattsup.hpp"
+#include "find_events.hpp"
 
 using namespace std;
 
@@ -98,8 +99,10 @@ static int collector_main(int argc, char **argv, char **env) {
   presets = str_split_set(getenv_safe("COLLECTOR_PRESETS"), ",");
   if (presets.find("cpu") != presets.end() ||
       presets.find("all") != presets.end()) {
-    events.push_back("cpu-cycles");
-    events.push_back("instructions");
+    map<string, string> events = findEvents("cpu");
+    for (map<string,string>::iterator it=cpu.begin(); it!=cpu.end(); ++it) {
+      events.push_back(it->second.c_str());
+    }
   }
   if (presets.find("cache") != presets.end() ||
       presets.find("all") != presets.end()) {

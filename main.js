@@ -102,16 +102,6 @@ function collect({
   visualizeOption,
   wattsupDevice
 }) {
-  // const presetEvents = {
-  //   cpu: [],
-  //   cache: ["MEM_LOAD_RETIRED.L3_MISS", "MEM_LOAD_RETIRED.L3_HIT"]
-  // };
-
-  // presetEvents.all = Object.keys(presetEvents).reduce(
-  //   (events, preset) => [...events, ...presetEvents[preset]],
-  //   []
-  // );
-
   const resultFile = resultOption || tempFile(".json");
 
   console.info("Collecting performance data...");
