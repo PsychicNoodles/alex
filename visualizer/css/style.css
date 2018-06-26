@@ -24,3 +24,7 @@ body {
 .brushed {
   fill: #8e1b54 !important;
 }
+
+::selection {
+  fill: #000;
+}

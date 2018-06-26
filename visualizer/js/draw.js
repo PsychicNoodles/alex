@@ -70,7 +70,6 @@ function draw(
     xScale,
     getIndependentVariable
   });
-  drawBrushes(gBrushes, brushes);
   drawLegend(densityMax, svgLegend);
 }
 
@@ -127,6 +126,7 @@ function createBrush({
     .extent([[0, 0], [CHART_WIDTH, CHART_HEIGHT]])
     .on("brush", function() {
       brushed({
+        brushes,
         brush: this,
         timeslices,
         xScale,
@@ -148,6 +148,8 @@ function createBrush({
 
   // Add brush to array of objects
   brushes.push({ id: brushes.length, brush: brush });
+
+  drawBrushes(gBrushes, brushes);
 }
 
 function brushEnd(
@@ -177,7 +179,16 @@ function brushEnd(
     });
   }
 
-  drawBrushes(gBrushes, brushes);
+  document.getElementById("btnClearBrushes").addEventListener("click", () => {
+    clearBrushes({
+      brushes,
+      timeslices,
+      xScale,
+      circles,
+      gBrushes,
+      getIndependentVariable
+    });
+  });
 }
 
 function drawBrushes(gBrushes, brushes) {
@@ -208,6 +219,7 @@ function drawBrushes(gBrushes, brushes) {
 
 // Re-color the circles in the region that was selected by the user
 function brushed({
+  brushes,
   brush,
   timeslices,
   xScale,
@@ -252,6 +264,32 @@ function brushed({
 
     const chiSquared = chiSquaredTest(timeslices);
   }
+}
+
+function clearBrushes({
+  brushes,
+  timeslices,
+  xScale,
+  circles,
+  gBrushes,
+  getIndependentVariable
+}) {
+  while (brushes.length > 0) {
+    brushes.pop();
+  }
+  gBrushes.selectAll(".brush").remove();
+  createBrush({
+    timeslices,
+    circles,
+    brushes,
+    gBrushes,
+    xScale,
+    getIndependentVariable
+  });
+  for (const timeslice of timeslices) {
+    timeslice.selected = false;
+  }
+  circles.attr("class", "circle");
 }
 
 function drawLegend(densityMax, svg) {
