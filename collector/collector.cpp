@@ -13,7 +13,7 @@
 
 #include "const.hpp"
 #include "debug.hpp"
-#include "ourpthread.hpp"
+#include "clone.hpp"
 #include "perf_reader.hpp"
 #include "util.hpp"
 #include "wattsup.hpp"
@@ -99,7 +99,7 @@ static int collector_main(int argc, char **argv, char **env) {
   pfm_initialize();
 
   collector_pid = getpid();
-  subject_pid = fork();
+  subject_pid = real_fork();
   if (subject_pid == 0) {
     DEBUG(
         "collector_main: in child process, waiting for parent to be ready "

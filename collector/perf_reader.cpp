@@ -177,8 +177,9 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   instruction_count_attr.config = PERF_COUNT_HW_INSTRUCTIONS;
 
   // use cpu cycles event as group leader
-  int instruction_count_fd = perf_event_open(&instruction_count_attr, target,
-                                             -1, cpu_cycles_perf.fd, 0);
+  int instruction_count_fd =
+      perf_event_open(&instruction_count_attr, target, -1, cpu_cycles_perf.fd,
+                      PERF_FLAG_FD_CLOEXEC);
   if (instruction_count_fd == -1) {
     perror("couldn't perf_event_open for instruction count");
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
@@ -207,8 +208,8 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
 
       DEBUG("opening perf event");
       // use cpu cycles event as group leader again
-      info->event_fds[i] =
-          perf_event_open(&attr, target, -1, cpu_cycles_perf.fd, 0);
+      info->event_fds[i] = perf_event_open(
+          &attr, target, -1, cpu_cycles_perf.fd, PERF_FLAG_FD_CLOEXEC);
       if (info->event_fds[i] == -1) {
         perror("couldn't perf_event_open for event");
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
@@ -537,6 +538,11 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               DEBUG(
                   "cpd: reached max number of consecutive sample period skips, "
                   "exitting");
+              fprintf(result_file,
+                      R"(
+                  ]
+                }
+              )");
               shutdown(subject_pid, result_file, INTERNAL_ERROR);
             }
           } else {

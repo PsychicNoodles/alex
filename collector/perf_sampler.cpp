@@ -4,7 +4,7 @@
 
 int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
   DEBUG("setting up monitoring for pid " << pid);
-  int fd = perf_event_open(attr, pid, -1, -1, 0);
+  int fd = perf_event_open(attr, pid, -1, -1, PERF_FLAG_FD_CLOEXEC);
 
   if (fd == -1) {
     perror("setup_monitoring: perf_event_open");
