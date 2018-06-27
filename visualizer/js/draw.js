@@ -254,13 +254,15 @@ function brushed({
       }
     });
 
-    const probability = chiSquaredTest(timeslices);
-    const probabilityPercentage = probability * 100;
+    const chiSquaredData = chiSquaredTest(timeslices);
+    const probability = chiSquaredData.probability;
+    const probabilityPercentage = (probability * 100).toFixed(3);
     if (probability !== -1) {
       console.log(
         `The likelihood that your selection is unusual is ~${probabilityPercentage}%`
       );
     }
+    console.log(chiSquaredData.functionList);
   }
 }
 

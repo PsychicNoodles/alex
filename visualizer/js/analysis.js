@@ -11,20 +11,17 @@ module.exports = chiSquaredTest;
  *
  * @param data All data collected by the collector
  * @returns {number} The chi-squared probability, in percent
- * @todo Change return -1 to something more sensible.
- * @todo Test if a single loop with many "=== undefined" is actually
- * faster than two loops that initialize the array and then compute the function
- * tallies.
- * @todo Convert forEach calls into for loops when need for performance
- * outweighs need for readability.
- * @todo: Force the two variables to be specified by the client.
+ * @todo Consider changes for performance: conversion of forEach loops,
+ * different ways of accessing the "associative arrays" or converting them into
+ * true arrays of pair-ish objects, using one loop to initialize
+ * selected/unselected instead of "checking === undefined" every "loop"
  */
 function chiSquaredTest(data) {
   /* "Associative arrays", containing counts of function appearances within a
     region. Key = function name. Value = function count. */
-  const selected = [];
+  const selected = {};
   let selectedTotal = 0;
-  const unselected = [];
+  const unselected = {};
   let unselectedTotal = 0;
   const total = data.length;
 
@@ -75,6 +72,9 @@ function chiSquaredTest(data) {
   let chiSquared = 0;
   let observed;
   let expected;
+  let individualChiSquared;
+  const rankedFunctions = []; /* This is a separate array from uniqueFunctions purely
+  because I found it hard to make an alternative to the .includes() above. */
   uniqueFunctions.forEach(uniqueFunction => {
     // Compute chi-squared through the "row" representing selected state
     observed = selected[uniqueFunction];
@@ -82,8 +82,21 @@ function chiSquaredTest(data) {
       ((selected[uniqueFunction] + unselected[uniqueFunction]) *
         selectedTotal) /
       total;
-    // console.log(`Saw ${observed} of ${uniqueFunction}, expected ~${Math.round(expected)}`);
-    chiSquared += Math.pow(observed - expected, 2) / expected;
+
+    individualChiSquared = Math.pow(observed - expected, 2) / expected;
+    rankedFunctions.push({
+      name: uniqueFunction,
+      expected: expected,
+      observed: observed,
+      chiSquared: individualChiSquared
+    });
+    chiSquared += individualChiSquared;
+
+    /* console.log(
+      `Saw ${observed} of ${uniqueFunction}, expected ~${Math.round(
+        expected
+      )}, chiSquared of ${individualChiSquared}`
+    ); */
 
     // Compute chi-squared sum through the "row" representing unselected state
     observed = unselected[uniqueFunction];
@@ -95,5 +108,9 @@ function chiSquaredTest(data) {
   });
 
   // Compute the probability
-  return chi.cdf(chiSquared, degreesOfFreedom);
+  const probability = chi.cdf(chiSquared, degreesOfFreedom);
+
+  rankedFunctions.sort((a, b) => b.chiSquared - a.chiSquared);
+
+  return { probability: probability, functionList: rankedFunctions };
 }
