@@ -31,7 +31,7 @@ void *reading_fn_wrapper(void *raw_args) {
       DEBUG(t << ": locked, setting ready to false");
       reading->ready = false;
       DEBUG(t << ": waiting for ready signal");
-      reading->cv.wait(lock, [&reading] { return reading->ready; });
+      reading->cv.wait(lock, [&reading] { return reading->ready || !reading->running; });
       if (reading->running) {
         DEBUG(t << ": received notification to continue");
       } else {

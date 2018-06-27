@@ -440,6 +440,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                 },
                 NULL);
   restart_reading(&rapl_reading);
+  DEBUG("cpd: rapl reading in tid " << rapl_reading.thread);
 
   // setting up wattsup energy reading
   bg_reading wattsup_reading;
@@ -449,6 +450,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
     *d = wu_read(wu_fd);
     return d;
   }, &wu_fd);
+  restart_reading(&wattsup_reading);
+  DEBUG("cpd: wattsup reading in tid " << wattsup_reading.thread);
 
   DEBUG("cpd: entering epoll ready loop");
   while (!done) {
@@ -591,10 +594,10 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       count);
             }
 
-            // power
+            // rapl
             DEBUG("cpd: checking for RAPL energy results");
             if (has_result(&rapl_reading)) {
-              DEBUG("cpd: result found, writing out");
+              DEBUG("cpd: RAPL result found, writing out");
               map<string, uint64_t> nrg =
                   *((map<string, uint64_t> *)get_result(&rapl_reading));
               for (auto &p : nrg) {
@@ -606,9 +609,15 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             }
 
             // wattsup
-            fprintf(result_file, ",");
-            fprintf(result_file, R"("wattsup": %1lf)",
-                    wu_read(wu_fd));
+            DEBUG("cpd: checking for wattsup energy results");
+            if(has_result(&wattsup_reading)) {
+              DEBUG("cpd: wattsup result found, writing out");
+              double ret = *((double *)get_result(&wattsup_reading));
+              fprintf(result_file, ",");
+              fprintf(result_file, R"("wattsup": %1lf)", wu_read(wu_fd));
+              DEBUG("cpd: restarting wattsup energy readings");
+              restart_reading(&wattsup_reading);
+            }
 
             static dwarf::dwarf dw = read_dwarf();
 
@@ -712,8 +721,10 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
     }
     free(evlist);
   }
-  DEBUG("cpd: stopping energy readings thread");
+  DEBUG("cpd: stopping RAPL reading thread");
   stop_reading(&rapl_reading);
+  DEBUG("cpd: stopping wattsup reading thread");
+  stop_reading(&wattsup_reading);
 
   fprintf(result_file,
           R"(
