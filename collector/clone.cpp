@@ -9,13 +9,17 @@
 #include "perf_reader.hpp"
 #include "perf_sampler.hpp"
 #include "util.hpp"
-
+#include <unistd.h>
 using namespace std;
 
 pthread_create_fn_t real_pthread_create;
 fork_fn_t real_fork;
 execve_fn_t real_execve;
+execvp_fn_t real_execvp;
+execv_fn_t real_execv;
+execvpe_fn_t real_execvpe;
 int perf_register_sock;
+extern char **environ;
 
 void set_perf_register_sock(int sock) { perf_register_sock = sock; }
 
@@ -81,8 +85,25 @@ pid_t fork (void) {
 
 int execve(const char *filename, char *const argv[], char *const envp[]) {
   int ret = unsetenv("LD_PRELOAD");
-  //char * new_envp  
   return real_execve(filename, argv, envp);
+}
+
+int execvp(const char *file, char *const argv[]) {
+  int ret = unsetenv("LD_PRELOAD");
+  DEBUG("GET TO EXECVP");
+  return real_execvp(file, argv);
+}
+
+int execv(const char *path, char *const argv[]) {
+  int ret = unsetenv("LD_PRELOAD");
+  DEBUG("GET TO EXECV");
+  return real_execv(path, argv);
+}
+
+int execvpe(const char *file, char *const argv[], char *const envp[]){
+  int ret = unsetenv("LD_PRELOAD");
+  DEBUG("GET TO EXECVPE");
+  return real_execvpe(file, argv, envp);
 }
 
 __attribute__((constructor)) void init() {
@@ -100,6 +121,23 @@ __attribute__((constructor)) void init() {
 
   real_execve = (execve_fn_t) dlsym(RTLD_NEXT, "execve");
   if (real_execve == NULL) {
+    dlerror();
+    exit(2);
+  }
+  real_execvp = (execvp_fn_t)dlsym(RTLD_NEXT, "execvp");
+  if (real_execvp == NULL) {
+    dlerror();
+    exit(2);
+  }
+
+  real_execv = (execv_fn_t)dlsym(RTLD_NEXT, "execv");
+  if (real_execv == NULL) {
+    dlerror();
+    exit(2);
+  }
+
+  real_execvpe = (execvpe_fn_t)dlsym(RTLD_NEXT, "execvpe");
+  if (real_execvpe == NULL) {
     dlerror();
     exit(2);
   }

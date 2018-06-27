@@ -26,10 +26,17 @@ typedef void *(*routine_fn_t)(void *);
 
 typedef int (*execve_fn_t)(const char *filename, char *const argv[],
                    char *const envp[]);
+typedef int (*execvp_fn_t) (const char *file, char *const argv[]);
+
+typedef int (*execv_fn_t)(const char *path, char *const argv[]);
+typedef int (*execvpe_fn_t)(const char *file, char *const argv[], char *const envp[]);
 
 extern pthread_create_fn_t real_pthread_create;
 extern fork_fn_t real_fork;
 extern execve_fn_t real_execve;
+extern execvp_fn_t real_execvp;
+extern execv_fn_t real_execv;
+extern execvpe_fn_t real_execvpe;
 
 typedef struct disguise {
   routine_fn_t victim;
