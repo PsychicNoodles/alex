@@ -12,6 +12,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <string>
+#include <map>
 
 struct perf_buffer {
   int fd;
@@ -20,11 +21,10 @@ struct perf_buffer {
 };
 
 struct perf_fd_info {
-  int cpu_cycles_fd;
+  int cpu_clock_fd;
   pid_t tid;
   perf_buffer sample_buf;
-  int inst_count_fd;
-  int *event_fds;
+  std::map<std::string, int> event_fds;
 };
 
 #define PAGE_SIZE 0x1000LL

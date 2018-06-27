@@ -17,6 +17,7 @@
 #include "perf_reader.hpp"
 #include "util.hpp"
 #include "wattsup.hpp"
+#include "find_events.hpp"
 
 using namespace std;
 
@@ -92,8 +93,26 @@ static int collector_main(int argc, char **argv, char **env) {
     exit(INTERNAL_ERROR);
   }
 
+  //set up events array, will be a set later though
   DEBUG("collector_main: getting events from env var");
-  events = str_split(getenv_safe("COLLECTOR_EVENTS"), ",");
+  events = str_split_vec(getenv_safe("COLLECTOR_EVENTS"), ",");
+  presets = str_split_set(getenv_safe("COLLECTOR_PRESETS"), ",");
+  if (presets.find("cpu") != presets.end() ||
+      presets.find("all") != presets.end()) {
+    map<string, string> cpu = findEvents("cpu");
+    for (map<string,string>::iterator it=cpu.begin(); it!=cpu.end(); ++it) {
+      events.push_back(it->second.c_str());
+    }
+  }
+
+  if (presets.find("cache") != presets.end() ||
+      presets.find("all") != presets.end()) {
+    map<string, string> cache = findEvents("cache");
+    for (map<string, string>::iterator it = cache.begin(); it != cache.end();
+         ++it) {
+      events.push_back(it->second.c_str());
+    }
+  }
 
   DEBUG("collector_main: initializing pfm");
   pfm_initialize();
@@ -144,9 +163,13 @@ static int collector_main(int argc, char **argv, char **env) {
 
     map<uint64_t, kernel_sym> kernel_syms = read_kernel_syms();
 
-    //setting up wattsup
-    int wu_fd = wattsupSetUp();
-    DEBUG ("WATTSUP setup, wu_fd is: " << wu_fd);
+    int wu_fd = -1;
+    if (presets.find("wattsup") != presets.end() ||
+        presets.find("all") != presets.end()) {
+      // setting up wattsup
+      wu_fd = wattsupSetUp();
+      DEBUG("WATTSUP setup, wu_fd is: " << wu_fd);
+    }
 
     DEBUG(
         "collector_main: result file opened, sending ready (SIGUSR2) signal to "
@@ -157,12 +180,15 @@ static int collector_main(int argc, char **argv, char **env) {
       ;
 
     DEBUG("collector_main: received child ready signal, starting analyzer");
-    result =
-        collect_perf_data(subject_pid, kernel_syms, sigterm_fd, sockets[0], wu_fd);
+    result = collect_perf_data(subject_pid, kernel_syms, sigterm_fd, sockets[0],
+                               wu_fd);
 
     DEBUG("collector_main: finished analyzer, closing file");
 
-    wattsupTurnOff(wu_fd);
+    if (presets.find("wattsup") != presets.end() ||
+        presets.find("all") != presets.end()) {
+      wattsupTurnOff(wu_fd);
+    }
     fclose(result_file);
     close(sockets[0]);
   } else {

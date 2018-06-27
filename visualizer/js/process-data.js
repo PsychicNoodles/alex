@@ -5,30 +5,38 @@
 
 const { cloneDeep } = require("lodash");
 
-function processData(immutableData) {
+function processData(immutableData, header) {
   const data = cloneDeep(immutableData);
-  // Accumulate cycles and instructions
-  data[0].cyclesSoFar = data[0].numCPUCycles;
-  data[0].instructionsSoFar = data[0].numInstructions;
-  for (let i = 1; i < data.length; i++) {
-    const cur = data[i];
-    cur.cyclesSoFar = cur.numCPUCycles + data[i - 1].cyclesSoFar;
-    cur.instructionsSoFar = cur.numInstructions + data[i - 1].instructionsSoFar;
-    cur.selected = false;
-  }
 
-  // Convert cache to miss-rate data
-  for (let i = 0; i < data.length; i++) {
-    const cur = data[i];
-    const total =
-      cur.events["MEM_LOAD_RETIRED.L3_MISS"] +
-      cur.events["MEM_LOAD_RETIRED.L3_HIT"];
-    if (total === 0) {
-      cur.events.missRate = 0;
-    } else {
-      cur.events.missRate = cur.events["MEM_LOAD_RETIRED.L3_MISS"] / total;
+  // A list of event names
+  const hitsEvents = header.presets.cache.hits;
+  const missesEvents = header.presets.cache.misses;
+
+  const initialCPUTime = data[0].cpuTime;
+  for (const timeslice of data) {
+    // Remove the initial offset from CPU time
+    timeslice.cpuTime -= initialCPUTime;
+
+    // Deselect all
+    timeslice.selected = false;
+
+    // Convert cache to miss-rate data
+    let hitsTotal = 0;
+    for (const event of hitsEvents) {
+      hitsTotal += timeslice.events[event];
     }
-    cur.selected = false;
+
+    let missesTotal = 0;
+    for (const event of missesEvents) {
+      missesTotal += timeslice.events[event];
+    }
+
+    const accessesTotal = hitsTotal + missesTotal;
+    if (accessesTotal === 0) {
+      timeslice.events.missRate = 0;
+    } else {
+      timeslice.events.missRate = missesTotal / accessesTotal;
+    }
   }
 
   return data;

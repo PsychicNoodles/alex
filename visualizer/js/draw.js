@@ -23,10 +23,11 @@ function draw(
   const svg = d3.select("#chart");
   const svgLegend = d3.select("#legend"); // change to be part of main svg
   const xScaleMax = getIndependentVariable(timeslices[timeslices.length - 1]);
+  const xScaleMin = getIndependentVariable(timeslices[0]);
   const yScaleMax = d3.max(timeslices, getDependentVariable);
   const xScale = d3
     .scaleLinear()
-    .domain([0, xScaleMax])
+    .domain([xScaleMin, xScaleMax])
     .range([0, CHART_WIDTH]);
   const yScale = d3
     .scaleLinear()

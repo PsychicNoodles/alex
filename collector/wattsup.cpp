@@ -160,16 +160,11 @@ int setup_serial_device(int fd) {
 
 /* Read from the meter */
 double wu_read(int fd) {
+  DEBUG("reading from wattsup fd " << fd);
   int ret = -1;
   int offset = 0;
 
   char string[STRING_SIZE];
-
-  if (fd == -1) {
-    return -1;
-  } else {
-    DEBUG("WATTSUP fd :" << fd);
-  }
 
   memset(string, 0, STRING_SIZE);
 
@@ -214,6 +209,7 @@ double wu_read(int fd) {
   watts = atof(watts_string);
   watts /= 10.0;
 
+  DEBUG("wattsup read in " << watts << " watts");
   return (watts);
 }
 

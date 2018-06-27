@@ -3,6 +3,7 @@
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <set>
 
 #include "const.hpp"
 #include "util.hpp"
@@ -35,7 +36,7 @@ char* int_to_hex(uint64_t i) {
 }
 
 // https://stackoverflow.com/a/14267455
-vector<string> str_split(string str, string delim) {
+vector<string> str_split_vec(string str, string delim) {
   vector<string> split;
   auto start = 0U;
   auto end = str.find(delim);
@@ -48,6 +49,24 @@ vector<string> str_split(string str, string delim) {
   auto last_substr = str.substr(start, end);
   if (last_substr != "") {
     split.push_back(last_substr);
+  }
+
+  return split;
+}
+
+set<string> str_split_set(string str, string delim) {
+  set<string> split;
+  auto start = 0U;
+  auto end = str.find(delim);
+  while (end != std::string::npos) {
+    split.insert(str.substr(start, end - start));
+    start = end + delim.length();
+    end = str.find(delim, start);
+  }
+
+  auto last_substr = str.substr(start, end);
+  if (last_substr != "") {
+    split.insert(last_substr);
   }
 
   return split;
