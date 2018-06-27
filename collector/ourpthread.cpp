@@ -39,7 +39,10 @@ void *__imposter(void *arg) {
   void *ret = routine(arguments);
 
   DEBUG(tid << ": finished routine, unregistering fd " << info.cpu_clock_fd);
-  unregister_perf_fds(perf_register_sock, &info);
+  if (!unregister_perf_fds(perf_register_sock, &info)) {
+    perror("failed to unregister thread fd");
+    shutdown(collector_pid, NULL, INTERNAL_ERROR);
+  }
   DEBUG(tid << ": exiting");
   return ret;
 }
