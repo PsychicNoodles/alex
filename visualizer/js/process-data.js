@@ -5,28 +5,57 @@
 
 const { cloneDeep } = require("lodash");
 
-function processData(immutableData) {
+function processData(immutableData, header) {
   const data = cloneDeep(immutableData);
-  // Accumulate cycles and instructions
-  data[0].cyclesSoFar = data[0].numCPUCycles;
-  data[0].instructionsSoFar = data[0].numInstructions;
-  for (let i = 1; i < data.length; i++) {
-    const cur = data[i];
-    cur.cyclesSoFar = cur.numCPUCycles + data[i - 1].cyclesSoFar;
-    cur.instructionsSoFar = cur.numInstructions + data[i - 1].instructionsSoFar;
-    cur.selected = false;
-  }
 
-  // Convert cache to miss-rate data
+  // Accumulate cycles and instructions
+  const numCPUCyclesEvents = header.presets.cpu.numCPUCycles;
+  const numInstructionsEvents = header.presets.cpu.numInstructions;
   for (let i = 0; i < data.length; i++) {
     const cur = data[i];
-    const total =
-      cur.events["MEM_LOAD_RETIRED.L3_MISS"] +
-      cur.events["MEM_LOAD_RETIRED.L3_HIT"];
-    if (total === 0) {
+
+    let numCPUCyclesTotal = 0;
+    for (const event of numCPUCyclesEvents) {
+      numCPUCyclesTotal += cur.events[event];
+    }
+
+    let numInstructionsTotal = 0;
+    for (const event of numInstructionsEvents) {
+      numInstructionsTotal += cur.events[event];
+    }
+
+    if (i === 0) {
+      cur.cyclesSoFar = numCPUCyclesTotal;
+      cur.instructionsSoFar = numInstructionsTotal;
+    } else {
+      cur.cyclesSoFar = numCPUCyclesTotal + data[i - 1].cyclesSoFar;
+      cur.instructionsSoFar =
+        numInstructionsTotal + data[i - 1].instructionsSoFar;
+    }
+  }
+
+  // Convert cache to missRate data
+  const hitsEvents = header.presets.cache.hits;
+  const missesEvents = header.presets.cache.misses;
+
+  for (let i = 0; i < data.length; i++) {
+    const cur = data[i];
+
+    let hitsTotal = 0;
+    for (const event of hitsEvents) {
+      hitsTotal += cur.events[event];
+    }
+
+    let missesTotal = 0;
+    for (const event of missesEvents) {
+      missesTotal += cur.events[event];
+    }
+
+    const accessesTotal = hitsTotal + missesTotal;
+    if (accessesTotal === 0) {
       cur.events.missRate = 0;
     } else {
-      cur.events.missRate = cur.events["MEM_LOAD_RETIRED.L3_MISS"] / total;
+      cur.events.missRate = missesTotal / accessesTotal;
     }
     cur.selected = false;
   }

@@ -123,7 +123,6 @@ function collect({
     env: {
       ...process.env,
       COLLECTOR_PERIOD: period,
-      // COLLECTOR_EVENTS: [...presetEvents[preset], ...events].join(","),
       COLLECTOR_PRESETS: preset,
       COLLECTOR_EVENTS: events,
       COLLECTOR_RESULT_FILE: resultFile,

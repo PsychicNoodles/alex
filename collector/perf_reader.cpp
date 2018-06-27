@@ -424,11 +424,12 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             {
               "header": {
                 "programVersion": ")" COLLECTOR_VERSION R"("
-              },
+              ,
               )");
-  printPresetEvents(presets);
+  printPresetEvents(presets, result_file);
   fprintf(result_file,
           R"(
+            },
               "timeslices": [
           )");
 
@@ -493,26 +494,6 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                                                                        << ")");
             shutdown(subject_pid, result_file, INTERNAL_ERROR);
           }
-
-          // long long num_cycles = 0;
-          // DEBUG("cpd: reading from fd " << fd);
-          // read(fd, &num_cycles, sizeof(num_cycles));
-          // DEBUG("cpd: read in from fd " << fd
-          //                               << " num of cycles: " << num_cycles);
-          // if (reset_monitoring(fd) != SAMPLER_MONITOR_SUCCESS) {
-          //   shutdown(subject_pid, result_file, INTERNAL_ERROR);
-          // }
-
-          // long long num_instructions = 0;
-          // DEBUG("cpd: reading from fd " << info.inst_count_fd);
-          // read(info.inst_count_fd, &num_instructions,
-          // sizeof(num_instructions)); DEBUG("cpd: read in from fd "
-          //       << info.inst_count_fd << " num of inst: " <<
-          //       num_instructions);
-          // if (reset_monitoring(info.inst_count_fd) !=
-          // SAMPLER_MONITOR_SUCCESS) {
-          //   shutdown(subject_pid, result_file, INTERNAL_ERROR);
-          // }
 
           if (!has_next_sample(&info.sample_buf)) {
             sample_period_skips++;

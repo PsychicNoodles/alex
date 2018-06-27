@@ -1,6 +1,8 @@
 #include <string.h>
 #include <map>
-#include <pair>
+#include <set>
+
+using namespace std;
 
 map<string, string> findEvents(string preset);
-void printPresetEvents(presets, result_file);
+void printPresetEvents(set<string> presets, FILE * result_file);

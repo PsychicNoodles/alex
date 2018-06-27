@@ -29,7 +29,7 @@ ipcRenderer.on("result", (event, resultFile) => {
     window.close();
   }
 
-  const processedData = processData(result.timeslices);
+  const processedData = processData(result.timeslices, result.header);
 
   d3.select(".x-axis-select").call(xAxisSelect.render, {
     options: xAxisOptions,
