@@ -21,6 +21,7 @@
 using namespace std;
 
 map<string, uint64_t> measure_energy();
+void measure_energy_into_map(map<string, uint64_t> *m);
 
 void push_energy_info (map<string, uint64_t> *readings, string dir);
 

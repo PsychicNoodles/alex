@@ -33,6 +33,7 @@
 #include <libelfin/elf/elf++.hh>
 
 #include "ancillary.hpp"
+#include "bg_readings.hpp"
 #include "const.hpp"
 #include "debug.hpp"
 #include "find_events.hpp"
@@ -408,6 +409,38 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   bool done = false;
   int sample_period_skips = 0;
 
+  // setting up RAPL energy reading
+  bg_reading rapl_reading = {0};
+  if (presets.find("rapl") != presets.end() ||
+      presets.find("all") != presets.end()) {
+    setup_reading(&rapl_reading,
+                  [](void *_) -> void * {
+                    auto m = new map<string, uint64_t>;
+                    measure_energy_into_map(m);
+                    return m;
+                  },
+                  NULL);
+    restart_reading(&rapl_reading);
+    DEBUG("cpd: rapl reading in tid " << rapl_reading.thread);
+  }
+
+  // setting up wattsup energy reading
+  bg_reading wattsup_reading = {0};
+  if (wu_fd != -1) {
+    setup_reading(&wattsup_reading,
+                  [](void *raw_args) -> void * {
+                    int wu_fd = ((int *)raw_args)[0];
+                    auto d = new double;
+                    *d = wu_read(wu_fd);
+                    return d;
+                  },
+                  &wu_fd);
+    restart_reading(&wattsup_reading);
+    DEBUG("cpd: wattsup reading in tid " << wattsup_reading.thread);
+  } else {
+    DEBUG("cpd: wattsup couldn't open device, skipping setup");
+  }
+
   DEBUG("cpd: entering epoll ready loop");
   while (!done) {
     epoll_event *evlist =
@@ -532,21 +565,33 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             }
 
             // rapl
-            if (presets.find("rapl") != presets.end() ||
-                presets.find("all") != presets.end()) {
-              map<string, uint64_t> readings = measure_energy();
-              map<string, uint64_t>::iterator itr;
-              for (itr = readings.begin(); itr != readings.end(); ++itr) {
-                fprintf(result_file, ",");
-                fprintf(result_file, R"("%s": %lu)", itr->first.c_str(),
-                        itr->second);
+            if (rapl_reading.running) {
+              DEBUG("cpd: checking for RAPL energy results");
+              if (has_result(&rapl_reading)) {
+                DEBUG("cpd: RAPL result found, writing out");
+                map<string, uint64_t> nrg =
+                    *((map<string, uint64_t> *)get_result(&rapl_reading));
+                for (auto &p : nrg) {
+                  fprintf(result_file, ",");
+                  fprintf(result_file, R"("%s": %lu)", p.first.c_str(),
+                          p.second);
+                }
+                DEBUG("cpd: restarting RAPL energy readings");
+                restart_reading(&rapl_reading);
               }
             }
 
             // wattsup
-            if (wu_fd != -1) {
-              fprintf(result_file, ",");
-              fprintf(result_file, R"("wattsup": %1lf)", wu_read(wu_fd));
+            if (wattsup_reading.running) {
+              DEBUG("cpd: checking for wattsup energy results");
+              if (has_result(&wattsup_reading)) {
+                DEBUG("cpd: wattsup result found, writing out");
+                double ret = *((double *)get_result(&wattsup_reading));
+                fprintf(result_file, ",");
+                fprintf(result_file, R"("wattsup": %1lf)", wu_read(wu_fd));
+                DEBUG("cpd: restarting wattsup energy readings");
+                restart_reading(&wattsup_reading);
+              }
             }
 
             static dwarf::dwarf dw = read_dwarf();
@@ -652,6 +697,10 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
     }
     free(evlist);
   }
+  DEBUG("cpd: stopping RAPL reading thread");
+  stop_reading(&rapl_reading);
+  DEBUG("cpd: stopping wattsup reading thread");
+  stop_reading(&wattsup_reading);
 
   fprintf(result_file,
           R"(
