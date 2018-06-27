@@ -70,7 +70,6 @@ function draw(
     xScale,
     getIndependentVariable
   });
-  drawBrushes(gBrushes, brushes);
   drawLegend(densityMax, svgLegend);
 }
 
@@ -147,6 +146,7 @@ function createBrush({
 
   // Add brush to array of objects
   brushes.push({ id: brushes.length, brush: brush });
+  drawBrushes(gBrushes, brushes);
 }
 
 function brushEnd(
@@ -176,7 +176,19 @@ function brushEnd(
     });
   }
 
-  drawBrushes(gBrushes, brushes);
+  const circles = svg.selectAll("circle");
+
+  document.getElementById("btnClearBrushes").addEventListener("click", () => {
+    clearBrushes({
+      brushes,
+      svg,
+      circles,
+      timeslices,
+      xScale,
+      gBrushes,
+      getIndependentVariable
+    });
+  });
 }
 
 function drawBrushes(gBrushes, brushes) {
@@ -242,9 +254,41 @@ function brushed({
       }
     });
 
-    const probability = Math.round(chiSquaredTest(timeslices));
-    console.log(`The likelihood that this is abnormal is ${probability}%`);
+    const probability = chiSquaredTest(timeslices);
+    const probabilityPercentage = probability * 100;
+    if (probability !== -1) {
+      console.log(
+        `The likelihood that your selection is unusual is ~${probabilityPercentage}%`
+      );
+    }
   }
+}
+
+function clearBrushes({
+  brushes,
+  svg,
+  timeslices,
+  xScale,
+  circles,
+  gBrushes,
+  getIndependentVariable
+}) {
+  while (brushes.length > 0) {
+    brushes.pop();
+  }
+  gBrushes.selectAll(".brush").remove();
+  createBrush({
+    timeslices,
+    svg,
+    brushes,
+    gBrushes,
+    xScale,
+    getIndependentVariable
+  });
+  for (const timeslice of timeslices) {
+    timeslice.selected = false;
+  }
+  circles.attr("class", "circle");
 }
 
 function drawLegend(densityMax, svg) {

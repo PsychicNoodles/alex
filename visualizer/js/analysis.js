@@ -1,3 +1,5 @@
+const chi = require("chi-squared");
+
 module.exports = chiSquaredTest;
 
 /**
@@ -9,7 +11,6 @@ module.exports = chiSquaredTest;
  *
  * @param data All data collected by the collector
  * @returns {number} The chi-squared probability, in percent
- * @todo: Convert chi-squared and degrees of freedom into probability.
  * @todo Change return -1 to something more sensible.
  * @todo Test if a single loop with many "=== undefined" is actually
  * faster than two loops that initialize the array and then compute the function
@@ -59,6 +60,9 @@ function chiSquaredTest(data) {
     }
   });
 
+  // (number of columns - 1)(number of rows - 1) simplifies to this
+  const degreesOfFreedom = uniqueFunctions.length - 1;
+
   // Checks to avoid situations without two comparable groups.
   if (selectedTotal === 0) {
     console.error("Chi-squared test called with no selected data.");
@@ -78,6 +82,7 @@ function chiSquaredTest(data) {
       ((selected[uniqueFunction] + unselected[uniqueFunction]) *
         selectedTotal) /
       total;
+    // console.log(`Saw ${observed} of ${uniqueFunction}, expected ~${Math.round(expected)}`);
     chiSquared += Math.pow(observed - expected, 2) / expected;
 
     // Compute chi-squared sum through the "row" representing unselected state
@@ -89,5 +94,6 @@ function chiSquaredTest(data) {
     chiSquared += Math.pow(observed - expected, 2) / expected;
   });
 
-  return chiSquared;
+  // Compute the probability
+  return chi.cdf(chiSquared, degreesOfFreedom);
 }
