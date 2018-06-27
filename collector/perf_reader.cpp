@@ -35,11 +35,11 @@
 #include "ancillary.hpp"
 #include "const.hpp"
 #include "debug.hpp"
+#include "find_events.hpp"
 #include "perf_reader.hpp"
 #include "rapl.hpp"
 #include "util.hpp"
 #include "wattsup.hpp"
-#include "find_events.hpp"
 
 using namespace std;
 
@@ -174,7 +174,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
     for (auto &e : events) {
       DEBUG("event: " << e);
     }
-    for (auto event : events){
+    for (auto event : events) {
       DEBUG("setting up event: " << event);
       perf_event_attr attr;
       memset(&attr, 0, sizeof(perf_event_attr));
@@ -190,8 +190,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
 
       DEBUG("opening perf event");
       // use cpu cycles event as group leader again
-      auto event_fd =
-          perf_event_open(&attr, target, -1, cpu_clock_perf.fd, 0);
+      auto event_fd = perf_event_open(&attr, target, -1, cpu_clock_perf.fd, 0);
       if (event_fd == -1) {
         perror("couldn't perf_event_open for event");
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
@@ -369,9 +368,7 @@ dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
   return dwarf::dwarf(dwarf::elf::create_loader(ef));
 }
 
-perf_fd_info *create_perf_fd_info() {
-  return new perf_fd_info();
-}
+perf_fd_info *create_perf_fd_info() { return new perf_fd_info(); }
 
 /*
  * Sets up the required events and records performance of subject process into
@@ -391,7 +388,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   setup_buffer(&subject_info);
   handle_perf_register(&subject_info);
 
-  //write the header
+  // write the header
   DEBUG("cpd: writing result header");
   fprintf(result_file,
           R"(
@@ -531,8 +528,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                 shutdown(subject_pid, result_file, INTERNAL_ERROR);
               }
 
-              fprintf(result_file, R"("%s": %lld)", event.c_str(),
-                      count);
+              fprintf(result_file, R"("%s": %lld)", event.c_str(), count);
             }
 
             // rapl
