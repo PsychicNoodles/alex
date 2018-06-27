@@ -21,11 +21,11 @@ yargs
           description: "Arguments to be passed to the executable.",
           type: "string"
         })
-        .option("preset", {
+        .option("presets", {
           alias: "p",
           description: "Sensible performance metrics.",
-          choices: ["all", "cpu", "cache", "rapl", "wattsup"],
-          default: "all"
+          type: "array",
+          default: ["all"]
         })
         .option("events", {
           alias: "e",
@@ -69,8 +69,7 @@ yargs
         resultOption: argv.result,
         events: argv.events || [],
         executableArgs: argv.args,
-        visualizeOption: argv.visualize,
-        wattsupDevice: argv.wattsupDevice
+        visualizeOption: argv.visualize
       });
     }
   )
@@ -90,7 +89,7 @@ yargs
   .help().argv;
 
 function collect({
-  preset,
+  presets,
   events,
   resultOption,
   executable,
@@ -123,8 +122,8 @@ function collect({
     env: {
       ...process.env,
       COLLECTOR_PERIOD: period,
-      COLLECTOR_PRESETS: preset,
-      COLLECTOR_EVENTS: events,
+      COLLECTOR_PRESETS: presets.join(","),
+      COLLECTOR_EVENTS: events.join(","),
       COLLECTOR_RESULT_FILE: resultFile,
       COLLECTOR_WATTSUP_DEVICE: wattsupDevice,
       LD_PRELOAD: path.join(__dirname, "./collector/collector.so")
