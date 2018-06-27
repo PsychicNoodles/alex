@@ -33,16 +33,18 @@ int main(void) {
   char line[BUFFER] = "ls";
   printf("$ ");
   char *args[] = {line, (char *)0};
-  int pid = fork();  // fork child
-  if (pid == 0) {    // Child
-    calculate_sum();
-    printf("this is the child process %d\n", getpid());
-    execvp(line, args);
-    perror("exec");
-    exit(1);
-  } else {  // Parent
-    printf("this is parent process %d", getpid());
-    wait(NULL);
+  for (int i = 0; i < 5; i++) {
+    int pid = fork();  // fork child
+    if (pid == 0) {    // Child
+      calculate_sum();
+      printf("this is the child process %d\n", getpid());
+      execvp(line, args);
+      perror("exec");
+      exit(1);
+    } else {  // Parent
+      printf("this is parent process %d", getpid());
+      wait(NULL);
+    }
   }
 
   return 0;
