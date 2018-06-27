@@ -31,7 +31,8 @@ void *reading_fn_wrapper(void *raw_args) {
       DEBUG(t << ": locked, setting ready to false");
       reading->ready = false;
       DEBUG(t << ": waiting for ready signal");
-      reading->cv.wait(lock, [&reading] { return reading->ready || !reading->running; });
+      reading->cv.wait(
+          lock, [&reading] { return reading->ready || !reading->running; });
       if (reading->running) {
         DEBUG(t << ": received notification to continue");
       } else {
@@ -84,7 +85,9 @@ void stop_reading(bg_reading *reading) {
   pthread_join(reading->thread, NULL);
 }
 
-bool has_result(bg_reading *reading) { return reading->result != NULL; }
+bool has_result(bg_reading *reading) {
+  return reading->running && reading->result != NULL;
+}
 
 void *get_result(bg_reading *reading) {
   void *ret = reading->result;

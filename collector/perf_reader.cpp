@@ -432,7 +432,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   int sample_period_skips = 0;
 
   // setting up RAPL energy reading
-  bg_reading rapl_reading;
+  bg_reading rapl_reading = {0};
   setup_reading(&rapl_reading,
                 [](void *_) -> void * {
                   auto m = new map<string, uint64_t>;
@@ -444,15 +444,21 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   DEBUG("cpd: rapl reading in tid " << rapl_reading.thread);
 
   // setting up wattsup energy reading
-  bg_reading wattsup_reading;
-  setup_reading(&wattsup_reading, [](void *raw_args) -> void * {
-    int wu_fd = ((int *)raw_args)[0];
-    auto d = new double;
-    *d = wu_read(wu_fd);
-    return d;
-  }, &wu_fd);
-  restart_reading(&wattsup_reading);
-  DEBUG("cpd: wattsup reading in tid " << wattsup_reading.thread);
+  bg_reading wattsup_reading = {0};
+  if (wu_fd != -1) {
+    setup_reading(&wattsup_reading,
+                  [](void *raw_args) -> void * {
+                    int wu_fd = ((int *)raw_args)[0];
+                    auto d = new double;
+                    *d = wu_read(wu_fd);
+                    return d;
+                  },
+                  &wu_fd);
+    restart_reading(&wattsup_reading);
+    DEBUG("cpd: wattsup reading in tid " << wattsup_reading.thread);
+  } else {
+    DEBUG("cpd: wattsup couldn't open device, skipping setup");
+  }
 
   DEBUG("cpd: entering epoll ready loop");
   while (!done) {
@@ -616,7 +622,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
             // wattsup
             DEBUG("cpd: checking for wattsup energy results");
-            if(has_result(&wattsup_reading)) {
+            if (has_result(&wattsup_reading)) {
               DEBUG("cpd: wattsup result found, writing out");
               double ret = *((double *)get_result(&wattsup_reading));
               fprintf(result_file, ",");
