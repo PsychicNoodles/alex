@@ -15,10 +15,9 @@ function render(root, { data }) {
           selfTime: 0,
           cumulativeTime: 0
         };
-        functionRuntimesMap[functionName].cumulativeTime +=
-          timeSlice.numCPUCycles;
+        functionRuntimesMap[functionName].cumulativeTime += timeSlice.cpuTime;
         if (+i === 0) {
-          functionRuntimesMap[functionName].selfTime += timeSlice.numCPUCycles;
+          functionRuntimesMap[functionName].selfTime += timeSlice.cpuTime;
         }
       }
     }
@@ -45,8 +44,8 @@ function render(root, { data }) {
     .insert("tr", "tr")
     .attr("class", "function-runtimes__header-row");
   headerRowSelection.append("th").text("Function Name");
-  headerRowSelection.append("th").text(`Self Time (CPU Cycles)`);
-  headerRowSelection.append("th").text(`Cumulative Time (CPU Cycles)`);
+  headerRowSelection.append("th").text("Self Time (CPU Time)");
+  headerRowSelection.append("th").text("Cumulative Time (CPU Time)");
 
   const tableDataSelection = root
     .selectAll(".function-runtimes__data-row")
