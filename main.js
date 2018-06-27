@@ -193,7 +193,6 @@ function collect({
       result.header = {
         ...result.header,
         events,
-        preset,
         executableName: executable,
         executableArgs
       };
