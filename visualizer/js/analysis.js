@@ -73,8 +73,9 @@ function chiSquaredTest(data) {
   let observed;
   let expected;
   let individualChiSquared;
-  const rankedFunctions = []; /* This is a separate array from uniqueFunctions purely
-  because I found it hard to make an alternative to the .includes() above. */
+  const rankedFunctions = []; /* This is a separate array from uniqueFunctions
+  purely because I found it hard to make an alternative to the .includes()
+  above. */
   uniqueFunctions.forEach(uniqueFunction => {
     // Compute chi-squared through the "row" representing selected state
     observed = selected[uniqueFunction];
