@@ -1,3 +1,5 @@
+#ifndef COLLECTOR_RAPL
+#define COLLECTOR_RAPL
 #include <csignal>
 #include <cstdint>
 #include <cstdlib>
@@ -28,3 +30,4 @@ vector<string> find_in_dir(string dir, string substr);
 string file_readline(string path);
 
 
+#endif

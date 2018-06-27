@@ -14,7 +14,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include "power.hpp"
+#include "rapl.hpp"
 
 #include "debug.hpp"
 

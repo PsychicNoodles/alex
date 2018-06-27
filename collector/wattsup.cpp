@@ -166,12 +166,6 @@ double wu_read(int fd) {
 
   char string[STRING_SIZE];
 
-  if (fd == -1) {
-    return -1;
-  } else {
-    DEBUG("WATTSUP fd :" << fd);
-  }
-
   memset(string, 0, STRING_SIZE);
 
   while (ret < 0 || string[0] != '#') {
