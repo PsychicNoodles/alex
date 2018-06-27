@@ -36,9 +36,10 @@
 #include "const.hpp"
 #include "debug.hpp"
 #include "perf_reader.hpp"
-#include "power.hpp"
+#include "rapl.hpp"
 #include "util.hpp"
 #include "wattsup.hpp"
+#include "find_events.hpp"
 
 using namespace std;
 
@@ -416,6 +417,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   setup_buffer(&subject_info);
   handle_perf_register(&subject_info);
 
+  //write the header
   DEBUG("cpd: writing result header");
   fprintf(result_file,
           R"(
@@ -423,6 +425,10 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               "header": {
                 "programVersion": ")" COLLECTOR_VERSION R"("
               },
+              )");
+  printPresetEvents(presets);
+  fprintf(result_file,
+          R"(
               "timeslices": [
           )");
 
@@ -570,7 +576,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       count);
             }
 
-            // power
+            // rapl
             if (presets.find("rapl") != presets.end() ||
                 presets.find("all") != presets.end()) {
               map<string, uint64_t> readings = measure_energy();
