@@ -81,11 +81,10 @@ size_t sample_fd_count = 0;
 
 /*
  * Calculates the number of perf file descriptors per thread
- * #1 cpu cycles and samples
- * #2 instruction counter
- * #3-? each event
+ * #0 cpu cycles and samples
+ * #1-? each event
  */
-inline size_t num_perf_fds() { return 2 * events.size(); }
+inline size_t num_perf_fds() { return 1 + events.size(); }
 
 /*
  * Adds a file descriptor to the global epoll
@@ -148,56 +147,39 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   DEBUG("period is " << period);
 
   // set up the cpu cycles perf buffer
-  perf_event_attr cpu_cycles_attr;
-  memset(&cpu_cycles_attr, 0, sizeof(perf_event_attr));
+  perf_event_attr cpu_clock_attr;
+  memset(&cpu_clock_attr, 0, sizeof(perf_event_attr));
   // disabled so related events start at the same time
-  cpu_cycles_attr.disabled = true;
-  cpu_cycles_attr.size = sizeof(perf_event_attr);
-  cpu_cycles_attr.type = PERF_TYPE_HARDWARE;
-  cpu_cycles_attr.config = PERF_COUNT_HW_CPU_CYCLES;
-  cpu_cycles_attr.sample_type = SAMPLE_TYPE;
-  cpu_cycles_attr.sample_period = period;
-  cpu_cycles_attr.wakeup_events = 1;
+  cpu_clock_attr.disabled = true;
+  cpu_clock_attr.size = sizeof(perf_event_attr);
+  cpu_clock_attr.type = PERF_TYPE_SOFTWARE;
+  cpu_clock_attr.config = PERF_COUNT_SW_CPU_CLOCK;
+  cpu_clock_attr.sample_type = SAMPLE_TYPE;
+  cpu_clock_attr.sample_period = period;
+  cpu_clock_attr.wakeup_events = 1;
 
-  perf_buffer cpu_cycles_perf;
-  if (setup_monitoring(&cpu_cycles_perf, &cpu_cycles_attr, target) !=
+  perf_buffer cpu_clock_perf;
+  if (setup_monitoring(&cpu_clock_perf, &cpu_clock_attr, target) !=
       SAMPLER_MONITOR_SUCCESS) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
-  info->cpu_cycles_fd = cpu_cycles_perf.fd;
-  info->sample_buf = cpu_cycles_perf;
+  info->cpu_clock_fd = cpu_clock_perf.fd;
+  info->sample_buf = cpu_clock_perf;
   info->tid = target;
-
-  // set up the instruction file descriptor
-  perf_event_attr instruction_count_attr;
-  memset(&instruction_count_attr, 0, sizeof(instruction_count_attr));
-  instruction_count_attr.size = sizeof(instruction_count_attr);
-  instruction_count_attr.type = PERF_TYPE_HARDWARE;
-  instruction_count_attr.config = PERF_COUNT_HW_INSTRUCTIONS;
-
-  // use cpu cycles event as group leader
-  int instruction_count_fd = perf_event_open(&instruction_count_attr, target,
-                                             -1, cpu_cycles_perf.fd, 0);
-  if (instruction_count_fd == -1) {
-    perror("couldn't perf_event_open for instruction count");
-    shutdown(subject_pid, result_file, INTERNAL_ERROR);
-  }
-  info->inst_count_fd = instruction_count_fd;
 
   if (setup_events && !events.empty()) {
     DEBUG("setting up events");
     for (auto &e : events) {
       DEBUG("event: " << e);
     }
-    info->event_fds = (int *)malloc(sizeof(int) * events.size());
-    for (int i = 0; i < events.size(); i++) {
-      DEBUG("setting up event " << i);
+    for (auto event : events){
+      DEBUG("setting up event: " << event);
       perf_event_attr attr;
       memset(&attr, 0, sizeof(perf_event_attr));
 
       // Parse out event name with PFM.  Must be done first.
       DEBUG("parsing pfm event name");
-      int pfm_result = setup_pfm_os_event(&attr, (char *)events.at(i).c_str());
+      int pfm_result = setup_pfm_os_event(&attr, (char *)event.c_str());
       if (pfm_result != PFM_SUCCESS) {
         DEBUG("pfm encoding error: " << pfm_strerror(pfm_result));
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
@@ -206,23 +188,22 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
 
       DEBUG("opening perf event");
       // use cpu cycles event as group leader again
-      info->event_fds[i] =
-          perf_event_open(&attr, target, -1, cpu_cycles_perf.fd, 0);
-      if (info->event_fds[i] == -1) {
+      auto event_fd =
+          perf_event_open(&attr, target, -1, cpu_clock_perf.fd, 0);
+      if (event_fd == -1) {
         perror("couldn't perf_event_open for event");
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
       }
+
+      info->event_fds[event] = event_fd;
     }
   }
 
   // all related events are ready, so time to start monitoring
   DEBUG("starting monitoring for " << target);
-  if (start_monitoring(cpu_cycles_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
+  if (start_monitoring(cpu_clock_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
-
-  DEBUG("setup perf events: cpu cycles "
-        << cpu_cycles_perf.fd << ", inst count " << info->inst_count_fd);
 }
 
 inline map<int, perf_fd_info>::iterator find_perf_info_by_thread(pid_t tid) {
@@ -252,10 +233,9 @@ int recv_perf_fds(int socket, perf_fd_info *info) {
         DEBUG("recv fds[" << i << "]: " << ancil_fds[i]);
       }
       // copy perf fd info
-      info->cpu_cycles_fd = ancil_fds[0];
-      info->inst_count_fd = ancil_fds[1];
-      for (int i = 2; i < n_fds; i++) {
-        info->event_fds[i - 2] = ancil_fds[i];
+      info->cpu_clock_fd = ancil_fds[0];
+      for (int i = 0; i < events.size(); i++) {
+        info->event_fds[events[i]] = ancil_fds[i + 1];
       }
       info->tid = tid;
       return cmd;
@@ -287,10 +267,9 @@ bool register_perf_fds(int socket, perf_fd_info *info) {
   size_t n_fds = num_perf_fds();
   int ancil_fds[n_fds];
   // copy the locally used file descriptors
-  ancil_fds[0] = info->cpu_cycles_fd;
-  ancil_fds[1] = info->inst_count_fd;
-  for (int i = 2; i < n_fds; i++) {
-    ancil_fds[i] = info->event_fds[i - 2];
+  ancil_fds[0] = info->cpu_clock_fd;
+  for (int i = 0; i < events.size(); i++) {
+    ancil_fds[i + 1] = info->event_fds[events[i]];
   }
   pid_t tid = gettid();
   int cmd = SOCKET_CMD_REGISTER;
@@ -319,14 +298,13 @@ bool unregister_perf_fds(int socket, perf_fd_info *info) {
 void handle_perf_register(perf_fd_info *info) {
   DEBUG("cpd: handling perf register request for thread "
         << info->tid << ", adding to epoll");
-  add_fd_to_epoll(info->cpu_cycles_fd);
-  DEBUG("cpd: inserting mapping for fd " << info->cpu_cycles_fd);
-  DEBUG("info inst: " << info->inst_count_fd);
-  for (int i = 0; i < num_perf_fds() - 2; i++) {
-    DEBUG("event[" << i << "]: " << info->event_fds[i]);
+  add_fd_to_epoll(info->cpu_clock_fd);
+  DEBUG("cpd: inserting mapping for fd " << info->cpu_clock_fd);
+  for (int i = 0; i < events.size(); i++) {
+    DEBUG("event[" << i << "]: " << info->event_fds[events[i]]);
   }
-  perf_info_mappings.emplace(make_pair(info->cpu_cycles_fd, *info));
-  DEBUG("cpd: successfully added fd " << info->cpu_cycles_fd
+  perf_info_mappings.emplace(make_pair(info->cpu_clock_fd, *info));
+  DEBUG("cpd: successfully added fd " << info->cpu_clock_fd
                                       << " and associated fds for thread "
                                       << info->tid);
 }
@@ -340,22 +318,20 @@ void handle_perf_unregister(perf_fd_info *info) {
         << info->tid << ", removing from epoll");
   int n_fds = num_perf_fds();
 
-  delete_fd_from_epoll(info->cpu_cycles_fd);
+  delete_fd_from_epoll(info->cpu_clock_fd);
   DEBUG("cpd: closing all associated fds");
-  close(info->cpu_cycles_fd);
-  close(info->inst_count_fd);
-  for (int i = 0; i < n_fds - 2; i++) {
-    close(info->event_fds[i]);
+  close(info->cpu_clock_fd);
+  for (auto entry : info->event_fds) {
+    close(entry.second);
   }
   DEBUG("cpd: removing mapping");
-  perf_info_mappings.erase(info->cpu_cycles_fd);
+  perf_info_mappings.erase(info->cpu_clock_fd);
 
   DEBUG("cpd: freeing malloced memory");
   munmap(info->sample_buf.info, BUFFER_SIZE);
-  free(info->event_fds);
-  free(info);
+  delete info;
 
-  DEBUG("cpd: successfully removed fd " << info->cpu_cycles_fd
+  DEBUG("cpd: successfully removed fd " << info->cpu_clock_fd
                                         << " and associated fds for thread "
                                         << info->tid);
 }
@@ -392,9 +368,7 @@ dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
 }
 
 perf_fd_info *create_perf_fd_info() {
-  perf_fd_info *info = (perf_fd_info *)malloc(sizeof(perf_fd_info));
-  info->event_fds = (int *)malloc(sizeof(int) * events.size());
-  return info;
+  return new perf_fd_info();
 }
 
 /*
@@ -465,7 +439,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               cmd = recv_perf_fds(socket, info)) {
             DEBUG("cpd: received cmd " << cmd);
             if (cmd == SOCKET_CMD_REGISTER) {
-              DEBUG("cpd: setting up buffer for fd " << info->cpu_cycles_fd);
+              DEBUG("cpd: setting up buffer for fd " << info->cpu_clock_fd);
               if (setup_buffer(info) != SAMPLER_MONITOR_SUCCESS) {
                 shutdown(subject_pid, result_file, INTERNAL_ERROR);
               }
@@ -484,24 +458,6 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           } catch (out_of_range &e) {
             DEBUG("cpd: tried looking up a perf fd that has no info (" << fd
                                                                        << ")");
-            shutdown(subject_pid, result_file, INTERNAL_ERROR);
-          }
-
-          long long num_cycles = 0;
-          DEBUG("cpd: reading from fd " << fd);
-          read(fd, &num_cycles, sizeof(num_cycles));
-          DEBUG("cpd: read in from fd " << fd
-                                        << " num of cycles: " << num_cycles);
-          if (reset_monitoring(fd) != SAMPLER_MONITOR_SUCCESS) {
-            shutdown(subject_pid, result_file, INTERNAL_ERROR);
-          }
-
-          long long num_instructions = 0;
-          DEBUG("cpd: reading from fd " << info.inst_count_fd);
-          read(info.inst_count_fd, &num_instructions, sizeof(num_instructions));
-          DEBUG("cpd: read in from fd "
-                << info.inst_count_fd << " num of inst: " << num_instructions);
-          if (reset_monitoring(info.inst_count_fd) != SAMPLER_MONITOR_SUCCESS) {
             shutdown(subject_pid, result_file, INTERNAL_ERROR);
           }
 
@@ -541,36 +497,37 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
             fprintf(result_file,
                     R"(
-                {
-                  "time": %lu,
-                  "numCPUCycles": %lld,
-                  "numInstructions": %lld,
-                  "pid": %u,
-                  "tid": %u,
-                  "events": {
-              )",
-                    perf_sample->time, num_cycles, num_instructions,
-                    perf_sample->pid, perf_sample->tid);
+                      {
+                        "cpuTime": %lu,
+                        "pid": %u,
+                        "tid": %u,
+                        "events": {
+                    )",
+                    perf_sample->time, perf_sample->pid, perf_sample->tid);
 
             DEBUG("cpd: reading from each fd");
-            for (int i = 0; i < events.size(); i++) {
-              if (i > 0) {
+
+            bool is_first_event = true;
+            for (auto event : events) {
+              if (is_first_event) {
+                is_first_event = false;
+              } else {
                 fprintf(result_file, ",");
               }
 
               long long count = 0;
-              DEBUG("cpd: reading from fd " << info.event_fds[i]);
-              read(info.event_fds[i], &count, sizeof(long long));
-              if (reset_monitoring(info.event_fds[i]) !=
+              DEBUG("cpd: reading from fd " << info.event_fds[event]);
+              read(info.event_fds[event], &count, sizeof(long long));
+              if (reset_monitoring(info.event_fds[event]) !=
                   SAMPLER_MONITOR_SUCCESS) {
                 shutdown(subject_pid, result_file, INTERNAL_ERROR);
               }
 
-              fprintf(result_file, R"("%s": %lld)", events.at(i).c_str(),
+              fprintf(result_file, R"("%s": %lld)", event.c_str(),
                       count);
             }
 
-            //power
+            // power
             map<string, uint64_t> readings = measure_energy();
             map<string, uint64_t>::iterator itr;
             for (itr = readings.begin(); itr != readings.end(); ++itr) {
@@ -592,7 +549,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                 "stackFrames": [
               )");
 
-            bool is_first = true;
+            bool is_first_sample = true;
             uint64_t callchain_section = 0;
             for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
               uint64_t inst_ptr = perf_sample->instruction_pointers[i];
@@ -602,10 +559,11 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               }
               DEBUG("cpd: on instruction pointer " << int_to_hex(inst_ptr));
 
-              if (!is_first) {
+              if (is_first_sample) {
+                is_first_sample = false;
+              } else {
                 fprintf(result_file, ",");
               }
-              is_first = false;
 
               fprintf(result_file,
                       R"(

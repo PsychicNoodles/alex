@@ -18,7 +18,7 @@ int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
 
 int setup_buffer(perf_fd_info *info) {
   void *buffer = mmap(0, BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED,
-                      info->cpu_cycles_fd, 0);
+                      info->cpu_clock_fd, 0);
   if (buffer == MAP_FAILED) {
     perror("setup_monitoring: mmap");
     return SAMPLER_MONITOR_ERROR;

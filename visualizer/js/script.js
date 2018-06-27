@@ -1,4 +1,3 @@
-const d3 = require("d3");
 const { ipcRenderer } = require("electron");
 const fs = require("fs");
 
@@ -6,18 +5,6 @@ require("bootstrap");
 
 const { processData } = require("./process-data");
 const { draw } = require("./draw");
-const xAxisSelect = require("./x-axis-select");
-
-const xAxisOptions = [
-  {
-    independentVariable: "cyclesSoFar",
-    label: "CPU Cycles"
-  },
-  {
-    independentVariable: "instructionsSoFar",
-    label: "Instructions Executed"
-  }
-];
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, resultFile) => {
@@ -31,21 +18,17 @@ ipcRenderer.on("result", (event, resultFile) => {
 
   const processedData = processData(result.timeslices);
 
-  d3.select(".x-axis-select").call(xAxisSelect.render, {
-    options: xAxisOptions,
-    onOptionSelect: xAxisOption => {
-      const getIndependentVariable = d => d[xAxisOption.independentVariable];
+  const xAxisLabel = "CPU Time Elapsed";
+  const getIndependentVariable = d => d.cpuTime;
 
-      const yAxisLabel = "Cache Miss Rate";
-      const getDependentVariable = d => d.events.missRate;
+  const yAxisLabel = "Cache Miss Rate";
+  const getDependentVariable = d => d.events.missRate;
 
-      draw(
-        processedData,
-        getIndependentVariable,
-        getDependentVariable,
-        xAxisOption.label,
-        yAxisLabel
-      );
-    }
-  });
+  draw(
+    processedData,
+    getIndependentVariable,
+    getDependentVariable,
+    xAxisLabel,
+    yAxisLabel
+  );
 });

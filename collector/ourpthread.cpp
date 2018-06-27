@@ -28,7 +28,7 @@ void *__imposter(void *arg) {
   perf_fd_info info;
   DEBUG(tid << ": setting up perf events");
   setup_perf_events(tid, HANDLE_EVENTS, &info);
-  DEBUG(tid << ": registering fd " << info.cpu_cycles_fd
+  DEBUG(tid << ": registering fd " << info.cpu_clock_fd
             << " with collector for bookkeeping");
   if (!register_perf_fds(perf_register_sock, &info)) {
     perror("failed to send new thread's fd");
@@ -38,7 +38,7 @@ void *__imposter(void *arg) {
   DEBUG(tid << ": starting routine");
   void *ret = routine(arguments);
 
-  DEBUG(tid << ": finished routine, unregistering fd " << info.cpu_cycles_fd);
+  DEBUG(tid << ": finished routine, unregistering fd " << info.cpu_clock_fd);
   unregister_perf_fds(perf_register_sock, &info);
   DEBUG(tid << ": exiting");
   return ret;

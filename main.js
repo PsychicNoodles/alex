@@ -103,7 +103,7 @@ function collect({
   wattsupDevice
 }) {
   const presetEvents = {
-    cpu: [],
+    cpu: ["instructions", "cycles"],
     cache: ["MEM_LOAD_RETIRED.L3_MISS", "MEM_LOAD_RETIRED.L3_HIT"]
   };
 
