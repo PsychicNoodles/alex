@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <cxxabi.h>
 #include <dlfcn.h>
 #include <elf.h>
 #include <fcntl.h>
@@ -625,7 +626,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       (void *)inst_ptr, callchain_str(callchain_section));
 
               string sym_name_str;
-              const char *sym_name = NULL, *file_name = NULL;
+              const char *sym_name = NULL, *file_name = NULL,
+                         *demangled_name = NULL;
               void *file_base = NULL, *sym_addr = NULL;
               if (callchain_section == CALLCHAIN_USER) {
                 DEBUG("cpd: looking up user stack frame");
@@ -649,13 +651,33 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                   sym_addr = (void *)addr;
                 }
               }
+              // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
+              if (sym_name != NULL) {
+                int demangle_status;
+                demangled_name =
+                    abi::__cxa_demangle(sym_name, NULL, NULL, &demangle_status);
+                if (demangle_status != 0) {
+                  if (demangle_status == -1) {
+                    DEBUG(
+                        "cpd: demangling errored due to memory allocation "
+                        "failure");
+                    shutdown(subject_pid, result_file, INTERNAL_ERROR);
+                  } else if (demangle_status == -2) {
+                    DEBUG("cpd: could not demangle name " << sym_name);
+                  } else if (demangle_status == -3) {
+                    DEBUG("cpd: demangling errored due to invalid arguments");
+                    shutdown(subject_pid, result_file, INTERNAL_ERROR);
+                  }
+                }
+              }
               fprintf(result_file,
                       R"(
                     "name": "%s",
                     "file": "%s",
                     "base": "%p",
-                    "addr": "%p")",
-                      sym_name, file_name, file_base, sym_addr);
+                    "addr": "%p",
+                    "demangled": "%s")",
+                      sym_name, file_name, file_base, sym_addr, demangled_name);
 
               // Need to subtract one. PC is the return address, but we're
               // looking for the callsite.
