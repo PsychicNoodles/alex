@@ -524,6 +524,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             Sample *perf_sample = (Sample *)get_next_sample(
                 &info.sample_buf, &sample_type, &sample_size);
             if (sample_type != PERF_RECORD_SAMPLE) {
+              DEBUG("cpd: sample type was not PERF_RECORD_SAMPLE, it was "
+                    << sample_type);
               shutdown(subject_pid, result_file, INTERNAL_ERROR);
             }
             DEBUG("cpd: sample pid = " << perf_sample->pid
@@ -532,6 +534,12 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               DEBUG("cpd: clearing extra samples");
               int temp_type, temp_size;
               get_next_sample(&info.sample_buf, &temp_type, &temp_size);
+              DEBUG("cpd: extra sample type " << temp_type);
+              if (temp_type != PERF_RECORD_SAMPLE) {
+                DEBUG("cpd: sample type was not PERF_RECORD_SAMPLE, it was "
+                      << sample_type);
+                shutdown(subject_pid, result_file, INTERNAL_ERROR);
+              }
             }
 
             fprintf(result_file,
