@@ -547,7 +547,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               DEBUG("cpd: extra sample type " << temp_type);
               if (temp_type != PERF_RECORD_SAMPLE) {
                 DEBUG("cpd: sample type was not PERF_RECORD_SAMPLE, it was "
-                      << sample_type);
+                      << temp_type);
                 shutdown(subject_pid, result_file, INTERNAL_ERROR);
               }
             }
