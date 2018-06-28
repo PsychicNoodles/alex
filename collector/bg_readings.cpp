@@ -1,4 +1,5 @@
 #include "bg_readings.hpp"
+#include "clone.hpp"
 #include "debug.hpp"
 #include "util.hpp"
 
@@ -58,7 +59,7 @@ bool setup_reading(bg_reading *reading, void *(reading_fn)(void *),
   rf_args->args = args;
   rf_args->reading = reading;
 
-  if ((errno = pthread_create(&t, 0, reading_fn_wrapper, rf_args)) != 0) {
+  if ((errno = real_pthread_create(&t, 0, reading_fn_wrapper, rf_args)) != 0) {
     perror("failed to create background reading thread");
     return false;
   }
