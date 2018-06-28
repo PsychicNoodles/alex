@@ -179,11 +179,11 @@ static int collector_main(int argc, char **argv, char **env) {
     while (!ready)
       ;
 
-    DEBUG("collector_main: received child ready signal, starting analyzer");
+    DEBUG("collector_main: received child ready signal, starting collector");
     result = collect_perf_data(subject_pid, kernel_syms, sigterm_fd, sockets[0],
                                wu_fd);
 
-    DEBUG("collector_main: finished analyzer, closing file");
+    DEBUG("collector_main: finished collector, closing file");
 
     if (presets.find("wattsup") != presets.end() ||
         presets.find("all") != presets.end()) {
