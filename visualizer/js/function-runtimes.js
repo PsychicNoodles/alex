@@ -44,6 +44,8 @@ function render(root, { data }) {
     }
   });
 
+  console.log(functionRuntimesArray);
+
   const chiSquaredData = chiSquaredTest(data);
   const probability = chiSquaredData.probability;
   const probabilityPercentage = (probability * 100).toFixed(3);
@@ -53,6 +55,9 @@ function render(root, { data }) {
     );
     console.log(chiSquaredData.functionList);
   }
+
+  //const newArray = [...new Set([...functionRuntimesArray, ...(chiSquaredData.functionList)])];
+  //console.log(newArray);
 
   root.select(".function-runtimes__header-row").remove();
   const headerRowSelection = root

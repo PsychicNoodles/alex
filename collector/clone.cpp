@@ -1,4 +1,6 @@
-
+//
+// Your clones are very impressive.  You must be very proud.
+//
 
 #include <string.h>
 #include <sys/socket.h>
@@ -84,25 +86,34 @@ pid_t fork (void) {
 }
 
 int execve(const char *filename, char *const argv[], char *const envp[]) {
-  int ret = unsetenv("LD_PRELOAD");
+  if (unsetenv("LD_PRELOAD")) {
+    perror("clone.cpp: couldn't unset env");
+  }
+
   return real_execve(filename, argv, envp);
 }
 
 int execvp(const char *file, char *const argv[]) {
-  int ret = unsetenv("LD_PRELOAD");
-  DEBUG("GET TO EXECVP");
+  if (unsetenv("LD_PRELOAD")) {
+    perror("clone.cpp: couldn't unset env");
+  }
+
   return real_execvp(file, argv);
 }
 
 int execv(const char *path, char *const argv[]) {
-  int ret = unsetenv("LD_PRELOAD");
-  DEBUG("GET TO EXECV");
+  if (unsetenv("LD_PRELOAD")) {
+    perror("clone.cpp: couldn't unset env");
+  }
+
   return real_execv(path, argv);
 }
 
 int execvpe(const char *file, char *const argv[], char *const envp[]){
-  int ret = unsetenv("LD_PRELOAD");
-  DEBUG("GET TO EXECVPE");
+  if (unsetenv("LD_PRELOAD")) {
+      perror("clone.cpp: couldn't unset env");
+  }
+
   return real_execvpe(file, argv, envp);
 }
 

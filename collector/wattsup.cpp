@@ -188,7 +188,7 @@ double wu_read(int fd) {
     offset += ret;
   }
 
-  char watts_string[BUFSIZ];
+  char watts_string[BUFSIZ] = {0};
   double watts;
   int i = 0, j = 0, commas = 0;
   while (i < strlen(string)) {
