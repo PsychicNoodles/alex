@@ -81,6 +81,6 @@ int main(void) {
     printf("\n");
   }
 
-  fprintf(stderr, "threadarray: 2finished\n");
+  fprintf(stderr, "threadarray: finished\n");
   fflush(stderr);
 }
