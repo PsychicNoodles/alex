@@ -75,7 +75,7 @@ function chiSquaredTest(data) {
   let chiSquared = 0;
   let observed;
   let expected;
-  let individualChiSquared;
+  let squaredDeviance;
   const rankedFunctions = []; /* This is a separate array from uniqueFunctions
   purely because I found it hard to make an alternative to the .includes()
   above. */
@@ -87,19 +87,19 @@ function chiSquaredTest(data) {
         selectedTotal) /
       total;
 
-    individualChiSquared = Math.pow(observed - expected, 2) / expected;
+    squaredDeviance = Math.pow(observed - expected, 2) / expected;
     rankedFunctions.push({
       name: uniqueFunction,
       expected: expected,
       observed: observed,
-      chiSquared: individualChiSquared
+      chiSquared: squaredDeviance
     });
-    chiSquared += individualChiSquared;
+    chiSquared += squaredDeviance;
 
     /* console.log(
       `Saw ${observed} of ${uniqueFunction}, expected ~${Math.round(
         expected
-      )}, chiSquared of ${individualChiSquared}`
+      )}, chiSquared of ${squaredDeviance}`
     ); */
 
     // Compute chi-squared sum through the "row" representing unselected state
