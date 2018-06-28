@@ -57,9 +57,6 @@ function chiSquaredTest(data) {
     }
   });
 
-  // (number of columns - 1)(number of rows - 1) simplifies to this
-  const degreesOfFreedom = uniqueFunctions.length - 1;
-
   // Checks to avoid situations without two comparable groups.
   if (selectedTotal === 0) {
     console.error("Chi-squared test called with no selected data.");
@@ -67,7 +64,13 @@ function chiSquaredTest(data) {
   } else if (unselectedTotal === 0) {
     console.error("Chi-squared test called with all data selected.");
     return -1;
+  } else if (uniqueFunctions.length === 1) {
+    console.error("Only one function was found within the data.");
+    return -1;
   }
+
+  // (number of columns - 1)(number of rows - 1) simplifies to this
+  const degreesOfFreedom = uniqueFunctions.length - 1;
 
   let chiSquared = 0;
   let observed;
