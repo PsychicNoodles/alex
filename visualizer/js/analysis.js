@@ -92,7 +92,7 @@ function chiSquaredTest(data) {
       name: uniqueFunction,
       expected: expected,
       observed: observed,
-      chiSquared: squaredDeviance
+      squaredDeviance: squaredDeviance
     });
     chiSquared += squaredDeviance;
 
@@ -114,7 +114,7 @@ function chiSquaredTest(data) {
   // Compute the probability
   const probability = chi.cdf(chiSquared, degreesOfFreedom);
 
-  rankedFunctions.sort((a, b) => b.chiSquared - a.chiSquared);
+  rankedFunctions.sort((a, b) => b.squaredDeviance - a.squaredDeviance);
 
   return { probability: probability, functionList: rankedFunctions };
 }
