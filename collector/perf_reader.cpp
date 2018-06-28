@@ -319,7 +319,6 @@ void handle_perf_register(perf_fd_info *info) {
 void handle_perf_unregister(perf_fd_info *info) {
   DEBUG("cpd: handling perf unregister request for thread "
         << info->tid << ", removing from epoll");
-  int n_fds = num_perf_fds();
 
   delete_fd_from_epoll(info->cpu_clock_fd);
   DEBUG("cpd: closing all associated fds");
@@ -332,11 +331,11 @@ void handle_perf_unregister(perf_fd_info *info) {
 
   DEBUG("cpd: freeing malloced memory");
   munmap(info->sample_buf.info, BUFFER_SIZE);
-  delete info;
-
   DEBUG("cpd: successfully removed fd " << info->cpu_clock_fd
                                         << " and associated fds for thread "
                                         << info->tid);
+
+  delete info;
 }
 
 /*
