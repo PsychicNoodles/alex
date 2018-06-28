@@ -319,7 +319,6 @@ void handle_perf_register(perf_fd_info *info) {
 void handle_perf_unregister(perf_fd_info *info) {
   DEBUG("cpd: handling perf unregister request for thread "
         << info->tid << ", removing from epoll");
-  int n_fds = num_perf_fds();
 
   delete_fd_from_epoll(info->cpu_clock_fd);
   DEBUG("cpd: closing all associated fds");
@@ -332,11 +331,11 @@ void handle_perf_unregister(perf_fd_info *info) {
 
   DEBUG("cpd: freeing malloced memory");
   munmap(info->sample_buf.info, BUFFER_SIZE);
-  delete info;
-
   DEBUG("cpd: successfully removed fd " << info->cpu_clock_fd
                                         << " and associated fds for thread "
                                         << info->tid);
+
+  delete info;
 }
 
 /*
@@ -577,6 +576,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               long long count = 0;
               DEBUG("cpd: reading from fd " << info.event_fds[event]);
               read(info.event_fds[event], &count, sizeof(long long));
+              DEBUG("cpd: read in from fd " << info.event_fds[event]
+                                            << " count " << count);
               if (reset_monitoring(info.event_fds[event]) !=
                   SAMPLER_MONITOR_SUCCESS) {
                 shutdown(subject_pid, result_file, INTERNAL_ERROR);
@@ -609,7 +610,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                 DEBUG("cpd: wattsup result found, writing out");
                 double ret = *((double *)get_result(&wattsup_reading));
                 fprintf(result_file, ",");
-                fprintf(result_file, R"("wattsup": %1lf)", wu_read(wu_fd));
+                fprintf(result_file, R"("wattsup": %1lf)", ret);
                 DEBUG("cpd: restarting wattsup energy readings");
                 restart_reading(&wattsup_reading);
               }
@@ -647,7 +648,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
               string sym_name_str;
               const char *sym_name = NULL, *file_name = NULL,
-                         *demangled_name = NULL;
+                         *function_name = NULL;
+              char *demangled_name = NULL;
               void *file_base = NULL, *sym_addr = NULL;
               DEBUG("cpd: looking up symbol for inst ptr "
                     << ptr_fmt((void *)inst_ptr));
@@ -680,7 +682,11 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                 int demangle_status;
                 demangled_name =
                     abi::__cxa_demangle(sym_name, NULL, NULL, &demangle_status);
-                if (demangle_status != 0) {
+                if (demangle_status == 0) {
+                  function_name = demangled_name;
+                } else {
+                  function_name = sym_name;
+
                   if (demangle_status == -1) {
                     DEBUG(
                         "cpd: demangling errored due to memory allocation "
@@ -694,14 +700,17 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                   }
                 }
               }
+
               fprintf(result_file,
                       R"(
-                    "name": "%s",
-                    "file": "%s",
-                    "base": "%p",
-                    "addr": "%p",
-                    "demangled": "%s")",
-                      sym_name, file_name, file_base, sym_addr, demangled_name);
+                        "name": "%s",
+                        "file": "%s",
+                        "base": "%p",
+                        "addr": "%p",
+                        "mangledName": "%s"
+                      )",
+                      function_name, file_name, file_base, sym_addr, sym_name);
+              free(demangled_name);
 
               // Need to subtract one. PC is the return address, but we're
               // looking for the callsite.
