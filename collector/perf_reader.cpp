@@ -637,6 +637,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               const char *sym_name = NULL, *file_name = NULL,
                          *demangled_name = NULL;
               void *file_base = NULL, *sym_addr = NULL;
+              DEBUG("cpd: looking up symbol for inst ptr "
+                    << ptr_fmt((void *)inst_ptr));
               if (callchain_section == CALLCHAIN_USER) {
                 DEBUG("cpd: looking up user stack frame");
                 Dl_info info;
@@ -646,6 +648,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                   file_name = info.dli_fname;
                   file_base = info.dli_fbase;
                   sym_addr = info.dli_saddr;
+                } else {
+                  DEBUG("cpd: could not look up user stack frame");
                 }
               } else if (callchain_section == CALLCHAIN_KERNEL) {
                 DEBUG("cpd: looking up kernel stack frame");
