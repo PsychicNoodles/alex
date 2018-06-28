@@ -577,6 +577,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               long long count = 0;
               DEBUG("cpd: reading from fd " << info.event_fds[event]);
               read(info.event_fds[event], &count, sizeof(long long));
+              DEBUG("cpd: read in from fd " << info.event_fds[event]
+                                            << " count " << count);
               if (reset_monitoring(info.event_fds[event]) !=
                   SAMPLER_MONITOR_SUCCESS) {
                 shutdown(subject_pid, result_file, INTERNAL_ERROR);
@@ -609,7 +611,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                 DEBUG("cpd: wattsup result found, writing out");
                 double ret = *((double *)get_result(&wattsup_reading));
                 fprintf(result_file, ",");
-                fprintf(result_file, R"("wattsup": %1lf)", wu_read(wu_fd));
+                fprintf(result_file, R"("wattsup": %1lf)", ret);
                 DEBUG("cpd: restarting wattsup energy readings");
                 restart_reading(&wattsup_reading);
               }
