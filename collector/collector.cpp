@@ -19,7 +19,10 @@
 #include "util.hpp"
 #include "wattsup.hpp"
 
-using namespace std;
+using std::map;
+using std::ifstream;
+using std::istringstream;
+using std::string;
 
 typedef int (*main_fn_t)(int, char **, char **);
 
