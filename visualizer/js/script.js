@@ -1,10 +1,12 @@
 const { ipcRenderer } = require("electron");
 const fs = require("fs");
+const d3 = require("d3");
 
 require("bootstrap");
 
 const { processData } = require("./process-data");
 const { draw } = require("./draw");
+const functionRuntimes = require("./function-runtimes");
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, resultFile) => {
@@ -23,6 +25,10 @@ ipcRenderer.on("result", (event, resultFile) => {
 
   const yAxisLabel = "Cache Miss Rate";
   const getDependentVariable = d => d.events.missRate;
+
+  d3.select(".function-runtimes").call(functionRuntimes.render, {
+    data: processedData
+  });
 
   draw(
     processedData,

@@ -265,6 +265,10 @@ function clearBrushes({
   gBrushes,
   getIndependentVariable
 }) {
+  d3.select(".function-runtimes").call(functionRuntimes.render, {
+    data: timeslices
+  });
+
   while (brushes.length > 0) {
     brushes.pop();
   }
