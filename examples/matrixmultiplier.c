@@ -14,8 +14,41 @@ void read_matrix(int **matrix, int num_row, int num_col) {
     for (int j = 0; j < num_col; j++) scanf("%d", &matrix[i][j]);
 }
 
+int math(int num_row1, int num_col1, int num_row2, int num_col2, int **first,
+         int **second, int **multiply) {
+  int sum = 0;
+  for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < num_row1; i++) {
+      for (int j = 0; j < num_col2; j++) {
+        for (int k = 0; k < num_row2; k++) {
+          sum = sum + first[i][k] * second[k][j];
+        }
+
+        multiply[i][j] = sum;
+        sum = 0;
+      }
+    }
+
+    for (int i = 0; i < num_row1; i++) {
+      for (int j = 0; j < num_col2; j++) {
+        for (int k = 0; k < num_row2; k++) {
+          sum = sum + first[k][j] * second[i][k];
+        }
+
+        multiply[i][j] = sum;
+        sum = 0;
+      }
+    }
+  }
+  return sum;
+}
+
 int main() {
-  int num_row1, num_col1, num_row2, num_col2, sum = 0;
+  fprintf(stderr,
+          "alloc_matrix is at %p, read_matrix is at %p, math is at %p, main is "
+          "at %p\n",
+          alloc_matrix, read_matrix, math, main);
+  int num_row1, num_col1, num_row2, num_col2, sum;
 
   printf("Enter the number of rows and columns of first matrix\n");
   scanf("%d%d", &num_row1, &num_col1);
@@ -35,7 +68,6 @@ int main() {
 
     printf("Enter the elements of second matrix\n");
     read_matrix(second, num_row2, num_col2);
-
 
     /*time_t start, end;
     double elapsed;
@@ -70,29 +102,7 @@ int main() {
       }
     }*/
 
-    for(int i = 0; i < 10; i++) {
-      for (int i = 0; i < num_row1; i++) {
-        for (int j = 0; j < num_col2; j++) {
-          for (int k = 0; k < num_row2; k++) {
-            sum = sum + first[i][k] * second[k][j];
-          }
-
-          multiply[i][j] = sum;
-          sum = 0;
-        }
-      }
-
-      for (int i = 0; i < num_row1; i++) {
-        for (int j = 0; j < num_col2; j++) {
-          for (int k = 0; k < num_row2; k++) {
-            sum = sum + first[k][j] * second[i][k];
-          }
-
-          multiply[i][j] = sum;
-          sum = 0;
-        }
-      }
-    }
+    sum = math(num_row1, num_col1, num_row2, num_col2, first, second, multiply);
 
     printf("Product of entered matrices:-\n");
 
