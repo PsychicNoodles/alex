@@ -5,7 +5,6 @@
 const d3 = require("d3");
 const { legendColor } = require("d3-svg-legend");
 
-const chiSquaredTest = require("./analysis");
 const { CHART_WIDTH, CHART_HEIGHT } = require("./util");
 const plot = require("./plot");
 const functionRuntimes = require("./function-runtimes");
@@ -254,16 +253,6 @@ function brushed({
         }
       }
     });
-
-    const chiSquaredData = chiSquaredTest(timeslices);
-    const probability = chiSquaredData.probability;
-    const probabilityPercentage = (probability * 100).toFixed(3);
-    if (probability !== -1) {
-      console.log(
-        `The likelihood that your selection is unusual is ~${probabilityPercentage}%`
-      );
-    }
-    console.log(chiSquaredData.functionList);
   }
 }
 

@@ -1,8 +1,10 @@
-const d3 = require("d3");
-
 /**
  * Create a table of function runtimes
  */
+
+const d3 = require("d3");
+
+const chiSquaredTest = require("./analysis");
 function render(root, { data }) {
   const selected = data.filter(d => d.selected);
   const functionRuntimesMap = {};
@@ -41,6 +43,16 @@ function render(root, { data }) {
       return b.selfTime - a.selfTime;
     }
   });
+
+  const chiSquaredData = chiSquaredTest(data);
+  const probability = chiSquaredData.probability;
+  const probabilityPercentage = (probability * 100).toFixed(3);
+  if (chiSquaredData !== -1) {
+    console.log(
+      `The likelihood that your selection is unusual is ~${probabilityPercentage}%`
+    );
+    console.log(chiSquaredData.functionList);
+  }
 
   root.select(".function-runtimes__header-row").remove();
   const headerRowSelection = root
