@@ -649,7 +649,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
               string sym_name_str;
               const char *sym_name = NULL, *file_name = NULL,
-                         *demangled_name = NULL;
+                         *function_name = NULL;
+              char *demangled_name = NULL;
               void *file_base = NULL, *sym_addr = NULL;
               DEBUG("cpd: looking up symbol for inst ptr "
                     << ptr_fmt((void *)inst_ptr));
@@ -682,7 +683,11 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                 int demangle_status;
                 demangled_name =
                     abi::__cxa_demangle(sym_name, NULL, NULL, &demangle_status);
-                if (demangle_status != 0) {
+                if (demangle_status == 0) {
+                  function_name = demangled_name;
+                } else {
+                  function_name = sym_name;
+
                   if (demangle_status == -1) {
                     DEBUG(
                         "cpd: demangling errored due to memory allocation "
@@ -696,14 +701,17 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                   }
                 }
               }
+
               fprintf(result_file,
                       R"(
-                    "name": "%s",
-                    "file": "%s",
-                    "base": "%p",
-                    "addr": "%p",
-                    "demangled": "%s")",
-                      sym_name, file_name, file_base, sym_addr, demangled_name);
+                        "name": "%s",
+                        "file": "%s",
+                        "base": "%p",
+                        "addr": "%p",
+                        "mangledName": "%s"
+                      )",
+                      function_name, file_name, file_base, sym_addr, sym_name);
+              free(demangled_name);
 
               // Need to subtract one. PC is the return address, but we're
               // looking for the callsite.
