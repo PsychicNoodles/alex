@@ -11,6 +11,7 @@ const plot = require("./plot");
 const functionRuntimes = require("./function-runtimes");
 
 const spectrum = d3.interpolateGreens;
+let nextBrushId = 0;
 
 function draw(
   timeslices,
@@ -58,7 +59,7 @@ function draw(
     spectrum
   });
 
-  const gBrushes = svg.append("g").attr("class", "brushes");
+  const gBrushes = svg.insert("g").attr("class", "brushes");
   const brushes = [];
 
   drawAxes({ xScale, yScale, xAxisLabel, yAxisLabel, svg });
@@ -124,8 +125,9 @@ function createBrush({
   const brush = d3
     .brushX()
     .extent([[0, 0], [CHART_WIDTH, CHART_HEIGHT]])
-    .on("brush", () => {
-      brushed({
+    .on("brush", function() {
+      return brushed({
+        currentBrush: this,
         timeslices,
         xScale,
         svg,
@@ -145,8 +147,9 @@ function createBrush({
     });
 
   // Add brush to array of objects
-  brushes.push({ id: brushes.length, brush: brush });
-  drawBrushes(gBrushes, brushes);
+  brushes.push({ id: nextBrushId, brush: brush });
+  nextBrushId++;
+  drawBrushes(brushes, gBrushes);
 }
 
 function brushEnd(
@@ -189,15 +192,25 @@ function brushEnd(
       getIndependentVariable
     });
   });
+
+  const probability = chiSquaredTest(timeslices);
+  const probabilityPercentage = probability * 100;
+  if (probability !== -1) {
+    console.log(
+      `The likelihood that your selection is unusual is ~${probabilityPercentage}%`
+    );
+  }
 }
 
-function drawBrushes(gBrushes, brushes) {
+function drawBrushes(brushes, gBrushes) {
   const brushSelection = gBrushes.selectAll("g.brush").data(brushes, d => d.id);
 
-  brushSelection
+  const brushEnterSelection = brushSelection
     .enter()
     .insert("g", ".brush")
-    .attr("class", "brush")
+    .attr("class", "brush brush--invisible");
+
+  brushEnterSelection
     .merge(brushSelection)
     .attr("id", brush => "brush-" + brush.id)
     .each(function(brushObject) {
@@ -206,7 +219,10 @@ function drawBrushes(gBrushes, brushes) {
         .selectAll(".overlay")
         .style("pointer-events", () => {
           const brush = brushObject.brush;
-          if (brushObject.id === brushes.length - 1 && brush !== undefined) {
+          if (
+            brushObject.id === brushes[brushes.length - 1].id &&
+            brush !== undefined
+          ) {
             return "all";
           } else {
             return "none";
@@ -215,18 +231,44 @@ function drawBrushes(gBrushes, brushes) {
     });
 
   brushSelection.exit().remove();
+
+  brushEnterSelection.each(function() {
+    const gclearBrush = d3
+      .select(this)
+      .append("g")
+      .attr("class", "brush__close")
+      .attr("pointer-events", "all");
+
+    gclearBrush
+      .append("path")
+      .attr(
+        "d",
+        "M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 " +
+          "16.41,20 12,20M12,2C6.47,2 2,6.47 2,12C2,17.53 6.47,22 12,22C17.53,22 22,17.53 " +
+          "22,12C22,6.47 17.53,2 12,2M14.59,8L12,10.59L9.41,8L8,9.41L10.59,12L8,14.59L9.41," +
+          "16L12,13.41L14.59,16L16,14.59L13.41,12L16,9.41L14.59,8Z"
+      )
+      .attr("class", "brush__close")
+      .on("click", () => {
+        const index = brushes.findIndex(d => "brush-" + d.id === this.id);
+        brushes.splice(index, 1);
+        d3.select(this).remove();
+      });
+  });
 }
 
 // Re-color the circles in the region that was selected by the user
 function brushed({
+  currentBrush,
   timeslices,
   xScale,
   svg,
   gBrushes,
   getIndependentVariable
 }) {
-  if (d3.event.selection !== null) {
-    const circles = svg.selectAll("circle");
+  const selection = d3.event.selection;
+  if (selection !== null) {
+    const circles = svg.selectAll(".circles circle");
 
     circles.attr("class", "");
 
@@ -254,13 +296,13 @@ function brushed({
       }
     });
 
-    const probability = chiSquaredTest(timeslices);
-    const probabilityPercentage = probability * 100;
-    if (probability !== -1) {
-      console.log(
-        `The likelihood that your selection is unusual is ~${probabilityPercentage}%`
+    d3.select(currentBrush)
+      .select(".brush__close")
+      .attr(
+        "transform",
+        `translate(${d3.brushSelection(currentBrush)[1] - 24},0)`
       );
-    }
+    d3.select(currentBrush).attr("class", "brush");
   }
 }
 
@@ -273,9 +315,8 @@ function clearBrushes({
   gBrushes,
   getIndependentVariable
 }) {
-  while (brushes.length > 0) {
-    brushes.pop();
-  }
+  brushes.splice(0);
+
   gBrushes.selectAll(".brush").remove();
   createBrush({
     timeslices,

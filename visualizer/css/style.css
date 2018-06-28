@@ -21,10 +21,10 @@ body {
   fill: #000;
 }
 
-.brushed {
-  fill: #8e1b54 !important;
+.brush__close {
+  fill: #000;
 }
 
-::selection {
-  fill: #000;
+.brush--invisible .brush__close {
+  display: none;
 }
