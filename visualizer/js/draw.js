@@ -159,7 +159,7 @@ function brushEnd(
   getIndependentVariable
 ) {
   d3.select(".function-runtimes").call(functionRuntimes.render, {
-    data: timeslices.filter(d => d.selected)
+    data: timeslices
   });
   const lastBrushId = brushes[brushes.length - 1].id;
   const lastBrush = document.getElementById("brush-" + lastBrushId);

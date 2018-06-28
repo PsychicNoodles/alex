@@ -4,8 +4,9 @@ const d3 = require("d3");
  * Create a table of function runtimes
  */
 function render(root, { data }) {
+  const selected = data.filter(d => d.selected);
   const functionRuntimesMap = {};
-  for (const timeSlice of data) {
+  for (const timeSlice of selected) {
     for (const i in timeSlice.stackFrames) {
       const functionName = timeSlice.stackFrames[i].name;
       if (functionName !== "(null)") {
