@@ -15,9 +15,11 @@ function render(root, { data }) {
           selfTime: 0,
           cumulativeTime: 0
         };
-        functionRuntimesMap[functionName].cumulativeTime += timeSlice.cpuTime;
+        functionRuntimesMap[functionName].cumulativeTime +=
+          timeSlice.numCPUTimerTicks;
         if (+i === 0) {
-          functionRuntimesMap[functionName].selfTime += timeSlice.cpuTime;
+          functionRuntimesMap[functionName].selfTime +=
+            timeSlice.numCPUTimerTicks;
         }
       }
     }

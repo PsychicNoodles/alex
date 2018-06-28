@@ -500,6 +500,16 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             shutdown(subject_pid, result_file, INTERNAL_ERROR);
           }
 
+          long long num_timer_ticks = 0;
+          DEBUG("cpd: reading from fd " << fd);
+          read(fd, &num_timer_ticks, sizeof(num_timer_ticks));
+          DEBUG("cpd: read in from fd "
+                << fd << " num of cycles: " << num_timer_ticks);
+          if (reset_monitoring(fd) != SAMPLER_MONITOR_SUCCESS) {
+            cerr << "Couldn't reset monitoring for fd: " << fd;
+            shutdown(subject_pid, result_file, INTERNAL_ERROR);
+          }
+
           if (!has_next_sample(&info.sample_buf)) {
             sample_period_skips++;
             DEBUG("cpd: SKIPPED SAMPLE PERIOD (" << sample_period_skips
@@ -546,11 +556,13 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                     R"(
                       {
                         "cpuTime": %lu,
+                        "numCPUTimerTicks": %lld,
                         "pid": %u,
                         "tid": %u,
                         "events": {
                     )",
-                    perf_sample->time, perf_sample->pid, perf_sample->tid);
+                    perf_sample->time, num_timer_ticks, perf_sample->pid,
+                    perf_sample->tid);
 
             DEBUG("cpd: reading from each fd");
 
