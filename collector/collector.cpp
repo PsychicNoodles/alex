@@ -11,13 +11,13 @@
 #include <sstream>
 #include <string>
 
+#include "clone.hpp"
 #include "const.hpp"
 #include "debug.hpp"
-#include "clone.hpp"
+#include "find_events.hpp"
 #include "perf_reader.hpp"
 #include "util.hpp"
 #include "wattsup.hpp"
-#include "find_events.hpp"
 
 using namespace std;
 
@@ -93,14 +93,15 @@ static int collector_main(int argc, char **argv, char **env) {
     exit(INTERNAL_ERROR);
   }
 
-  //set up events array, will be a set later though
+  // set up events array, will be a set later though
   DEBUG("collector_main: getting events from env var");
   events = str_split_vec(getenv_safe("COLLECTOR_EVENTS"), ",");
   presets = str_split_set(getenv_safe("COLLECTOR_PRESETS"), ",");
   if (presets.find("cpu") != presets.end() ||
       presets.find("all") != presets.end()) {
     map<string, string> cpu = findEvents("cpu");
-    for (map<string,string>::iterator it=cpu.begin(); it!=cpu.end(); ++it) {
+    for (map<string, string>::iterator it = cpu.begin(); it != cpu.end();
+         ++it) {
       events.push_back(it->second.c_str());
     }
   }
@@ -125,6 +126,7 @@ static int collector_main(int argc, char **argv, char **env) {
         "(pid: "
         << getpid() << ")");
 
+    close(sockets[0]);
     set_perf_register_sock(sockets[1]);
 
     if (kill(collector_pid, SIGUSR2)) {
@@ -154,6 +156,8 @@ static int collector_main(int argc, char **argv, char **env) {
     DEBUG("collector_main: result file " << env_res);
     result_file = fopen(env_res.c_str(), "w");
 
+    close(sockets[1]);
+
     if (result_file == NULL) {
       perror("couldn't open result file");
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
@@ -163,9 +167,10 @@ static int collector_main(int argc, char **argv, char **env) {
 
     map<uint64_t, kernel_sym> kernel_syms = read_kernel_syms();
 
+    const bool wattsup_enabled = presets.find("wattsup") != presets.end() ||
+                                 presets.find("all") != presets.end();
     int wu_fd = -1;
-    if (presets.find("wattsup") != presets.end() ||
-        presets.find("all") != presets.end()) {
+    if (wattsup_enabled) {
       // setting up wattsup
       wu_fd = wattsupSetUp();
       DEBUG("WATTSUP setup, wu_fd is: " << wu_fd);
@@ -185,8 +190,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
     DEBUG("collector_main: finished collector, closing file");
 
-    if (presets.find("wattsup") != presets.end() ||
-        presets.find("all") != presets.end()) {
+    if (wattsup_enabled && wu_fd != -1) {
       wattsupTurnOff(wu_fd);
     }
     fclose(result_file);
