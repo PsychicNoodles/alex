@@ -4,9 +4,9 @@ SOURCES := collector.cpp perf_reader.cpp const.cpp util.cpp debug.cpp perf_sampl
 SRC_DIR := .
 TIDY := clang-tidy
 TIDY_CHECKS := bugprone-*,cppcoreguidelines-*,-cppcoreguidelines-pro-*,\
-  -cppcoreguidelines-owning-memory,google-*,hicpp-*,-hicpp-vararg,-hicpp-no-array-decay,\
-	-hicpp-signed-bitwise,llvm-*,-llvm-include-order,misc-*,modernize-*,performance-*,\
-	readability-*,-readability-implicit-bool-conversion,-readability-else-after-return
+               -cppcoreguidelines-owning-memory,google-*,hicpp-*,-hicpp-vararg,-hicpp-no-array-decay,\
+               -hicpp-signed-bitwise,llvm-*,-llvm-include-order,misc-*,modernize-*,performance-*,\
+               readability-*,-readability-implicit-bool-conversion,-readability-else-after-return
 
 ifeq ($(shell uname -s),Darwin)
 SHLIB_SUFFIX := dylib
