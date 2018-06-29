@@ -1,10 +1,17 @@
 const d3 = require("d3");
 const functionRuntimes = require("./function-runtimes");
+const { createStore } = require("./store");
 
 const nextBrushId = d3.local();
 const brushesLocal = d3.local();
 
 const brushId = d3.local();
+
+const store = createStore({
+  selections: [],
+  nextSelectionId: 0,
+  lastMovedBrush: null
+});
 
 function initLocals(root) {
   if (root.property(nextBrushId) === undefined) {
