@@ -1,8 +1,4 @@
-body {
-  min-width: 900px;
-}
-
-#chart {
+svg.chart {
   overflow: visible;
   margin-left: 10%;
   margin-bottom: 10%;

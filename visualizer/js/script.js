@@ -8,9 +8,13 @@ const { PROGRESS_HEIGHT, PROGRESS_DIVISIONS } = require("./util");
 
 require("bootstrap");
 
-const { processData } = require("./process-data");
-const { draw } = require("./draw");
+const { processData, computeRenderableData } = require("./process-data");
+const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
+const legend = require("./legend");
+const { CHART_WIDTH, CHART_HEIGHT } = require("./util");
+
+const spectrum = d3.interpolateGreens;
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, resultFile) => {
@@ -75,6 +79,8 @@ ipcRenderer.on("result", (event, resultFile) => {
     result = JSON.parse(result);
     const processedData = processData(result.timeslices, result.header);
 
+    bar.destroy();
+
     const xAxisLabel = "CPU Time Elapsed";
     const getIndependentVariable = d => d.cpuTime;
 
@@ -85,14 +91,46 @@ ipcRenderer.on("result", (event, resultFile) => {
       data: processedData
     });
 
-    draw(
-      processedData,
-      getIndependentVariable,
-      getDependentVariable,
-      xAxisLabel,
-      yAxisLabel
+    const xScaleMax = getIndependentVariable(
+      processedData[processedData.length - 1]
     );
+    const xScaleMin = getIndependentVariable(processedData[0]);
+    const yScaleMax = d3.max(processedData, getDependentVariable);
+    const xScale = d3
+      .scaleLinear()
+      .domain([xScaleMin, xScaleMax])
+      .range([0, CHART_WIDTH]);
+    const yScale = d3
+      .scaleLinear()
+      .domain([yScaleMax, 0])
+      .range([0, CHART_HEIGHT]);
 
-    bar.destroy();
+    const plotData = computeRenderableData({
+      data: processedData,
+      xScale,
+      yScale,
+      getIndependentVariable,
+      getDependentVariable
+    });
+
+    const densityMax = d3.max(plotData, d => d.densityAvg);
+
+    d3.select(".charts")
+      .append("svg")
+      .attr("class", "chart")
+      .call(chart.render, {
+        timeslices: processedData,
+        getIndependentVariable,
+        getDependentVariable,
+        xAxisLabel,
+        yAxisLabel,
+        xScale,
+        yScale,
+        plotData,
+        densityMax,
+        spectrum
+      });
+
+    d3.select("#legend").call(legend.render, { densityMax, spectrum });
   });
 });

@@ -1,77 +1,56 @@
-//
-// Render data to the DOM once it has been processed
-//
-
 const d3 = require("d3");
-const { legendColor } = require("d3-svg-legend");
 
 const { CHART_WIDTH, CHART_HEIGHT } = require("./util");
 const plot = require("./plot");
 const functionRuntimes = require("./function-runtimes");
 
-const spectrum = d3.interpolateGreens;
 let nextBrushId = 0;
-
-function draw(
-  timeslices,
-  getIndependentVariable,
-  getDependentVariable,
-  xAxisLabel,
-  yAxisLabel
-) {
-  /* SVG / D3 constructs needed by multiple subfunctions */
-  const svg = d3.select("#chart");
-  const svgLegend = d3.select("#legend"); // change to be part of main svg
-  const xScaleMax = getIndependentVariable(timeslices[timeslices.length - 1]);
-  const xScaleMin = getIndependentVariable(timeslices[0]);
-  const yScaleMax = d3.max(timeslices, getDependentVariable);
-  const xScale = d3
-    .scaleLinear()
-    .domain([xScaleMin, xScaleMax])
-    .range([0, CHART_WIDTH]);
-  const yScale = d3
-    .scaleLinear()
-    .domain([yScaleMax, 0])
-    .range([0, CHART_HEIGHT]);
-  const plotData = plot.getPlotData({
-    data: timeslices,
-    xScale,
-    yScale,
-    getIndependentVariable,
-    getDependentVariable
-  });
-  const densityMax = d3.max(plotData, d => d.densityAvg);
-
-  svg.attr("viewBox", `0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`);
-
-  // Clear the chart
-  svg.selectAll("*").remove();
-
-  /* Actual drawing */
-  plot.render({
-    data: plotData,
-    xScale,
-    yScale,
+function render(
+  root,
+  {
+    timeslices,
+    spectrum,
+    plotData,
+    densityMax,
     getIndependentVariable,
     getDependentVariable,
-    densityMax,
-    svg,
-    spectrum
-  });
+    xAxisLabel,
+    yAxisLabel,
+    xScale,
+    yScale
+  }
+) {
+  root.attr("viewBox", `0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`);
 
-  const gBrushes = svg.insert("g").attr("class", "brushes");
+  // Clear the chart
+  root.selectAll("*").remove();
+
+  // Actual drawing
+  root
+    .append("g")
+    .attr("class", "plot")
+    .call(plot.render, {
+      data: plotData,
+      xScale,
+      yScale,
+      getIndependentVariable,
+      getDependentVariable,
+      densityMax,
+      spectrum
+    });
+
+  const gBrushes = root.append("g").attr("class", "brushes");
   const brushes = [];
 
-  drawAxes({ xScale, yScale, xAxisLabel, yAxisLabel, svg });
+  drawAxes({ xScale, yScale, xAxisLabel, yAxisLabel, svg: root });
   createBrush({
     timeslices,
-    svg,
+    svg: root,
     brushes,
     gBrushes,
     xScale,
     getIndependentVariable
   });
-  drawLegend(densityMax, svgLegend);
 }
 
 function drawAxes({ xScale, yScale, xAxisLabel, yAxisLabel, svg }) {
@@ -365,25 +344,4 @@ function clearBrushes({
   });
 }
 
-function drawLegend(densityMax, svg) {
-  // If the SVG has anything in it, get rid of it. We want a clean slate.
-  svg.selectAll("*").remove();
-
-  const sequentialScale = d3.scaleSequential(spectrum).domain([0, densityMax]);
-
-  svg
-    .append("g")
-    .attr("class", "legendSequential")
-    .attr("transform", "translate(0,30)");
-
-  const legendSequential = legendColor()
-    .title("Density")
-    .cells(6)
-    .orient("vertical")
-    .ascending(true)
-    .scale(sequentialScale);
-
-  svg.select(".legendSequential").call(legendSequential);
-}
-
-module.exports = { draw };
+module.exports = { render };
