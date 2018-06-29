@@ -2,10 +2,9 @@
 #define COLLECTOR_UTIL
 
 #include <stdio.h>
+#include <set>
 #include <string>
 #include <vector>
-#include <set>
-
 
 using std::string;
 using std::vector;

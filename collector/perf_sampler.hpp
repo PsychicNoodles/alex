@@ -11,8 +11,8 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <string>
 #include <map>
+#include <string>
 
 struct perf_buffer {
   int fd;

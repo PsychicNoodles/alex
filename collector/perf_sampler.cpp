@@ -33,7 +33,8 @@ void *get_next_sample(perf_buffer *perf, int *type, int *size) {
   auto *event_header = reinterpret_cast<perf_event_header *>(
       (static_cast<char *>(perf->data) +
        (perf->info->data_tail % perf->info->data_size)));
-  void *event_data = reinterpret_cast<char *>(event_header) + sizeof(perf_event_header);
+  void *event_data =
+      reinterpret_cast<char *>(event_header) + sizeof(perf_event_header);
   perf->info->data_tail += event_header->size;
   *type = event_header->type;
   *size = event_header->size;

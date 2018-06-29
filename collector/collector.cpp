@@ -1,11 +1,11 @@
 #include <dlfcn.h>
 #include <fcntl.h>
-#include <csignal>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <csignal>
 #include <fstream>
 #include <map>
 #include <sstream>
@@ -84,7 +84,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
   int result = 0;
 
-  struct sigaction ready_act{};
+  struct sigaction ready_act {};
   ready_act.sa_handler = ready_handler;
   sigemptyset(&ready_act.sa_mask);
   ready_act.sa_flags = 0;
@@ -103,8 +103,7 @@ static int collector_main(int argc, char **argv, char **env) {
   if (presets.find("cpu") != presets.end() ||
       presets.find("all") != presets.end()) {
     map<string, string> cpu = findEvents("cpu");
-    for (auto it = cpu.begin(); it != cpu.end();
-         ++it) {
+    for (auto it = cpu.begin(); it != cpu.end(); ++it) {
       events.emplace_back(it->second.c_str());
     }
   }
@@ -112,8 +111,7 @@ static int collector_main(int argc, char **argv, char **env) {
   if (presets.find("cache") != presets.end() ||
       presets.find("all") != presets.end()) {
     map<string, string> cache = findEvents("cache");
-    for (auto it = cache.begin(); it != cache.end();
-         ++it) {
+    for (auto it = cache.begin(); it != cache.end(); ++it) {
       events.emplace_back(it->second.c_str());
     }
   }

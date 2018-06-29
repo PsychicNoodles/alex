@@ -32,10 +32,10 @@
 #define _XPG4_2
 #endif
 
-#include <cassert>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <cassert>
 #if defined(__FreeBSD__)
 #include <sys/param.h> /* FreeBSD sucks */
 #endif
@@ -45,7 +45,7 @@
 int ancil_send_fds_with_msg(int sock, const int *fds, unsigned n_fds,
                             struct iovec *iov, size_t iovlen) {
   ANCIL_FD_BUFFER(ANCIL_MAX_N_FDS) buffer{};
-  struct msghdr msghdr{};
+  struct msghdr msghdr {};
   struct cmsghdr *cmsg;
   int i;
 
@@ -61,15 +61,16 @@ int ancil_send_fds_with_msg(int sock, const int *fds, unsigned n_fds,
   cmsg->cmsg_len = msghdr.msg_controllen;
   cmsg->cmsg_level = SOL_SOCKET;
   cmsg->cmsg_type = SCM_RIGHTS;
-  for (i = 0; i < n_fds; i++) { (reinterpret_cast<int *>CMSG_DATA(cmsg))[i] = fds[i];
-}
+  for (i = 0; i < n_fds; i++) {
+    (reinterpret_cast<int *> CMSG_DATA(cmsg))[i] = fds[i];
+  }
   return (sendmsg(sock, &msghdr, 0) >= 0 ? 0 : -1);
 }
 
 int ancil_recv_fds_with_msg(int sock, int *fds, unsigned n_fds,
                             struct iovec *iov, size_t iovlen) {
   ANCIL_FD_BUFFER(ANCIL_MAX_N_FDS) buffer{};
-  struct msghdr msghdr{};
+  struct msghdr msghdr {};
   struct cmsghdr *cmsg;
   int i;
 
@@ -85,13 +86,16 @@ int ancil_recv_fds_with_msg(int sock, int *fds, unsigned n_fds,
   cmsg->cmsg_len = msghdr.msg_controllen;
   cmsg->cmsg_level = SOL_SOCKET;
   cmsg->cmsg_type = SCM_RIGHTS;
-  for (i = 0; i < n_fds; i++) { (reinterpret_cast<int *>CMSG_DATA(cmsg))[i] = -1;
-}
+  for (i = 0; i < n_fds; i++) {
+    (reinterpret_cast<int *> CMSG_DATA(cmsg))[i] = -1;
+  }
 
-  if (recvmsg(sock, &msghdr, 0) < 0) { return (-1);
-}
-  for (i = 0; i < n_fds; i++) { fds[i] = (reinterpret_cast<int *>CMSG_DATA(cmsg))[i];
-}
+  if (recvmsg(sock, &msghdr, 0) < 0) {
+    return (-1);
+  }
+  for (i = 0; i < n_fds; i++) {
+    fds[i] = (reinterpret_cast<int *> CMSG_DATA(cmsg))[i];
+  }
   n_fds = (cmsg->cmsg_len - sizeof(struct cmsghdr)) / sizeof(int);
   return (n_fds);
 }

@@ -5,4 +5,4 @@
 using namespace std;
 
 map<string, string> findEvents(string preset);
-void printPresetEvents(set<string> presets, FILE * result_file);
+void printPresetEvents(set<string> presets, FILE* result_file);

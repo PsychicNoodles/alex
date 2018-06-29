@@ -30,7 +30,7 @@ void crit_err_hdlr(int sig_num, siginfo_t *info, void *ucontext) {
 
   uc = static_cast<sig_ucontext_t *>(ucontext);
 
-  /* Get the address at the time the signal was raised */
+/* Get the address at the time the signal was raised */
 #if defined(__i386__)  // gcc specific
   caller_address =
       reinterpret_cast<void *>(uc->uc_mcontext.eip);  // EIP: x86 specific

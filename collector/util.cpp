@@ -1,19 +1,18 @@
-#include <csignal>
-#include <cstdlib>
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <csignal>
+#include <cstdlib>
 #include <set>
 
 #include "const.hpp"
 #include "util.hpp"
 
-
 /*
  * Reports time since epoch in milliseconds.
  */
 size_t time_ms() {
-  struct timeval tv{};
+  struct timeval tv {};
   if (gettimeofday(&tv, NULL) == -1) {
     perror("gettimeofday");
     exit(2);
@@ -73,8 +72,9 @@ set<string> str_split_set(string str, string delim) {
 
 void shutdown(pid_t pid, FILE* writef, int code) {
   kill(pid, SIGKILL);
-  if (writef != NULL) { fclose(writef);
-}
+  if (writef != NULL) {
+    fclose(writef);
+  }
   exit(errno);
 }
 
@@ -82,7 +82,8 @@ pid_t gettid() { return syscall(SYS_gettid); }
 
 string getenv_safe(const char* var, const char* fallback) {
   const char* value = getenv(var);
-  if (!value) { value = fallback;
-}
+  if (!value) {
+    value = fallback;
+  }
   return string(value);
 }

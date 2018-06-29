@@ -2,16 +2,16 @@
 // Your clones are very impressive.  You must be very proud.
 //
 
-#include <cstring>
 #include <sys/socket.h>
+#include <cstring>
 
+#include <unistd.h>
 #include "clone.hpp"
 #include "const.hpp"
 #include "debug.hpp"
 #include "perf_reader.hpp"
 #include "perf_sampler.hpp"
 #include "util.hpp"
-#include <unistd.h>
 
 using std::string;
 
@@ -62,7 +62,7 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   return real_pthread_create(thread, attr, &__imposter, d);
 }
 
-pid_t fork (void) {
+pid_t fork(void) {
   pid_t pid = real_fork();
   if (pid == 0) {
     DEBUG("CHILD PROCESS");
@@ -73,7 +73,7 @@ pid_t fork (void) {
     DEBUG(pid << ": setting up PROCESS perf events with PID");
     setup_perf_events(pid, HANDLE_EVENTS, &info);
     DEBUG(pid << ": registering PROCESS fd " << info.cpu_clock_fd
-                   << " with collector for bookkeeping");
+              << " with collector for bookkeeping");
     if (!register_perf_fds(perf_register_sock, &info)) {
       perror("failed to send PROCESS new thread's fd");
       shutdown(pid, NULL, INTERNAL_ERROR);
@@ -110,16 +110,17 @@ int execv(const char *path, char *const argv[]) {
   return real_execv(path, argv);
 }
 
-int execvpe(const char *file, char *const argv[], char *const envp[]){
+int execvpe(const char *file, char *const argv[], char *const envp[]) {
   if (unsetenv("LD_PRELOAD")) {
-      perror("clone.cpp: couldn't unset env");
+    perror("clone.cpp: couldn't unset env");
   }
 
   return real_execvpe(file, argv, envp);
 }
 
 __attribute__((constructor)) void init() {
-  real_pthread_create = reinterpret_cast<pthread_create_fn_t>(dlsym(RTLD_NEXT, "pthread_create"));
+  real_pthread_create =
+      reinterpret_cast<pthread_create_fn_t>(dlsym(RTLD_NEXT, "pthread_create"));
   if (real_pthread_create == NULL) {
     dlerror();
     exit(2);
