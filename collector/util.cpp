@@ -45,7 +45,7 @@ vector<string> str_split_vec(const string& str, const string& delim) {
   }
 
   auto last_substr = str.substr(start, end);
-  if (last_substr != "") {
+  if (!last_substr.empty()) {
     split.push_back(last_substr);
   }
 
@@ -63,7 +63,7 @@ set<string> str_split_set(const string& str, const string& delim) {
   }
 
   auto last_substr = str.substr(start, end);
-  if (last_substr != "") {
+  if (!last_substr.empty()) {
     split.insert(last_substr);
   }
 

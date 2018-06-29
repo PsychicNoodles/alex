@@ -22,7 +22,6 @@ execvp_fn_t real_execvp;
 execv_fn_t real_execv;
 execvpe_fn_t real_execvpe;
 int perf_register_sock;
-extern char **environ;
 
 void set_perf_register_sock(int sock) { perf_register_sock = sock; }
 
@@ -53,6 +52,9 @@ void *__imposter(void *arg) {
   return ret;
 }
 
+// redefining these libc functions upsets the linter
+
+// NOLINTNEXTLINE
 int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
                    void *(*start_routine)(void *), void *arg) {
   auto *d = new disguise_t;
@@ -86,6 +88,7 @@ pid_t fork(void) {
   return pid;
 }
 
+// NOLINTNEXTLINE
 int execve(const char *filename, char *const argv[], char *const envp[]) {
   if (unsetenv("LD_PRELOAD")) {
     perror("clone.cpp: couldn't unset env");
@@ -94,6 +97,7 @@ int execve(const char *filename, char *const argv[], char *const envp[]) {
   return real_execve(filename, argv, envp);
 }
 
+// NOLINTNEXTLINE
 int execvp(const char *file, char *const argv[]) {
   if (unsetenv("LD_PRELOAD")) {
     perror("clone.cpp: couldn't unset env");
@@ -102,6 +106,7 @@ int execvp(const char *file, char *const argv[]) {
   return real_execvp(file, argv);
 }
 
+// NOLINTNEXTLINE
 int execv(const char *path, char *const argv[]) {
   if (unsetenv("LD_PRELOAD")) {
     perror("clone.cpp: couldn't unset env");
@@ -110,6 +115,7 @@ int execv(const char *path, char *const argv[]) {
   return real_execv(path, argv);
 }
 
+// NOLINTNEXTLINE
 int execvpe(const char *file, char *const argv[], char *const envp[]) {
   if (unsetenv("LD_PRELOAD")) {
     perror("clone.cpp: couldn't unset env");
