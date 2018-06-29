@@ -703,10 +703,10 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
               fprintf(result_file,
                       R"(
-                        "name": "%s",
-                        "file": "%s",
-                        "base": "%p",
-                        "addr": "%p",
+                        "symName": "%s",
+                        "fileName": "%s",
+                        "fileBase": "%p",
+                        "symAddr": "%p",
                         "mangledName": "%s"
                       )",
                       function_name, file_name, file_base, sym_addr, sym_name);

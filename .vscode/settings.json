@@ -57,6 +57,7 @@
     "cinttypes": "cpp",
     "type_traits": "cpp",
     "tuple": "cpp",
-    "algorithm": "cpp"
+    "algorithm": "cpp",
+    "mutex": "cpp"
   }
 }

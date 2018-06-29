@@ -57,9 +57,6 @@ function chiSquaredTest(data) {
     }
   });
 
-  // (number of columns - 1)(number of rows - 1) simplifies to this
-  const degreesOfFreedom = uniqueFunctions.length - 1;
-
   // Checks to avoid situations without two comparable groups.
   if (selectedTotal === 0) {
     console.error("Chi-squared test called with no selected data.");
@@ -67,12 +64,18 @@ function chiSquaredTest(data) {
   } else if (unselectedTotal === 0) {
     console.error("Chi-squared test called with all data selected.");
     return -1;
+  } else if (uniqueFunctions.length === 1) {
+    console.error("Only one function was found within the data.");
+    return -1;
   }
+
+  // (number of columns - 1)(number of rows - 1) simplifies to this
+  const degreesOfFreedom = uniqueFunctions.length - 1;
 
   let chiSquared = 0;
   let observed;
   let expected;
-  let individualChiSquared;
+  let squaredDeviance;
   const rankedFunctions = []; /* This is a separate array from uniqueFunctions
   purely because I found it hard to make an alternative to the .includes()
   above. */
@@ -84,19 +87,19 @@ function chiSquaredTest(data) {
         selectedTotal) /
       total;
 
-    individualChiSquared = Math.pow(observed - expected, 2) / expected;
+    squaredDeviance = Math.pow(observed - expected, 2) / expected;
     rankedFunctions.push({
       name: uniqueFunction,
       expected: expected,
       observed: observed,
-      chiSquared: individualChiSquared
+      squaredDeviance: squaredDeviance
     });
-    chiSquared += individualChiSquared;
+    chiSquared += squaredDeviance;
 
     /* console.log(
       `Saw ${observed} of ${uniqueFunction}, expected ~${Math.round(
         expected
-      )}, chiSquared of ${individualChiSquared}`
+      )}, chiSquared of ${squaredDeviance}`
     ); */
 
     // Compute chi-squared sum through the "row" representing unselected state
@@ -111,7 +114,7 @@ function chiSquaredTest(data) {
   // Compute the probability
   const probability = chi.cdf(chiSquared, degreesOfFreedom);
 
-  rankedFunctions.sort((a, b) => b.chiSquared - a.chiSquared);
+  rankedFunctions.sort((a, b) => b.squaredDeviance - a.squaredDeviance);
 
   return { probability: probability, functionList: rankedFunctions };
 }
