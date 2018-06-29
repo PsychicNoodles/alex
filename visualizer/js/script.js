@@ -84,26 +84,26 @@ ipcRenderer.on("result", (event, resultFile) => {
 
     bar.destroy();
 
-  const charts = [
-    {
-      yAxisLabel: "Cache Miss Rate",
-      getDependentVariable: d =>
-        getEventCount(d, result.header.presets.cache.misses) /
-          (getEventCount(d, result.header.presets.cache.hits) +
-            getEventCount(d, result.header.presets.cache.misses)) || 0
-    },
-    {
-      yAxisLabel: "Instructions Per Cycle",
-      getDependentVariable: d =>
-        getEventCount(d, result.header.presets.cpu.instructions) /
-          getEventCount(d, result.header.presets.cpu.CPUcycles) || 0
-    }
-  ];
+    const charts = [
+      {
+        yAxisLabel: "Cache Miss Rate",
+        getDependentVariable: d =>
+          getEventCount(d, result.header.presets.cache.misses) /
+            (getEventCount(d, result.header.presets.cache.hits) +
+              getEventCount(d, result.header.presets.cache.misses)) || 0
+      },
+      {
+        yAxisLabel: "Instructions Per Cycle",
+        getDependentVariable: d =>
+          getEventCount(d, result.header.presets.cpu.instructions) /
+            getEventCount(d, result.header.presets.cpu.CPUcycles) || 0
+      }
+    ];
 
-  const xAxisLabel = "CPU Time Elapsed";
-  const getIndependentVariable = d => d.cpuTime - processedData[0].cpuTime;
+    const xAxisLabel = "CPU Time Elapsed";
+    const getIndependentVariable = d => d.cpuTime - processedData[0].cpuTime;
 
-    d3.select(".function-runtimes").call(functionRuntimes.render, {
+    d3.select("#function-runtimes").call(functionRuntimes.render, {
       data: processedData
     });
 
@@ -139,26 +139,26 @@ ipcRenderer.on("result", (event, resultFile) => {
       plotDataByChart.set(chartParams, plotData);
     }
 
-  const densityMax = charts.reduce(
-    (currentMax, chart) =>
-      Math.max(
-        currentMax,
-        d3.max(plotDataByChart.get(chart), d => d.densityAvg)
-      ),
-    0
-  );
-  const spectrum = d3.interpolateGreens;
+    const densityMax = charts.reduce(
+      (currentMax, chart) =>
+        Math.max(
+          currentMax,
+          d3.max(plotDataByChart.get(chart), d => d.densityAvg)
+        ),
+      0
+    );
+    const spectrum = d3.interpolateGreens;
 
-  for (const chartParams of charts) {
-    const { getDependentVariable, yAxisLabel } = chartParams;
-    d3.select(".charts")
-      .append("svg")
-      .call(chart.render, {
-        timeslices: processedData,
-        getIndependentVariable,
-        getDependentVariable,
-        xAxisLabel,
-        yAxisLabel,
+    for (const chartParams of charts) {
+      const { getDependentVariable, yAxisLabel } = chartParams;
+      d3.select("#charts")
+        .append("svg")
+        .call(chart.render, {
+          timeslices: processedData,
+          getIndependentVariable,
+          getDependentVariable,
+          xAxisLabel,
+          yAxisLabel,
           xScale,
           yScale: yScalesByChart.get(chartParams),
           plotData: plotDataByChart.get(chartParams),

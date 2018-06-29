@@ -129,7 +129,7 @@ function brushEnd(
   xScale,
   getIndependentVariable
 ) {
-  d3.select(".function-runtimes").call(functionRuntimes.render, {
+  d3.select("#function-runtimes").call(functionRuntimes.render, {
     data: timeslices
   });
 
@@ -289,7 +289,7 @@ function selectPoints(
     }
   });
 
-  d3.select(".function-runtimes").call(functionRuntimes.render, {
+  d3.select("#function-runtimes").call(functionRuntimes.render, {
     data: timeslices
   });
 }
@@ -310,7 +310,7 @@ function clearBrushes({
 
   circles.attr("class", "circle");
 
-  d3.select(".function-runtimes").call(functionRuntimes.render, {
+  d3.select("#function-runtimes").call(functionRuntimes.render, {
     data: timeslices
   });
 
