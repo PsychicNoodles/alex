@@ -381,13 +381,20 @@ perf_fd_info *create_perf_fd_info() { return new perf_fd_info(); }
 int reset_period(perf_fd_info *info, int sample_type, int period) {
   DEBUG("reset_period");
   unsigned long long new_period;
+  DEBUG("reset_period, sample_type: " << sample_type);
   if (sample_type == PERF_RECORD_THROTTLE) {
-    new_period = period / 10;
-  } else {
     new_period = period * 10;
+  } else {
+    new_period = period / 10;
   }
 
-  return (ioctl(info->cpu_clock_fd, sample_type, &new_period));
+  DEBUG("reset_period, new_period: " << new_period);
+  DEBUG("reset_period, fd: " << info->cpu_clock_fd);
+
+  if (ioctl(info->cpu_clock_fd, PERF_EVENT_IOC_PERIOD, &new_period) == -1) {
+    perror ("reset_period error: ");
+    return -1;
+  } else return 0;
 }
 
 /*
@@ -566,15 +573,6 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             fprintf(result_file, ",");
           }
 
-          // sample_record *perf_sample = (sample_record *) get_next_sample(
-          //     &info.sample_buf, &sample_type, &sample_size);
-          // if (sample_type != PERF_RECORD_SAMPLE) {
-          //   DEBUG("cpd: sample type was not PERF_RECORD_SAMPLE, it was "
-          //         << sample_type);
-          //   shutdown(subject_pid, result_file, INTERNAL_ERROR);
-          // }
-          // DEBUG("cpd: sample pid = " << perf_sample->pid
-          //                            << ", tid = " << perf_sample->tid);
           bool is_first_sample = true;
           while (has_next_sample(&info.sample_buf)) {
             DEBUG("cpd: getting next sample");
@@ -624,7 +622,6 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
                   fprintf(result_file, R"("%s": %lld)", event.c_str(), count);
                 }
-
                 // rapl
                 if (rapl_reading.running) {
                   DEBUG("cpd: checking for RAPL energy results");
@@ -729,14 +726,16 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
                       if (demangle_status == -1) {
                         DEBUG(
-                            "cpd: demangling errored due to memory allocation "
+                            "cpd: demangling errored due to memory "
+                            "allocation "
                             "failure");
                         shutdown(subject_pid, result_file, INTERNAL_ERROR);
                       } else if (demangle_status == -2) {
                         DEBUG("cpd: could not demangle name " << sym_name);
                       } else if (demangle_status == -3) {
                         DEBUG(
-                            "cpd: demangling errored due to invalid arguments");
+                            "cpd: demangling errored due to invalid "
+                            "arguments");
                         shutdown(subject_pid, result_file, INTERNAL_ERROR);
                       }
                     }
@@ -787,6 +786,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                   ]
                   }
                   )");
+                is_first_sample = false;
               }
             } else {
               DEBUG("cpd: sample type was not PERF_RECORD_SAMPLE, it was "
@@ -797,20 +797,19 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
         }
       }
     }
+    free(evlist);
+    finish_ts = time_ms();
   }
-  free(evlist);
-  finish_ts = time_ms();
-}
-DEBUG("cpd: stopping RAPL reading thread");
-stop_reading(&rapl_reading);
-DEBUG("cpd: stopping wattsup reading thread");
-stop_reading(&wattsup_reading);
+  DEBUG("cpd: stopping RAPL reading thread");
+  stop_reading(&rapl_reading);
+  DEBUG("cpd: stopping wattsup reading thread");
+  stop_reading(&wattsup_reading);
 
-fprintf(result_file,
-        R"(
+  fprintf(result_file,
+          R"(
               ]
             }
           )");
 
-return 0;
+  return 0;
 }
