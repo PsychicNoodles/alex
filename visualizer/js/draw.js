@@ -9,7 +9,7 @@ const { CHART_WIDTH, CHART_HEIGHT } = require("./util");
 const plot = require("./plot");
 const functionRuntimes = require("./function-runtimes");
 
-const spectrum = d3.interpolateGreens;
+const spectrum = d3.interpolateRgb("#BAFFA7", "#135B00");
 let nextBrushId = 0;
 
 function draw(
