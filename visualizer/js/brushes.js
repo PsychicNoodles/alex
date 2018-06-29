@@ -2,51 +2,28 @@ const d3 = require("d3");
 const functionRuntimes = require("./function-runtimes");
 
 const nextBrushId = d3.local();
-const brushes = d3.local();
+const brushesLocal = d3.local();
+
+const brushId = d3.local();
 
 function initLocals(root) {
   if (root.property(nextBrushId) === undefined) {
     root.property(nextBrushId, 0);
   }
 
-  if (root.property(brushes) === undefined) {
-    root.property(brushes, []);
+  if (root.property(brushesLocal) === undefined) {
+    root.property(brushesLocal, []);
   }
 }
 
 function addBrush(root, { timeslices, chart, xScale, getIndependentVariable }) {
-  const { WIDTH, HEIGHT } = require("./chart");
-
   initLocals(root);
 
   root.classed("brushes", true);
 
-  const brush = d3
-    .brushX()
-    .extent([[0, 0], [WIDTH, HEIGHT]])
-    .on("brush", function() {
-      onSelectionChange({
-        currentBrush: this,
-        timeslices,
-        xScale,
-        chart,
-        root,
-        getIndependentVariable
-      });
-    })
-    .on("end", () => {
-      onSelectionEnd({
-        timeslices,
-        root,
-        chart,
-        xScale,
-        getIndependentVariable
-      });
-    });
-
   // Add brush to array of objects
   const id = root.property(nextBrushId);
-  root.property(brushes, [...root.property(brushes), { id: id, brush: brush }]);
+  root.property(brushesLocal, [...root.property(brushesLocal), { id }]);
   root.property(nextBrushId, id + 1);
 
   root.call(render, {
@@ -57,37 +34,14 @@ function addBrush(root, { timeslices, chart, xScale, getIndependentVariable }) {
   });
 }
 
-function onSelectionEnd({
-  timeslices,
-  root,
-  chart,
-  xScale,
-  getIndependentVariable
-}) {
-  d3.select("#function-runtimes").call(functionRuntimes.render, {
-    data: timeslices
-  });
-
-  const lastBrushId = root.property(brushes)[root.property(brushes).length - 1]
-    .id;
-  const lastBrush = document.getElementById("brush-" + lastBrushId);
-  const selection = d3.brushSelection(lastBrush);
-
-  // If the latest brush has a selection, make a new one
-  if (selection && selection[0] !== selection[1]) {
-    root.call(addBrush, {
-      timeslices,
-      chart,
-      xScale,
-      getIndependentVariable
-    });
-  }
-}
-
 function render(root, { timeslices, chart, xScale, getIndependentVariable }) {
+  const { WIDTH, HEIGHT } = require("./chart");
+
+  initLocals(root);
+
   const brushSelection = root
     .selectAll("g.brush")
-    .data(root.property(brushes), d => d.id);
+    .data(root.property(brushesLocal));
 
   const brushEnterSelection = brushSelection
     .enter()
@@ -96,39 +50,47 @@ function render(root, { timeslices, chart, xScale, getIndependentVariable }) {
 
   brushEnterSelection
     .merge(brushSelection)
-    .attr("id", brush => "brush-" + brush.id)
-    .each(function(brushObject) {
-      brushObject.brush(d3.select(this));
-      d3.select(this)
-        .selectAll(".overlay")
-        .style("pointer-events", () => {
-          const brush = brushObject.brush;
-          if (
-            brushObject.id ===
-              root.property(brushes)[root.property(brushes).length - 1].id &&
-            brush !== undefined
-          ) {
-            return "all";
-          } else {
-            return "none";
-          }
-        });
-    });
+    .property(brushId, brush => brush.id)
+    .call(
+      d3
+        .brushX()
+        .extent([[0, 0], [WIDTH, HEIGHT]])
+        .on("brush", function() {
+          onBrushMove({
+            currentBrush: this,
+            timeslices,
+            xScale,
+            chart,
+            root,
+            getIndependentVariable
+          });
+        })
+        .on("end", () => {
+          onBrushMoveEnd({
+            timeslices,
+            root,
+            chart,
+            xScale,
+            getIndependentVariable
+          });
+        })
+    );
 
   brushSelection.exit().remove();
 
+  // Add close buttons
   brushEnterSelection.each(function() {
+    const brush = this;
     const gClearBrush = d3
       .select(this)
       .append("g")
       .attr("class", "brush__close")
-      .attr("pointer-events", "all")
       .on("click", () => {
         const index = root
-          .property(brushes)
-          .findIndex(d => "brush-" + d.id === this.id);
-        root.property(brushes).splice(index, 1);
-        d3.select(this).remove();
+          .property(brushesLocal)
+          .findIndex(d => d.id === brushId.get(brush));
+        root.property(brushesLocal).splice(index, 1);
+        d3.select(brush).remove();
         selectPoints({
           timeslices,
           chart,
@@ -158,7 +120,7 @@ function render(root, { timeslices, chart, xScale, getIndependentVariable }) {
 }
 
 // Re-color the circles in the region that was selected by the user
-function onSelectionChange({
+function onBrushMove({
   currentBrush,
   timeslices,
   xScale,
@@ -178,6 +140,28 @@ function onSelectionChange({
       );
 
     d3.select(currentBrush).attr("class", "brush");
+  }
+}
+
+function onBrushMoveEnd({
+  timeslices,
+  root,
+  chart,
+  xScale,
+  getIndependentVariable
+}) {
+  d3.select("#function-runtimes").call(functionRuntimes.render, {
+    data: timeslices
+  });
+
+  // We must ensure that there is always an invisible selection
+  if (root.select(".brush--invisible").empty()) {
+    root.call(addBrush, {
+      timeslices,
+      chart,
+      xScale,
+      getIndependentVariable
+    });
   }
 }
 
@@ -222,6 +206,8 @@ function selectPoints({
 }
 
 function clear(root, { chart, timeslices, xScale, getIndependentVariable }) {
+  initLocals(root);
+
   const circles = chart.selectAll("circle");
 
   for (const timeslice of timeslices) {
@@ -234,7 +220,7 @@ function clear(root, { chart, timeslices, xScale, getIndependentVariable }) {
     data: timeslices
   });
 
-  root.property(brushes, []);
+  root.property(brushesLocal, []);
 
   root.selectAll(".brush").remove();
   root.call(addBrush, {

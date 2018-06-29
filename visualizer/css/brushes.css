@@ -1,0 +1,12 @@
+.brush__close {
+  fill: #000;
+  pointer-events: all;
+}
+
+.brush--invisible .brush__close {
+  display: none;
+}
+
+.brush:not(.brush--invisible) .overlay {
+  pointer-events: none;
+}

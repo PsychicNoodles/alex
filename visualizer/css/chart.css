@@ -16,11 +16,3 @@ svg.chart {
   font-size: 12px;
   fill: #000;
 }
-
-.brush__close {
-  fill: #000;
-}
-
-.brush--invisible .brush__close {
-  display: none;
-}
