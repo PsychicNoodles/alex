@@ -142,11 +142,11 @@ static int collector_main(int argc, char **argv, char **env) {
     result = subject_main_fn(argc, argv, env);
 
     DEBUG("collector_main: finished in child, killing parent");
-    close(sockets[1]);
     if (kill(collector_pid, SIGTERM)) {
       perror("couldn't kill collector process");
       exit(INTERNAL_ERROR);
     }
+    close(sockets[1]);
   } else if (subject_pid > 0) {
     DEBUG(
         "collector_main: in parent process, opening result file for writing "
