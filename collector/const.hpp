@@ -33,5 +33,7 @@ const char* callchain_str(uint64_t callchain);
 #define MAX_SAMPLE_PERIOD_SKIPS 10
 #define MAX_MONITORING_SETUP_ATTEMPTS 10
 #define HANDLE_EVENTS true  // an easy way to globally enable/disable events
+#define EPOLL_TIME_DIFF_MAX \
+  100  // max timestamp difference between epoll_wait before printing to err log
 
 #endif

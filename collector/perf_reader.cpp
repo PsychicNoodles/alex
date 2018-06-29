@@ -448,12 +448,22 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
     DEBUG("cpd: wattsup couldn't open device, skipping setup");
   }
 
+  size_t last_ts = time_ms(), finish_ts = last_ts, curr_ts = 0;
+
   DEBUG("cpd: entering epoll ready loop");
   while (!done) {
     auto evlist = unique_ptr<epoll_event[]>(new epoll_event[sample_fd_count]);
     DEBUG("cpd: epolling for results or new threads");
     int ready_fds = epoll_wait(sample_epfd, evlist.get(), sample_fd_count,
                                SAMPLE_EPOLL_TIMEOUT);
+
+    curr_ts = time_ms();
+    if (curr_ts - last_ts > EPOLL_TIME_DIFF_MAX) {
+      DEBUG("cpd: significant time between epoll_waits: "
+            << curr_ts - last_ts << " (since finish " << curr_ts - finish_ts
+            << ")");
+    }
+    last_ts = curr_ts;
 
     if (ready_fds == -1) {
       perror("sample epoll wait was unsuccessful");
@@ -767,6 +777,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
         }
       }
     }
+    finish_ts = time_ms();
   }
   DEBUG("cpd: stopping RAPL reading thread");
   stop_reading(&rapl_reading);
