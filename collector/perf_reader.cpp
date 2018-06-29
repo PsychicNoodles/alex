@@ -43,7 +43,10 @@
 #include "util.hpp"
 #include "wattsup.hpp"
 
-using namespace std;
+using std::map;
+using std::set;
+using std::string;
+using std::vector;
 
 // command numbers sent over the socket from threads in the subject program
 #define SOCKET_CMD_REGISTER 1
@@ -134,7 +137,7 @@ void delete_fd_from_epoll(int fd) {
 void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   DEBUG("setting up perf events for target " << target);
 
-  static unsigned long long period = -1;
+  static uint64_t period = -1;
 
   if (period == -1) {
     try {
@@ -183,7 +186,8 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
 
       // Parse out event name with PFM.  Must be done first.
       DEBUG("parsing pfm event name");
-      int pfm_result = setup_pfm_os_event(&attr, (char *)event.c_str());
+      int pfm_result =
+          setup_pfm_os_event(&attr, const_cast<char *>(event.c_str()));
       if (pfm_result != PFM_SUCCESS) {
         DEBUG("pfm encoding error: " << pfm_strerror(pfm_result));
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
@@ -360,7 +364,7 @@ uint64_t lookup_kernel_addr(map<uint64_t, kernel_sym> kernel_syms,
  */
 dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
   // closed by mmap_loader constructor
-  int fd = open((char *)"/proc/self/exe", O_RDONLY);
+  int fd = open(const_cast<char *>("/proc/self/exe"), O_RDONLY);
   if (fd < 0) {
     perror("cannot open executable (/proc/self/exe)");
     shutdown(subject_pid, result_file, EXECUTABLE_FILE_ERROR);
@@ -430,7 +434,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   if (wu_fd != -1) {
     setup_reading(&wattsup_reading,
                   [](void *raw_args) -> void * {
-                    int wu_fd = ((int *)raw_args)[0];
+                    int wu_fd = (static_cast<int *>(raw_args))[0];
                     auto d = new double;
                     *d = wu_read(wu_fd);
                     return d;
@@ -444,8 +448,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
   DEBUG("cpd: entering epoll ready loop");
   while (!done) {
-    epoll_event *evlist =
-        (epoll_event *)malloc(sizeof(epoll_event) * sample_fd_count);
+    epoll_event *evlist = new epoll_event[sample_fd_count];
     DEBUG("cpd: epolling for results or new threads");
     int ready_fds =
         epoll_wait(sample_epfd, evlist, sample_fd_count, SAMPLE_EPOLL_TIMEOUT);
@@ -509,7 +512,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           shutdown(subject_pid, result_file, INTERNAL_ERROR);
         }
 
-        long long num_timer_ticks = 0;
+        int64_t num_timer_ticks = 0;
         DEBUG("cpd: reading from fd " << fd);
         read(fd, &num_timer_ticks, sizeof(num_timer_ticks));
         DEBUG("cpd: read in from fd " << fd
@@ -540,8 +543,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           int sample_type;
           int sample_size;
           DEBUG("cpd: getting next sample");
-          Sample *perf_sample = (Sample *)get_next_sample(
-              &info.sample_buf, &sample_type, &sample_size);
+          Sample *perf_sample = static_cast<Sample *>(
+              get_next_sample(&info.sample_buf, &sample_type, &sample_size));
           if (sample_type != PERF_RECORD_SAMPLE) {
             DEBUG("cpd: sample type was not PERF_RECORD_SAMPLE, it was "
                   << sample_type);
@@ -583,9 +586,9 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               fprintf(result_file, ",");
             }
 
-            long long count = 0;
+            int64_t count = 0;
             DEBUG("cpd: reading from fd " << info.event_fds[event]);
-            read(info.event_fds[event], &count, sizeof(long long));
+            read(info.event_fds[event], &count, sizeof(int64_t));
             DEBUG("cpd: read in from fd " << info.event_fds[event] << " count "
                                           << count);
             if (reset_monitoring(info.event_fds[event]) !=
@@ -602,7 +605,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             if (has_result(&rapl_reading)) {
               DEBUG("cpd: RAPL result found, writing out");
               map<string, uint64_t> nrg =
-                  *((map<string, uint64_t> *)get_result(&rapl_reading));
+                  *(static_cast<map<string, uint64_t> *>(
+                      get_result(&rapl_reading)));
               for (auto &p : nrg) {
                 fprintf(result_file, ",");
                 fprintf(result_file, R"("%s": %lu)", p.first.c_str(), p.second);
