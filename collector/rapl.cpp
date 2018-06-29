@@ -65,7 +65,7 @@ vector<string> find_in_dir(string dir, string substr) {
   vector<string> res;
   DIR *dirp = opendir(dir.c_str());
   struct dirent *dp;
-  while ((dp = readdir(dirp)) != NULL) {
+  while ((dp = readdir(dirp)) != nullptr) {
     string path = string(dp->d_name);
     if (path.find(substr) != string::npos) {
       res.push_back(path);

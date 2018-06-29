@@ -41,7 +41,7 @@ void *__imposter(void *arg) {
             << " with collector for bookkeeping");
   if (!register_perf_fds(perf_register_sock, &info)) {
     perror("failed to send new thread's fd");
-    shutdown(collector_pid, NULL, INTERNAL_ERROR);
+    shutdown(collector_pid, nullptr, INTERNAL_ERROR);
   }
 
   DEBUG(tid << ": starting routine");
@@ -76,7 +76,7 @@ pid_t fork(void) {
               << " with collector for bookkeeping");
     if (!register_perf_fds(perf_register_sock, &info)) {
       perror("failed to send PROCESS new thread's fd");
-      shutdown(pid, NULL, INTERNAL_ERROR);
+      shutdown(pid, nullptr, INTERNAL_ERROR);
     }
     DEBUG(pid << ": finished PROCESS routine, unregistering fd "
               << info.cpu_clock_fd);
@@ -121,36 +121,36 @@ int execvpe(const char *file, char *const argv[], char *const envp[]) {
 __attribute__((constructor)) void init() {
   real_pthread_create =
       reinterpret_cast<pthread_create_fn_t>(dlsym(RTLD_NEXT, "pthread_create"));
-  if (real_pthread_create == NULL) {
+  if (real_pthread_create == nullptr) {
     dlerror();
     exit(2);
   }
 
   real_fork = reinterpret_cast<fork_fn_t>(dlsym(RTLD_NEXT, "fork"));
-  if (real_fork == NULL) {
+  if (real_fork == nullptr) {
     dlerror();
     exit(2);
   }
 
   real_execve = reinterpret_cast<execve_fn_t>(dlsym(RTLD_NEXT, "execve"));
-  if (real_execve == NULL) {
+  if (real_execve == nullptr) {
     dlerror();
     exit(2);
   }
   real_execvp = reinterpret_cast<execvp_fn_t>(dlsym(RTLD_NEXT, "execvp"));
-  if (real_execvp == NULL) {
+  if (real_execvp == nullptr) {
     dlerror();
     exit(2);
   }
 
   real_execv = reinterpret_cast<execv_fn_t>(dlsym(RTLD_NEXT, "execv"));
-  if (real_execv == NULL) {
+  if (real_execv == nullptr) {
     dlerror();
     exit(2);
   }
 
   real_execvpe = reinterpret_cast<execvpe_fn_t>(dlsym(RTLD_NEXT, "execvpe"));
-  if (real_execvpe == NULL) {
+  if (real_execvpe == nullptr) {
     dlerror();
     exit(2);
   }

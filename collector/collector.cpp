@@ -24,7 +24,7 @@ using std::istringstream;
 using std::map;
 using std::string;
 
-typedef int (*main_fn_t)(int, char **, char **);
+using main_fn_t = int (*)(int, char **, char **);
 
 static main_fn_t subject_main_fn;
 
@@ -74,7 +74,7 @@ int setup_sigterm_handler() {
   int sigterm_fd = signalfd(-1, &done_mask, SFD_NONBLOCK);
 
   // prevent default behavior of immediately killing program
-  sigprocmask(SIG_BLOCK, &done_mask, NULL);
+  sigprocmask(SIG_BLOCK, &done_mask, nullptr);
 
   return sigterm_fd;
 }
@@ -88,7 +88,7 @@ static int collector_main(int argc, char **argv, char **env) {
   ready_act.sa_handler = ready_handler;
   sigemptyset(&ready_act.sa_mask);
   ready_act.sa_flags = 0;
-  sigaction(SIGUSR2, &ready_act, NULL);
+  sigaction(SIGUSR2, &ready_act, nullptr);
 
   int sockets[2];
   if (socketpair(PF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0, sockets) == -1) {
@@ -103,16 +103,16 @@ static int collector_main(int argc, char **argv, char **env) {
   if (presets.find("cpu") != presets.end() ||
       presets.find("all") != presets.end()) {
     map<string, string> cpu = findEvents("cpu");
-    for (auto it = cpu.begin(); it != cpu.end(); ++it) {
-      events.emplace_back(it->second.c_str());
+    for (auto &it : cpu) {
+      events.emplace_back(it.second.c_str());
     }
   }
 
   if (presets.find("cache") != presets.end() ||
       presets.find("all") != presets.end()) {
     map<string, string> cache = findEvents("cache");
-    for (auto it = cache.begin(); it != cache.end(); ++it) {
-      events.emplace_back(it->second.c_str());
+    for (auto &it : cache) {
+      events.emplace_back(it.second.c_str());
     }
   }
 
@@ -160,7 +160,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
     close(sockets[1]);
 
-    if (result_file == NULL) {
+    if (result_file == nullptr) {
       perror("couldn't open result file");
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }

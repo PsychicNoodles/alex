@@ -49,7 +49,7 @@ int ancil_send_fds_with_msg(int sock, const int *fds, unsigned n_fds,
   struct cmsghdr *cmsg;
   int i;
 
-  msghdr.msg_name = NULL;
+  msghdr.msg_name = nullptr;
   msghdr.msg_namelen = 0;
   msghdr.msg_iov = iov;
   msghdr.msg_iovlen = iovlen;
@@ -57,7 +57,7 @@ int ancil_send_fds_with_msg(int sock, const int *fds, unsigned n_fds,
   msghdr.msg_control = static_cast<void *>(&buffer);
   msghdr.msg_controllen = sizeof(struct cmsghdr) + sizeof(int) * n_fds;
   cmsg = CMSG_FIRSTHDR(&msghdr);
-  assert(cmsg != NULL);
+  assert(cmsg != nullptr);
   cmsg->cmsg_len = msghdr.msg_controllen;
   cmsg->cmsg_level = SOL_SOCKET;
   cmsg->cmsg_type = SCM_RIGHTS;
@@ -74,7 +74,7 @@ int ancil_recv_fds_with_msg(int sock, int *fds, unsigned n_fds,
   struct cmsghdr *cmsg;
   int i;
 
-  msghdr.msg_name = NULL;
+  msghdr.msg_name = nullptr;
   msghdr.msg_namelen = 0;
   msghdr.msg_iov = iov;
   msghdr.msg_iovlen = iovlen;
@@ -82,7 +82,7 @@ int ancil_recv_fds_with_msg(int sock, int *fds, unsigned n_fds,
   msghdr.msg_control = static_cast<void *>(&buffer);
   msghdr.msg_controllen = sizeof(struct cmsghdr) + sizeof(int) * n_fds;
   cmsg = CMSG_FIRSTHDR(&msghdr);
-  assert(cmsg != NULL);
+  assert(cmsg != nullptr);
   cmsg->cmsg_len = msghdr.msg_controllen;
   cmsg->cmsg_level = SOL_SOCKET;
   cmsg->cmsg_type = SCM_RIGHTS;

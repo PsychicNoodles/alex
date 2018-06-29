@@ -297,7 +297,7 @@ bool unregister_perf_fds(int socket) {
   int cmd = SOCKET_CMD_UNREGISTER;
   DEBUG("sending tid " << tid << ", cmd " << cmd);
   struct iovec ios[]{{&tid, sizeof(pid_t)}, {&cmd, sizeof(int)}};
-  return ancil_send_fds_with_msg(socket, NULL, 0, ios, 2) == 0;
+  return ancil_send_fds_with_msg(socket, nullptr, 0, ios, 2) == 0;
 }
 
 /*
@@ -426,7 +426,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                     measure_energy_into_map(m);
                     return m;
                   },
-                  NULL);
+                  nullptr);
     restart_reading(&rapl_reading);
     DEBUG("cpd: rapl reading in tid " << rapl_reading.thread);
   }
@@ -674,10 +674,10 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                     callchain_str(callchain_section));
 
             string sym_name_str;
-            const char *sym_name = NULL, *file_name = NULL,
-                       *function_name = NULL;
-            char *demangled_name = NULL;
-            void *file_base = NULL, *sym_addr = NULL;
+            const char *sym_name = nullptr, *file_name = nullptr,
+                       *function_name = nullptr;
+            char *demangled_name = nullptr;
+            void *file_base = nullptr, *sym_addr = nullptr;
             DEBUG("cpd: looking up symbol for inst ptr "
                   << ptr_fmt((void *)inst_ptr));
             if (callchain_section == CALLCHAIN_USER) {
@@ -700,15 +700,15 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                 sym_name_str = ks.sym;
                 sym_name = sym_name_str.c_str();
                 file_name = "(kernel)";
-                file_base = NULL;
+                file_base = nullptr;
                 sym_addr = reinterpret_cast<void *>(addr);
               }
             }
             // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
-            if (sym_name != NULL) {
+            if (sym_name != nullptr) {
               int demangle_status;
-              demangled_name =
-                  abi::__cxa_demangle(sym_name, NULL, NULL, &demangle_status);
+              demangled_name = abi::__cxa_demangle(sym_name, nullptr, nullptr,
+                                                   &demangle_status);
               if (demangle_status == 0) {
                 function_name = demangled_name;
               } else {
@@ -747,7 +747,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             // Find the CU containing pc
             // XXX Use .debug_aranges
             auto line = -1, column = -1;
-            char *fullLocation = NULL;
+            char *fullLocation = nullptr;
 
             for (auto &cu : dw.compilation_units()) {
               if (die_pc_range(cu.root()).contains(pc)) {

@@ -13,7 +13,7 @@
  */
 size_t time_ms() {
   struct timeval tv {};
-  if (gettimeofday(&tv, NULL) == -1) {
+  if (gettimeofday(&tv, nullptr) == -1) {
     perror("gettimeofday");
     exit(2);
   }  // if
@@ -72,7 +72,7 @@ set<string> str_split_set(string str, string delim) {
 
 void shutdown(pid_t pid, FILE* writef, int code) {
   kill(pid, SIGKILL);
-  if (writef != NULL) {
+  if (writef != nullptr) {
     fclose(writef);
   }
   exit(code);

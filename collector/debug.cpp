@@ -112,7 +112,7 @@ bool enable_segfault_trace() {
   struct sigaction sigact {};
   sigact.sa_sigaction = crit_err_hdlr;
   sigact.sa_flags = SA_RESTART | SA_SIGINFO;
-  return sigaction(SIGSEGV, &sigact, NULL) != 0;
+  return sigaction(SIGSEGV, &sigact, nullptr) != 0;
 }
 
 void disable_segfault_trace() {

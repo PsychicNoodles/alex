@@ -42,7 +42,7 @@ void *reading_fn_wrapper(void *raw_args) {
     }
   }
   delete args;
-  return NULL;
+  return nullptr;
 }
 
 bool setup_reading(bg_reading *reading, void *(reading_fn)(void *),
@@ -50,7 +50,7 @@ bool setup_reading(bg_reading *reading, void *(reading_fn)(void *),
   DEBUG("setting up background reading");
   pthread_t t;
 
-  reading->result = NULL;
+  reading->result = nullptr;
   reading->running = true;
   reading->ready = false;
 
@@ -84,16 +84,16 @@ void stop_reading(bg_reading *reading) {
   reading->running = false;
   lock.unlock();
   reading->cv.notify_one();
-  pthread_join(reading->thread, NULL);
+  pthread_join(reading->thread, nullptr);
 }
 
 bool has_result(bg_reading *reading) {
-  return reading->running && reading->result != NULL;
+  return reading->running && reading->result != nullptr;
 }
 
 void *get_result(bg_reading *reading) {
   void *ret = reading->result;
   DEBUG("result for tid " << reading->thread << " is " << ptr_fmt(ret));
-  reading->result = NULL;
+  reading->result = nullptr;
   return ret;
 }

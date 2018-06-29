@@ -24,7 +24,7 @@ map<string, string> findEvents(string preset) {
   return events;
 }
 
-void printPresetEvents(set<string> presets, FILE* result_file) {
+void printPresetEvents(set<string> /*presets*/, FILE* result_file) {
   fprintf(result_file, R"(
       "presets": {
             "cpu": {
