@@ -24,7 +24,7 @@ extern FILE* result_file;
 extern vector<string> events;
 extern set<string> presets;
 
-void setup_perf_events(pid_t target, bool setup_events, perf_fd_info* info);
+unsigned long long setup_perf_events(pid_t target, bool setup_events, perf_fd_info* info);
 int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       int sigt_fd, int socket, int wu_fd);
 
