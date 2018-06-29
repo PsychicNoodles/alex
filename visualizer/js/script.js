@@ -4,7 +4,6 @@ const readline = require("readline");
 const d3 = require("d3");
 
 const ProgressBar = require("progressbar.js");
-const { PROGRESS_HEIGHT, PROGRESS_DIVISIONS } = require("./util");
 
 require("bootstrap");
 
@@ -12,9 +11,10 @@ const { processData, computeRenderableData } = require("./process-data");
 const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
 const legend = require("./legend");
-const { CHART_WIDTH, CHART_HEIGHT } = require("./util");
 
 const spectrum = d3.interpolateGreens;
+const PROGRESS_HEIGHT = "8px";
+const PROGRESS_DIVISIONS = 10;
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, resultFile) => {
@@ -99,11 +99,11 @@ ipcRenderer.on("result", (event, resultFile) => {
     const xScale = d3
       .scaleLinear()
       .domain([xScaleMin, xScaleMax])
-      .range([0, CHART_WIDTH]);
+      .range([0, chart.WIDTH]);
     const yScale = d3
       .scaleLinear()
       .domain([yScaleMax, 0])
-      .range([0, CHART_HEIGHT]);
+      .range([0, chart.HEIGHT]);
 
     const plotData = computeRenderableData({
       data: processedData,

@@ -1,8 +1,10 @@
 const d3 = require("d3");
 
-const { CHART_WIDTH, CHART_HEIGHT } = require("./util");
 const plot = require("./plot");
 const functionRuntimes = require("./function-runtimes");
+
+const WIDTH = 500;
+const HEIGHT = 250;
 
 let nextBrushId = 0;
 function render(
@@ -20,7 +22,7 @@ function render(
     yScale
   }
 ) {
-  root.attr("viewBox", `0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`);
+  root.attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`);
 
   // Clear the chart
   root.selectAll("*").remove();
@@ -64,7 +66,7 @@ function drawAxes({ xScale, yScale, xAxisLabel, yAxisLabel, svg }) {
     .append("g")
     .attr("id", "xAxis")
     .attr("class", "axis")
-    .attr("transform", "translate(0, " + CHART_HEIGHT + ")")
+    .attr("transform", `translate(0, ${HEIGHT})`)
     .call(xAxis);
 
   svg
@@ -79,7 +81,7 @@ function drawAxes({ xScale, yScale, xAxisLabel, yAxisLabel, svg }) {
     .append("text")
     .attr("class", "x label")
     .attr("text-anchor", "middle")
-    .attr("x", CHART_WIDTH / 2)
+    .attr("x", WIDTH / 2)
     .attr("y", 50)
     .text(xAxisLabel);
   svg
@@ -88,7 +90,7 @@ function drawAxes({ xScale, yScale, xAxisLabel, yAxisLabel, svg }) {
     .attr("class", "y label")
     .attr("text-anchor", "middle")
     .attr("y", -40)
-    .attr("x", -(CHART_HEIGHT / 2))
+    .attr("x", -(HEIGHT / 2))
     .attr("transform", "rotate(-90)")
     .text(yAxisLabel);
 }
@@ -103,7 +105,7 @@ function createBrush({
 }) {
   const brush = d3
     .brushX()
-    .extent([[0, 0], [CHART_WIDTH, CHART_HEIGHT]])
+    .extent([[0, 0], [WIDTH, HEIGHT]])
     .on("brush", function() {
       return brushed({
         currentBrush: this,
@@ -344,4 +346,4 @@ function clearBrushes({
   });
 }
 
-module.exports = { render };
+module.exports = { render, WIDTH, HEIGHT };
