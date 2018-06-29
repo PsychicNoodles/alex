@@ -2,6 +2,7 @@ body {
   min-width: 900px;
 }
 
-.brushed {
-  fill: #8e1b54 !important;
+.brush .selection {
+  fill: #000;
+  opacity: 0.2;
 }

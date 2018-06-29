@@ -24,10 +24,8 @@ function render(
 ) {
   root.attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`);
 
-  // Clear the chart
   root.selectAll("*").remove();
 
-  // Actual drawing
   root
     .append("g")
     .attr("class", "plot")
@@ -43,8 +41,6 @@ function render(
 
   const gBrushes = root.append("g").attr("class", "brushes");
   const brushes = [];
-
-  drawAxes({ xScale, yScale, xAxisLabel, yAxisLabel, svg: root });
   createBrush({
     timeslices,
     svg: root,
@@ -53,41 +49,29 @@ function render(
     xScale,
     getIndependentVariable
   });
-}
 
-function drawAxes({ xScale, yScale, xAxisLabel, yAxisLabel, svg }) {
-  // Create axes and format the ticks
-  const formatAsPercentage = d3.format(".0%");
-  const abbrev = d3.format(".2s");
-  const xAxis = d3.axisBottom(xScale).tickFormat(abbrev);
-  const yAxis = d3.axisLeft(yScale).tickFormat(formatAsPercentage);
-  // Add the axes to the svg object
-  svg
+  root
     .append("g")
-    .attr("id", "xAxis")
-    .attr("class", "axis")
+    .attr("class", "chart__axis chart__axis--x")
     .attr("transform", `translate(0, ${HEIGHT})`)
-    .call(xAxis);
+    .call(d3.axisBottom(xScale).tickFormat(d3.format(".2s")))
 
-  svg
-    .append("g")
-    .attr("id", "yAxis")
-    .attr("class", "axis")
-    .call(yAxis);
-
-  // Add labels to the axes
-  svg
-    .select("#xAxis")
+    // Label
     .append("text")
-    .attr("class", "x label")
+    .attr("class", "chart__axis-label chart__axis-label--x")
     .attr("text-anchor", "middle")
     .attr("x", WIDTH / 2)
     .attr("y", 50)
     .text(xAxisLabel);
-  svg
-    .select("#yAxis")
+
+  root
+    .append("g")
+    .attr("class", "chart__axis chart__axis--y")
+    .call(d3.axisLeft(yScale).tickFormat(d3.format(".0%")))
+
+    // Label
     .append("text")
-    .attr("class", "y label")
+    .attr("class", "chart__axis-label chart__axis-label--y")
     .attr("text-anchor", "middle")
     .attr("y", -40)
     .attr("x", -(HEIGHT / 2))

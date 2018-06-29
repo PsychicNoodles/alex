@@ -4,14 +4,14 @@ svg.chart {
   margin-bottom: 10%;
 }
 
-.axis path,
-.axis line {
+.chart__axis path,
+.chart__axis line {
   fill: none;
   stroke: #000;
   shape-rendering: crispEdges;
 }
 
-.axis text {
+.chart__axis text {
   font-family: sans-serif;
   font-size: 12px;
   fill: #000;
