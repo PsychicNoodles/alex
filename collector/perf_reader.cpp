@@ -47,8 +47,8 @@
 using std::map;
 using std::set;
 using std::string;
-using std::vector;
 using std::unique_ptr;
+using std::vector;
 
 // command numbers sent over the socket from threads in the subject program
 #define SOCKET_CMD_REGISTER 1
@@ -291,7 +291,7 @@ bool register_perf_fds(int socket, perf_fd_info *info) {
  * Sends fds from thread in subject program through the shared Unix socket to be
  * unregistered in the collector.
  */
-bool unregister_perf_fds(int socket, perf_fd_info *info) {
+bool unregister_perf_fds(int socket) {
   DEBUG("unregistering perf fds");
   pid_t tid = gettid();
   int cmd = SOCKET_CMD_UNREGISTER;
@@ -366,7 +366,7 @@ uint64_t lookup_kernel_addr(map<uint64_t, kernel_sym> kernel_syms,
  */
 dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
   // closed by mmap_loader constructor
-  int fd = open(const_cast<char *>("/proc/self/exe"), O_RDONLY);
+  int fd = open(const_cast<char *>(file), O_RDONLY);
   if (fd < 0) {
     perror("cannot open executable (/proc/self/exe)");
     shutdown(subject_pid, result_file, EXECUTABLE_FILE_ERROR);

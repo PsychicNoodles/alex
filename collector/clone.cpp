@@ -48,7 +48,7 @@ void *__imposter(void *arg) {
   void *ret = routine(arguments);
 
   DEBUG(tid << ": finished routine, unregistering fd " << info.cpu_clock_fd);
-  unregister_perf_fds(perf_register_sock, &info);
+  unregister_perf_fds(perf_register_sock);
   DEBUG(tid << ": exiting");
   return ret;
 }
@@ -80,7 +80,7 @@ pid_t fork(void) {
     }
     DEBUG(pid << ": finished PROCESS routine, unregistering fd "
               << info.cpu_clock_fd);
-    unregister_perf_fds(perf_register_sock, &info);
+    unregister_perf_fds(perf_register_sock);
     DEBUG(pid << ": exiting PROCESS");
   }
   return pid;

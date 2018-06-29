@@ -75,7 +75,7 @@ void shutdown(pid_t pid, FILE* writef, int code) {
   if (writef != NULL) {
     fclose(writef);
   }
-  exit(errno);
+  exit(code);
 }
 
 pid_t gettid() { return syscall(SYS_gettid); }

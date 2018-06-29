@@ -5,7 +5,7 @@ SRC_DIR := .
 TIDY := clang-tidy
 TIDY_CHECKS := bugprone-*,cppcoreguidelines-*,-cppcoreguidelines-pro-*,\
   -cppcoreguidelines-owning-memory,google-*,hicpp-*,-hicpp-vararg,-hicpp-no-array-decay,\
-	-hicpp-signed-bitwise
+	-hicpp-signed-bitwise,llvm-*,-llvm-include-order,misc-*
 
 ifeq ($(shell uname -s),Darwin)
 SHLIB_SUFFIX := dylib
