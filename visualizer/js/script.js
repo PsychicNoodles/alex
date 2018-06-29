@@ -7,7 +7,11 @@ const ProgressBar = require("progressbar.js");
 
 require("bootstrap");
 
-const { processData, computeRenderableData } = require("./process-data");
+const {
+  processData,
+  computeRenderableData,
+  getEventCount
+} = require("./process-data");
 const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
 const legend = require("./legend");
@@ -80,15 +84,24 @@ ipcRenderer.on("result", (event, resultFile) => {
 
     bar.destroy();
 
-    const charts = [
-      {
-        yAxisLabel: "Cache Miss Rate",
-        getDependentVariable: d => d.events.missRate
-      }
-    ];
+  const charts = [
+    {
+      yAxisLabel: "Cache Miss Rate",
+      getDependentVariable: d =>
+        getEventCount(d, result.header.presets.cache.misses) /
+          (getEventCount(d, result.header.presets.cache.hits) +
+            getEventCount(d, result.header.presets.cache.misses)) || 0
+    },
+    {
+      yAxisLabel: "Instructions Per Cycle",
+      getDependentVariable: d =>
+        getEventCount(d, result.header.presets.cpu.instructions) /
+          getEventCount(d, result.header.presets.cpu.CPUcycles) || 0
+    }
+  ];
 
-    const xAxisLabel = "CPU Time Elapsed";
-    const getIndependentVariable = d => d.cpuTime;
+  const xAxisLabel = "CPU Time Elapsed";
+  const getIndependentVariable = d => d.cpuTime - processedData[0].cpuTime;
 
     d3.select(".function-runtimes").call(functionRuntimes.render, {
       data: processedData
