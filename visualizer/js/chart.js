@@ -35,7 +35,7 @@ function render(
     spectrum
   });
 
-  root.append("g").call(brushes.addBrush, {
+  const brushesGroup = root.append("g").call(brushes.addBrush, {
     timeslices,
     chart: root,
     xScale,
@@ -43,11 +43,10 @@ function render(
   });
 
   document.getElementById("btnClearBrushes").addEventListener("click", () => {
-    brushes.clear({
+    brushesGroup.call(brushes.clear, {
       chart: root,
       timeslices,
       xScale,
-      root,
       getIndependentVariable
     });
   });

@@ -221,7 +221,7 @@ function selectPoints({
   });
 }
 
-function clear({ chart, timeslices, xScale, root, getIndependentVariable }) {
+function clear(root, { chart, timeslices, xScale, getIndependentVariable }) {
   const circles = chart.selectAll("circle");
 
   for (const timeslice of timeslices) {
