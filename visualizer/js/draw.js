@@ -5,7 +5,6 @@
 const d3 = require("d3");
 const { legendColor } = require("d3-svg-legend");
 
-const chiSquaredTest = require("./analysis");
 const { CHART_WIDTH, CHART_HEIGHT } = require("./util");
 const plot = require("./plot");
 const functionRuntimes = require("./function-runtimes");
@@ -169,7 +168,7 @@ function brushEnd(
   getIndependentVariable
 ) {
   d3.select(".function-runtimes").call(functionRuntimes.render, {
-    data: timeslices.filter(d => d.selected)
+    data: timeslices
   });
 
   const lastBrushId = brushes[brushes.length - 1].id;
@@ -198,14 +197,6 @@ function brushEnd(
       getIndependentVariable
     });
   });
-
-  const probability = chiSquaredTest(timeslices);
-  const probabilityPercentage = probability * 100;
-  if (probability !== -1) {
-    console.log(
-      `The likelihood that your selection is unusual is ~${probabilityPercentage}%`
-    );
-  }
 }
 
 function drawBrushes(
@@ -337,7 +328,7 @@ function selectPoints(
   });
 
   d3.select(".function-runtimes").call(functionRuntimes.render, {
-    data: timeslices.filter(d => d.selected)
+    data: timeslices
   });
 }
 
@@ -358,7 +349,7 @@ function clearBrushes({
   circles.attr("class", "circle");
 
   d3.select(".function-runtimes").call(functionRuntimes.render, {
-    data: timeslices.filter(d => d.selected)
+    data: timeslices
   });
 
   brushes.splice(0);

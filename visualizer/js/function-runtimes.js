@@ -1,11 +1,14 @@
-const d3 = require("d3");
-
 /**
  * Create a table of function runtimes
  */
+
+const d3 = require("d3");
+
+const chiSquaredTest = require("./analysis");
 function render(root, { data }) {
+  const selected = data.filter(d => d.selected);
   const functionRuntimesMap = {};
-  for (const timeSlice of data) {
+  for (const timeSlice of selected) {
     for (const i in timeSlice.stackFrames) {
       const functionName = timeSlice.stackFrames[i].name;
       if (functionName !== "(null)") {
@@ -40,6 +43,21 @@ function render(root, { data }) {
       return b.selfTime - a.selfTime;
     }
   });
+
+  console.log(functionRuntimesArray);
+
+  const chiSquaredData = chiSquaredTest(data);
+  const probability = chiSquaredData.probability;
+  const probabilityPercentage = (probability * 100).toFixed(3);
+  if (chiSquaredData !== -1) {
+    console.log(
+      `The likelihood that your selection is unusual is ~${probabilityPercentage}%`
+    );
+    console.log(chiSquaredData.functionList);
+  }
+
+  //const newArray = [...new Set([...functionRuntimesArray, ...(chiSquaredData.functionList)])];
+  //console.log(newArray);
 
   root.select(".function-runtimes__header-row").remove();
   const headerRowSelection = root

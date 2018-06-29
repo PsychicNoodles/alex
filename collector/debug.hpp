@@ -2,21 +2,28 @@
 #define COLLECTOR_DEBUG
 
 #include <iostream>
-#include <string>
+#include <sstream>
 
 #include <libelfin/dwarf/dwarf++.hh>
 #include <libelfin/elf/elf++.hh>
 
-//debug macro
+// debug macro
+#define DEBUG_BUF_SIZE 512
+#define DEBUG_HELPER(x)   \
+  do {                    \
+    std::ostringstream s; \
+    s << x << "\n";       \
+    std::clog << s.str(); \
+  } while (0)
 #if defined(NDEBUG)
 #define DEBUG(x)
 #define DEBUG_CRITICAL(x)
 #elif defined(MINDEBUG)
 #define DEBUG(x)
-#define DEBUG_CRITICAL(x) do { std::clog << x << "\n"; } while(0)
+#define DEBUG_CRITICAL(x) DEBUG_HELPER(x)
 #else
-#define DEBUG(x) do { std::clog << x << "\n"; } while(0)
-#define DEBUG_CRITICAL(x) do { std::clog << x << "\n"; } while(0)
+#define DEBUG(x) DEBUG_HELPER(x)
+#define DEBUG_CRITICAL(x) DEBUG_HELPER(x)
 #endif
 
 bool enable_segfault_trace();
