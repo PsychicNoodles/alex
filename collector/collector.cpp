@@ -19,9 +19,9 @@
 #include "util.hpp"
 #include "wattsup.hpp"
 
-using std::map;
 using std::ifstream;
 using std::istringstream;
+using std::map;
 using std::string;
 
 typedef int (*main_fn_t)(int, char **, char **);
@@ -136,8 +136,9 @@ static int collector_main(int argc, char **argv, char **env) {
       perror("couldn't signal collector process");
       exit(INTERNAL_ERROR);
     }
-    while (!ready)
-      ;
+    while (!ready) {
+      // wait for parent
+    }
 
     DEBUG(
         "collector_main: received parent ready signal, starting child/real "
@@ -184,8 +185,9 @@ static int collector_main(int argc, char **argv, char **env) {
         "child");
 
     kill(subject_pid, SIGUSR2);
-    while (!ready)
-      ;
+    while (!ready) {
+      // wait for child
+    }
 
     DEBUG("collector_main: received child ready signal, starting collector");
     result = collect_perf_data(subject_pid, kernel_syms, sigterm_fd, sockets[0],
