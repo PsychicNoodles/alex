@@ -1,13 +1,23 @@
 const d3 = require("d3");
 const functionRuntimes = require("./function-runtimes");
 
-let nextBrushId = 0;
+const nextBrushId = d3.local();
+const brushes = d3.local();
 
-function addBrush(
-  root,
-  { timeslices, chart, brushes, xScale, getIndependentVariable }
-) {
+function initLocals(root) {
+  if (root.property(nextBrushId) === undefined) {
+    root.property(nextBrushId, 0);
+  }
+
+  if (root.property(brushes) === undefined) {
+    root.property(brushes, []);
+  }
+}
+
+function addBrush(root, { timeslices, chart, xScale, getIndependentVariable }) {
   const { WIDTH, HEIGHT } = require("./chart");
+
+  initLocals(root);
 
   root.classed("brushes", true);
 
@@ -27,7 +37,6 @@ function addBrush(
     .on("end", () => {
       onSelectionEnd({
         timeslices,
-        brushes,
         root,
         chart,
         xScale,
@@ -36,11 +45,11 @@ function addBrush(
     });
 
   // Add brush to array of objects
-  brushes.push({ id: nextBrushId, brush: brush });
-  nextBrushId++;
+  const id = root.property(nextBrushId);
+  root.property(brushes, [...root.property(brushes), { id: id, brush: brush }]);
+  root.property(nextBrushId, id + 1);
 
   root.call(render, {
-    brushes,
     timeslices,
     chart,
     xScale,
@@ -50,7 +59,6 @@ function addBrush(
 
 function onSelectionEnd({
   timeslices,
-  brushes,
   root,
   chart,
   xScale,
@@ -60,7 +68,8 @@ function onSelectionEnd({
     data: timeslices
   });
 
-  const lastBrushId = brushes[brushes.length - 1].id;
+  const lastBrushId = root.property(brushes)[root.property(brushes).length - 1]
+    .id;
   const lastBrush = document.getElementById("brush-" + lastBrushId);
   const selection = d3.brushSelection(lastBrush);
 
@@ -69,18 +78,16 @@ function onSelectionEnd({
     root.call(addBrush, {
       timeslices,
       chart,
-      brushes,
       xScale,
       getIndependentVariable
     });
   }
 }
 
-function render(
-  root,
-  { brushes, timeslices, chart, xScale, getIndependentVariable }
-) {
-  const brushSelection = root.selectAll("g.brush").data(brushes, d => d.id);
+function render(root, { timeslices, chart, xScale, getIndependentVariable }) {
+  const brushSelection = root
+    .selectAll("g.brush")
+    .data(root.property(brushes), d => d.id);
 
   const brushEnterSelection = brushSelection
     .enter()
@@ -97,7 +104,8 @@ function render(
         .style("pointer-events", () => {
           const brush = brushObject.brush;
           if (
-            brushObject.id === brushes[brushes.length - 1].id &&
+            brushObject.id ===
+              root.property(brushes)[root.property(brushes).length - 1].id &&
             brush !== undefined
           ) {
             return "all";
@@ -116,8 +124,10 @@ function render(
       .attr("class", "brush__close")
       .attr("pointer-events", "all")
       .on("click", () => {
-        const index = brushes.findIndex(d => "brush-" + d.id === this.id);
-        brushes.splice(index, 1);
+        const index = root
+          .property(brushes)
+          .findIndex(d => "brush-" + d.id === this.id);
+        root.property(brushes).splice(index, 1);
         d3.select(this).remove();
         selectPoints({
           timeslices,
@@ -211,14 +221,7 @@ function selectPoints({
   });
 }
 
-function clear({
-  brushes,
-  chart,
-  timeslices,
-  xScale,
-  root,
-  getIndependentVariable
-}) {
+function clear({ chart, timeslices, xScale, root, getIndependentVariable }) {
   const circles = chart.selectAll("circle");
 
   for (const timeslice of timeslices) {
@@ -231,13 +234,12 @@ function clear({
     data: timeslices
   });
 
-  brushes.splice(0);
+  root.property(brushes, []);
 
   root.selectAll(".brush").remove();
   root.call(addBrush, {
     timeslices,
     chart,
-    brushes,
     root,
     xScale,
     getIndependentVariable

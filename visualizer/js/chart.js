@@ -35,18 +35,15 @@ function render(
     spectrum
   });
 
-  const brushesState = [];
   root.append("g").call(brushes.addBrush, {
     timeslices,
     chart: root,
-    brushes: brushesState,
     xScale,
     getIndependentVariable
   });
 
   document.getElementById("btnClearBrushes").addEventListener("click", () => {
     brushes.clear({
-      brushes: brushesState,
       chart: root,
       timeslices,
       xScale,
