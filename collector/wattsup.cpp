@@ -216,7 +216,7 @@ double wu_read(int fd) {
 int wattsupSetUp() {
   char* errm;
   char* device_name =
-      (char*)getenv_safe("COLLECTOR_WATTSUP_DEVICE", "ttyUSB0").c_str();
+      const_cast<char*>(getenv_safe("COLLECTOR_WATTSUP_DEVICE", "ttyUSB0").c_str());
   int ret;
   int wu_fd = 0;
 

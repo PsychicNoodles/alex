@@ -119,36 +119,36 @@ int execvpe(const char *file, char *const argv[], char *const envp[]){
 }
 
 __attribute__((constructor)) void init() {
-  real_pthread_create = (pthread_create_fn_t)dlsym(RTLD_NEXT, "pthread_create");
+  real_pthread_create = reinterpret_cast<pthread_create_fn_t>(dlsym(RTLD_NEXT, "pthread_create"));
   if (real_pthread_create == NULL) {
     dlerror();
     exit(2);
   }
 
-  real_fork = (fork_fn_t) dlsym(RTLD_NEXT, "fork");
+  real_fork = reinterpret_cast<fork_fn_t>(dlsym(RTLD_NEXT, "fork"));
   if (real_fork == NULL) {
     dlerror();
     exit(2);
   }
 
-  real_execve = (execve_fn_t) dlsym(RTLD_NEXT, "execve");
+  real_execve = reinterpret_cast<execve_fn_t>(dlsym(RTLD_NEXT, "execve"));
   if (real_execve == NULL) {
     dlerror();
     exit(2);
   }
-  real_execvp = (execvp_fn_t)dlsym(RTLD_NEXT, "execvp");
+  real_execvp = reinterpret_cast<execvp_fn_t>(dlsym(RTLD_NEXT, "execvp"));
   if (real_execvp == NULL) {
     dlerror();
     exit(2);
   }
 
-  real_execv = (execv_fn_t)dlsym(RTLD_NEXT, "execv");
+  real_execv = reinterpret_cast<execv_fn_t>(dlsym(RTLD_NEXT, "execv"));
   if (real_execv == NULL) {
     dlerror();
     exit(2);
   }
 
-  real_execvpe = (execvpe_fn_t)dlsym(RTLD_NEXT, "execvpe");
+  real_execvpe = reinterpret_cast<execvpe_fn_t>(dlsym(RTLD_NEXT, "execvpe"));
   if (real_execvpe == NULL) {
     dlerror();
     exit(2);

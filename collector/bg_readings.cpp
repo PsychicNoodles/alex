@@ -12,7 +12,7 @@ struct reading_fn_args {
 void *reading_fn_wrapper(void *raw_args) {
   pthread_t t = pthread_self();
   DEBUG(t << ": in reading_fn_wrapper");
-  reading_fn_args *args = (reading_fn_args *)raw_args;
+  reading_fn_args *args = static_cast<reading_fn_args *>(raw_args);
   auto reading = args->reading;
   unique_lock<mutex> lock(reading->mtx);
   DEBUG(t << ": waiting for notification to start");
@@ -41,7 +41,7 @@ void *reading_fn_wrapper(void *raw_args) {
       }
     }
   }
-  free(args);
+  delete args;
   return NULL;
 }
 
@@ -54,7 +54,7 @@ bool setup_reading(bg_reading *reading, void *(reading_fn)(void *),
   reading->running = true;
   reading->ready = false;
 
-  reading_fn_args *rf_args = (reading_fn_args *)malloc(sizeof(reading_fn_args));
+  auto *rf_args = new reading_fn_args;
   rf_args->reading_fn = reading_fn;
   rf_args->args = args;
   rf_args->reading = reading;

@@ -4,7 +4,9 @@
 #include "debug.hpp"
 #include "find_events.hpp"
 
-using namespace std;
+using std::map;
+using std::set;
+using std::string;
 
 map<string, string> findEvents(string preset) {
   map<string, string> events;
