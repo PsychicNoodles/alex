@@ -12,7 +12,6 @@ const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
 const legend = require("./legend");
 
-const spectrum = d3.interpolateGreens;
 const PROGRESS_HEIGHT = "8px";
 const PROGRESS_DIVISIONS = 10;
 
@@ -81,55 +80,80 @@ ipcRenderer.on("result", (event, resultFile) => {
 
     bar.destroy();
 
+    const charts = [
+      {
+        yAxisLabel: "Cache Miss Rate",
+        getDependentVariable: d => d.events.missRate
+      }
+    ];
+
     const xAxisLabel = "CPU Time Elapsed";
     const getIndependentVariable = d => d.cpuTime;
-
-    const yAxisLabel = "Cache Miss Rate";
-    const getDependentVariable = d => d.events.missRate;
 
     d3.select(".function-runtimes").call(functionRuntimes.render, {
       data: processedData
     });
 
+    const xScaleMin = getIndependentVariable(processedData[0]);
     const xScaleMax = getIndependentVariable(
       processedData[processedData.length - 1]
     );
-    const xScaleMin = getIndependentVariable(processedData[0]);
-    const yScaleMax = d3.max(processedData, getDependentVariable);
     const xScale = d3
       .scaleLinear()
       .domain([xScaleMin, xScaleMax])
       .range([0, chart.WIDTH]);
-    const yScale = d3
-      .scaleLinear()
-      .domain([yScaleMax, 0])
-      .range([0, chart.HEIGHT]);
 
-    const plotData = computeRenderableData({
-      data: processedData,
-      xScale,
-      yScale,
-      getIndependentVariable,
-      getDependentVariable
-    });
+    const yScalesByChart = new WeakMap();
+    const plotDataByChart = new WeakMap();
 
-    const densityMax = d3.max(plotData, d => d.densityAvg);
+    for (const chartParams of charts) {
+      const { getDependentVariable } = chartParams;
+      const yScaleMax = d3.max(processedData, getDependentVariable);
+      const yScale = d3
+        .scaleLinear()
+        .domain([yScaleMax, 0])
+        .range([0, chart.HEIGHT]);
 
-    d3.select(".charts")
-      .append("svg")
-      .attr("class", "chart")
-      .call(chart.render, {
-        timeslices: processedData,
-        getIndependentVariable,
-        getDependentVariable,
-        xAxisLabel,
-        yAxisLabel,
+      const plotData = computeRenderableData({
+        data: processedData,
         xScale,
         yScale,
-        plotData,
-        densityMax,
-        spectrum
+        getIndependentVariable,
+        getDependentVariable
       });
+
+      yScalesByChart.set(chartParams, yScale);
+      plotDataByChart.set(chartParams, plotData);
+    }
+
+    const densityMax = charts.reduce(
+      (currentMax, chart) =>
+        Math.max(
+          currentMax,
+          d3.max(plotDataByChart.get(chart), d => d.densityAvg)
+        ),
+      0
+    );
+    const spectrum = d3.interpolateGreens;
+
+    for (const chartParams of charts) {
+      const { getDependentVariable, yAxisLabel } = chartParams;
+      d3.select(".charts")
+        .append("svg")
+        .attr("class", "chart")
+        .call(chart.render, {
+          timeslices: processedData,
+          getIndependentVariable,
+          getDependentVariable,
+          xAxisLabel,
+          yAxisLabel,
+          xScale,
+          yScale: yScalesByChart.get(chartParams),
+          plotData: plotDataByChart.get(chartParams),
+          densityMax,
+          spectrum
+        });
+    }
 
     d3.select("#legend").call(legend.render, { densityMax, spectrum });
   });
