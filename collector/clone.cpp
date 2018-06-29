@@ -23,6 +23,9 @@ execvpe_fn_t real_execvpe;
 int perf_register_sock;
 extern char **environ;
 
+//temp: 
+uint64_t period;
+
 void set_perf_register_sock(int sock) { perf_register_sock = sock; }
 
 void *__imposter(void *arg) {
@@ -35,7 +38,7 @@ void *__imposter(void *arg) {
 
   perf_fd_info info;
   DEBUG(tid << ": setting up perf events");
-  setup_perf_events(tid, HANDLE_EVENTS, &info);
+  setup_perf_events(tid, HANDLE_EVENTS, &info, period);
   DEBUG(tid << ": registering fd " << info.cpu_clock_fd
             << " with collector for bookkeeping");
   if (!register_perf_fds(perf_register_sock, &info)) {
@@ -70,7 +73,7 @@ pid_t fork (void) {
     DEBUG("parent process PROCESS" << pid);
     perf_fd_info info;
     DEBUG(pid << ": setting up PROCESS perf events with PID");
-    setup_perf_events(pid, HANDLE_EVENTS, &info);
+    setup_perf_events(pid, HANDLE_EVENTS, &info, period);
     DEBUG(pid << ": registering PROCESS fd " << info.cpu_clock_fd
                    << " with collector for bookkeeping");
     if (!register_perf_fds(perf_register_sock, &info)) {
@@ -118,6 +121,21 @@ int execvpe(const char *file, char *const argv[], char *const envp[]){
 }
 
 __attribute__((constructor)) void init() {
+  period = -1;
+
+  if (period == -1) {
+    try {
+      period = stoull(getenv_safe("COLLECTOR_PERIOD", "10000000"));
+      // catch stoll exceptions
+    } catch (std::invalid_argument &e) {
+      DEBUG("failed to get period: Invalid argument");
+      shutdown(subject_pid, result_file, ENV_ERROR);
+    } catch (std::out_of_range &e) {
+      DEBUG("failed to get period: Out of range");
+      shutdown(subject_pid, result_file, ENV_ERROR);
+    }
+  }
+
   real_pthread_create = (pthread_create_fn_t)dlsym(RTLD_NEXT, "pthread_create");
   if (real_pthread_create == NULL) {
     dlerror();

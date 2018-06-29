@@ -62,6 +62,17 @@ struct sample_record {
   uint64_t instruction_pointers[];
 };
 
+// contents of buffer filled when PERF_RECORD_THROTTLE or PERF_RECORD_UNTHROTTLE
+// is returned
+struct throttle_record {
+  // PERF_SAMPLE_TIME
+  uint64_t time;
+  // PERF_SAMPLE_ID
+  uint64_t id;
+  // PERF_SAMPLE_STREAM_ID
+  uint64_t stream_id;
+};
+
 // pid of the subject of the data collection
 pid_t subject_pid;
 // pid of the data collector itself
@@ -131,26 +142,9 @@ void delete_fd_from_epoll(int fd) {
  * every other event as children in the group. Thus, when the cpu cycles event
  * is started all the others are as well simultaneously
  */
-unsigned long long setup_perf_events(pid_t target, bool setup_events,
-                                     perf_fd_info *info) {
+void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info,
+                       uint64_t period) {
   DEBUG("setting up perf events for target " << target);
-
-  static unsigned long long period = -1;
-
-  if (period == -1) {
-    try {
-      period = stoull(getenv_safe("COLLECTOR_PERIOD", "10000000"));
-      // catch stoll exceptions
-    } catch (std::invalid_argument &e) {
-      DEBUG("failed to get period: Invalid argument");
-      shutdown(subject_pid, result_file, ENV_ERROR);
-    } catch (std::out_of_range &e) {
-      DEBUG("failed to get period: Out of range");
-      shutdown(subject_pid, result_file, ENV_ERROR);
-    }
-  }
-  DEBUG("period is " << period);
-
   // set up the cpu cycles perf buffer
   perf_event_attr cpu_clock_attr;
   memset(&cpu_clock_attr, 0, sizeof(perf_event_attr));
@@ -208,8 +202,6 @@ unsigned long long setup_perf_events(pid_t target, bool setup_events,
   if (start_monitoring(cpu_clock_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
-
-  return period;
 }
 
 inline map<int, perf_fd_info>::iterator find_perf_info_by_thread(pid_t tid) {
@@ -378,23 +370,46 @@ perf_fd_info *create_perf_fd_info() { return new perf_fd_info(); }
 /*
  * reset the period of sampling to handle throttle/unthrottle events
  */
-int reset_period(perf_fd_info *info, int sample_type, int period) {
+int reset_period(perf_fd_info *info, int sample_type, uint64_t *period) {
   DEBUG("reset_period");
-  unsigned long long new_period;
-  DEBUG("reset_period, sample_type: " << sample_type);
   if (sample_type == PERF_RECORD_THROTTLE) {
-    new_period = period * 10;
+    *period = (*period) * 10;
   } else {
-    new_period = period / 10;
+    *period = (*period) / 10;
   }
 
-  DEBUG("reset_period, new_period: " << new_period);
-  DEBUG("reset_period, fd: " << info->cpu_clock_fd);
-
-  if (ioctl(info->cpu_clock_fd, PERF_EVENT_IOC_PERIOD, &new_period) == -1) {
-    perror ("reset_period error: ");
+  DEBUG("reset_period new_period: " << *period);
+  if (ioctl(info->cpu_clock_fd, PERF_EVENT_IOC_PERIOD, period) == -1) {
+    perror("reset_period error: ");
     return -1;
-  } else return 0;
+  } else
+    return 0;
+}
+
+void print_errors(map<int, void *> errors, FILE *result_file) {
+  bool is_first_element = true;
+  for (auto &p : errors) {
+    if (!is_first_element) {
+      fprintf(result_file, R"(
+      ,
+    )");
+    } else {
+      is_first_element = false;
+    }
+    if (p.first == PERF_RECORD_THROTTLE) {
+      throttle_record *perf_record = (throttle_record *)p.second;
+      uint64_t time = perf_record->time;
+      uint64_t id = perf_record->id;
+      fprintf(result_file, R"(
+      {
+       "type": "PERF_RECORD_THROTTLE",
+       "time": %lu, 
+       "id": %lu
+      }
+    )",
+              time, id);
+    }
+  }
 }
 
 /*
@@ -403,6 +418,8 @@ int reset_period(perf_fd_info *info, int sample_type, int period) {
  */
 int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       int sigt_fd, int socket, int wu_fd) {
+  map<int, void *> errors;
+
   DEBUG("collector_main: registering " << sigt_fd << " as sigterm fd");
   add_fd_to_epoll(sigt_fd);
 
@@ -411,8 +428,24 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
   DEBUG("cpd: setting up perf events for main thread in subject");
   perf_fd_info subject_info;
-  unsigned long long period =
-      setup_perf_events(subject_pid, HANDLE_EVENTS, &subject_info);
+
+  // set up period
+  uint64_t period = -1;
+
+  if (period == -1) {
+    try {
+      period = stoull(getenv_safe("COLLECTOR_PERIOD", "10000000"));
+      // catch stoll exceptions
+    } catch (std::invalid_argument &e) {
+      DEBUG("failed to get period: Invalid argument");
+      shutdown(subject_pid, result_file, ENV_ERROR);
+    } catch (std::out_of_range &e) {
+      DEBUG("failed to get period: Out of range");
+      shutdown(subject_pid, result_file, ENV_ERROR);
+    }
+  }
+  DEBUG("period is " << period);
+  setup_perf_events(subject_pid, HANDLE_EVENTS, &subject_info, period);
   setup_buffer(&subject_info);
   handle_perf_register(&subject_info);
 
@@ -577,16 +610,24 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           while (has_next_sample(&info.sample_buf)) {
             DEBUG("cpd: getting next sample");
             int sample_type, sample_size;
-            sample_record *perf_sample = (sample_record *)get_next_sample(
-                &info.sample_buf, &sample_type, &sample_size);
+            void *perf_result =
+                get_next_sample(&info.sample_buf, &sample_type, &sample_size);
 
             if (sample_type == PERF_RECORD_THROTTLE ||
                 sample_type == PERF_RECORD_UNTHROTTLE) {
-              if (reset_period(&info, sample_type, period) == -1) {
+              if (reset_period(&info, sample_type, &period) == -1) {
                 DEBUG("reset period failed");
                 shutdown(subject_pid, result_file, INTERNAL_ERROR);
               }
+              // {
+              //   errors.insert(pair<int, void *>(sample_type, perf_result));
+              // }
+              // throttle_record *perf_throttle = (throttle_record *)perf_result;
+              // DEBUG("throttle_id: " << perf_throttle->id);
+              // DEBUG("throttle_time: " << perf_throttle->time);
+              // DEBUG("throttle_stream_id: " << perf_throttle->stream_id);
             } else if (sample_type == PERF_RECORD_SAMPLE) {
+              sample_record *perf_sample = (sample_record *)perf_result;
               if (is_first_sample) {
                 fprintf(result_file,
                         R"(
@@ -791,7 +832,6 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             } else {
               DEBUG("cpd: sample type was not PERF_RECORD_SAMPLE, it was "
                     << sample_type);
-              shutdown(subject_pid, result_file, INTERNAL_ERROR);
             }
           }
         }
@@ -807,6 +847,13 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
   fprintf(result_file,
           R"(
+              ],
+              "error": [
+                          )");
+
+  // print_errors(errors, result_file);
+  fprintf(result_file,
+          R"(       
               ]
             }
           )");
