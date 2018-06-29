@@ -1,19 +1,19 @@
-#include <assert.h>
+#include <cassert>
 #include <cxxabi.h>
 #include <dlfcn.h>
 #include <elf.h>
 #include <fcntl.h>
-#include <inttypes.h>
+#include <cinttypes>
 #include <link.h>
 #include <linux/perf_event.h>
 #include <perfmon/perf_event.h>
 #include <perfmon/pfmlib.h>
 #include <perfmon/pfmlib_perf_event.h>
 #include <pthread.h>
-#include <signal.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
+#include <csignal>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
 #include <sys/epoll.h>
 #include <sys/mman.h>
 #include <sys/signalfd.h>
@@ -156,7 +156,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   DEBUG("period is " << period);
 
   // set up the cpu cycles perf buffer
-  perf_event_attr cpu_clock_attr;
+  perf_event_attr cpu_clock_attr{};
   memset(&cpu_clock_attr, 0, sizeof(perf_event_attr));
   // disabled so related events start at the same time
   cpu_clock_attr.disabled = true;
@@ -167,7 +167,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   cpu_clock_attr.sample_period = period;
   cpu_clock_attr.wakeup_events = 1;
 
-  perf_buffer cpu_clock_perf;
+  perf_buffer cpu_clock_perf{};
   if (setup_monitoring(&cpu_clock_perf, &cpu_clock_attr, target) !=
       SAMPLER_MONITOR_SUCCESS) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
@@ -183,7 +183,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
     }
     for (auto event : events) {
       DEBUG("setting up event: " << event);
-      perf_event_attr attr;
+      perf_event_attr attr{};
       memset(&attr, 0, sizeof(perf_event_attr));
 
       // Parse out event name with PFM.  Must be done first.
@@ -417,7 +417,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   int sample_period_skips = 0;
 
   // setting up RAPL energy reading
-  bg_reading rapl_reading = {0};
+  bg_reading rapl_reading = {nullptr};
   if (presets.find("rapl") != presets.end() ||
       presets.find("all") != presets.end()) {
     setup_reading(&rapl_reading,
@@ -432,7 +432,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   }
 
   // setting up wattsup energy reading
-  bg_reading wattsup_reading = {0};
+  bg_reading wattsup_reading = {nullptr};
   if (wu_fd != -1) {
     setup_reading(&wattsup_reading,
                   [](void *raw_args) -> void * {
@@ -555,7 +555,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           int sample_type;
           int sample_size;
           DEBUG("cpd: getting next sample");
-          Sample *perf_sample = static_cast<Sample *>(
+          auto *perf_sample = static_cast<Sample *>(
               get_next_sample(&info.sample_buf, &sample_type, &sample_size));
           if (sample_type != PERF_RECORD_SAMPLE) {
             DEBUG("cpd: sample type was not PERF_RECORD_SAMPLE, it was "

@@ -1,11 +1,11 @@
 #include <execinfo.h>
 #include <fcntl.h>
-#include <inttypes.h>
-#include <signal.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cinttypes>
+#include <csignal>
+
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <ucontext.h>
 #include <unistd.h>
 
@@ -63,7 +63,7 @@ void crit_err_hdlr(int sig_num, siginfo_t *info, void *ucontext) {
 
 bool enable_segfault_trace() {
   DEBUG("enabling segfault trace");
-  struct sigaction sigact;
+  struct sigaction sigact{};
   sigact.sa_sigaction = crit_err_hdlr;
   sigact.sa_flags = SA_RESTART | SA_SIGINFO;
   return sigaction(SIGSEGV, &sigact, NULL) != 0;

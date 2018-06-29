@@ -1,6 +1,6 @@
 #include "const.hpp"
 
-#include <stddef.h>
+#include <cstddef>
 
 const char* callchain_str(uint64_t callchain) {
   switch (callchain) {

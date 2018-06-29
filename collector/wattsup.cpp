@@ -8,20 +8,20 @@
  *
  ***************************************************************************************/
 
-#include <ctype.h>
-#include <errno.h>
+#include <cctype>
+#include <cerrno>
 #include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <termios.h>
-#include <time.h>
+#include <ctime>
 #include <unistd.h>
 
 #include <sys/stat.h>
 #include <sys/time.h>
 
-#include <signal.h>
+#include <csignal>
 
 #include "debug.hpp"
 #include "util.hpp"
@@ -80,7 +80,7 @@ int wu_stop_external_log(int wu_fd) {
 
 /* Open our device, probably ttyUSB0 */
 int open_device(char* device_name) {
-  struct stat s;
+  struct stat s{};
   int ret;
   char full_device_name[BUFSIZ];
 
@@ -115,7 +115,7 @@ int open_device(char* device_name) {
 
 /* Do the annoying Linux serial setup */
 int setup_serial_device(int fd) {
-  struct termios t;
+  struct termios t{};
   int ret;
   char* errm;
 
@@ -192,7 +192,8 @@ double wu_read(int fd) {
   double watts;
   int i = 0, j = 0, commas = 0;
   while (i < strlen(string)) {
-    if (string[i] == ',') commas++;
+    if (string[i] == ',') { commas++;
+}
     if (commas == 3) {
       i++;
       while (string[i] != ',') {

@@ -1,6 +1,6 @@
 #include <dlfcn.h>
 #include <fcntl.h>
-#include <signal.h>
+#include <csignal>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -48,7 +48,7 @@ map<uint64_t, kernel_sym> read_kernel_syms(
     uint64_t addr;
 
     getline(line_stream, addr_s, ' ');
-    addr = stoul(addr_s, 0, 16);
+    addr = stoul(addr_s, nullptr, 16);
     getline(line_stream, type_s, ' ');
     sym.type = type_s[0];
     getline(line_stream, tail);
@@ -84,7 +84,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
   int result = 0;
 
-  struct sigaction ready_act;
+  struct sigaction ready_act{};
   ready_act.sa_handler = ready_handler;
   sigemptyset(&ready_act.sa_mask);
   ready_act.sa_flags = 0;
@@ -103,18 +103,18 @@ static int collector_main(int argc, char **argv, char **env) {
   if (presets.find("cpu") != presets.end() ||
       presets.find("all") != presets.end()) {
     map<string, string> cpu = findEvents("cpu");
-    for (map<string, string>::iterator it = cpu.begin(); it != cpu.end();
+    for (auto it = cpu.begin(); it != cpu.end();
          ++it) {
-      events.push_back(it->second.c_str());
+      events.emplace_back(it->second.c_str());
     }
   }
 
   if (presets.find("cache") != presets.end() ||
       presets.find("all") != presets.end()) {
     map<string, string> cache = findEvents("cache");
-    for (map<string, string>::iterator it = cache.begin(); it != cache.end();
+    for (auto it = cache.begin(); it != cache.end();
          ++it) {
-      events.push_back(it->second.c_str());
+      events.emplace_back(it->second.c_str());
     }
   }
 

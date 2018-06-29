@@ -12,7 +12,7 @@ struct reading_fn_args {
 void *reading_fn_wrapper(void *raw_args) {
   pthread_t t = pthread_self();
   DEBUG(t << ": in reading_fn_wrapper");
-  reading_fn_args *args = static_cast<reading_fn_args *>(raw_args);
+  auto *args = static_cast<reading_fn_args *>(raw_args);
   auto reading = args->reading;
   unique_lock<mutex> lock(reading->mtx);
   DEBUG(t << ": waiting for notification to start");
@@ -59,7 +59,7 @@ bool setup_reading(bg_reading *reading, void *(reading_fn)(void *),
   rf_args->args = args;
   rf_args->reading = reading;
 
-  if ((errno = real_pthread_create(&t, 0, reading_fn_wrapper, rf_args)) != 0) {
+  if ((errno = real_pthread_create(&t, nullptr, reading_fn_wrapper, rf_args)) != 0) {
     perror("failed to create background reading thread");
     return false;
   }
