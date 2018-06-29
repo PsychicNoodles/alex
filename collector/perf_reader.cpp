@@ -320,6 +320,7 @@ void handle_perf_unregister(perf_fd_info *info) {
   DEBUG("cpd: handling perf unregister request for thread "
         << info->tid << ", removing from epoll");
 
+  stop_monitoring(info->cpu_clock_fd);
   delete_fd_from_epoll(info->cpu_clock_fd);
   DEBUG("cpd: closing all associated fds");
   close(info->cpu_clock_fd);
