@@ -249,14 +249,40 @@ function drawBrushes(
     const gClearBrush = d3
       .select(this)
       .append("g")
+      .attr("id", "gClearBrush")
       .attr("class", "brush__close")
-      .attr("pointer-events", "all")
-      .on("click", () => {
+      .attr("pointer-events", "all");
+    /*.on("click mouseup", () => {
+        console.log("fired");
         const index = brushes.findIndex(d => "brush-" + d.id === this.id);
         brushes.splice(index, 1);
         d3.select(this).remove();
         selectPoints(timeslices, svg, gBrushes, xScale, getIndependentVariable);
-      });
+      });*/
+
+    document.getElementById("gClearBrush").addEventListener("click", () => {
+      console.log("fired");
+      const index = brushes.findIndex(d => "brush-" + d.id === this.id);
+      brushes.splice(index, 1);
+      d3.select(this).remove();
+      selectPoints(timeslices, svg, gBrushes, xScale, getIndependentVariable);
+    });
+
+    document.getElementById("gClearBrush").addEventListener(
+      "mousedown",
+      event => {
+        event.preventDefault();
+      },
+      false
+    );
+
+    document.getElementById("gClearBrush").addEventListener("mouseup", () => {
+      console.log("fired");
+      const index = brushes.findIndex(d => "brush-" + d.id === this.id);
+      brushes.splice(index, 1);
+      d3.select(this).remove();
+      selectPoints(timeslices, svg, gBrushes, xScale, getIndependentVariable);
+    });
 
     gClearBrush
       .append("rect")
