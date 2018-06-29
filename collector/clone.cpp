@@ -12,7 +12,8 @@
 #include "perf_sampler.hpp"
 #include "util.hpp"
 #include <unistd.h>
-using namespace std;
+
+using std::string;
 
 pthread_create_fn_t real_pthread_create;
 fork_fn_t real_fork;
@@ -28,10 +29,10 @@ void set_perf_register_sock(int sock) { perf_register_sock = sock; }
 void *__imposter(void *arg) {
   pid_t tid = gettid();
   DEBUG(tid << ": in imposter, pid " << getpid());
-  disguise_t *d = (disguise_t *)arg;
+  disguise_t *d = static_cast<disguise_t *>(arg);
   routine_fn_t routine = d->victim;
   void *arguments = d->args;
-  free(d);
+  delete d;
 
   perf_fd_info info;
   DEBUG(tid << ": setting up perf events");
@@ -54,7 +55,7 @@ void *__imposter(void *arg) {
 
 int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
                    void *(*start_routine)(void *), void *arg) {
-  disguise_t *d = (disguise_t *)malloc(sizeof(disguise_t));
+  disguise_t *d = new disguise_t;
   d->victim = start_routine;
   d->args = arg;
   DEBUG("pthread_created in " << getpid());

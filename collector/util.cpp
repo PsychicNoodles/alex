@@ -8,7 +8,6 @@
 #include "const.hpp"
 #include "util.hpp"
 
-using namespace std;
 
 /*
  * Reports time since epoch in milliseconds.

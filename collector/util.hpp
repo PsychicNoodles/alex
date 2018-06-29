@@ -21,6 +21,4 @@ pid_t gettid();
 
 string getenv_safe(const char* var, const char* fallback = "");
 
-int odbierz(int socket);
-
 #endif

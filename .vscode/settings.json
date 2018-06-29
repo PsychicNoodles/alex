@@ -58,6 +58,7 @@
     "type_traits": "cpp",
     "tuple": "cpp",
     "algorithm": "cpp",
-    "mutex": "cpp"
+    "mutex": "cpp",
+    "thread": "cpp"
   }
 }

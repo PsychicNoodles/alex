@@ -26,6 +26,7 @@
 #include <exception>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -47,6 +48,7 @@ using std::map;
 using std::set;
 using std::string;
 using std::vector;
+using std::unique_ptr;
 
 // command numbers sent over the socket from threads in the subject program
 #define SOCKET_CMD_REGISTER 1
@@ -448,10 +450,10 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
   DEBUG("cpd: entering epoll ready loop");
   while (!done) {
-    epoll_event *evlist = new epoll_event[sample_fd_count];
+    auto evlist = unique_ptr<epoll_event[]>(new epoll_event[sample_fd_count]);
     DEBUG("cpd: epolling for results or new threads");
-    int ready_fds =
-        epoll_wait(sample_epfd, evlist, sample_fd_count, SAMPLE_EPOLL_TIMEOUT);
+    int ready_fds = epoll_wait(sample_epfd, evlist.get(), sample_fd_count,
+                               SAMPLE_EPOLL_TIMEOUT);
 
     if (ready_fds == -1) {
       perror("sample epoll wait was unsuccessful");
@@ -465,7 +467,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
       // check for high priority fds
       vector<int> fds;  // low priority fds
       for (int i = 0; i < ready_fds; i++) {
-        int fd = evlist[i].data.fd;
+        int fd = evlist.get()[i].data.fd;
         // check if it's sigterm or request to register thread
         if (fd == sigt_fd) {
           DEBUG("cpd: received sigterm, stopping");
@@ -568,7 +570,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                   R"(
                       {
                         "cpuTime": %lu,
-                        "numCPUTimerTicks": %lld,
+                        "numCPUTimerTicks": %ld,
                         "pid": %u,
                         "tid": %u,
                         "events": {
@@ -596,7 +598,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               shutdown(subject_pid, result_file, INTERNAL_ERROR);
             }
 
-            fprintf(result_file, R"("%s": %lld)", event.c_str(), count);
+            fprintf(result_file, R"("%s": %ld)", event.c_str(), count);
           }
 
           // rapl
@@ -621,7 +623,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             DEBUG("cpd: checking for wattsup energy results");
             if (has_result(&wattsup_reading)) {
               DEBUG("cpd: wattsup result found, writing out");
-              double ret = *((double *)get_result(&wattsup_reading));
+              double ret =
+                  *(static_cast<double *>(get_result(&wattsup_reading)));
               fprintf(result_file, ",");
               fprintf(result_file, R"("wattsup": %1lf)", ret);
               DEBUG("cpd: restarting wattsup energy readings");
@@ -657,7 +660,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                     R"(
                   { "address": "%p",
                     "section": "%s",)",
-                    (void *)inst_ptr, callchain_str(callchain_section));
+                    reinterpret_cast<void *>(inst_ptr),
+                    callchain_str(callchain_section));
 
             string sym_name_str;
             const char *sym_name = NULL, *file_name = NULL,
@@ -670,7 +674,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               DEBUG("cpd: looking up user stack frame");
               Dl_info info;
               // Lookup the name of the function given the function pointer
-              if (dladdr((void *)inst_ptr, &info) != 0) {
+              if (dladdr(reinterpret_cast<void *>(inst_ptr), &info) != 0) {
                 sym_name = info.dli_sname;
                 file_name = info.dli_fname;
                 file_base = info.dli_fbase;
@@ -687,7 +691,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                 sym_name = sym_name_str.c_str();
                 file_name = "(kernel)";
                 file_base = NULL;
-                sym_addr = (void *)addr;
+                sym_addr = reinterpret_cast<void *>(addr);
               }
             }
             // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
@@ -723,7 +727,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                         "mangledName": "%s"
                       )",
                     function_name, file_name, file_base, sym_addr, sym_name);
-            free(demangled_name);
+            // necessary to free, abi::__cxa_demangle uses malloc under the hood
+            free(demangled_name);  // NOLINT(cppcoreguidelines-no-malloc)
 
             // Need to subtract one. PC is the return address, but we're
             // looking for the callsite.
@@ -742,7 +747,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                 if (it != lt.end()) {
                   line = it->line;
                   column = it->column;
-                  fullLocation = (char *)it->file->path.c_str();
+                  fullLocation = const_cast<char *>(it->file->path.c_str());
                 }
                 break;
               }
@@ -762,7 +767,6 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
         }
       }
     }
-    free(evlist);
   }
   DEBUG("cpd: stopping RAPL reading thread");
   stop_reading(&rapl_reading);

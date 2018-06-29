@@ -36,10 +36,13 @@ clean-res:
 tidy:
 	@for src in $(SOURCES) ; do \
 		echo "Running $(TIDY) on $$src..." ; \
-		$(TIDY) -extra-arg=-std=c++11 -checks="$(TIDY_CHECKS)"\
+		$(TIDY) -extra-arg=-std=c++11 -checks="$(TIDY_CHECKS)" $(TIDY_FIX)\
 			"$(SRC_DIR)/$$src" -- "$(SRC_DIR)/$$src" ; \
 	done
 	@echo "Finished tidying"
+
+tidy-fix: TIDY_FIX = -fix
+tidy-fix: tidy
 
 collector.$(SHLIB_SUFFIX): $(SOURCES)
 	$(CXXLIB) $(CFLAGS) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -ldl -lpfm -pthread -rdynamic

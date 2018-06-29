@@ -23,17 +23,17 @@ int setup_buffer(perf_fd_info *info) {
     perror("setup_monitoring: mmap");
     return SAMPLER_MONITOR_ERROR;
   }
-  info->sample_buf.info = (perf_event_mmap_page *)buffer;
-  info->sample_buf.data = (char *)buffer + PAGE_SIZE;
+  info->sample_buf.info = static_cast<perf_event_mmap_page *>(buffer);
+  info->sample_buf.data = static_cast<char *>(buffer) + PAGE_SIZE;
 
   return SAMPLER_MONITOR_SUCCESS;
 }
 
 void *get_next_sample(perf_buffer *perf, int *type, int *size) {
-  perf_event_header *event_header =
-      (perf_event_header *)((char *)perf->data +
-                            (perf->info->data_tail % perf->info->data_size));
-  void *event_data = (char *)event_header + sizeof(perf_event_header);
+  perf_event_header *event_header = reinterpret_cast<perf_event_header *>(
+      (static_cast<char *>(perf->data) +
+       (perf->info->data_tail % perf->info->data_size)));
+  void *event_data = reinterpret_cast<char *>(event_header) + sizeof(perf_event_header);
   perf->info->data_tail += event_header->size;
   *type = event_header->type;
   *size = event_header->size;

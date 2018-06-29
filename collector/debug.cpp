@@ -1,20 +1,20 @@
 #include <execinfo.h>
+#include <fcntl.h>
+#include <inttypes.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ucontext.h>
 #include <unistd.h>
-#include <stdbool.h>
-#include <inttypes.h>
-#include <fcntl.h>
 
-#include "debug.hpp"
 #include "const.hpp"
+#include "debug.hpp"
 
 /* This structure mirrors the one found in /usr/include/asm/ucontext.h */
 typedef struct _sig_ucontext {
-  unsigned long uc_flags;
+  uint64_t uc_flags;
   struct ucontext *uc_link;
   stack_t uc_stack;
   struct sigcontext uc_mcontext;
@@ -28,19 +28,21 @@ void crit_err_hdlr(int sig_num, siginfo_t *info, void *ucontext) {
   int size, i;
   sig_ucontext_t *uc;
 
-  uc = (sig_ucontext_t *)ucontext;
+  uc = static_cast<sig_ucontext_t *>(ucontext);
 
   /* Get the address at the time the signal was raised */
-#if defined(__i386__)                            // gcc specific
-  caller_address = (void *)uc->uc_mcontext.eip;  // EIP: x86 specific
-#elif defined(__x86_64__)                        // gcc specific
-  caller_address = (void *)uc->uc_mcontext.rip;  // RIP: x86_64 specific
+#if defined(__i386__)  // gcc specific
+  caller_address =
+      reinterpret_cast<void *>(uc->uc_mcontext.eip);  // EIP: x86 specific
+#elif defined(__x86_64__)                             // gcc specific
+  caller_address =
+      reinterpret_cast<void *>(uc->uc_mcontext.rip);  // RIP: x86_64 specific
 #else
 #error Unsupported architecture. // TODO: Add support for other arch.
 #endif
 
   fprintf(stderr, "signal %d (%s), address is %p from %p\n", sig_num,
-          strsignal(sig_num), info->si_addr, (void *)caller_address);
+          strsignal(sig_num), info->si_addr, caller_address);
 
   size = backtrace(array, 50);
 
@@ -54,7 +56,7 @@ void crit_err_hdlr(int sig_num, siginfo_t *info, void *ucontext) {
     fprintf(stderr, "[bt]: (%d) %s\n", i, messages[i]);
   }
 
-  free(messages);
+  free(messages);  // NOLINT(cppcoreguidelines-no-malloc)
 
   exit(EXIT_FAILURE);
 }
@@ -75,18 +77,20 @@ void disable_segfault_trace() {
 void dump_die(const dwarf::die &node) {
   printf("<%" PRIx64 "> %s\n", node.get_section_offset(),
          to_string(node.tag).c_str());
-  for (auto &attr : node.attributes())
+  for (auto &attr : node.attributes()) {
     printf("      %s %s\n", to_string(attr.first).c_str(),
            to_string(attr.second).c_str());
+  }
 }
 
 void dump_line_table(const dwarf::line_table &lt) {
   for (auto &line : lt) {
-    if (line.end_sequence)
+    if (line.end_sequence) {
       printf("\n");
-    else
+    } else {
       printf("%-40s%8d%#20" PRIx64 "\n", line.file->path.c_str(), line.line,
              line.address);
+    }
   }
 }
 
@@ -102,15 +106,16 @@ int dump_table_and_symbol(char *path) {
   DEBUG("dump_line_table");
 
   for (auto cu : dw.compilation_units()) {
-    printf("--- <%x>\n", (unsigned int)cu.get_section_offset());
+    printf("--- <%x>\n", static_cast<unsigned int>(cu.get_section_offset()));
     dump_line_table(cu.get_line_table());
     printf("\n");
   }
   printf("loading symbols");
   for (auto &sec : ef.sections()) {
     if (sec.get_hdr().type != elf::sht::symtab &&
-        sec.get_hdr().type != elf::sht::dynsym)
+        sec.get_hdr().type != elf::sht::dynsym) {
       continue;
+    }
 
     printf("Symbol table '%s':\n", sec.get_name().c_str());
     printf("%6s: %-16s %-5s %-7s %-7s %-5s %s\n", "Num", "Value", "Size",
