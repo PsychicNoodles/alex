@@ -13,22 +13,22 @@
 #include "debug.hpp"
 
 /* This structure mirrors the one found in /usr/include/asm/ucontext.h */
-typedef struct _sig_ucontext {
+struct sig_ucontext {
   uint64_t uc_flags;
   struct ucontext *uc_link;
   stack_t uc_stack;
   struct sigcontext uc_mcontext;
   sigset_t uc_sigmask;
-} sig_ucontext_t;
+};
 
 void crit_err_hdlr(int sig_num, siginfo_t *info, void *ucontext) {
   void *array[50];
   void *caller_address;
   char **messages;
   int size, i;
-  sig_ucontext_t *uc;
+  sig_ucontext *uc;
 
-  uc = static_cast<sig_ucontext_t *>(ucontext);
+  uc = static_cast<sig_ucontext *>(ucontext);
 
 /* Get the address at the time the signal was raised */
 #if defined(__i386__)  // gcc specific
@@ -151,7 +151,7 @@ int dump_table_and_symbol(char *path) {
   dwarf::dwarf dw(dwarf::elf::create_loader(ef));
   DEBUG("dump_line_table");
 
-  for (auto cu : dw.compilation_units()) {
+  for (auto const &cu : dw.compilation_units()) {
     printf("--- <%x>\n", static_cast<unsigned int>(cu.get_section_offset()));
     dump_line_table(cu.get_line_table());
     printf("\n");

@@ -34,7 +34,7 @@ char* int_to_hex(uint64_t i) {
 }
 
 // https://stackoverflow.com/a/14267455
-vector<string> str_split_vec(string str, string delim) {
+vector<string> str_split_vec(const string& str, const string& delim) {
   vector<string> split;
   auto start = 0U;
   auto end = str.find(delim);
@@ -52,7 +52,7 @@ vector<string> str_split_vec(string str, string delim) {
   return split;
 }
 
-set<string> str_split_set(string str, string delim) {
+set<string> str_split_set(const string& str, const string& delim) {
   set<string> split;
   auto start = 0U;
   auto end = str.find(delim);

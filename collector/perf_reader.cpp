@@ -181,7 +181,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
     for (auto &e : events) {
       DEBUG("event: " << e);
     }
-    for (auto event : events) {
+    for (const auto &event : events) {
       DEBUG("setting up event: " << event);
       perf_event_attr attr{};
       memset(&attr, 0, sizeof(perf_event_attr));
@@ -591,7 +591,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           DEBUG("cpd: reading from each fd");
 
           bool is_first_event = true;
-          for (auto event : events) {
+          for (const auto &event : events) {
             if (is_first_event) {
               is_first_event = false;
             } else {

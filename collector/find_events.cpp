@@ -8,7 +8,7 @@ using std::map;
 using std::set;
 using std::string;
 
-map<string, string> findEvents(string preset) {
+map<string, string> findEvents(const string& preset) {
   map<string, string> events;
   if (preset == "cache") {
     events.insert(pair<string, string>("hits", "MEM_LOAD_RETIRED.L3_HIT"));
@@ -24,7 +24,7 @@ map<string, string> findEvents(string preset) {
   return events;
 }
 
-void printPresetEvents(set<string> /*presets*/, FILE* result_file) {
+void printPresetEvents(const set<string>& /*presets*/, FILE* result_file) {
   fprintf(result_file, R"(
       "presets": {
             "cpu": {

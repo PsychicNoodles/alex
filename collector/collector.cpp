@@ -53,7 +53,7 @@ map<uint64_t, kernel_sym> read_kernel_syms(
     sym.type = type_s[0];
     getline(line_stream, tail);
     size_t tab;
-    if ((tab = tail.find("\t")) == string::npos) {
+    if ((tab = tail.find('\t')) == string::npos) {
       sym.sym = tail;
       sym.cat = "";
     } else {
