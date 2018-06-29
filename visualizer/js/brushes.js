@@ -3,59 +3,59 @@ const functionRuntimes = require("./function-runtimes");
 
 let nextBrushId = 0;
 
-function render(
-  gBrushes,
-  { timeslices, svg, brushes, xScale, getIndependentVariable }
+function addBrush(
+  root,
+  { timeslices, chart, brushes, xScale, getIndependentVariable }
 ) {
-  const chart = require("./chart");
+  const { WIDTH, HEIGHT } = require("./chart");
 
-  gBrushes.classed("brushes", true);
+  root.classed("brushes", true);
 
   const brush = d3
     .brushX()
-    .extent([[0, 0], [chart.WIDTH, chart.HEIGHT]])
+    .extent([[0, 0], [WIDTH, HEIGHT]])
     .on("brush", function() {
-      return brushed({
+      onSelectionChange({
         currentBrush: this,
         timeslices,
         xScale,
-        svg,
-        gBrushes,
+        chart,
+        root,
         getIndependentVariable
       });
     })
     .on("end", () => {
-      brushEnd(
+      onSelectionEnd({
         timeslices,
         brushes,
-        gBrushes,
-        svg,
+        root,
+        chart,
         xScale,
         getIndependentVariable
-      );
+      });
     });
 
   // Add brush to array of objects
   brushes.push({ id: nextBrushId, brush: brush });
   nextBrushId++;
-  drawBrushes(
+
+  root.call(render, {
     brushes,
-    gBrushes,
     timeslices,
-    svg,
+    chart,
     xScale,
     getIndependentVariable
-  );
+  });
 }
 
-function brushEnd(
+function onSelectionEnd({
   timeslices,
   brushes,
-  gBrushes,
-  svg,
+  root,
+  chart,
   xScale,
   getIndependentVariable
-) {
+}) {
   d3.select("#function-runtimes").call(functionRuntimes.render, {
     data: timeslices
   });
@@ -66,36 +66,21 @@ function brushEnd(
 
   // If the latest brush has a selection, make a new one
   if (selection && selection[0] !== selection[1]) {
-    gBrushes.call(render, {
+    root.call(addBrush, {
       timeslices,
-      svg,
+      chart,
       brushes,
       xScale,
       getIndependentVariable
     });
   }
-
-  document.getElementById("btnClearBrushes").addEventListener("click", () => {
-    clearBrushes({
-      brushes,
-      svg,
-      timeslices,
-      xScale,
-      gBrushes,
-      getIndependentVariable
-    });
-  });
 }
 
-function drawBrushes(
-  brushes,
-  gBrushes,
-  timeslices,
-  svg,
-  xScale,
-  getIndependentVariable
+function render(
+  root,
+  { brushes, timeslices, chart, xScale, getIndependentVariable }
 ) {
-  const brushSelection = gBrushes.selectAll("g.brush").data(brushes, d => d.id);
+  const brushSelection = root.selectAll("g.brush").data(brushes, d => d.id);
 
   const brushEnterSelection = brushSelection
     .enter()
@@ -134,7 +119,13 @@ function drawBrushes(
         const index = brushes.findIndex(d => "brush-" + d.id === this.id);
         brushes.splice(index, 1);
         d3.select(this).remove();
-        selectPoints(timeslices, svg, gBrushes, xScale, getIndependentVariable);
+        selectPoints({
+          timeslices,
+          chart,
+          root,
+          xScale,
+          getIndependentVariable
+        });
       });
 
     gClearBrush
@@ -157,17 +148,17 @@ function drawBrushes(
 }
 
 // Re-color the circles in the region that was selected by the user
-function brushed({
+function onSelectionChange({
   currentBrush,
   timeslices,
   xScale,
-  svg,
-  gBrushes,
+  chart,
+  root,
   getIndependentVariable
 }) {
   const selection = d3.event.selection;
   if (selection !== null) {
-    selectPoints(timeslices, svg, gBrushes, xScale, getIndependentVariable);
+    selectPoints({ timeslices, chart, root, xScale, getIndependentVariable });
 
     d3.select(currentBrush)
       .select(".brush__close")
@@ -180,14 +171,14 @@ function brushed({
   }
 }
 
-function selectPoints(
+function selectPoints({
   timeslices,
-  svg,
-  gBrushes,
+  chart,
+  root,
   xScale,
   getIndependentVariable
-) {
-  const circles = svg.selectAll(".circles circle");
+}) {
+  const circles = chart.selectAll(".circles circle");
 
   circles.attr("class", "");
 
@@ -195,7 +186,7 @@ function selectPoints(
     timeslice.selected = false;
   }
 
-  gBrushes.selectAll("g.brush").each(function() {
+  root.selectAll("g.brush").each(function() {
     const brushArea = d3.brushSelection(this);
 
     if (brushArea) {
@@ -220,15 +211,15 @@ function selectPoints(
   });
 }
 
-function clearBrushes({
+function clear({
   brushes,
-  svg,
+  chart,
   timeslices,
   xScale,
-  gBrushes,
+  root,
   getIndependentVariable
 }) {
-  const circles = svg.selectAll("circle");
+  const circles = chart.selectAll("circle");
 
   for (const timeslice of timeslices) {
     timeslice.selected = false;
@@ -242,15 +233,15 @@ function clearBrushes({
 
   brushes.splice(0);
 
-  gBrushes.selectAll(".brush").remove();
-  gBrushes.call(render, {
+  root.selectAll(".brush").remove();
+  root.call(addBrush, {
     timeslices,
-    svg,
+    chart,
     brushes,
-    gBrushes,
+    root,
     xScale,
     getIndependentVariable
   });
 }
 
-module.exports = { render };
+module.exports = { addBrush, clear };
