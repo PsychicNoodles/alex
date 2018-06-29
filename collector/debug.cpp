@@ -54,7 +54,7 @@ void crit_err_hdlr(int sig_num, siginfo_t *info, void *ucontext) {
   // https://panthema.net/2008/0901-stacktrace-demangled/
   // allocate string which will be filled with the demangled function name
   size_t funcnamesize = 256;
-  auto *funcname = static_cast<char *>(malloc(funcnamesize));
+  auto *funcname = new char[funcnamesize];
 
   // iterate over the returned symbol lines. skip the first, it is the
   // address of this function.
@@ -101,8 +101,8 @@ void crit_err_hdlr(int sig_num, siginfo_t *info, void *ucontext) {
     }
   }
 
-  free(funcname);
-  free(messages);
+  delete[] funcname;
+  free(messages);  // NOLINT
 
   exit(EXIT_FAILURE);
 }

@@ -3,7 +3,9 @@ CFLAGS := $(shell pkg-config --cflags --libs libelf++ libdwarf++)
 SOURCES := collector.cpp perf_reader.cpp const.cpp util.cpp debug.cpp perf_sampler.cpp clone.cpp rapl.cpp wattsup.cpp bg_readings.cpp ancillary.cpp find_events.cpp
 SRC_DIR := .
 TIDY := clang-tidy
-TIDY_CHECKS := bugprone-*,cppcoreguidelines-*,-cppcoreguidelines-pro-*,-cppcoreguidelines-owning-memory,google-*,hicpp-*
+TIDY_CHECKS := bugprone-*,cppcoreguidelines-*,-cppcoreguidelines-pro-*,\
+  -cppcoreguidelines-owning-memory,google-*,hicpp-*,-hicpp-vararg,-hicpp-no-array-decay,\
+	-hicpp-signed-bitwise
 
 ifeq ($(shell uname -s),Darwin)
 SHLIB_SUFFIX := dylib

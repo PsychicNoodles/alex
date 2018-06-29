@@ -738,7 +738,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       )",
                     function_name, file_name, file_base, sym_addr, sym_name);
             // necessary to free, abi::__cxa_demangle uses malloc under the hood
-            free(demangled_name);  // NOLINT(cppcoreguidelines-no-malloc)
+            free(demangled_name);  // NOLINT
 
             // Need to subtract one. PC is the return address, but we're
             // looking for the callsite.
