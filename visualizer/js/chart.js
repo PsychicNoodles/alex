@@ -22,22 +22,19 @@ function render(
     yScale
   }
 ) {
-  root.attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`);
+  root.classed("chart", true).attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`);
 
   root.selectAll("*").remove();
 
-  root
-    .append("g")
-    .attr("class", "plot")
-    .call(plot.render, {
-      data: plotData,
-      xScale,
-      yScale,
-      getIndependentVariable,
-      getDependentVariable,
-      densityMax,
-      spectrum
-    });
+  root.append("g").call(plot.render, {
+    data: plotData,
+    xScale,
+    yScale,
+    getIndependentVariable,
+    getDependentVariable,
+    densityMax,
+    spectrum
+  });
 
   const gBrushes = root.append("g").attr("class", "brushes");
   const brushes = [];

@@ -139,27 +139,26 @@ ipcRenderer.on("result", (event, resultFile) => {
       plotDataByChart.set(chartParams, plotData);
     }
 
-    const densityMax = charts.reduce(
-      (currentMax, chart) =>
-        Math.max(
-          currentMax,
-          d3.max(plotDataByChart.get(chart), d => d.densityAvg)
-        ),
-      0
-    );
-    const spectrum = d3.interpolateGreens;
+  const densityMax = charts.reduce(
+    (currentMax, chart) =>
+      Math.max(
+        currentMax,
+        d3.max(plotDataByChart.get(chart), d => d.densityAvg)
+      ),
+    0
+  );
+  const spectrum = d3.interpolateGreens;
 
-    for (const chartParams of charts) {
-      const { getDependentVariable, yAxisLabel } = chartParams;
-      d3.select(".charts")
-        .append("svg")
-        .attr("class", "chart")
-        .call(chart.render, {
-          timeslices: processedData,
-          getIndependentVariable,
-          getDependentVariable,
-          xAxisLabel,
-          yAxisLabel,
+  for (const chartParams of charts) {
+    const { getDependentVariable, yAxisLabel } = chartParams;
+    d3.select(".charts")
+      .append("svg")
+      .call(chart.render, {
+        timeslices: processedData,
+        getIndependentVariable,
+        getDependentVariable,
+        xAxisLabel,
+        yAxisLabel,
           xScale,
           yScale: yScalesByChart.get(chartParams),
           plotData: plotDataByChart.get(chartParams),

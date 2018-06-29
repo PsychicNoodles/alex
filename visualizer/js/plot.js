@@ -4,6 +4,8 @@ const d3 = require("d3");
  * Render the the scatter plot within the chart.
  */
 function render(root, { data, densityMax, spectrum }) {
+  root.classed("plot", true);
+
   // Create the points and position them in the plot
   const circles = root
     .append("g")

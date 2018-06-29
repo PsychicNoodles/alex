@@ -2,6 +2,8 @@ const d3 = require("d3");
 const { legendColor } = require("d3-svg-legend");
 
 function render(root, { densityMax, spectrum }) {
+  root.classed("legend", true);
+
   // If the SVG has anything in it, get rid of it. We want a clean slate.
   root.selectAll("*").remove();
 
