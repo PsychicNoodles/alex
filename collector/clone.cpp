@@ -23,7 +23,7 @@ execv_fn_t real_execv;
 execvpe_fn_t real_execvpe;
 int perf_register_sock;
 
-//temp: 
+// temp:
 uint64_t period;
 
 void set_perf_register_sock(int sock) { perf_register_sock = sock; }
@@ -143,8 +143,9 @@ __attribute__((constructor)) void init() {
     }
   }
 
-  real_pthread_create = (pthread_create_fn_t)dlsym(RTLD_NEXT, "pthread_create");
-  if (real_pthread_create == NULL) {
+  real_pthread_create =
+      reinterpret_cast<pthread_create_fn_t>(dlsym(RTLD_NEXT, "pthread_create"));
+  if (real_pthread_create == nullptr) {
     dlerror();
     exit(2);
   }

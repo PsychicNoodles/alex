@@ -388,8 +388,9 @@ int reset_period(perf_fd_info *info, int sample_type, uint64_t *period) {
   if (ioctl(info->cpu_clock_fd, PERF_EVENT_IOC_PERIOD, period) == -1) {
     perror("reset_period error: ");
     return -1;
-  } else
+  } else {
     return 0;
+  }
 }
 
 void print_errors(map<int, void *> errors, FILE *result_file) {
@@ -403,7 +404,7 @@ void print_errors(map<int, void *> errors, FILE *result_file) {
       is_first_element = false;
     }
     if (p.first == PERF_RECORD_THROTTLE) {
-      throttle_record *perf_record = (throttle_record *)p.second;
+      auto *perf_record = static_cast<throttle_record *>(p.second);
       uint64_t time = perf_record->time;
       uint64_t id = perf_record->id;
       fprintf(result_file, R"(
@@ -627,12 +628,12 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               // {
               //   errors.insert(pair<int, void *>(sample_type, perf_result));
               // }
-              // throttle_record *perf_throttle = (throttle_record *)perf_result;
-              // DEBUG("throttle_id: " << perf_throttle->id);
+              // throttle_record *perf_throttle = (throttle_record
+              // *)perf_result; DEBUG("throttle_id: " << perf_throttle->id);
               // DEBUG("throttle_time: " << perf_throttle->time);
               // DEBUG("throttle_stream_id: " << perf_throttle->stream_id);
             } else if (sample_type == PERF_RECORD_SAMPLE) {
-              sample_record *perf_sample = (sample_record *)perf_result;
+              auto *perf_sample = static_cast<sample_record *>(perf_result);
               if (is_first_sample) {
                 fprintf(result_file,
                         R"(
@@ -649,16 +650,16 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                 DEBUG("cpd: reading from each fd");
 
                 bool is_first_event = true;
-                for (auto event : events) {
+                for (const auto &event : events) {
                   if (is_first_event) {
                     is_first_event = false;
                   } else {
                     fprintf(result_file, ",");
                   }
 
-                  long long count = 0;
+                  int64_t count = 0;
                   DEBUG("cpd: reading from fd " << info.event_fds[event]);
-                  read(info.event_fds[event], &count, sizeof(long long));
+                  read(info.event_fds[event], &count, sizeof(int64_t));
                   DEBUG("cpd: read in from fd " << info.event_fds[event]
                                                 << " count " << count);
                   if (reset_monitoring(info.event_fds[event]) !=
@@ -666,7 +667,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                     shutdown(subject_pid, result_file, INTERNAL_ERROR);
                   }
 
-                  fprintf(result_file, R"("%s": %lld)", event.c_str(), count);
+                  fprintf(result_file, R"("%s": %ld)", event.c_str(), count);
                 }
                 // rapl
                 if (rapl_reading.running) {
@@ -674,7 +675,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                   if (has_result(&rapl_reading)) {
                     DEBUG("cpd: RAPL result found, writing out");
                     map<string, uint64_t> nrg =
-                        *((map<string, uint64_t> *)get_result(&rapl_reading));
+                        *(static_cast<map<string, uint64_t> *>(
+                            get_result(&rapl_reading)));
                     for (auto &p : nrg) {
                       fprintf(result_file, ",");
                       fprintf(result_file, R"("%s": %lu)", p.first.c_str(),
@@ -690,7 +692,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                   DEBUG("cpd: checking for wattsup energy results");
                   if (has_result(&wattsup_reading)) {
                     DEBUG("cpd: wattsup result found, writing out");
-                    double ret = *((double *)get_result(&wattsup_reading));
+                    double ret =
+                        *(static_cast<double *>(get_result(&wattsup_reading)));
                     fprintf(result_file, ",");
                     fprintf(result_file, R"("wattsup": %1lf)", ret);
                     DEBUG("cpd: restarting wattsup energy readings");
@@ -726,13 +729,14 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                           R"(
                   { "address": "%p",
                     "section": "%s",)",
-                          (void *)inst_ptr, callchain_str(callchain_section));
+                          reinterpret_cast<void *>(inst_ptr),
+                          callchain_str(callchain_section));
 
                   string sym_name_str;
-                  const char *sym_name = NULL, *file_name = NULL,
-                             *function_name = NULL;
-                  char *demangled_name = NULL;
-                  void *file_base = NULL, *sym_addr = NULL;
+                  const char *sym_name = nullptr, *file_name = nullptr,
+                             *function_name = nullptr;
+                  char *demangled_name = nullptr;
+                  void *file_base = nullptr, *sym_addr = nullptr;
                   DEBUG("cpd: looking up symbol for inst ptr "
                         << ptr_fmt((void *)inst_ptr));
                   if (callchain_section == CALLCHAIN_USER) {
@@ -740,7 +744,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                     Dl_info info;
                     // Lookup the name of the function given the function
                     // pointer
-                    if (dladdr((void *)inst_ptr, &info) != 0) {
+                    if (dladdr(reinterpret_cast<void *>(inst_ptr), &info) !=
+                        0) {
                       sym_name = info.dli_sname;
                       file_name = info.dli_fname;
                       file_base = info.dli_fbase;
@@ -756,15 +761,15 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       sym_name_str = ks.sym;
                       sym_name = sym_name_str.c_str();
                       file_name = "(kernel)";
-                      file_base = NULL;
-                      sym_addr = (void *)addr;
+                      file_base = nullptr;
+                      sym_addr = reinterpret_cast<void *>(addr);
                     }
                   }
                   // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
-                  if (sym_name != NULL) {
+                  if (sym_name != nullptr) {
                     int demangle_status;
-                    demangled_name = abi::__cxa_demangle(sym_name, NULL, NULL,
-                                                         &demangle_status);
+                    demangled_name = abi::__cxa_demangle(
+                        sym_name, nullptr, nullptr, &demangle_status);
                     if (demangle_status == 0) {
                       function_name = demangled_name;
                     } else {
@@ -797,7 +802,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       )",
                           function_name, file_name, file_base, sym_addr,
                           sym_name);
-                  free(demangled_name);
+                  free(demangled_name);  // NOLINT
 
                   // Need to subtract one. PC is the return address, but we're
                   // looking for the callsite.
@@ -806,7 +811,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                   // Find the CU containing pc
                   // XXX Use .debug_aranges
                   auto line = -1, column = -1;
-                  char *fullLocation = NULL;
+                  char *fullLocation = nullptr;
 
                   for (auto &cu : dw.compilation_units()) {
                     if (die_pc_range(cu.root()).contains(pc)) {
@@ -816,7 +821,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       if (it != lt.end()) {
                         line = it->line;
                         column = it->column;
-                        fullLocation = (char *)it->file->path.c_str();
+                        fullLocation =
+                            const_cast<char *>(it->file->path.c_str());
                       }
                       break;
                     }
