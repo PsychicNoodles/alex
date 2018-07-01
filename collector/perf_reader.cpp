@@ -1,19 +1,13 @@
-#include <assert.h>
 #include <cxxabi.h>
 #include <dlfcn.h>
 #include <elf.h>
 #include <fcntl.h>
-#include <inttypes.h>
 #include <link.h>
 #include <linux/perf_event.h>
 #include <perfmon/perf_event.h>
 #include <perfmon/pfmlib.h>
 #include <perfmon/pfmlib_perf_event.h>
 #include <pthread.h>
-#include <signal.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/epoll.h>
 #include <sys/mman.h>
 #include <sys/signalfd.h>
@@ -23,9 +17,16 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <algorithm>
+#include <cassert>
+#include <cinttypes>
+#include <csignal>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
 #include <exception>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -43,7 +44,11 @@
 #include "util.hpp"
 #include "wattsup.hpp"
 
-using namespace std;
+using std::map;
+using std::set;
+using std::string;
+using std::unique_ptr;
+using std::vector;
 
 // command numbers sent over the socket from threads in the subject program
 #define SOCKET_CMD_REGISTER 1
@@ -146,7 +151,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info,
                        uint64_t period) {
   DEBUG("setting up perf events for target " << target);
   // set up the cpu cycles perf buffer
-  perf_event_attr cpu_clock_attr;
+  perf_event_attr cpu_clock_attr{};
   memset(&cpu_clock_attr, 0, sizeof(perf_event_attr));
   // disabled so related events start at the same time
   cpu_clock_attr.disabled = true;
@@ -157,7 +162,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info,
   cpu_clock_attr.sample_period = period;
   cpu_clock_attr.wakeup_events = 1;
 
-  perf_buffer cpu_clock_perf;
+  perf_buffer cpu_clock_perf{};
   if (setup_monitoring(&cpu_clock_perf, &cpu_clock_attr, target) !=
       SAMPLER_MONITOR_SUCCESS) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
@@ -171,14 +176,15 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info,
     for (auto &e : events) {
       DEBUG("event: " << e);
     }
-    for (auto event : events) {
+    for (const auto &event : events) {
       DEBUG("setting up event: " << event);
-      perf_event_attr attr;
+      perf_event_attr attr{};
       memset(&attr, 0, sizeof(perf_event_attr));
 
       // Parse out event name with PFM.  Must be done first.
       DEBUG("parsing pfm event name");
-      int pfm_result = setup_pfm_os_event(&attr, (char *)event.c_str());
+      int pfm_result =
+          setup_pfm_os_event(&attr, const_cast<char *>(event.c_str()));
       if (pfm_result != PFM_SUCCESS) {
         DEBUG("pfm encoding error: " << pfm_strerror(pfm_result));
         shutdown(subject_pid, result_file, INTERNAL_ERROR);
@@ -280,13 +286,13 @@ bool register_perf_fds(int socket, perf_fd_info *info) {
  * Sends fds from thread in subject program through the shared Unix socket to be
  * unregistered in the collector.
  */
-bool unregister_perf_fds(int socket, perf_fd_info *info) {
+bool unregister_perf_fds(int socket) {
   DEBUG("unregistering perf fds");
   pid_t tid = gettid();
   int cmd = SOCKET_CMD_UNREGISTER;
   DEBUG("sending tid " << tid << ", cmd " << cmd);
   struct iovec ios[]{{&tid, sizeof(pid_t)}, {&cmd, sizeof(int)}};
-  return ancil_send_fds_with_msg(socket, NULL, 0, ios, 2) == 0;
+  return ancil_send_fds_with_msg(socket, nullptr, 0, ios, 2) == 0;
 }
 
 /*
@@ -355,7 +361,7 @@ uint64_t lookup_kernel_addr(map<uint64_t, kernel_sym> kernel_syms,
  */
 dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
   // closed by mmap_loader constructor
-  int fd = open((char *)"/proc/self/exe", O_RDONLY);
+  int fd = open(const_cast<char *>(file), O_RDONLY);
   if (fd < 0) {
     perror("cannot open executable (/proc/self/exe)");
     shutdown(subject_pid, result_file, EXECUTABLE_FILE_ERROR);
@@ -470,7 +476,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   int sample_period_skips = 0;
 
   // setting up RAPL energy reading
-  bg_reading rapl_reading = {0};
+  bg_reading rapl_reading = {nullptr};
   if (presets.find("rapl") != presets.end() ||
       presets.find("all") != presets.end()) {
     setup_reading(&rapl_reading,
@@ -479,17 +485,17 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                     measure_energy_into_map(m);
                     return m;
                   },
-                  NULL);
+                  nullptr);
     restart_reading(&rapl_reading);
     DEBUG("cpd: rapl reading in tid " << rapl_reading.thread);
   }
 
   // setting up wattsup energy reading
-  bg_reading wattsup_reading = {0};
+  bg_reading wattsup_reading = {nullptr};
   if (wu_fd != -1) {
     setup_reading(&wattsup_reading,
                   [](void *raw_args) -> void * {
-                    int wu_fd = ((int *)raw_args)[0];
+                    int wu_fd = (static_cast<int *>(raw_args))[0];
                     auto d = new double;
                     *d = wu_read(wu_fd);
                     return d;
@@ -505,11 +511,10 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
   DEBUG("cpd: entering epoll ready loop");
   while (!done) {
-    epoll_event *evlist =
-        (epoll_event *)malloc(sizeof(epoll_event) * sample_fd_count);
+    auto evlist = unique_ptr<epoll_event[]>(new epoll_event[sample_fd_count]);
     DEBUG("cpd: epolling for results or new threads");
-    int ready_fds =
-        epoll_wait(sample_epfd, evlist, sample_fd_count, SAMPLE_EPOLL_TIMEOUT);
+    int ready_fds = epoll_wait(sample_epfd, evlist.get(), sample_fd_count,
+                               SAMPLE_EPOLL_TIMEOUT);
 
     curr_ts = time_ms();
     if (curr_ts - last_ts > EPOLL_TIME_DIFF_MAX) {
@@ -531,7 +536,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
       // check for high priority fds
       vector<int> fds;  // low priority fds
       for (int i = 0; i < ready_fds; i++) {
-        int fd = evlist[i].data.fd;
+        int fd = evlist.get()[i].data.fd;
         // check if it's sigterm or request to register thread
         if (fd == sigt_fd) {
           DEBUG("cpd: received sigterm, stopping");
@@ -578,7 +583,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           shutdown(subject_pid, result_file, INTERNAL_ERROR);
         }
 
-        long long num_timer_ticks = 0;
+        int64_t num_timer_ticks = 0;
         DEBUG("cpd: reading from fd " << fd);
         read(fd, &num_timer_ticks, sizeof(num_timer_ticks));
         DEBUG("cpd: read in from fd " << fd
@@ -633,7 +638,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                         R"(
                       {
                         "cpuTime": %lu,
-                        "numCPUTimerTicks": %lld,
+                        "numCPUTimerTicks": %ld,
                         "pid": %u,
                         "tid": %u,
                         "events": {
@@ -837,7 +842,6 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
         }
       }
     }
-    free(evlist);
     finish_ts = time_ms();
   }
   DEBUG("cpd: stopping RAPL reading thread");

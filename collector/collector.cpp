@@ -1,11 +1,11 @@
 #include <dlfcn.h>
 #include <fcntl.h>
-#include <signal.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <csignal>
 #include <fstream>
 #include <map>
 #include <sstream>
@@ -19,9 +19,12 @@
 #include "util.hpp"
 #include "wattsup.hpp"
 
-using namespace std;
+using std::ifstream;
+using std::istringstream;
+using std::map;
+using std::string;
 
-typedef int (*main_fn_t)(int, char **, char **);
+using main_fn_t = int (*)(int, char **, char **);
 
 static main_fn_t subject_main_fn;
 
@@ -45,12 +48,12 @@ map<uint64_t, kernel_sym> read_kernel_syms(
     uint64_t addr;
 
     getline(line_stream, addr_s, ' ');
-    addr = stoul(addr_s, 0, 16);
+    addr = stoul(addr_s, nullptr, 16);
     getline(line_stream, type_s, ' ');
     sym.type = type_s[0];
     getline(line_stream, tail);
     size_t tab;
-    if ((tab = tail.find("\t")) == string::npos) {
+    if ((tab = tail.find('\t')) == string::npos) {
       sym.sym = tail;
       sym.cat = "";
     } else {
@@ -71,7 +74,7 @@ int setup_sigterm_handler() {
   int sigterm_fd = signalfd(-1, &done_mask, SFD_NONBLOCK);
 
   // prevent default behavior of immediately killing program
-  sigprocmask(SIG_BLOCK, &done_mask, NULL);
+  sigprocmask(SIG_BLOCK, &done_mask, nullptr);
 
   return sigterm_fd;
 }
@@ -81,11 +84,11 @@ static int collector_main(int argc, char **argv, char **env) {
 
   int result = 0;
 
-  struct sigaction ready_act;
+  struct sigaction ready_act {};
   ready_act.sa_handler = ready_handler;
   sigemptyset(&ready_act.sa_mask);
   ready_act.sa_flags = 0;
-  sigaction(SIGUSR2, &ready_act, NULL);
+  sigaction(SIGUSR2, &ready_act, nullptr);
 
   int sockets[2];
   if (socketpair(PF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0, sockets) == -1) {
@@ -100,18 +103,16 @@ static int collector_main(int argc, char **argv, char **env) {
   if (presets.find("cpu") != presets.end() ||
       presets.find("all") != presets.end()) {
     map<string, string> cpu = findEvents("cpu");
-    for (map<string, string>::iterator it = cpu.begin(); it != cpu.end();
-         ++it) {
-      events.push_back(it->second.c_str());
+    for (auto &it : cpu) {
+      events.emplace_back(it.second.c_str());
     }
   }
 
   if (presets.find("cache") != presets.end() ||
       presets.find("all") != presets.end()) {
     map<string, string> cache = findEvents("cache");
-    for (map<string, string>::iterator it = cache.begin(); it != cache.end();
-         ++it) {
-      events.push_back(it->second.c_str());
+    for (auto &it : cache) {
+      events.emplace_back(it.second.c_str());
     }
   }
 
@@ -133,8 +134,9 @@ static int collector_main(int argc, char **argv, char **env) {
       perror("couldn't signal collector process");
       exit(INTERNAL_ERROR);
     }
-    while (!ready)
-      ;
+    while (!ready) {
+      // wait for parent
+    }
 
     DEBUG(
         "collector_main: received parent ready signal, starting child/real "
@@ -158,7 +160,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
     close(sockets[1]);
 
-    if (result_file == NULL) {
+    if (result_file == nullptr) {
       perror("couldn't open result file");
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
@@ -181,8 +183,9 @@ static int collector_main(int argc, char **argv, char **env) {
         "child");
 
     kill(subject_pid, SIGUSR2);
-    while (!ready)
-      ;
+    while (!ready) {
+      // wait for child
+    }
 
     DEBUG("collector_main: received child ready signal, starting collector");
     result = collect_perf_data(subject_pid, kernel_syms, sigterm_fd, sockets[0],

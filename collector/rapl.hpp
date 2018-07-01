@@ -21,13 +21,12 @@
 using namespace std;
 
 map<string, uint64_t> measure_energy();
-void measure_energy_into_map(map<string, uint64_t> *m);
+void measure_energy_into_map(map<string, uint64_t>* m);
 
-void push_energy_info (map<string, uint64_t> *readings, string dir);
+void push_energy_info(map<string, uint64_t>* readings, const string& dir);
 
-vector<string> find_in_dir(string dir, string substr);
+vector<string> find_in_dir(const string& dir, const string& substr);
 
-string file_readline(string path);
-
+string file_readline(const string& path);
 
 #endif

@@ -4,57 +4,10 @@
 
 const d3 = require("d3");
 
-const chiSquaredTest = require("./analysis");
+const analyze = require("./analysis");
 function render(root, { data }) {
-  const selected = data.filter(d => d.selected);
-  const functionRuntimesMap = {};
-  for (const timeSlice of selected) {
-    for (const i in timeSlice.stackFrames) {
-      const functionName = timeSlice.stackFrames[i].name;
-      if (functionName !== "(null)") {
-        functionRuntimesMap[functionName] = functionRuntimesMap[
-          functionName
-        ] || {
-          selfTime: 0,
-          cumulativeTime: 0
-        };
-        functionRuntimesMap[functionName].cumulativeTime +=
-          timeSlice.numCPUTimerTicks;
-        if (+i === 0) {
-          functionRuntimesMap[functionName].selfTime +=
-            timeSlice.numCPUTimerTicks;
-        }
-      }
-    }
-  }
-
-  const functionRuntimesArray = [];
-  for (const functionName in functionRuntimesMap) {
-    functionRuntimesArray.push({
-      ...functionRuntimesMap[functionName],
-      name: functionName
-    });
-  }
-
-  functionRuntimesArray.sort((a, b) => {
-    if (a.selfTime === b.selfTime) {
-      return b.cumulativeTime - a.cumulativeTime;
-    } else {
-      return b.selfTime - a.selfTime;
-    }
-  });
-
+  const functionRuntimesArray = analyze(data).functionList;
   console.log(functionRuntimesArray);
-
-  const chiSquaredData = chiSquaredTest(data);
-  const probability = chiSquaredData.probability;
-  const probabilityPercentage = (probability * 100).toFixed(3);
-  if (chiSquaredData !== -1) {
-    console.log(
-      `The likelihood that your selection is unusual is ~${probabilityPercentage}%`
-    );
-    console.log(chiSquaredData.functionList);
-  }
 
   //const newArray = [...new Set([...functionRuntimesArray, ...(chiSquaredData.functionList)])];
   //console.log(newArray);

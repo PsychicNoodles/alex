@@ -1,21 +1,19 @@
-#include <signal.h>
-#include <stdlib.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <csignal>
+#include <cstdlib>
 #include <set>
 
 #include "const.hpp"
 #include "util.hpp"
 
-using namespace std;
-
 /*
  * Reports time since epoch in milliseconds.
  */
 size_t time_ms() {
-  struct timeval tv;
-  if (gettimeofday(&tv, NULL) == -1) {
+  struct timeval tv {};
+  if (gettimeofday(&tv, nullptr) == -1) {
     perror("gettimeofday");
     exit(2);
   }  // if
@@ -36,7 +34,7 @@ char* int_to_hex(uint64_t i) {
 }
 
 // https://stackoverflow.com/a/14267455
-vector<string> str_split_vec(string str, string delim) {
+vector<string> str_split_vec(const string& str, const string& delim) {
   vector<string> split;
   auto start = 0U;
   auto end = str.find(delim);
@@ -47,14 +45,14 @@ vector<string> str_split_vec(string str, string delim) {
   }
 
   auto last_substr = str.substr(start, end);
-  if (last_substr != "") {
+  if (!last_substr.empty()) {
     split.push_back(last_substr);
   }
 
   return split;
 }
 
-set<string> str_split_set(string str, string delim) {
+set<string> str_split_set(const string& str, const string& delim) {
   set<string> split;
   auto start = 0U;
   auto end = str.find(delim);
@@ -65,7 +63,7 @@ set<string> str_split_set(string str, string delim) {
   }
 
   auto last_substr = str.substr(start, end);
-  if (last_substr != "") {
+  if (!last_substr.empty()) {
     split.insert(last_substr);
   }
 
@@ -74,14 +72,18 @@ set<string> str_split_set(string str, string delim) {
 
 void shutdown(pid_t pid, FILE* writef, int code) {
   kill(pid, SIGKILL);
-  if (writef != NULL) fclose(writef);
-  exit(errno);
+  if (writef != nullptr) {
+    fclose(writef);
+  }
+  exit(code);
 }
 
 pid_t gettid() { return syscall(SYS_gettid); }
 
 string getenv_safe(const char* var, const char* fallback) {
   const char* value = getenv(var);
-  if (!value) value = fallback;
+  if (!value) {
+    value = fallback;
+  }
   return string(value);
 }

@@ -20,16 +20,17 @@
 typedef int (*pthread_create_fn_t)(pthread_t *, const pthread_attr_t *,
                                    void *(*)(void *), void *);
 
-typedef pid_t (*fork_fn_t) (void);
+typedef pid_t (*fork_fn_t)(void);
 
 typedef void *(*routine_fn_t)(void *);
 
 typedef int (*execve_fn_t)(const char *filename, char *const argv[],
-                   char *const envp[]);
-typedef int (*execvp_fn_t) (const char *file, char *const argv[]);
+                           char *const envp[]);
+typedef int (*execvp_fn_t)(const char *file, char *const argv[]);
 
 typedef int (*execv_fn_t)(const char *path, char *const argv[]);
-typedef int (*execvpe_fn_t)(const char *file, char *const argv[], char *const envp[]);
+typedef int (*execvpe_fn_t)(const char *file, char *const argv[],
+                            char *const envp[]);
 
 extern pthread_create_fn_t real_pthread_create;
 extern fork_fn_t real_fork;

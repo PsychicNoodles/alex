@@ -4,8 +4,8 @@
 #include <sys/types.h>
 #include <cstdio>
 #include <map>
-#include <vector>
 #include <set>
+#include <vector>
 
 #include "perf_sampler.hpp"
 
@@ -29,6 +29,6 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       int sigt_fd, int socket, int wu_fd);
 
 bool register_perf_fds(int socket, perf_fd_info* info);
-bool unregister_perf_fds(int socket, perf_fd_info* info);
+bool unregister_perf_fds(int socket);
 
 #endif

@@ -1,6 +1,6 @@
 #include "const.hpp"
 
-#include <stddef.h>
+#include <cstddef>
 
 const char* callchain_str(uint64_t callchain) {
   switch (callchain) {
@@ -17,7 +17,7 @@ const char* callchain_str(uint64_t callchain) {
     case CALLCHAIN_GUESTUSER:
       return "guest user";
     default:
-      return NULL;
+      return nullptr;
   }
 }
 

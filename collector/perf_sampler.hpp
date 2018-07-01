@@ -11,8 +11,8 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <string>
 #include <map>
+#include <string>
 
 struct perf_buffer {
   int fd;
@@ -40,7 +40,7 @@ struct perf_fd_info {
 inline size_t perf_buffer_data_size() { return BUFFER_SIZE - PAGE_SIZE; }
 
 // Configure the perf buffer
-int setup_monitoring(perf_buffer *perf, perf_event_attr *attr, int pid);
+int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid);
 int setup_buffer(perf_fd_info *info);
 
 // Control monitoring
