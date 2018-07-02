@@ -27,7 +27,7 @@ function runtimePerFunction(inputData, outputData) {
   const functionRuntimesMap = {};
   selected.forEach(datum => {
     for (const i in datum.stackFrames) {
-      const functionName = datum.stackFrames[i].name;
+      const functionName = datum.stackFrames[i].symName;
       functionRuntimesMap[functionName] = functionRuntimesMap[functionName] || {
         selfTime: 0,
         cumulativeTime: 0,
@@ -94,7 +94,7 @@ function chiSquared(inputData, outputData) {
   /* Populate a "table" with function counts for unselected/selected */
   let functionName;
   inputData.forEach(datum => {
-    functionName = datum.stackFrames[0].name;
+    functionName = datum.stackFrames[0].symName;
     /* "Initialize" the associative arrays at this datapoint's function, if this
     hasn't already been done. */
     if (selected[functionName] === undefined) {
