@@ -60,9 +60,7 @@
     "algorithm": "cpp",
     "mutex": "cpp",
     "thread": "cpp",
-    "condition_variable": "cpp",
-    "ratio": "cpp",
-    "atomic": "cpp",
-    "ctime": "cpp"
-  }
+    "condition_variable": "cpp"
+  },
+  "C_Cpp.default.defines": ["VERSION"]
 }
