@@ -80,6 +80,8 @@ int setup_sigterm_handler() {
 }
 
 static int collector_main(int argc, char **argv, char **env) {
+  DEBUG("Version: " << VERSION);
+
   enable_segfault_trace();
 
   int result = 0;

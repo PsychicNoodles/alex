@@ -15,8 +15,6 @@
 #define DEBUG_SYMBOLS_FILE_ERROR 4  // Problem with the debug symbols file
 #define ENV_ERROR 5                 // Cannot get environment variable
 
-#define COLLECTOR_VERSION "0.0.1"
-
 // https://godoc.org/github.com/aclements/go-perf/perffile#pkg-constants
 #define CALLCHAIN_HYPERVISOR 0xffffffffffffffe0
 #define CALLCHAIN_KERNEL 0xffffffffffffff80
