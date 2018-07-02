@@ -12,7 +12,7 @@ ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, resultFile) => {
   let result;
   try {
-    result = JSON.parse(fs.readFileSync(resultFile).toString());
+    result = JSON.parse(fs.readFileSync(resultFile, { encoding: "utf8" }));
   } catch (err) {
     alert(`Invalid result file: ${err.message}`);
     window.close();
