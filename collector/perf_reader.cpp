@@ -78,6 +78,11 @@ struct throttle_record {
   uint64_t stream_id;
 };
 
+union base_record {
+  sample_record sr;
+  throttle_record tr;
+};
+
 // pid of the subject of the data collection
 pid_t subject_pid;
 // pid of the data collector itself
@@ -377,14 +382,15 @@ perf_fd_info *create_perf_fd_info() { return new perf_fd_info(); }
  * reset the period of sampling to handle throttle/unthrottle events
  */
 int reset_period(perf_fd_info *info, int sample_type, uint64_t *period) {
-  DEBUG("reset_period");
   if (sample_type == PERF_RECORD_THROTTLE) {
+    DEBUG("throttle event detected, increasing period");
     *period = (*period) * 10;
   } else {
+    DEBUG("unthrottle event detected, decreasing period");
     *period = (*period) / 10;
   }
 
-  DEBUG("reset_period new_period: " << *period);
+  DEBUG("new period is " << *period);
   if (ioctl(info->cpu_clock_fd, PERF_EVENT_IOC_PERIOD, period) == -1) {
     perror("reset_period error: ");
     return -1;
@@ -393,20 +399,20 @@ int reset_period(perf_fd_info *info, int sample_type, uint64_t *period) {
   }
 }
 
-void print_errors(map<int, void *> errors, FILE *result_file) {
+void print_errors(vector<pair<int, base_record *>> errors, FILE *result_file) {
   bool is_first_element = true;
   for (auto &p : errors) {
-    if (!is_first_element) {
+    if (is_first_element) {
+      is_first_element = false;
+    } else {
       fprintf(result_file, R"(
       ,
     )");
-    } else {
-      is_first_element = false;
     }
     if (p.first == PERF_RECORD_THROTTLE) {
-      auto *perf_record = static_cast<throttle_record *>(p.second);
-      uint64_t time = perf_record->time;
-      uint64_t id = perf_record->id;
+      auto perf_record = p.second->tr;
+      uint64_t time = perf_record.time;
+      uint64_t id = perf_record.id;
       fprintf(result_file, R"(
       {
        "type": "PERF_RECORD_THROTTLE",
@@ -415,7 +421,27 @@ void print_errors(map<int, void *> errors, FILE *result_file) {
       }
     )",
               time, id);
+    } else if (p.first == PERF_RECORD_UNTHROTTLE) {
+      auto perf_record = p.second->tr;
+      uint64_t time = perf_record.time;
+      uint64_t id = perf_record.id;
+      fprintf(result_file, R"(
+      {
+       "type": "PERF_RECORD_UNTHROTTLE",
+       "time": %lu,
+       "id": %lu
+      }
+    )",
+              time, id);
+    } else {
+      DEBUG("couldn't determine type of error for " << p.first << "!");
+      fprintf(result_file, R"|(
+      {
+       "type": "(null)"
+      }
+    )|");
     }
+    delete p.second;
   }
 }
 
@@ -425,7 +451,7 @@ void print_errors(map<int, void *> errors, FILE *result_file) {
  */
 int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       int sigt_fd, int socket, int wu_fd) {
-  map<int, void *> errors;
+  vector<pair<int, base_record *>> errors;
 
   DEBUG("collector_main: registering " << sigt_fd << " as sigterm fd");
   add_fd_to_epoll(sigt_fd);
@@ -622,18 +648,16 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             if (sample_type == PERF_RECORD_THROTTLE ||
                 sample_type == PERF_RECORD_UNTHROTTLE) {
               if (reset_period(&info, sample_type, &period) == -1) {
-                DEBUG("reset period failed");
                 shutdown(subject_pid, result_file, INTERNAL_ERROR);
               }
-              // {
-              //   errors.insert(pair<int, void *>(sample_type, perf_result));
-              // }
-              // throttle_record *perf_throttle = (throttle_record
-              // *)perf_result; DEBUG("throttle_id: " << perf_throttle->id);
-              // DEBUG("throttle_time: " << perf_throttle->time);
-              // DEBUG("throttle_stream_id: " << perf_throttle->stream_id);
+              errors.emplace_back(make_pair(
+                  sample_type,
+                  new base_record{.tr = *reinterpret_cast<throttle_record *>(
+                                      perf_result)}));
             } else if (sample_type == PERF_RECORD_SAMPLE) {
-              auto *perf_sample = static_cast<sample_record *>(perf_result);
+              // if period is too high, the data may be changed under our feet
+              sample_record perf_sample =
+                  *static_cast<sample_record *>(perf_result);
               if (is_first_sample) {
                 fprintf(result_file,
                         R"(
@@ -644,8 +668,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                         "tid": %u,
                         "events": {
                     )",
-                        perf_sample->time, num_timer_ticks, perf_sample->pid,
-                        perf_sample->tid);
+                        perf_sample.time, num_timer_ticks, perf_sample.pid,
+                        perf_sample.tid);
 
                 DEBUG("cpd: reading from each fd");
 
@@ -710,14 +734,18 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
                 bool is_first_stack = true;
                 uint64_t callchain_section = 0;
-                for (int i = 0; i < perf_sample->num_instruction_pointers;
+                DEBUG("cpd: looking up " << perf_sample.num_instruction_pointers
+                                         << " inst ptrs");
+                for (uint64_t i = 0; i < perf_sample.num_instruction_pointers;
                      i++) {
-                  uint64_t inst_ptr = perf_sample->instruction_pointers[i];
+                  uint64_t inst_ptr = perf_sample.instruction_pointers[i];
                   if (is_callchain_marker(inst_ptr)) {
                     callchain_section = inst_ptr;
                     continue;
                   }
-                  DEBUG("cpd: on instruction pointer " << int_to_hex(inst_ptr));
+                  DEBUG("cpd: on instruction pointer "
+                        << int_to_hex(inst_ptr) << " (" << (i + 1) << "/"
+                        << perf_sample.num_instruction_pointers << ")");
 
                   if (is_first_stack) {
                     is_first_stack = false;
@@ -861,7 +889,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               "error": [
                           )");
 
-  // print_errors(errors, result_file);
+  print_errors(errors, result_file);
   fprintf(result_file,
           R"(       
               ]

@@ -60,6 +60,9 @@
     "algorithm": "cpp",
     "mutex": "cpp",
     "thread": "cpp",
-    "condition_variable": "cpp"
+    "condition_variable": "cpp",
+    "ratio": "cpp",
+    "atomic": "cpp",
+    "ctime": "cpp"
   }
 }
