@@ -41,6 +41,7 @@
 #include "find_events.hpp"
 #include "perf_reader.hpp"
 #include "rapl.hpp"
+#include "shared.hpp"
 #include "util.hpp"
 #include "wattsup.hpp"
 
@@ -152,8 +153,7 @@ void delete_fd_from_epoll(int fd) {
  * every other event as children in the group. Thus, when the cpu cycles event
  * is started all the others are as well simultaneously
  */
-void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info,
-                       uint64_t period) {
+void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   DEBUG("setting up perf events for target " << target);
   // set up the cpu cycles perf buffer
   perf_event_attr cpu_clock_attr{};
@@ -164,7 +164,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info,
   cpu_clock_attr.type = PERF_TYPE_SOFTWARE;
   cpu_clock_attr.config = PERF_COUNT_SW_CPU_CLOCK;
   cpu_clock_attr.sample_type = SAMPLE_TYPE;
-  cpu_clock_attr.sample_period = period;
+  cpu_clock_attr.sample_period = global->period;
   cpu_clock_attr.wakeup_events = 1;
 
   perf_buffer cpu_clock_perf{};
@@ -209,8 +209,8 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info,
   }
 
   // all related events are ready, so time to start monitoring
-  DEBUG("starting monitoring for " << target);
-  if (start_monitoring(cpu_clock_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
+  DEBUG("starting monitoring");
+  if (start_monitoring(info->cpu_clock_fd) != SAMPLER_MONITOR_SUCCESS) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
 }
@@ -381,22 +381,24 @@ perf_fd_info *create_perf_fd_info() { return new perf_fd_info(); }
 /*
  * reset the period of sampling to handle throttle/unthrottle events
  */
-int adjust_period(perf_fd_info *info, int sample_type, uint64_t *period) {
+int adjust_period(int sample_type) {
   if (sample_type == PERF_RECORD_THROTTLE) {
     DEBUG("throttle event detected, increasing period");
-    *period = (*period) * PERIOD_ADJUST_SCALE;
+    global->period = (global->period) * PERIOD_ADJUST_SCALE;
   } else {
     DEBUG("unthrottle event detected, decreasing period");
-    *period = (*period) / PERIOD_ADJUST_SCALE;
+    global->period = (global->period) / PERIOD_ADJUST_SCALE;
   }
 
-  DEBUG("new period is " << *period);
-  if (ioctl(info->cpu_clock_fd, PERF_EVENT_IOC_PERIOD, period) == -1) {
-    perror("adjust_period error: ");
-    return -1;
-  } else {
-    return 0;
+  DEBUG("new period is " << global->period);
+  for (auto &p : perf_info_mappings) {
+    DEBUG("adjusting period for fd " << p.first);
+    if (ioctl(p.first, PERF_EVENT_IOC_PERIOD, &global->period) == -1) {
+      perror("failed to adjust period");
+      return -1;
+    }
   }
+  return 0;
 }
 
 void print_errors(vector<pair<int, base_record *>> errors, FILE *result_file) {
@@ -462,23 +464,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   DEBUG("cpd: setting up perf events for main thread in subject");
   perf_fd_info subject_info;
 
-  // set up period
-  uint64_t period = -1;
-
-  if (period == -1) {
-    try {
-      period = stoull(getenv_safe("COLLECTOR_PERIOD", "10000000"));
-      // catch stoll exceptions
-    } catch (std::invalid_argument &e) {
-      DEBUG("failed to get period: Invalid argument");
-      shutdown(subject_pid, result_file, ENV_ERROR);
-    } catch (std::out_of_range &e) {
-      DEBUG("failed to get period: Out of range");
-      shutdown(subject_pid, result_file, ENV_ERROR);
-    }
-  }
-  DEBUG("period is " << period);
-  setup_perf_events(subject_pid, HANDLE_EVENTS, &subject_info, period);
+  setup_perf_events(subject_pid, HANDLE_EVENTS, &subject_info);
   setup_buffer(&subject_info);
   handle_perf_register(&subject_info);
 
@@ -647,7 +633,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
             if (sample_type == PERF_RECORD_THROTTLE ||
                 sample_type == PERF_RECORD_UNTHROTTLE) {
-              if (adjust_period(&info, sample_type, &period) == -1) {
+              if (adjust_period(sample_type) == -1) {
                 shutdown(subject_pid, result_file, INTERNAL_ERROR);
               }
               errors.emplace_back(make_pair(
