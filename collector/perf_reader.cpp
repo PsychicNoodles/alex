@@ -381,18 +381,18 @@ perf_fd_info *create_perf_fd_info() { return new perf_fd_info(); }
 /*
  * reset the period of sampling to handle throttle/unthrottle events
  */
-int reset_period(perf_fd_info *info, int sample_type, uint64_t *period) {
+int adjust_period(perf_fd_info *info, int sample_type, uint64_t *period) {
   if (sample_type == PERF_RECORD_THROTTLE) {
     DEBUG("throttle event detected, increasing period");
-    *period = (*period) * 10;
+    *period = (*period) * PERIOD_ADJUST_SCALE;
   } else {
     DEBUG("unthrottle event detected, decreasing period");
-    *period = (*period) / 10;
+    *period = (*period) / PERIOD_ADJUST_SCALE;
   }
 
   DEBUG("new period is " << *period);
   if (ioctl(info->cpu_clock_fd, PERF_EVENT_IOC_PERIOD, period) == -1) {
-    perror("reset_period error: ");
+    perror("adjust_period error: ");
     return -1;
   } else {
     return 0;
@@ -647,7 +647,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
             if (sample_type == PERF_RECORD_THROTTLE ||
                 sample_type == PERF_RECORD_UNTHROTTLE) {
-              if (reset_period(&info, sample_type, &period) == -1) {
+              if (adjust_period(&info, sample_type, &period) == -1) {
                 shutdown(subject_pid, result_file, INTERNAL_ERROR);
               }
               errors.emplace_back(make_pair(
