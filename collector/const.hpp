@@ -14,6 +14,7 @@
 #define EXECUTABLE_FILE_ERROR 3     // Problem with the executable file
 #define DEBUG_SYMBOLS_FILE_ERROR 4  // Problem with the debug symbols file
 #define ENV_ERROR 5                 // Cannot get environment variable
+#define EVENT_ERROR 6                 // Cannot open event
 
 // https://godoc.org/github.com/aclements/go-perf/perffile#pkg-constants
 #define CALLCHAIN_HYPERVISOR 0xffffffffffffffe0

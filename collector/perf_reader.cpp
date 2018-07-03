@@ -192,7 +192,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
           setup_pfm_os_event(&attr, const_cast<char *>(event.c_str()));
       if (pfm_result != PFM_SUCCESS) {
         DEBUG("pfm encoding error: " << pfm_strerror(pfm_result));
-        shutdown(subject_pid, result_file, INTERNAL_ERROR);
+        shutdown(subject_pid, result_file, EVENT_ERROR);
       }
       attr.disabled = false;
 
@@ -592,6 +592,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
           bool is_first_event = true;
           for (const auto &event : events) {
+            //fprintf(result_file, "%s", event.c_str());
             if (is_first_event) {
               is_first_event = false;
             } else {
