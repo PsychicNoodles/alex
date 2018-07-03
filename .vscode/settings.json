@@ -64,7 +64,5 @@
     "ratio": "cpp",
     "atomic": "cpp",
     "ctime": "cpp"
-  },
-  "C_Cpp.default.defines": ["VERSION"],
-  "C_Cpp.errorSquiggles": "Disabled"
+  }
 }
