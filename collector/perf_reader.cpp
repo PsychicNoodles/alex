@@ -192,7 +192,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
           setup_pfm_os_event(&attr, const_cast<char *>(event.c_str()));
       if (pfm_result != PFM_SUCCESS) {
         DEBUG("pfm encoding error: " << pfm_strerror(pfm_result));
-        shutdown(subject_pid, result_file, INTERNAL_ERROR);
+        shutdown(subject_pid, result_file, EVENT_ERROR);
       }
       attr.disabled = false;
 
@@ -659,47 +659,71 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                         "tid": %u,
                         "events": {
                     )",
-                        ps.time, num_timer_ticks, ps.pid, ps.tid);
+                  perf_sample->time, num_timer_ticks, perf_sample->pid,
+                  perf_sample->tid);
 
-                DEBUG("cpd: reading from each fd");
+          DEBUG("cpd: reading from each fd");
 
-                bool is_first_event = true;
-                for (const auto &event : events) {
-                  if (is_first_event) {
-                    is_first_event = false;
-                  } else {
-                    fprintf(result_file, ",");
-                  }
+          bool is_first_event = true;
+          for (const auto &event : events) {
+            //fprintf(result_file, "%s", event.c_str());
+            if (is_first_event) {
+              is_first_event = false;
+            } else {
+              fprintf(result_file, ",");
+            }
 
-                  int64_t count = 0;
-                  DEBUG("cpd: reading from fd " << info.event_fds[event]);
-                  read(info.event_fds[event], &count, sizeof(int64_t));
-                  DEBUG("cpd: read in from fd " << info.event_fds[event]
-                                                << " count " << count);
-                  if (reset_monitoring(info.event_fds[event]) !=
-                      SAMPLER_MONITOR_SUCCESS) {
-                    shutdown(subject_pid, result_file, INTERNAL_ERROR);
-                  }
+            int64_t count = 0;
+            DEBUG("cpd: reading from fd " << info.event_fds[event]);
+            read(info.event_fds[event], &count, sizeof(int64_t));
+            DEBUG("cpd: read in from fd " << info.event_fds[event] << " count "
+                                          << count);
+            if (reset_monitoring(info.event_fds[event]) !=
+                SAMPLER_MONITOR_SUCCESS) {
+              shutdown(subject_pid, result_file, INTERNAL_ERROR);
+            }
 
-                  fprintf(result_file, R"("%s": %ld)", event.c_str(), count);
-                }
-                // rapl
-                if (rapl_reading.running) {
-                  DEBUG("cpd: checking for RAPL energy results");
-                  if (has_result(&rapl_reading)) {
-                    DEBUG("cpd: RAPL result found, writing out");
-                    map<string, uint64_t> nrg =
-                        *(static_cast<map<string, uint64_t> *>(
-                            get_result(&rapl_reading)));
-                    for (auto &p : nrg) {
-                      fprintf(result_file, ",");
-                      fprintf(result_file, R"("%s": %lu)", p.first.c_str(),
-                              p.second);
-                    }
-                    DEBUG("cpd: restarting RAPL energy readings");
-                    restart_reading(&rapl_reading);
-                  }
-                }
+            fprintf(result_file, R"("%s": %ld)", event.c_str(), count);
+          }
+
+          // rapl
+          if (rapl_reading.running) {
+            DEBUG("cpd: checking for RAPL energy results");
+            if (has_result(&rapl_reading)) {
+              DEBUG("cpd: RAPL result found, writing out");
+              map<string, uint64_t> nrg =
+                  *(static_cast<map<string, uint64_t> *>(
+                      get_result(&rapl_reading)));
+              for (auto &p : nrg) {
+                fprintf(result_file, ",");
+                fprintf(result_file, R"("%s": %lu)", p.first.c_str(), p.second);
+              }
+              DEBUG("cpd: restarting RAPL energy readings");
+              restart_reading(&rapl_reading);
+            }
+          }
+
+          // wattsup
+          if (wattsup_reading.running) {
+            DEBUG("cpd: checking for wattsup energy results");
+            if (has_result(&wattsup_reading)) {
+              DEBUG("cpd: wattsup result found, writing out");
+              double ret =
+                  *(static_cast<double *>(get_result(&wattsup_reading)));
+              fprintf(result_file, ",");
+              fprintf(result_file, R"("wattsup": %1lf)", ret);
+              DEBUG("cpd: restarting wattsup energy readings");
+              restart_reading(&wattsup_reading);
+            }
+          }
+
+          static dwarf::dwarf dw = read_dwarf();
+
+          fprintf(result_file,
+                  R"(
+                },
+                "stackFrames": [
+              )");
 
                 // wattsup
                 if (wattsup_reading.running) {

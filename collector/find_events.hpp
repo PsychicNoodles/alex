@@ -4,5 +4,5 @@
 
 using namespace std;
 
-map<string, string> findEvents(const string& preset);
+map<string, string> buildPresets(const string& preset);
 void printPresetEvents(const set<string>& presets, FILE* result_file);

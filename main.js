@@ -180,7 +180,8 @@ function collect({
       2: "There was a problem with the result file.",
       3: "There was a problem with the executable file.",
       4: "There was a problem with the debug symbols file.",
-      5: "There was a problem accessing an environment variable."
+      5: "There was a problem accessing an environment variable.",
+      6: "There was a problem opening the event name."
     };
 
     if (code in errorCodes) {

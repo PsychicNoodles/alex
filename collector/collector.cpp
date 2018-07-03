@@ -129,7 +129,7 @@ static int collector_main(int argc, char **argv, char **env) {
   presets = str_split_set(getenv_safe("COLLECTOR_PRESETS"), ",");
   if (presets.find("cpu") != presets.end() ||
       presets.find("all") != presets.end()) {
-    map<string, string> cpu = findEvents("cpu");
+    map<string, string> cpu = buildPresets("cpu");
     for (auto &it : cpu) {
       events.emplace_back(it.second.c_str());
     }
@@ -137,7 +137,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
   if (presets.find("cache") != presets.end() ||
       presets.find("all") != presets.end()) {
-    map<string, string> cache = findEvents("cache");
+    map<string, string> cache = buildPresets("cache");
     for (auto &it : cache) {
       events.emplace_back(it.second.c_str());
     }
