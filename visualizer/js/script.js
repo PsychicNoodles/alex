@@ -68,7 +68,9 @@ ipcRenderer.on("result", (event, resultFile) => {
   }
 
   rl.on("close", () => {
-    bar.destroy();
+    // usually doesn't appear because JSON.parse takes up all the CPU
+    bar.set(1.0);
+    bar.setText("Parsing JSON...");
 
     result = JSON.parse(result);
     const processedData = processData(result.timeslices, result.header);
@@ -90,5 +92,7 @@ ipcRenderer.on("result", (event, resultFile) => {
       xAxisLabel,
       yAxisLabel
     );
+
+    bar.destroy();
   });
 });
