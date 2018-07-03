@@ -474,7 +474,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           R"(
             {
               "header": {
-                "programVersion": %d
+                "programVersion": %s
               ,
               )",
           VERSION);
