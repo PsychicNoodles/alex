@@ -4,6 +4,10 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#ifndef VERSION
+#define VERSION -1  // should be set by make command
+#endif
+
 #define PAGE_SIZE 0x1000LL
 // this needs to be a power of two :'( (an hour was spent here)
 #define NUM_DATA_PAGES 256
