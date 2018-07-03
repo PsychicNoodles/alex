@@ -656,8 +656,12 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                                       perf_result)}));
             } else if (sample_type == PERF_RECORD_SAMPLE) {
               // if period is too high, the data may be changed under our feet
-              sample_record perf_sample =
-                  *static_cast<sample_record *>(perf_result);
+              sample_record ps{};
+              memcpy(&ps, perf_result, sizeof(sample_record));
+              memcpy(ps.instruction_pointers,
+                     static_cast<sample_record *>(perf_result)
+                         ->instruction_pointers,
+                     sizeof(uint64_t) * ps.num_instruction_pointers);
               if (is_first_sample) {
                 fprintf(result_file,
                         R"(
@@ -668,8 +672,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                         "tid": %u,
                         "events": {
                     )",
-                        perf_sample.time, num_timer_ticks, perf_sample.pid,
-                        perf_sample.tid);
+                        ps.time, num_timer_ticks, ps.pid, ps.tid);
 
                 DEBUG("cpd: reading from each fd");
 
@@ -734,18 +737,17 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
                 bool is_first_stack = true;
                 uint64_t callchain_section = 0;
-                DEBUG("cpd: looking up " << perf_sample.num_instruction_pointers
+                DEBUG("cpd: looking up " << ps.num_instruction_pointers
                                          << " inst ptrs");
-                for (uint64_t i = 0; i < perf_sample.num_instruction_pointers;
-                     i++) {
-                  uint64_t inst_ptr = perf_sample.instruction_pointers[i];
+                for (uint64_t i = 0; i < ps.num_instruction_pointers; i++) {
+                  uint64_t inst_ptr = ps.instruction_pointers[i];
                   if (is_callchain_marker(inst_ptr)) {
                     callchain_section = inst_ptr;
                     continue;
                   }
                   DEBUG("cpd: on instruction pointer "
                         << int_to_hex(inst_ptr) << " (" << (i + 1) << "/"
-                        << perf_sample.num_instruction_pointers << ")");
+                        << ps.num_instruction_pointers << ")");
 
                   if (is_first_stack) {
                     is_first_stack = false;
