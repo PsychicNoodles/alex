@@ -56,8 +56,8 @@ ipcRenderer.on("result", (event, resultFile) => {
             return $2;
           }
         });
-        bytesRead += line.length;
-        if (bytesRead > progressPoints[0]) {
+        bytesRead += line.length + 1;
+        if (bytesRead >= progressPoints[0]) {
           bar.animate(bytesRead / bytesTotal);
           progressPoints.shift();
         }
@@ -68,7 +68,7 @@ ipcRenderer.on("result", (event, resultFile) => {
   }
 
   rl.on("close", () => {
-    bar.animate(1.0);
+    bar.destroy();
 
     result = JSON.parse(result);
     const processedData = processData(result.timeslices, result.header);
