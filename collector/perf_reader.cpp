@@ -402,9 +402,10 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           R"(
             {
               "header": {
-                "programVersion": ")" VERSION R"("
+                "programVersion": %d
               ,
-              )");
+              )",
+          VERSION);
   printPresetEvents(presets, result_file);
   fprintf(result_file,
           R"(
