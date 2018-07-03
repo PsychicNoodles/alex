@@ -16,6 +16,7 @@
 #include "debug.hpp"
 #include "find_events.hpp"
 #include "perf_reader.hpp"
+#include "shared.hpp"
 #include "util.hpp"
 #include "wattsup.hpp"
 
@@ -34,6 +35,28 @@ void ready_handler(int signum) {
   if (signum == SIGUSR2) {
     ready = true;
   }
+}
+
+void setup_global_vars() {
+  DEBUG("collector_main: setting up globals");
+  // set up period
+  uint64_t period = -1;
+
+  if (period == -1) {
+    try {
+      period = stoull(getenv_safe("COLLECTOR_PERIOD", "10000000"));
+      // catch stoll exceptions
+    } catch (std::invalid_argument &e) {
+      DEBUG("failed to get period: Invalid argument");
+      exit(ENV_ERROR);
+    } catch (std::out_of_range &e) {
+      DEBUG("failed to get period: Out of range");
+      exit(ENV_ERROR);
+    }
+  }
+  DEBUG("period is " << period);
+
+  init_global_vars({period});
 }
 
 map<uint64_t, kernel_sym> read_kernel_syms(
@@ -83,6 +106,8 @@ static int collector_main(int argc, char **argv, char **env) {
   DEBUG("Version: " << VERSION);
 
   enable_segfault_trace();
+
+  setup_global_vars();
 
   int result = 0;
 
