@@ -192,7 +192,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
           setup_pfm_os_event(&attr, const_cast<char *>(event.c_str()));
       if (pfm_result != PFM_SUCCESS) {
         DEBUG("pfm encoding error: " << pfm_strerror(pfm_result));
-        shutdown(subject_pid, result_file, INTERNAL_ERROR);
+        shutdown(subject_pid, result_file, EVENT_ERROR);
       }
       attr.disabled = false;
 

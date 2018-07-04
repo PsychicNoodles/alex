@@ -12,7 +12,8 @@
     "precommit": "lint-staged",
     "eslint:fix": "eslint --fix .",
     "clean:outfiles": "rm -f out-* err-* result-*",
-    "example": "npm run clean:outfiles && node . collect --in examples/inputs/matrix-500x500.in -- examples/build/matrixmultiplier"
+    "example": "npm run clean:outfiles && node . collect --in examples/inputs/matrix-500x500.in -- examples/build/matrixmultiplier",
+    "checkpreset:energy": "tested"
   },
   "bin": {
     "alex": "main.js"
@@ -30,6 +31,7 @@
     "lodash": "^4.17.10",
     "popper.js": "^1.14.3",
     "prettier": "^1.13.5",
+    "progressbar.js": "^1.0.1",
     "tempfile": "^2.0.0",
     "yargs": "^11.0.0"
   },
