@@ -24,8 +24,8 @@ Try `node . --help` to see usage information.
   result-xxxx files.
 - `npm run eslint:fix` fixes all JavaScript syntax violations that it can while
   preserving program behavior.
-  `npm run checkpreset` checks for available preset options
-  `npm run checkpreset:all` see all available options for preset settings
+- `npm run checkpreset` checks for available preset options
+- `npm run checkpreset:all` see all available options for preset settings
 
 ## Data Collection
 
