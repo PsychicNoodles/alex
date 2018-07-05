@@ -39,7 +39,11 @@ map<pair<string, string>, bool> buildPresets(const string& preset) {
     events.insert(pair<pair<string, string>, bool>(pair<string, string>("instructions", "instructions"), check_events((char *)"instructions")));
     events.insert(pair<pair<string, string>, bool>(pair<string, string>("branch-misses", "branch-misses"), check_events((char *)"branch-misses")));
   } else if (preset == "energy") {
-    events.insert(pair<pair<string, string>, bool>(pair<string, string>("wattsup", "wattsup"), wattsupSetUp()));
+    bool wattsup_available = false;
+    if (wattsupSetUp() != -1) {
+      wattsup_available = true;
+    }
+    events.insert(pair<pair<string, string>, bool>(pair<string, string>("wattsup", "wattsup"), wattsup_available));
     vector<string> powerzones = find_in_dir(ENERGY_ROOT, "intel-rapl:");
     bool rapl_available = false;
     if (powerzones.size() != 0) {
