@@ -67,16 +67,4 @@ void printPresetEvents(const set<string>& presets, FILE* result_file) {
  fprintf(result_file, R"(
    }
    )");
-  
-  
-//             "cpu": {
-//                 "numCPUCycles": ["cpu-cycles"],
-//                 "numInstructions": ["instructions"]
-//             },
-//             "cache": {
-//                 "hits": ["MEM_LOAD_RETIRED.L3_HIT"],
-//                 "misses": ["MEM_LOAD_RETIRED.L3_MISS"]
-//             }
-//         }
-//   )");
 }
