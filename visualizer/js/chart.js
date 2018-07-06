@@ -35,7 +35,7 @@ function render(
     spectrum
   });
 
-  const brushesGroup = root.append("g").call(brushes.addBrush, {
+  const brushesGroup = root.append("g").call(brushes.render, {
     timeslices,
     chart: root,
     xScale,

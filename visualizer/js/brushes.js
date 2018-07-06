@@ -1,16 +1,16 @@
 const d3 = require("d3");
 const functionRuntimes = require("./function-runtimes");
-const { createStore } = require("./store");
+const { Store } = require("./store");
 
 const nextBrushId = d3.local();
 const brushesLocal = d3.local();
 
 const brushId = d3.local();
 
-const store = createStore({
+const store = new Store({
   selections: [],
-  nextSelectionId: 0,
-  lastMovedBrush: null
+  nextSelectionId: 0
+  // lastMovedBrush: null
 });
 
 function initLocals(root) {
@@ -24,10 +24,6 @@ function initLocals(root) {
 }
 
 function addBrush(root, { timeslices, chart, xScale, getIndependentVariable }) {
-  initLocals(root);
-
-  root.classed("brushes", true);
-
   // Add brush to array of objects
   const id = root.property(nextBrushId);
   root.property(brushesLocal, [...root.property(brushesLocal), { id }]);
@@ -42,22 +38,25 @@ function addBrush(root, { timeslices, chart, xScale, getIndependentVariable }) {
 }
 
 function render(root, { timeslices, chart, xScale, getIndependentVariable }) {
+  // Require here to avoid circular dependency
   const { WIDTH, HEIGHT } = require("./chart");
 
   initLocals(root);
+  root.classed("brushes", true);
 
   const brushSelection = root
     .selectAll("g.brush")
-    .data(root.property(brushesLocal));
+    .data([...root.property(brushesLocal), { id: root.property(nextBrushId) }]);
 
   const brushEnterSelection = brushSelection
     .enter()
     .insert("g", ".brush")
-    .attr("class", "brush brush--invisible");
+    .attr("class", "brush");
 
   brushEnterSelection
     .merge(brushSelection)
     .property(brushId, brush => brush.id)
+    .classed("brush--invisible", ({ id }) => id === root.property(nextBrushId))
     .call(
       d3
         .brushX()
@@ -72,8 +71,9 @@ function render(root, { timeslices, chart, xScale, getIndependentVariable }) {
             getIndependentVariable
           });
         })
-        .on("end", () => {
+        .on("end", function() {
           onBrushMoveEnd({
+            currentBrush: this,
             timeslices,
             root,
             chart,
@@ -146,11 +146,12 @@ function onBrushMove({
         `translate(${d3.brushSelection(currentBrush)[1] - 24},0)`
       );
 
-    d3.select(currentBrush).attr("class", "brush");
+    d3.select(currentBrush).classed("brush--invisible", false);
   }
 }
 
 function onBrushMoveEnd({
+  currentBrush,
   timeslices,
   root,
   chart,
@@ -161,8 +162,8 @@ function onBrushMoveEnd({
     data: timeslices
   });
 
-  // We must ensure that there is always an invisible selection
-  if (root.select(".brush--invisible").empty()) {
+  // If we selected the invisible brush, add it to the official list
+  if (brushId.get(currentBrush) === root.property(nextBrushId)) {
     root.call(addBrush, {
       timeslices,
       chart,
@@ -213,7 +214,12 @@ function selectPoints({
 }
 
 function clear(root, { chart, timeslices, xScale, getIndependentVariable }) {
-  initLocals(root);
+  root.call(render, {
+    timeslices,
+    chart,
+    xScale,
+    getIndependentVariable
+  });
 
   const circles = chart.selectAll("circle");
 
@@ -229,14 +235,12 @@ function clear(root, { chart, timeslices, xScale, getIndependentVariable }) {
 
   root.property(brushesLocal, []);
 
-  root.selectAll(".brush").remove();
-  root.call(addBrush, {
+  root.call(render, {
     timeslices,
     chart,
-    root,
     xScale,
     getIndependentVariable
   });
 }
 
-module.exports = { addBrush, clear };
+module.exports = { render, clear };
