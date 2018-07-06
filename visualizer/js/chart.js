@@ -2,6 +2,7 @@ const d3 = require("d3");
 
 const plot = require("./plot");
 const brushes = require("./brushes");
+const functionRuntimes = require("./function-runtimes");
 
 const WIDTH = 500;
 const HEIGHT = 250;
@@ -35,19 +36,32 @@ function render(
     spectrum
   });
 
-  const brushesGroup = root.append("g").call(brushes.render, {
-    timeslices,
-    chart: root,
-    xScale,
-    getIndependentVariable
-  });
+  const brushesGroup = root.append("g");
+
+  const brushesSubscription = brushes.store.subscribe(
+    ({ selections, nextSelectionId }) => {
+      brushesGroup.call(brushes.render, {
+        timeslices,
+        chart: root,
+        xScale,
+        getIndependentVariable,
+        selections,
+        nextSelectionId
+      });
+    }
+  );
 
   document.getElementById("btnClearBrushes").addEventListener("click", () => {
-    brushesGroup.call(brushes.clear, {
-      chart: root,
-      timeslices,
-      xScale,
-      getIndependentVariable
+    const circles = root.selectAll("circle");
+
+    for (const timeslice of timeslices) {
+      timeslice.selected = false;
+    }
+
+    circles.attr("class", "circle");
+
+    d3.select("#function-runtimes").call(functionRuntimes.render, {
+      data: timeslices
     });
   });
 

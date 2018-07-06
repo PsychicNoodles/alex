@@ -1,3 +1,5 @@
+const { isEqual } = require("lodash");
+
 /**
  * Represents a piece of state that can be listened to for changes.
  */
@@ -41,10 +43,12 @@ class Store {
    */
   dispatch(getNextState) {
     const newState = getNextState(this._state);
-    if (newState !== this._state) {
+    if (!isEqual(newState, this._state)) {
       this._state = newState;
       for (const listener of this._listeners) {
-        listener(this._state);
+        requestAnimationFrame(() => {
+          listener(this._state);
+        });
       }
     }
   }
