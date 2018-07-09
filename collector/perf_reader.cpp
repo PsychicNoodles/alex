@@ -590,14 +590,15 @@ int collect_perf_data(map<uint64_t, kernel_sym> kernel_syms, int sigt_fd,
                   DEBUG("cpd: checking for RAPL energy results");
                   if (has_result(&rapl_reading)) {
                     DEBUG("cpd: RAPL result found, writing out");
-                    map<string, uint64_t> nrg =
-                        *(static_cast<map<string, uint64_t> *>(
+                    map<string, uint64_t> *nrg =
+                        (static_cast<map<string, uint64_t> *>(
                             get_result(&rapl_reading)));
-                    for (auto &p : nrg) {
+                    for (auto &p : *nrg) {
                       fprintf(result_file, ",");
                       fprintf(result_file, R"("%s": %lu)", p.first.c_str(),
                               p.second);
                     }
+                    delete nrg;
                     DEBUG("cpd: restarting RAPL energy readings");
                     restart_reading(&rapl_reading);
                   }
@@ -608,10 +609,11 @@ int collect_perf_data(map<uint64_t, kernel_sym> kernel_syms, int sigt_fd,
                   DEBUG("cpd: checking for wattsup energy results");
                   if (has_result(&wattsup_reading)) {
                     DEBUG("cpd: wattsup result found, writing out");
-                    double ret =
-                        *(static_cast<double *>(get_result(&wattsup_reading)));
+                    double *ret =
+                        (static_cast<double *>(get_result(&wattsup_reading)));
                     fprintf(result_file, ",");
-                    fprintf(result_file, R"("wattsup": %1lf)", ret);
+                    fprintf(result_file, R"("wattsup": %1lf)", *ret);
+                    delete ret;
                     DEBUG("cpd: restarting wattsup energy readings");
                     restart_reading(&wattsup_reading);
                   }
