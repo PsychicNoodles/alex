@@ -6,8 +6,8 @@ const brushId = d3.local();
 
 const store = new Store({
   selections: [],
-  nextSelectionId: 0
-  // lastMovedBrush: null
+  nextSelectionId: 0,
+  lastMovedBrush: null
 });
 
 document.getElementById("btnClearBrushes").addEventListener("click", () => {
@@ -57,21 +57,36 @@ function render(
       });
     });
 
-  const brushSelection = root
-    .selectAll("g.brush")
-    .data([{ id: nextSelectionId, range: [0, 0] }, ...selections]);
+  const brushSelection = root.selectAll("g.brush").data(
+    // Insert an invisible brush before all others (so it is at the bottom of
+    // the stack and doesn't steal mouse clicks from existing brushes)
+    [{ id: nextSelectionId, range: [0, 0] }, ...selections],
+    // We need to use a key because we want to create a new element for each
+    // new invisible selection
+    selection => selection.id
+  );
 
   const brushEnterSelection = brushSelection
     .enter()
     .append("g")
     .attr("class", "brush");
 
-  brushEnterSelection
-    .merge(brushSelection)
+  const brushMergeSelection = brushEnterSelection.merge(brushSelection);
+
+  brushMergeSelection
     .property(brushId, brush => brush.id)
     .classed("brush--invisible", ({ id }) => id === nextSelectionId)
     .call(brush)
-    .call(brush.move, selection => selection.range);
+    .each(function({ range }) {
+      const actualRange = d3.brushSelection(this);
+      if (
+        !actualRange ||
+        actualRange[0] !== range[0] ||
+        actualRange[1] !== range[1]
+      ) {
+        d3.select(this).call(brush.move, range);
+      }
+    });
 
   brushSelection.exit().remove();
 
@@ -82,7 +97,6 @@ function render(
       .select(this)
       .append("g")
       .attr("class", "brush__close")
-      .attr("transform", ({ range }) => `translate(${range[1] - 24},0)`)
       .on("click", () => {
         store.dispatch(state => ({
           ...state,
@@ -109,6 +123,12 @@ function render(
       )
       .attr("class", "brush__close");
   });
+
+  brushMergeSelection.each(function({ range }) {
+    d3.select(this)
+      .select(".brush__close")
+      .attr("transform", `translate(${range[1] - 24}, 0)`);
+  });
 }
 
 // Re-color the circles in the region that was selected by the user
@@ -120,18 +140,19 @@ function onBrushMove({
   root,
   getIndependentVariable
 }) {
-  const selection = d3.event.selection;
-  if (selection !== null) {
+  if (d3.event.selection !== null) {
     selectPoints({ timeslices, chart, root, xScale, getIndependentVariable });
 
-    d3.select(currentBrush)
-      .select(".brush__close")
-      .attr(
-        "transform",
-        `translate(${d3.brushSelection(currentBrush)[1] - 24},0)`
-      );
+    // d3.select(currentBrush)
+    //   .select(".brush__close")
+    //   .attr(
+    //     "transform",
+    //     `translate(${d3.brushSelection(currentBrush)[1] - 24},0)`
+    //   );
 
-    d3.select(currentBrush).classed("brush--invisible", false);
+    // d3.select(currentBrush).classed("brush--invisible", false);
+
+    updateSelections(currentBrush);
   }
 }
 
@@ -140,23 +161,42 @@ function onBrushMoveEnd({ currentBrush, timeslices }) {
     data: timeslices
   });
 
+  updateSelections(currentBrush);
+}
+
+function updateSelections(currentBrush) {
   const id = brushId.get(currentBrush);
   const range = d3.brushSelection(currentBrush);
 
-  // If we selected the invisible brush, add it to the official list
-  if (range && id === store.getState().nextSelectionId) {
-    store.dispatch(state => ({
-      ...state,
-      selections: [{ id, range }, ...state.selections],
-      nextSelectionId: state.nextSelectionId + 1
-    }));
-  } else {
-    store.dispatch(state => ({
-      ...state,
-      selections: state.selections.map(
-        selection => (selection.id === id ? { ...selection, range } : selection)
-      )
-    }));
+  if (range) {
+    if (id === store.getState().nextSelectionId) {
+      // If we selected the invisible brush, add it to the official list
+      store.dispatch(state => ({
+        ...state,
+        selections: [{ id, range }, ...state.selections],
+        nextSelectionId: state.nextSelectionId + 1,
+        lastMovedBrush: currentBrush
+      }));
+    } else {
+      // Otherwise, update the range of the existing selection
+      store.dispatch(state => {
+        const oldRange = state.selections.find(selection => selection.id === id)
+          .range;
+
+        if (oldRange[0] !== range[0] || oldRange[1] !== range[1]) {
+          return {
+            ...state,
+            selections: state.selections.map(
+              selection =>
+                selection.id === id ? { ...selection, range } : selection
+            ),
+            lastMovedBrush: currentBrush
+          };
+        } else {
+          return state;
+        }
+      });
+    }
   }
 }
 
