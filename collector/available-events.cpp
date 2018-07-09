@@ -37,7 +37,13 @@ map<pair<string, string>, bool> buildPresets(const string& preset) {
   } else if (preset == "cpu") {
     events.insert(pair<pair<string, string>, bool>(pair<string, string>("CPUcycles", "cpu-cycles"), check_events((char *)"cpu-cycles")));
     events.insert(pair<pair<string, string>, bool>(pair<string, string>("instructions", "instructions"), check_events((char *)"instructions")));
-    events.insert(pair<pair<string, string>, bool>(pair<string, string>("branch-misses", "branch-misses"), check_events((char *)"branch-misses")));
+  } else if (preset == "branch") {
+    events.insert(pair<pair<string, string>, bool>(
+        pair<string, string>("branches", "branches"),
+        check_events((char *)"branches")));
+    events.insert(pair<pair<string, string>, bool>(
+        pair<string, string>("branch-misses", "branch-misses"),
+        check_events((char *)"branch-misses")));
   } else if (preset == "energy") {
     bool wattsup_available = false;
     if (wattsupSetUp() != -1) {
@@ -68,6 +74,7 @@ int main (int argc, char ** argv) {
     if (strcmp(argv[1], "all") == 0) {
       real_presets.insert("cache");
       real_presets.insert("cpu");
+      real_presets.insert("branch");
       real_presets.insert("energy");
     } else {
         for (int i = 1; i < argc; i++) {
