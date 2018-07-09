@@ -20,7 +20,9 @@ map<string, string> buildPresets(const string& preset) {
   } else if (preset == "cpu") {
     events.insert(pair<string, string>("CPUcycles", "cpu-cycles"));
     events.insert(pair<string, string>("instructions", "instructions"));
+  } else if (preset == "branch") {
     events.insert(pair<string, string>("branch-misses", "branch-misses"));
+    events.insert(pair<string, string>("branches", "branches"));
   } else if (preset == "energy") {
     events.insert(pair<string, string>("wattsup", "wattsup"));
     events.insert(pair<string, string>("rapl", "rapl"));
@@ -38,6 +40,7 @@ void printPresetEvents(const set<string>& presets, FILE* result_file) {
    real_presets.insert("cache");
    real_presets.insert("cpu");
    real_presets.insert("energy");
+   real_presets.insert("branch");
  } else real_presets = presets;
  bool is_first_preset = true;
  for (auto preset : real_presets) {
