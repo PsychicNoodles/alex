@@ -5,6 +5,17 @@
 
 const { cloneDeep } = require("lodash");
 
+function isInvalidTimeslice(timeslice) {
+  return (
+    timeslice.cpuTime === 0 ||
+    timeslice.stackFrames === undefined ||
+    timeslice.stackFrames.length === 0 ||
+    timeslice.stackFrames.every(sf => sf.address === "(nil)") ||
+    timeslice.pid === 0 ||
+    timeslice.tid === 0
+  );
+}
+
 function processData(immutableData, header) {
   const data = cloneDeep(immutableData);
 
@@ -13,7 +24,14 @@ function processData(immutableData, header) {
   const missesEvents = header.presets.cache.misses;
 
   const initialCPUTime = data[0].cpuTime;
-  for (const timeslice of data) {
+  let i = data.length;
+  while (i--) {
+    const timeslice = data[i];
+    if (isInvalidTimeslice(timeslice)) {
+      data.splice(i, 1);
+      continue;
+    }
+
     // Remove the initial offset from CPU time
     timeslice.cpuTime -= initialCPUTime;
 

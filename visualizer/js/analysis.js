@@ -82,6 +82,7 @@ function runtimePerFunction(inputData, outputData) {
 function chiSquared(inputData, outputData) {
   /* "Associative arrays", containing counts of function appearances within a
     region. Key = function name. Value = function count. */
+
   const selected = {};
   let selectedTotal = 0;
   const unselected = {};

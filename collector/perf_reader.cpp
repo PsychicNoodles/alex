@@ -41,6 +41,7 @@
 #include "find_events.hpp"
 #include "perf_reader.hpp"
 #include "rapl.hpp"
+#include "shared.hpp"
 #include "util.hpp"
 #include "wattsup.hpp"
 
@@ -56,7 +57,7 @@ using std::vector;
 
 // contents of buffer filled when PERF_RECORD_SAMPLE type is enabled plus
 // certain sample types
-struct Sample {
+struct sample_record {
   // PERF_SAMPLE_TID
   uint32_t pid;
   uint32_t tid;
@@ -65,6 +66,22 @@ struct Sample {
   // PERF_SAMPLE_CALLCHAIN
   uint64_t num_instruction_pointers;
   uint64_t instruction_pointers[];
+};
+
+// contents of buffer filled when PERF_RECORD_THROTTLE or PERF_RECORD_UNTHROTTLE
+// is returned
+struct throttle_record {
+  // PERF_SAMPLE_TIME
+  uint64_t time;
+  // PERF_SAMPLE_ID
+  uint64_t id;
+  // PERF_SAMPLE_STREAM_ID
+  uint64_t stream_id;
+};
+
+union base_record {
+  sample_record sr;
+  throttle_record tr;
 };
 
 // pid of the subject of the data collection
@@ -138,23 +155,6 @@ void delete_fd_from_epoll(int fd) {
  */
 void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   DEBUG("setting up perf events for target " << target);
-
-  static uint64_t period = -1;
-
-  if (period == -1) {
-    try {
-      period = stoull(getenv_safe("COLLECTOR_PERIOD", "10000000"));
-      // catch stoll exceptions
-    } catch (std::invalid_argument &e) {
-      DEBUG("failed to get period: Invalid argument");
-      shutdown(subject_pid, result_file, ENV_ERROR);
-    } catch (std::out_of_range &e) {
-      DEBUG("failed to get period: Out of range");
-      shutdown(subject_pid, result_file, ENV_ERROR);
-    }
-  }
-  DEBUG("period is " << period);
-
   // set up the cpu cycles perf buffer
   perf_event_attr cpu_clock_attr{};
   memset(&cpu_clock_attr, 0, sizeof(perf_event_attr));
@@ -164,7 +164,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   cpu_clock_attr.type = PERF_TYPE_SOFTWARE;
   cpu_clock_attr.config = PERF_COUNT_SW_CPU_CLOCK;
   cpu_clock_attr.sample_type = SAMPLE_TYPE;
-  cpu_clock_attr.sample_period = period;
+  cpu_clock_attr.sample_period = global->period;
   cpu_clock_attr.wakeup_events = 1;
 
   perf_buffer cpu_clock_perf{};
@@ -209,8 +209,8 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   }
 
   // all related events are ready, so time to start monitoring
-  DEBUG("starting monitoring for " << target);
-  if (start_monitoring(cpu_clock_perf.fd) != SAMPLER_MONITOR_SUCCESS) {
+  DEBUG("starting monitoring");
+  if (start_monitoring(info->cpu_clock_fd) != SAMPLER_MONITOR_SUCCESS) {
     shutdown(subject_pid, result_file, INTERNAL_ERROR);
   }
 }
@@ -379,11 +379,82 @@ dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
 perf_fd_info *create_perf_fd_info() { return new perf_fd_info(); }
 
 /*
+ * reset the period of sampling to handle throttle/unthrottle events
+ */
+int adjust_period(int sample_type) {
+  if (sample_type == PERF_RECORD_THROTTLE) {
+    DEBUG("throttle event detected, increasing period");
+    global->period = (global->period) * PERIOD_ADJUST_SCALE;
+  } else {
+    DEBUG("unthrottle event detected, decreasing period");
+    global->period = (global->period) / PERIOD_ADJUST_SCALE;
+  }
+
+  DEBUG("new period is " << global->period);
+  for (auto &p : perf_info_mappings) {
+    DEBUG("adjusting period for fd " << p.first);
+    if (ioctl(p.first, PERF_EVENT_IOC_PERIOD, &global->period) == -1) {
+      perror("failed to adjust period");
+      return -1;
+    }
+  }
+  return 0;
+}
+
+void print_errors(vector<pair<int, base_record *>> errors, FILE *result_file) {
+  bool is_first_element = true;
+  for (auto &p : errors) {
+    if (is_first_element) {
+      is_first_element = false;
+    } else {
+      fprintf(result_file, R"(
+      ,
+    )");
+    }
+    if (p.first == PERF_RECORD_THROTTLE) {
+      auto perf_record = p.second->tr;
+      uint64_t time = perf_record.time;
+      uint64_t id = perf_record.id;
+      fprintf(result_file, R"(
+      {
+       "type": "PERF_RECORD_THROTTLE",
+       "time": %lu, 
+       "id": %lu
+      }
+    )",
+              time, id);
+    } else if (p.first == PERF_RECORD_UNTHROTTLE) {
+      auto perf_record = p.second->tr;
+      uint64_t time = perf_record.time;
+      uint64_t id = perf_record.id;
+      fprintf(result_file, R"(
+      {
+       "type": "PERF_RECORD_UNTHROTTLE",
+       "time": %lu,
+       "id": %lu
+      }
+    )",
+              time, id);
+    } else {
+      DEBUG("couldn't determine type of error for " << p.first << "!");
+      fprintf(result_file, R"|(
+      {
+       "type": "(null)"
+      }
+    )|");
+    }
+    delete p.second;
+  }
+}
+
+/*
  * Sets up the required events and records performance of subject process into
  * result file.
  */
 int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                       int sigt_fd, int socket, int wu_fd) {
+  vector<pair<int, base_record *>> errors;
+
   DEBUG("collector_main: registering " << sigt_fd << " as sigterm fd");
   add_fd_to_epoll(sigt_fd);
 
@@ -392,6 +463,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
   DEBUG("cpd: setting up perf events for main thread in subject");
   perf_fd_info subject_info;
+
   setup_perf_events(subject_pid, HANDLE_EVENTS, &subject_info);
   setup_buffer(&subject_info);
   handle_perf_register(&subject_info);
@@ -553,32 +625,33 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             fprintf(result_file, ",");
           }
 
-          int sample_type;
-          int sample_size;
-          DEBUG("cpd: getting next sample");
-          auto *perf_sample = static_cast<Sample *>(
-              get_next_sample(&info.sample_buf, &sample_type, &sample_size));
-          if (sample_type != PERF_RECORD_SAMPLE) {
-            DEBUG("cpd: sample type was not PERF_RECORD_SAMPLE, it was "
-                  << sample_type);
-            shutdown(subject_pid, result_file, INTERNAL_ERROR);
-          }
-          DEBUG("cpd: sample pid = " << perf_sample->pid
-                                     << ", tid = " << perf_sample->tid);
+          bool is_first_sample = true;
           while (has_next_sample(&info.sample_buf)) {
-            DEBUG("cpd: clearing extra samples");
-            int temp_type, temp_size;
-            get_next_sample(&info.sample_buf, &temp_type, &temp_size);
-            DEBUG("cpd: extra sample type " << temp_type);
-            if (temp_type != PERF_RECORD_SAMPLE) {
-              DEBUG("cpd: sample type was not PERF_RECORD_SAMPLE, it was "
-                    << temp_type);
-              shutdown(subject_pid, result_file, INTERNAL_ERROR);
-            }
-          }
+            DEBUG("cpd: getting next sample");
+            int sample_type, sample_size;
+            void *perf_result =
+                get_next_sample(&info.sample_buf, &sample_type, &sample_size);
 
-          fprintf(result_file,
-                  R"(
+            if (sample_type == PERF_RECORD_THROTTLE ||
+                sample_type == PERF_RECORD_UNTHROTTLE) {
+              if (adjust_period(sample_type) == -1) {
+                shutdown(subject_pid, result_file, INTERNAL_ERROR);
+              }
+              errors.emplace_back(make_pair(
+                  sample_type,
+                  new base_record{.tr = *reinterpret_cast<throttle_record *>(
+                                      perf_result)}));
+            } else if (sample_type == PERF_RECORD_SAMPLE) {
+              // if period is too high, the data may be changed under our feet
+              sample_record ps{};
+              memcpy(&ps, perf_result, sizeof(sample_record));
+              memcpy(ps.instruction_pointers,
+                     static_cast<sample_record *>(perf_result)
+                         ->instruction_pointers,
+                     sizeof(uint64_t) * ps.num_instruction_pointers);
+              if (is_first_sample) {
+                fprintf(result_file,
+                        R"(
                       {
                         "cpuTime": %lu,
                         "numCPUTimerTicks": %ld,
@@ -586,196 +659,225 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                         "tid": %u,
                         "events": {
                     )",
-                  perf_sample->time, num_timer_ticks, perf_sample->pid,
-                  perf_sample->tid);
+                        ps.time, num_timer_ticks, ps.pid, ps.tid);
 
-          DEBUG("cpd: reading from each fd");
+                DEBUG("cpd: reading from each fd");
 
-          bool is_first_event = true;
-          for (const auto &event : events) {
-            //fprintf(result_file, "%s", event.c_str());
-            if (is_first_event) {
-              is_first_event = false;
-            } else {
-              fprintf(result_file, ",");
-            }
+                bool is_first_event = true;
+                for (const auto &event : events) {
+                  // fprintf(result_file, "%s", event.c_str());
+                  if (is_first_event) {
+                    is_first_event = false;
+                  } else {
+                    fprintf(result_file, ",");
+                  }
 
-            int64_t count = 0;
-            DEBUG("cpd: reading from fd " << info.event_fds[event]);
-            read(info.event_fds[event], &count, sizeof(int64_t));
-            DEBUG("cpd: read in from fd " << info.event_fds[event] << " count "
-                                          << count);
-            if (reset_monitoring(info.event_fds[event]) !=
-                SAMPLER_MONITOR_SUCCESS) {
-              shutdown(subject_pid, result_file, INTERNAL_ERROR);
-            }
+                  int64_t count = 0;
+                  DEBUG("cpd: reading from fd " << info.event_fds[event]);
+                  read(info.event_fds[event], &count, sizeof(int64_t));
+                  DEBUG("cpd: read in from fd " << info.event_fds[event]
+                                                << " count " << count);
+                  if (reset_monitoring(info.event_fds[event]) !=
+                      SAMPLER_MONITOR_SUCCESS) {
+                    shutdown(subject_pid, result_file, INTERNAL_ERROR);
+                  }
 
-            fprintf(result_file, R"("%s": %ld)", event.c_str(), count);
-          }
+                  fprintf(result_file, R"("%s": %ld)", event.c_str(), count);
+                }
 
-          // rapl
-          if (rapl_reading.running) {
-            DEBUG("cpd: checking for RAPL energy results");
-            if (has_result(&rapl_reading)) {
-              DEBUG("cpd: RAPL result found, writing out");
-              map<string, uint64_t> nrg =
-                  *(static_cast<map<string, uint64_t> *>(
-                      get_result(&rapl_reading)));
-              for (auto &p : nrg) {
-                fprintf(result_file, ",");
-                fprintf(result_file, R"("%s": %lu)", p.first.c_str(), p.second);
-              }
-              DEBUG("cpd: restarting RAPL energy readings");
-              restart_reading(&rapl_reading);
-            }
-          }
+                // rapl
+                if (rapl_reading.running) {
+                  DEBUG("cpd: checking for RAPL energy results");
+                  if (has_result(&rapl_reading)) {
+                    DEBUG("cpd: RAPL result found, writing out");
+                    map<string, uint64_t> nrg =
+                        *(static_cast<map<string, uint64_t> *>(
+                            get_result(&rapl_reading)));
+                    for (auto &p : nrg) {
+                      fprintf(result_file, ",");
+                      fprintf(result_file, R"("%s": %lu)", p.first.c_str(),
+                              p.second);
+                    }
+                    DEBUG("cpd: restarting RAPL energy readings");
+                    restart_reading(&rapl_reading);
+                  }
+                }
 
-          // wattsup
-          if (wattsup_reading.running) {
-            DEBUG("cpd: checking for wattsup energy results");
-            if (has_result(&wattsup_reading)) {
-              DEBUG("cpd: wattsup result found, writing out");
-              double ret =
-                  *(static_cast<double *>(get_result(&wattsup_reading)));
-              fprintf(result_file, ",");
-              fprintf(result_file, R"("wattsup": %1lf)", ret);
-              DEBUG("cpd: restarting wattsup energy readings");
-              restart_reading(&wattsup_reading);
-            }
-          }
+                // wattsup
+                if (wattsup_reading.running) {
+                  DEBUG("cpd: checking for wattsup energy results");
+                  if (has_result(&wattsup_reading)) {
+                    DEBUG("cpd: wattsup result found, writing out");
+                    double ret =
+                        *(static_cast<double *>(get_result(&wattsup_reading)));
+                    fprintf(result_file, ",");
+                    fprintf(result_file, R"("wattsup": %1lf)", ret);
+                    DEBUG("cpd: restarting wattsup energy readings");
+                    restart_reading(&wattsup_reading);
+                  }
+                }
 
-          static dwarf::dwarf dw = read_dwarf();
+                // wattsup
+                if (wattsup_reading.running) {
+                  DEBUG("cpd: checking for wattsup energy results");
+                  if (has_result(&wattsup_reading)) {
+                    DEBUG("cpd: wattsup result found, writing out");
+                    double ret =
+                        *(static_cast<double *>(get_result(&wattsup_reading)));
+                    fprintf(result_file, ",");
+                    fprintf(result_file, R"("wattsup": %1lf)", ret);
+                    DEBUG("cpd: restarting wattsup energy readings");
+                    restart_reading(&wattsup_reading);
+                  }
+                }
 
-          fprintf(result_file,
-                  R"(
-                },
-                "stackFrames": [
-              )");
+                fprintf(result_file, R"(
+                  },
+                  "stackFrames": [
+                    )");
 
-          bool is_first_sample = true;
-          uint64_t callchain_section = 0;
-          for (int i = 0; i < perf_sample->num_instruction_pointers; i++) {
-            uint64_t inst_ptr = perf_sample->instruction_pointers[i];
-            if (is_callchain_marker(inst_ptr)) {
-              callchain_section = inst_ptr;
-              continue;
-            }
-            DEBUG("cpd: on instruction pointer " << int_to_hex(inst_ptr));
+                bool is_first_stack = true;
+                uint64_t callchain_section = 0;
+                DEBUG("cpd: looking up " << ps.num_instruction_pointers
+                                         << " inst ptrs");
+                for (uint64_t i = 0; i < ps.num_instruction_pointers; i++) {
+                  uint64_t inst_ptr = ps.instruction_pointers[i];
+                  if (is_callchain_marker(inst_ptr)) {
+                    callchain_section = inst_ptr;
+                    continue;
+                  }
+                  DEBUG("cpd: on instruction pointer "
+                        << int_to_hex(inst_ptr) << " (" << (i + 1) << "/"
+                        << ps.num_instruction_pointers << ")");
 
-            if (is_first_sample) {
-              is_first_sample = false;
-            } else {
-              fprintf(result_file, ",");
-            }
+                  if (is_first_stack) {
+                    is_first_stack = false;
+                  } else {
+                    fprintf(result_file, ",");
+                  }
 
-            fprintf(result_file,
-                    R"(
+                  fprintf(result_file,
+                          R"(
                   { "address": "%p",
                     "section": "%s",)",
-                    reinterpret_cast<void *>(inst_ptr),
-                    callchain_str(callchain_section));
+                          reinterpret_cast<void *>(inst_ptr),
+                          callchain_str(callchain_section));
 
-            string sym_name_str;
-            const char *sym_name = nullptr, *file_name = nullptr,
-                       *function_name = nullptr;
-            char *demangled_name = nullptr;
-            void *file_base = nullptr, *sym_addr = nullptr;
-            DEBUG("cpd: looking up symbol for inst ptr "
-                  << ptr_fmt((void *)inst_ptr));
-            if (callchain_section == CALLCHAIN_USER) {
-              DEBUG("cpd: looking up user stack frame");
-              Dl_info info;
-              // Lookup the name of the function given the function pointer
-              if (dladdr(reinterpret_cast<void *>(inst_ptr), &info) != 0) {
-                sym_name = info.dli_sname;
-                file_name = info.dli_fname;
-                file_base = info.dli_fbase;
-                sym_addr = info.dli_saddr;
-              } else {
-                DEBUG("cpd: could not look up user stack frame");
-              }
-            } else if (callchain_section == CALLCHAIN_KERNEL) {
-              DEBUG("cpd: looking up kernel stack frame");
-              uint64_t addr = lookup_kernel_addr(kernel_syms, inst_ptr);
-              if (addr != -1) {
-                auto ks = kernel_syms.at(addr);
-                sym_name_str = ks.sym;
-                sym_name = sym_name_str.c_str();
-                file_name = "(kernel)";
-                file_base = nullptr;
-                sym_addr = reinterpret_cast<void *>(addr);
-              }
-            }
-            // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
-            if (sym_name != nullptr) {
-              int demangle_status;
-              demangled_name = abi::__cxa_demangle(sym_name, nullptr, nullptr,
-                                                   &demangle_status);
-              if (demangle_status == 0) {
-                function_name = demangled_name;
-              } else {
-                function_name = sym_name;
+                  string sym_name_str;
+                  const char *sym_name = nullptr, *file_name = nullptr,
+                             *function_name = nullptr;
+                  char *demangled_name = nullptr;
+                  void *file_base = nullptr, *sym_addr = nullptr;
+                  DEBUG("cpd: looking up symbol for inst ptr "
+                        << ptr_fmt((void *)inst_ptr));
+                  if (callchain_section == CALLCHAIN_USER) {
+                    DEBUG("cpd: looking up user stack frame");
+                    Dl_info info;
+                    // Lookup the name of the function given the function
+                    // pointer
+                    if (dladdr(reinterpret_cast<void *>(inst_ptr), &info) !=
+                        0) {
+                      sym_name = info.dli_sname;
+                      file_name = info.dli_fname;
+                      file_base = info.dli_fbase;
+                      sym_addr = info.dli_saddr;
+                    } else {
+                      DEBUG("cpd: could not look up user stack frame");
+                    }
+                  } else if (callchain_section == CALLCHAIN_KERNEL) {
+                    DEBUG("cpd: looking up kernel stack frame");
+                    uint64_t addr = lookup_kernel_addr(kernel_syms, inst_ptr);
+                    if (addr != -1) {
+                      auto ks = kernel_syms.at(addr);
+                      sym_name_str = ks.sym;
+                      sym_name = sym_name_str.c_str();
+                      file_name = "(kernel)";
+                      file_base = nullptr;
+                      sym_addr = reinterpret_cast<void *>(addr);
+                    }
+                  }
+                  // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
+                  if (sym_name != nullptr) {
+                    int demangle_status;
+                    demangled_name = abi::__cxa_demangle(
+                        sym_name, nullptr, nullptr, &demangle_status);
+                    if (demangle_status == 0) {
+                      function_name = demangled_name;
+                    } else {
+                      function_name = sym_name;
 
-                if (demangle_status == -1) {
-                  DEBUG(
-                      "cpd: demangling errored due to memory allocation "
-                      "failure");
-                  shutdown(subject_pid, result_file, INTERNAL_ERROR);
-                } else if (demangle_status == -2) {
-                  DEBUG("cpd: could not demangle name " << sym_name);
-                } else if (demangle_status == -3) {
-                  DEBUG("cpd: demangling errored due to invalid arguments");
-                  shutdown(subject_pid, result_file, INTERNAL_ERROR);
-                }
-              }
-            }
+                      if (demangle_status == -1) {
+                        DEBUG(
+                            "cpd: demangling errored due to memory "
+                            "allocation "
+                            "failure");
+                        shutdown(subject_pid, result_file, INTERNAL_ERROR);
+                      } else if (demangle_status == -2) {
+                        DEBUG("cpd: could not demangle name " << sym_name);
+                      } else if (demangle_status == -3) {
+                        DEBUG(
+                            "cpd: demangling errored due to invalid "
+                            "arguments");
+                        shutdown(subject_pid, result_file, INTERNAL_ERROR);
+                      }
+                    }
+                  }
 
-            fprintf(result_file,
-                    R"(
+                  fprintf(result_file,
+                          R"(
                         "symName": "%s",
                         "fileName": "%s",
                         "fileBase": "%p",
                         "symAddr": "%p",
                         "mangledName": "%s"
                       )",
-                    function_name, file_name, file_base, sym_addr, sym_name);
-            // necessary to free, abi::__cxa_demangle uses malloc under the hood
-            free(demangled_name);  // NOLINT
+                          function_name, file_name, file_base, sym_addr,
+                          sym_name);
+                  free(demangled_name);  // NOLINT
 
-            // Need to subtract one. PC is the return address, but we're
-            // looking for the callsite.
-            dwarf::taddr pc = inst_ptr - 1;
+                  // Need to subtract one. PC is the return address, but we're
+                  // looking for the callsite.
+                  dwarf::taddr pc = inst_ptr - 1;
 
-            // Find the CU containing pc
-            // XXX Use .debug_aranges
-            auto line = -1, column = -1;
-            char *fullLocation = nullptr;
+                  // Find the CU containing pc
+                  // XXX Use .debug_aranges
+                  auto line = -1, column = -1;
+                  char *fullLocation = nullptr;
 
-            for (auto &cu : dw.compilation_units()) {
-              if (die_pc_range(cu.root()).contains(pc)) {
-                // Map PC to a line
-                auto &lt = cu.get_line_table();
-                auto it = lt.find_address(pc);
-                if (it != lt.end()) {
-                  line = it->line;
-                  column = it->column;
-                  fullLocation = const_cast<char *>(it->file->path.c_str());
-                }
-                break;
-              }
-            }
-            fprintf(result_file,
-                    R"(,
+                  static dwarf::dwarf dw = read_dwarf();
+
+                  for (auto &cu : dw.compilation_units()) {
+                    if (die_pc_range(cu.root()).contains(pc)) {
+                      // Map PC to a line
+                      auto &lt = cu.get_line_table();
+                      auto it = lt.find_address(pc);
+                      if (it != lt.end()) {
+                        line = it->line;
+                        column = it->column;
+                        fullLocation =
+                            const_cast<char *>(it->file->path.c_str());
+                      }
+                      break;
+                    }
+                  }
+                  fprintf(result_file,
+                          R"(,
                     "line": %d,
                     "col": %d,
                     "fullLocation": "%s" })",
-                    line, column, fullLocation);
-          }
-          fprintf(result_file,
-                  R"(
-                  ]
+                          line, column, fullLocation);
                 }
-              )");
+                fprintf(result_file, R"(
+                  ]
+                  }
+                  )");
+                is_first_sample = false;
+              }
+            } else {
+              DEBUG("cpd: sample type was not PERF_RECORD_SAMPLE, it was "
+                    << sample_type);
+            }
+          }
         }
       }
     }
@@ -788,6 +890,13 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
   fprintf(result_file,
           R"(
+              ],
+              "error": [
+                          )");
+
+  print_errors(errors, result_file);
+  fprintf(result_file,
+          R"(       
               ]
             }
           )");
