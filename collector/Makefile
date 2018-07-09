@@ -2,6 +2,7 @@ CXX := clang++
 GIT_VERSION := $(shell git describe --abbrev=4 --dirty --always --tags)
 CFLAGS := $(shell pkg-config --cflags --libs libelf++ libdwarf++) -DVERSION=\"$(GIT_VERSION)\"
 SOURCES := collector.cpp perf_reader.cpp const.cpp util.cpp debug.cpp perf_sampler.cpp clone.cpp rapl.cpp wattsup.cpp bg_readings.cpp ancillary.cpp find_events.cpp shared.cpp
+EVENT_SOURCES := available-events.cpp debug.cpp wattsup.cpp rapl.cpp perf_sampler.cpp util.cpp
 SRC_DIR := .
 TIDY := clang-tidy
 TIDY_CHECKS := bugprone-*,cppcoreguidelines-*,-cppcoreguidelines-pro-*,\
@@ -20,7 +21,7 @@ PRELOAD_VAR  := LD_PRELOAD
 CXXLIB       := $(CXX) -shared -fPIC -Wl,-soname,interposer.so
 endif
 
-all: collector.$(SHLIB_SUFFIX)
+all: collector.$(SHLIB_SUFFIX) available-events
 
 pedantic: WARN = -Werror
 pedantic: all
@@ -50,4 +51,7 @@ tidy-fix: tidy
 
 collector.$(SHLIB_SUFFIX): $(SOURCES)
 	$(CXXLIB) $(CFLAGS) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -ldl -lpfm -pthread -rdynamic
+
+available-events: $(EVENT_SOURCES)
+	$(CXX) $(CFLAGS) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -lpfm -rdynamic
 

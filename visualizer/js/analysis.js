@@ -94,7 +94,6 @@ function chiSquared(inputData, outputData) {
   /* Populate a "table" with function counts for unselected/selected */
   let functionName;
   inputData.forEach(datum => {
-    if (datum.stackFrames.length === 0) return;
     functionName = datum.stackFrames[0].symName;
     /* "Initialize" the associative arrays at this datapoint's function, if this
     hasn't already been done. */
