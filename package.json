@@ -73,6 +73,10 @@
       "eslint --fix",
       "prettier --write",
       "git add"
+    ],
+    "*.{c,h,cpp,hpp}": [
+      "clang-format -i -style=file",
+      "git add"
     ]
   }
 }
