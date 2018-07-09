@@ -376,8 +376,6 @@ dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
   return dwarf::dwarf(dwarf::elf::create_loader(ef));
 }
 
-perf_fd_info *create_perf_fd_info() { return new perf_fd_info(); }
-
 /*
  * reset the period of sampling to handle throttle/unthrottle events
  */
@@ -561,10 +559,9 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
         } else if (fd == socket) {
           DEBUG("cpd: received message from a thread in subject");
           int cmd;
-          perf_fd_info *info = create_perf_fd_info();
+          perf_fd_info *info = new perf_fd_info;
           for (cmd = recv_perf_fds(socket, info); cmd != -1;
-               info = create_perf_fd_info(),
-              cmd = recv_perf_fds(socket, info)) {
+               info = new perf_fd_info, cmd = recv_perf_fds(socket, info)) {
             DEBUG("cpd: received cmd " << cmd);
             if (cmd == SOCKET_CMD_REGISTER) {
               DEBUG("cpd: setting up buffer for fd " << info->cpu_clock_fd);
