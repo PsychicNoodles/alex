@@ -6,8 +6,7 @@ const brushId = d3.local();
 
 const store = new Store({
   selections: [],
-  nextSelectionId: 0,
-  lastMovedBrush: null
+  nextSelectionId: 0
 });
 
 document.getElementById("btnClearBrushes").addEventListener("click", () => {
@@ -174,28 +173,17 @@ function updateSelections(currentBrush) {
       store.dispatch(state => ({
         ...state,
         selections: [{ id, range }, ...state.selections],
-        nextSelectionId: state.nextSelectionId + 1,
-        lastMovedBrush: currentBrush
+        nextSelectionId: state.nextSelectionId + 1
       }));
     } else {
       // Otherwise, update the range of the existing selection
-      store.dispatch(state => {
-        const oldRange = state.selections.find(selection => selection.id === id)
-          .range;
-
-        if (oldRange[0] !== range[0] || oldRange[1] !== range[1]) {
-          return {
-            ...state,
-            selections: state.selections.map(
-              selection =>
-                selection.id === id ? { ...selection, range } : selection
-            ),
-            lastMovedBrush: currentBrush
-          };
-        } else {
-          return state;
-        }
-      });
+      store.dispatch(state => ({
+        ...state,
+        selections: state.selections.map(
+          selection =>
+            selection.id === id ? { ...selection, range } : selection
+        )
+      }));
     }
   }
 }
