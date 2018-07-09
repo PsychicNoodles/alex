@@ -83,7 +83,6 @@ function chiSquared(inputData, outputData) {
   /* "Associative arrays", containing counts of function appearances within a
     region. Key = function name. Value = function count. */
 
-  console.log(inputData);
   const selected = {};
   let selectedTotal = 0;
   const unselected = {};
