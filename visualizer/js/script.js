@@ -87,6 +87,7 @@ ipcRenderer.on("result", (event, resultFile) => {
     const charts = [
       {
         yAxisLabel: "Cache Miss Rate",
+        yFormat: d3.format(".0%"),
         getDependentVariable: d =>
           getEventCount(d, result.header.presets.cache.misses) /
             (getEventCount(d, result.header.presets.cache.hits) +
@@ -94,6 +95,7 @@ ipcRenderer.on("result", (event, resultFile) => {
       },
       {
         yAxisLabel: "Instructions Per Cycle",
+        yFormat: d3.format(".2"),
         getDependentVariable: d =>
           getEventCount(d, result.header.presets.cpu.instructions) /
             getEventCount(d, result.header.presets.cpu.CPUcycles) || 0
@@ -150,7 +152,7 @@ ipcRenderer.on("result", (event, resultFile) => {
     const spectrum = d3.interpolateGreens;
 
     for (const chartParams of charts) {
-      const { getDependentVariable, yAxisLabel } = chartParams;
+      const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
       d3.select("#charts")
         .append("svg")
         .call(chart.render, {
@@ -161,6 +163,7 @@ ipcRenderer.on("result", (event, resultFile) => {
           yAxisLabel,
           xScale,
           yScale: yScalesByChart.get(chartParams),
+          yFormat,
           plotData: plotDataByChart.get(chartParams),
           densityMax,
           spectrum

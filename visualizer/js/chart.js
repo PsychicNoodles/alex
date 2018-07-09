@@ -19,7 +19,8 @@ function render(
     xAxisLabel,
     yAxisLabel,
     xScale,
-    yScale
+    yScale,
+    yFormat
   }
 ) {
   root.classed("chart", true).attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`);
@@ -82,7 +83,7 @@ function render(
   root
     .append("g")
     .attr("class", "chart__axis chart__axis--y")
-    .call(d3.axisLeft(yScale).tickFormat(d3.format(".0%")))
+    .call(d3.axisLeft(yScale).tickFormat(yFormat))
 
     // Label
     .append("text")
