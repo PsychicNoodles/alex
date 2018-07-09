@@ -17,6 +17,7 @@
     "checkpreset:energy": "./collector/available-events energy 2>> err-available-event.log",
     "checkpreset:cache": "./collector/available-events cache 2>> err-available-event.log",
     "checkpreset:cpu": "./collector/available-events cpu 2>> err-available-event.log",
+    "checkpreset:branch": "./collector/available-events branch 2>> err-available-event.log",
     "checkpreset:all": "./collector/available-events all 2>> err-available-event.log"
   },
   "bin": {

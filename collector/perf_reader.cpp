@@ -619,20 +619,6 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                   }
                 }
 
-                // wattsup
-                if (wattsup_reading.running) {
-                  DEBUG("cpd: checking for wattsup energy results");
-                  if (has_result(&wattsup_reading)) {
-                    DEBUG("cpd: wattsup result found, writing out");
-                    double ret =
-                        *(static_cast<double *>(get_result(&wattsup_reading)));
-                    fprintf(result_file, ",");
-                    fprintf(result_file, R"("wattsup": %1lf)", ret);
-                    DEBUG("cpd: restarting wattsup energy readings");
-                    restart_reading(&wattsup_reading);
-                  }
-                }
-
                 fprintf(result_file, R"(
                   },
                   "stackFrames": [
