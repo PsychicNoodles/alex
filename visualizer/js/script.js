@@ -84,26 +84,27 @@ ipcRenderer.on("result", (event, resultFile) => {
 
     bar.destroy();
 
+    const { presets } = result.header;
     const charts = [
       {
         presetsRequired: ["cache"],
         yAxisLabel: "Cache Miss Rate",
         yFormat: d3.format(".0%"),
         getDependentVariable: d =>
-          getEventCount(d, result.header.presets.cache.misses) /
-            (getEventCount(d, result.header.presets.cache.hits) +
-              getEventCount(d, result.header.presets.cache.misses)) || 0
+          getEventCount(d, presets.cache.misses) /
+            (getEventCount(d, presets.cache.hits) +
+              getEventCount(d, presets.cache.misses)) || 0
       },
       {
         presetsRequired: ["cpu"],
         yAxisLabel: "Instructions Per Cycle",
         yFormat: d3.format(".2"),
         getDependentVariable: d =>
-          getEventCount(d, result.header.presets.cpu.instructions) /
-            getEventCount(d, result.header.presets.cpu.CPUcycles) || 0
+          getEventCount(d, presets.cpu.instructions) /
+            getEventCount(d, presets.cpu.CPUcycles) || 0
       }
     ].filter(({ presetsRequired }) =>
-      presetsRequired.every(presetName => presetName in result.header.presets)
+      presetsRequired.every(presetName => presetName in presets)
     );
 
     const xAxisLabel = "CPU Time Elapsed";
