@@ -61,5 +61,7 @@
     "mutex": "cpp",
     "thread": "cpp",
     "condition_variable": "cpp"
-  }
+  },
+  "C_Cpp.default.defines": ["VERSION"],
+  "C_Cpp.errorSquiggles": "Disabled"
 }
