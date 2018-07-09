@@ -101,7 +101,7 @@ ipcRenderer.on("result", (event, resultFile) => {
         yFormat: d3.format(".2"),
         getDependentVariable: d =>
           getEventCount(d, presets.cpu.instructions) /
-            getEventCount(d, presets.cpu.CPUcycles) || 0
+            getEventCount(d, presets.cpu.cpuCycles) || 0
       }
     ].filter(({ presetsRequired }) =>
       presetsRequired.every(presetName => presetName in presets)
