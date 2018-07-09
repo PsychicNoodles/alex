@@ -26,41 +26,41 @@ bool check_events(char *event_name) {
   return true;
 }
 
-map<pair<string, string>, bool> buildPresets(const string &preset) {
-  map<pair<string, string>, bool> events;
+map<pair<string, vector<string>>, bool> checkPresets(const string &preset) {
+  map<pair<string, vector<string>>, bool> events;
   if (preset == "cache") {
-    events.insert(pair<pair<string, string>, bool>(
-        pair<string, string>("hits", "MEM_LOAD_RETIRED.L3_HIT"),
-        check_events((char *)"MEM_LOAD_RETIRED.L3_HIT")));
+    events.insert(pair < pair<string, vector<string>, bool>(
+                             pair<string, vector<string>>(
+                                 "hits", {"MEM_LOAD_RETIRED.L3_HIT"}),
+                             check_events((char *)"MEM_LOAD_RETIRED.L3_HIT")));
     events.insert(pair<pair<string, string>, bool>(
         pair<string, string>("misses", "MEM_LOAD_RETIRED.L3_MISS"),
         check_events((char *)"MEM_LOAD_RETIRED.L3_MISS")));
-    events.insert(pair<pair<string, string>, bool>(
-        pair<string, string>("all-cache", "cache-misses"),
-        check_events((char *)"cache-misses")));
-    // events.insert(pair<pair<string, string>, bool>(pair<string,
-    // string>("reference", "cache-reference");
+    // events.insert(pair<pair<string, string>, bool>(
+    //     pair<string, string>("all-cache", "cache-misses"),
+    //     check_events((char *)"cache-misses")));
   } else if (preset == "cpu") {
     events.insert(pair<pair<string, string>, bool>(
-        pair<string, string>("CPUcycles", "cpu-cycles"),
+        pair<string, string>("cpuCycles", "cpu-cycles"),
         check_events((char *)"cpu-cycles")));
     events.insert(pair<pair<string, string>, bool>(
         pair<string, string>("instructions", "instructions"),
         check_events((char *)"instructions")));
-  } else if (preset == "branch") {
+  } else if (preset == "branches") {
     events.insert(pair<pair<string, string>, bool>(
         pair<string, string>("branches", "branches"),
         check_events((char *)"branches")));
     events.insert(pair<pair<string, string>, bool>(
         pair<string, string>("branch-misses", "branch-misses"),
         check_events((char *)"branch-misses")));
-  } else if (preset == "energy") {
+  } else if (preset == "wattsup") {
     bool wattsup_available = false;
     if (wattsupSetUp() != -1) {
       wattsup_available = true;
     }
     events.insert(pair<pair<string, string>, bool>(
         pair<string, string>("wattsup", "wattsup"), wattsup_available));
+  } else if (preset == "rapl") {
     vector<string> powerzones = find_in_dir(ENERGY_ROOT, "intel-rapl:");
     bool rapl_available = false;
     if (powerzones.size() != 0) {
@@ -75,10 +75,11 @@ map<pair<string, string>, bool> buildPresets(const string &preset) {
 int main(int argc, char **argv) {
   if (argc == 1) {
     printf("List of presets:\n");
+    printf("branches\n");
     printf("cache\n");
-    printf("branch\n");
     printf("cpu\n");
-    printf("energy\n");
+    printf("rapl\n");
+    printf("wattsup\n");
     return 0;
   }
 
@@ -88,7 +89,8 @@ int main(int argc, char **argv) {
       real_presets.insert("cache");
       real_presets.insert("cpu");
       real_presets.insert("branch");
-      real_presets.insert("energy");
+      real_presets.insert("rapl");
+      real_presets.insert("wattsup");
     } else {
       for (int i = 1; i < argc; i++) {
         real_presets.insert(argv[i]);
@@ -97,7 +99,7 @@ int main(int argc, char **argv) {
   }
 
   for (auto preset : real_presets) {
-    map<pair<string, string>, bool> events = buildPresets(preset);
+    map<pair<string, string>, bool> events = checkPresets(preset);
     printf("Preset: %s\n", preset.c_str());
     printf("%-30s %-35s %s \n", "Options", "Events", "Status");
     for (auto event : events) {

@@ -20,12 +20,12 @@ map<string, vector<string>> buildPresets(const string& preset) {
     // events.insert(pair<string, string>("all-cache", "cache-misses"));
     // events.insert(pair<string, string>("reference", "cache-reference"));
   } else if (preset == "cpu") {
-    events.insert(pair<string, vector<string>>("CPUcycles", {"cpu-cycles"}));
+    events.insert(pair<string, vector<string>>("cpuCycles", {"cpu-cycles"}));
     events.insert(
         pair<string, vector<string>>("instructions", {"instructions"}));
   } else if (preset == "branches") {
     events.insert(
-        pair<string, vector<string>>("branch-misses", {"branch-misses"}));
+        pair<string, vector<string>>("branchMisses", {"branch-misses"}));
     events.insert(pair<string, vector<string>>("branches", {"branches"}));
   } else if (preset == "rapl") {
     events.insert(pair<string, vector<string>>("rapl", {"rapl"}));
