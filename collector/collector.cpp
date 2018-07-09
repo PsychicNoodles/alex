@@ -200,9 +200,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
     map<uint64_t, kernel_sym> kernel_syms = read_kernel_syms();
 
-    const bool wattsup_enabled =
-        global->presets.find("wattsup") != global->presets.end() ||
-        global->presets.find("all") != global->presets.end();
+    const bool wattsup_enabled = preset_enabled("wattsup");
     int wu_fd = -1;
     if (wattsup_enabled) {
       // setting up wattsup
@@ -220,8 +218,8 @@ static int collector_main(int argc, char **argv, char **env) {
     }
 
     DEBUG("collector_main: received child ready signal, starting collector");
-    result = collect_perf_data(kernel_syms, sigterm_fd, sockets[0],
-                               wu_fd, result_file);
+    result = collect_perf_data(kernel_syms, sigterm_fd, sockets[0], wu_fd,
+                               result_file);
 
     DEBUG("collector_main: finished collector, closing file");
 

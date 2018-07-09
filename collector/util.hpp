@@ -17,6 +17,7 @@ vector<string> str_split_vec(const string& str, const string& delim);
 set<string> str_split_set(const string& str, const string& delim);
 void shutdown(pid_t pid, FILE* writef, int code);
 pid_t gettid();
+bool preset_enabled(const char *name);
 
 string getenv_safe(const char* var, const char* fallback = "");
 
