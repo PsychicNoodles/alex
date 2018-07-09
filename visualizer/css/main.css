@@ -1,8 +1,3 @@
 body {
   min-width: 900px;
 }
-
-.brush .selection {
-  fill: #000;
-  opacity: 0.2;
-}
