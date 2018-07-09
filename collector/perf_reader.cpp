@@ -243,6 +243,50 @@ void handle_perf_unregister(perf_fd_info *info) {
 }
 
 /*
+ * Checks for the presence of high priority file descriptors in the epoll.
+ * Returns true if there were priority fds, false otherwise
+ */
+bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
+                        int socket, bool &done) {
+  // check for high priority fds
+  for (int i = 0; i < ready_fds; i++) {
+    int fd = evlist[i].data.fd;
+    // check if it's sigterm or request to register thread
+    if (fd == sigt_fd) {
+      DEBUG("cpd: received sigterm, stopping");
+      done = true;
+      // don't check the other fds, jump back to epolling
+      return true;
+    } else if (fd == socket) {
+      DEBUG("cpd: received message from a thread in subject");
+      int cmd;
+      auto *info = new perf_fd_info;
+      for (cmd = recv_perf_fds(socket, info, perf_info_mappings); cmd != -1;
+           info = new perf_fd_info,
+          cmd = recv_perf_fds(socket, info, perf_info_mappings)) {
+        DEBUG("cpd: received cmd " << cmd);
+        if (cmd == SOCKET_CMD_REGISTER) {
+          DEBUG("cpd: setting up buffer for fd " << info->cpu_clock_fd);
+          if (setup_buffer(info) != SAMPLER_MONITOR_SUCCESS) {
+            parent_shutdown(INTERNAL_ERROR);
+          }
+          handle_perf_register(info);
+        } else if (cmd == SOCKET_CMD_UNREGISTER) {
+          handle_perf_unregister(info);
+        } else {
+          DEBUG("cpd: unknown command, shutting down");
+          parent_shutdown(INTERNAL_ERROR);
+        }
+      }
+      DEBUG("cpd: exhausted requests");
+      // re-poll for data
+      return true;
+    }
+  }
+  return false;
+}
+
+/*
  * Looks up an address in the kernel sym map. Accounts for addresses that
  * may be in the middle of a kernel function.
  */
@@ -635,8 +679,7 @@ int collect_perf_data(map<uint64_t, kernel_sym> kernel_syms, int sigt_fd,
 
   // setting up RAPL energy reading
   bg_reading rapl_reading = {nullptr};
-  if (global->presets.find("rapl") != global->presets.end() ||
-      global->presets.find("all") != global->presets.end()) {
+  if (preset_enabled("rapl")) {
     setup_reading(&rapl_reading,
                   [](void *_) -> void * {
                     auto m = new map<string, uint64_t>;
@@ -669,10 +712,10 @@ int collect_perf_data(map<uint64_t, kernel_sym> kernel_syms, int sigt_fd,
 
   DEBUG("cpd: entering epoll ready loop");
   while (!done) {
-    auto evlist = unique_ptr<epoll_event[]>(new epoll_event[sample_fd_count]);
+    auto evlist = new epoll_event[sample_fd_count];
     DEBUG("cpd: epolling for results or new threads");
-    int ready_fds = epoll_wait(sample_epfd, evlist.get(), sample_fd_count,
-                               SAMPLE_EPOLL_TIMEOUT);
+    int ready_fds =
+        epoll_wait(sample_epfd, evlist, sample_fd_count, SAMPLE_EPOLL_TIMEOUT);
 
     curr_ts = time_ms();
     if (curr_ts - last_ts > EPOLL_TIME_DIFF_MAX) {
@@ -691,101 +734,64 @@ int collect_perf_data(map<uint64_t, kernel_sym> kernel_syms, int sigt_fd,
     } else {
       DEBUG("cpd: " << ready_fds << " sample fds were ready");
 
-      // check for high priority fds
-      vector<int> fds;  // low priority fds
-      for (int i = 0; i < ready_fds; i++) {
-        int fd = evlist.get()[i].data.fd;
-        // check if it's sigterm or request to register thread
-        if (fd == sigt_fd) {
-          DEBUG("cpd: received sigterm, stopping");
-          done = true;
-          // don't check the other fds, jump back to epolling
-          fds.clear();
-          break;
-        } else if (fd == socket) {
-          DEBUG("cpd: received message from a thread in subject");
-          int cmd;
-          auto *info = new perf_fd_info;
-          for (cmd = recv_perf_fds(socket, info, perf_info_mappings); cmd != -1;
-               info = new perf_fd_info,
-              cmd = recv_perf_fds(socket, info, perf_info_mappings)) {
-            DEBUG("cpd: received cmd " << cmd);
-            if (cmd == SOCKET_CMD_REGISTER) {
-              DEBUG("cpd: setting up buffer for fd " << info->cpu_clock_fd);
-              if (setup_buffer(info) != SAMPLER_MONITOR_SUCCESS) {
-                parent_shutdown(INTERNAL_ERROR);
-              }
-              handle_perf_register(info);
-            } else if (cmd == SOCKET_CMD_UNREGISTER) {
-              handle_perf_unregister(info);
-            } else {
-              DEBUG("cpd: unknown command, shutting down");
-              parent_shutdown(INTERNAL_ERROR);
-            }
-          }
-          DEBUG("cpd: exhausted requests");
-          // re-poll for data
-          fds.clear();
-          break;
-        } else {
-          fds.push_back(fd);
-        }
-      }
+      if (!check_priority_fds(evlist, ready_fds, sigt_fd, socket, done)) {
+        for (int i = 0; i < ready_fds; i++) {
+          const auto fd = evlist[i].data.fd;
+          DEBUG("cpd: perf fd " << fd << " is ready");
 
-      for (auto &fd : fds) {
-        DEBUG("cpd: perf fd " << fd << " is ready");
-
-        perf_fd_info info;
-        try {
-          info = perf_info_mappings.at(fd);
-        } catch (out_of_range &e) {
-          DEBUG("cpd: tried looking up a perf fd that has no info (" << fd
-                                                                     << ")");
-          parent_shutdown(INTERNAL_ERROR);
-        }
-
-        if (!has_next_sample(&info.sample_buf)) {
-          sample_period_skips++;
-          DEBUG("cpd: SKIPPED SAMPLE PERIOD (" << sample_period_skips
-                                               << " in a row)");
-          if (sample_period_skips >= MAX_SAMPLE_PERIOD_SKIPS) {
-            DEBUG(
-                "cpd: reached max number of consecutive sample period skips, "
-                "exitting");
+          perf_fd_info info;
+          try {
+            info = perf_info_mappings.at(fd);
+          } catch (out_of_range &e) {
+            DEBUG("cpd: tried looking up a perf fd that has no info (" << fd
+                                                                       << ")");
             parent_shutdown(INTERNAL_ERROR);
           }
-        } else {
-          sample_period_skips = 0;
-          if (is_first_timeslice) {
-            is_first_timeslice = false;
+
+          if (!has_next_sample(&info.sample_buf)) {
+            sample_period_skips++;
+            DEBUG("cpd: SKIPPED SAMPLE PERIOD (" << sample_period_skips
+                                                 << " in a row)");
+            if (sample_period_skips >= MAX_SAMPLE_PERIOD_SKIPS) {
+              DEBUG(
+                  "cpd: reached max number of consecutive sample period skips, "
+                  "exitting");
+              parent_shutdown(INTERNAL_ERROR);
+            }
           } else {
-            fprintf(result_file, ",");
-          }
-
-          bool is_first_sample = true;
-          while (has_next_sample(&info.sample_buf)) {
-            DEBUG("cpd: getting next sample");
-            int sample_type, sample_size;
-            void *perf_result =
-                get_next_sample(&info.sample_buf, &sample_type, &sample_size);
-
-            if (sample_type == PERF_RECORD_THROTTLE ||
-                sample_type == PERF_RECORD_UNTHROTTLE) {
-              process_throttle_record(perf_result, sample_type, errors);
-            } else if (sample_type == PERF_RECORD_SAMPLE) {
-              process_sample_record(perf_result, info, is_first_sample,
-                                    &rapl_reading, &wattsup_reading,
-                                    kernel_syms);
-              is_first_sample = false;
+            sample_period_skips = 0;
+            if (is_first_timeslice) {
+              is_first_timeslice = false;
             } else {
-              DEBUG("cpd: sample type was not recognized ( " << sample_type
-                                                             << ")");
+              fprintf(result_file, ",");
+            }
+
+            bool is_first_sample = true;
+            while (has_next_sample(&info.sample_buf)) {
+              DEBUG("cpd: getting next sample");
+              int sample_type, sample_size;
+              void *perf_result =
+                  get_next_sample(&info.sample_buf, &sample_type, &sample_size);
+
+              if (sample_type == PERF_RECORD_THROTTLE ||
+                  sample_type == PERF_RECORD_UNTHROTTLE) {
+                process_throttle_record(perf_result, sample_type, errors);
+              } else if (sample_type == PERF_RECORD_SAMPLE) {
+                process_sample_record(perf_result, info, is_first_sample,
+                                      &rapl_reading, &wattsup_reading,
+                                      kernel_syms);
+                is_first_sample = false;
+              } else {
+                DEBUG("cpd: sample type was not recognized ( " << sample_type
+                                                               << ")");
+              }
             }
           }
         }
       }
     }
     finish_ts = time_ms();
+    delete[] evlist;
   }
   DEBUG("cpd: stopping RAPL reading thread");
   stop_reading(&rapl_reading);
