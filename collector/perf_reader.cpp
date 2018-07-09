@@ -296,6 +296,234 @@ int adjust_period(int sample_type) {
   return 0;
 }
 
+void process_sample_record(void *perf_result, const perf_fd_info &info,
+                           bool is_first_sample, int64_t num_timer_ticks,
+                           bg_reading *rapl_reading,
+                           bg_reading *wattsup_reading,
+                           const map<uint64_t, kernel_sym> &kernel_syms) {
+  // note: kernel_syms needs to be passed by reference (a pointer would work
+  // too) because otherwise it's copied and can slow down the has_next_sample
+  // loop, causing it to never return to epoll
+  DEBUG("cpd: processing sample record");
+  if (is_first_sample) {
+    // if period is too high, the data may be changed under our feet
+    sample_record ps{};
+    DEBUG("cpd: copying main perf_result struct from "
+          << ptr_fmt(perf_result) << " to " << ptr_fmt(&ps));
+    memcpy(&ps, perf_result, sizeof(sample_record));
+    DEBUG("cpd: copying " << ps.num_instruction_pointers
+                          << " inst ptrs array from "
+                          << ptr_fmt(static_cast<sample_record *>(perf_result)
+                                         ->instruction_pointers)
+                          << " to " << ptr_fmt(ps.instruction_pointers));
+    memcpy(ps.instruction_pointers,
+           static_cast<sample_record *>(perf_result)->instruction_pointers,
+           sizeof(uint64_t) * ps.num_instruction_pointers);
+
+    fprintf(result_file,
+            R"(
+                      {
+                        "cpuTime": %lu,
+                        "numCPUTimerTicks": %ld,
+                        "pid": %u,
+                        "tid": %u,
+                        "events": {
+                    )",
+            ps.time, num_timer_ticks, ps.pid, ps.tid);
+
+    DEBUG("cpd: reading from each fd");
+
+    bool is_first_event = true;
+    for (const auto &event : global->events) {
+      // fprintf(result_file, "%s", event.c_str());
+      if (is_first_event) {
+        is_first_event = false;
+      } else {
+        fprintf(result_file, ",");
+      }
+
+      int64_t count = 0;
+      DEBUG("cpd: reading from fd " << info.event_fds.at(event));
+      read(info.event_fds.at(event), &count, sizeof(int64_t));
+      DEBUG("cpd: read in from fd " << info.event_fds.at(event) << " count "
+                                    << count);
+      if (reset_monitoring(info.event_fds.at(event)) !=
+          SAMPLER_MONITOR_SUCCESS) {
+        parent_shutdown(INTERNAL_ERROR);
+      }
+
+      fprintf(result_file, R"("%s": %ld)", event.c_str(), count);
+    }
+
+    // rapl
+    if (rapl_reading->running) {
+      DEBUG("cpd: checking for RAPL energy results");
+      if (has_result(rapl_reading)) {
+        DEBUG("cpd: RAPL result found, writing out");
+        map<string, uint64_t> *nrg =
+            (static_cast<map<string, uint64_t> *>(get_result(rapl_reading)));
+        for (auto &p : *nrg) {
+          fprintf(result_file, ",");
+          fprintf(result_file, R"("%s": %lu)", p.first.c_str(), p.second);
+        }
+        delete nrg;
+        DEBUG("cpd: restarting RAPL energy readings");
+        restart_reading(rapl_reading);
+      }
+    }
+
+    // wattsup
+    if (wattsup_reading->running) {
+      DEBUG("cpd: checking for wattsup energy results");
+      if (has_result(wattsup_reading)) {
+        DEBUG("cpd: wattsup result found, writing out");
+        double *ret = (static_cast<double *>(get_result(wattsup_reading)));
+        fprintf(result_file, ",");
+        fprintf(result_file, R"("wattsup": %1lf)", *ret);
+        delete ret;
+        DEBUG("cpd: restarting wattsup energy readings");
+        restart_reading(wattsup_reading);
+      }
+    }
+
+    fprintf(result_file, R"(
+                  },
+                  "stackFrames": [
+                    )");
+
+    bool is_first_stack = true;
+    uint64_t callchain_section = 0;
+    DEBUG("cpd: looking up " << ps.num_instruction_pointers << " inst ptrs");
+    for (uint64_t i = 0; i < ps.num_instruction_pointers; i++) {
+      uint64_t inst_ptr = ps.instruction_pointers[i];
+      if (is_callchain_marker(inst_ptr)) {
+        callchain_section = inst_ptr;
+        continue;
+      }
+      DEBUG("cpd: on instruction pointer "
+            << int_to_hex(inst_ptr) << " (" << (i + 1) << "/"
+            << ps.num_instruction_pointers << ")");
+
+      if (is_first_stack) {
+        is_first_stack = false;
+      } else {
+        fprintf(result_file, ",");
+      }
+
+      fprintf(result_file,
+              R"(
+                  { "address": "%p",
+                    "section": "%s",)",
+              reinterpret_cast<void *>(inst_ptr),
+              callchain_str(callchain_section));
+
+      string sym_name_str;
+      const char *sym_name = nullptr, *file_name = nullptr,
+                 *function_name = nullptr;
+      char *demangled_name = nullptr;
+      void *file_base = nullptr, *sym_addr = nullptr;
+      DEBUG("cpd: looking up symbol for inst ptr "
+            << ptr_fmt((void *)inst_ptr));
+      if (callchain_section == CALLCHAIN_USER) {
+        DEBUG("cpd: looking up user stack frame");
+        Dl_info info;
+        // Lookup the name of the function given the function
+        // pointer
+        if (dladdr(reinterpret_cast<void *>(inst_ptr), &info) != 0) {
+          sym_name = info.dli_sname;
+          file_name = info.dli_fname;
+          file_base = info.dli_fbase;
+          sym_addr = info.dli_saddr;
+        } else {
+          DEBUG("cpd: could not look up user stack frame");
+        }
+      } else if (callchain_section == CALLCHAIN_KERNEL) {
+        DEBUG("cpd: looking up kernel stack frame");
+        uint64_t addr = lookup_kernel_addr(kernel_syms, inst_ptr);
+        if (addr != -1) {
+          auto ks = kernel_syms.at(addr);
+          sym_name_str = ks.sym;
+          sym_name = sym_name_str.c_str();
+          file_name = "(kernel)";
+          file_base = nullptr;
+          sym_addr = reinterpret_cast<void *>(addr);
+        }
+      }
+      // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
+      if (sym_name != nullptr) {
+        int demangle_status;
+        demangled_name =
+            abi::__cxa_demangle(sym_name, nullptr, nullptr, &demangle_status);
+        if (demangle_status == 0) {
+          function_name = demangled_name;
+        } else {
+          function_name = sym_name;
+
+          if (demangle_status == -1) {
+            DEBUG(
+                "cpd: demangling errored due to memory allocation "
+                "failure");
+            parent_shutdown(INTERNAL_ERROR);
+          } else if (demangle_status == -2) {
+            DEBUG("cpd: could not demangle name " << sym_name);
+          } else if (demangle_status == -3) {
+            DEBUG("cpd: demangling errored due to invalid arguments");
+            parent_shutdown(INTERNAL_ERROR);
+          }
+        }
+      }
+
+      fprintf(result_file,
+              R"(
+                        "symName": "%s",
+                        "fileName": "%s",
+                        "fileBase": "%p",
+                        "symAddr": "%p",
+                        "mangledName": "%s"
+                      )",
+              function_name, file_name, file_base, sym_addr, sym_name);
+      free(demangled_name);  // NOLINT
+
+      // Need to subtract one. PC is the return address, but we're
+      // looking for the callsite.
+      dwarf::taddr pc = inst_ptr - 1;
+
+      // Find the CU containing pc
+      // XXX Use .debug_aranges
+      auto line = -1, column = -1;
+      char *fullLocation = nullptr;
+
+      static dwarf::dwarf dw = read_dwarf();
+
+      for (auto &cu : dw.compilation_units()) {
+        if (die_pc_range(cu.root()).contains(pc)) {
+          // Map PC to a line
+          auto &lt = cu.get_line_table();
+          auto it = lt.find_address(pc);
+          if (it != lt.end()) {
+            line = it->line;
+            column = it->column;
+            fullLocation = const_cast<char *>(it->file->path.c_str());
+          }
+          break;
+        }
+      }
+      fprintf(result_file,
+              R"(,
+                    "line": %d,
+                    "col": %d,
+                    "fullLocation": "%s" })",
+              line, column, fullLocation);
+    }
+    fprintf(result_file, R"(
+                  ]
+                  }
+                  )");
+  } else {
+    DEBUG("cpd: not first sample, skipping");
+  }
+}
+
 void print_errors(vector<pair<int, base_record *>> errors) {
   bool is_first_element = true;
   for (auto &p : errors) {
@@ -542,223 +770,10 @@ int collect_perf_data(map<uint64_t, kernel_sym> kernel_syms, int sigt_fd,
                   new base_record{.tr = *reinterpret_cast<throttle_record *>(
                                       perf_result)}));
             } else if (sample_type == PERF_RECORD_SAMPLE) {
-              // if period is too high, the data may be changed under our feet
-              sample_record ps{};
-              memcpy(&ps, perf_result, sizeof(sample_record));
-              memcpy(ps.instruction_pointers,
-                     static_cast<sample_record *>(perf_result)
-                         ->instruction_pointers,
-                     sizeof(uint64_t) * ps.num_instruction_pointers);
-              if (is_first_sample) {
-                fprintf(result_file,
-                        R"(
-                      {
-                        "cpuTime": %lu,
-                        "numCPUTimerTicks": %ld,
-                        "pid": %u,
-                        "tid": %u,
-                        "events": {
-                    )",
-                        ps.time, num_timer_ticks, ps.pid, ps.tid);
-
-                DEBUG("cpd: reading from each fd");
-
-                bool is_first_event = true;
-                for (const auto &event : global->events) {
-                  // fprintf(result_file, "%s", event.c_str());
-                  if (is_first_event) {
-                    is_first_event = false;
-                  } else {
-                    fprintf(result_file, ",");
-                  }
-
-                  int64_t count = 0;
-                  DEBUG("cpd: reading from fd " << info.event_fds[event]);
-                  read(info.event_fds[event], &count, sizeof(int64_t));
-                  DEBUG("cpd: read in from fd " << info.event_fds[event]
-                                                << " count " << count);
-                  if (reset_monitoring(info.event_fds[event]) !=
-                      SAMPLER_MONITOR_SUCCESS) {
-                    parent_shutdown(INTERNAL_ERROR);
-                  }
-
-                  fprintf(result_file, R"("%s": %ld)", event.c_str(), count);
-                }
-
-                // rapl
-                if (rapl_reading.running) {
-                  DEBUG("cpd: checking for RAPL energy results");
-                  if (has_result(&rapl_reading)) {
-                    DEBUG("cpd: RAPL result found, writing out");
-                    map<string, uint64_t> *nrg =
-                        (static_cast<map<string, uint64_t> *>(
-                            get_result(&rapl_reading)));
-                    for (auto &p : *nrg) {
-                      fprintf(result_file, ",");
-                      fprintf(result_file, R"("%s": %lu)", p.first.c_str(),
-                              p.second);
-                    }
-                    delete nrg;
-                    DEBUG("cpd: restarting RAPL energy readings");
-                    restart_reading(&rapl_reading);
-                  }
-                }
-
-                // wattsup
-                if (wattsup_reading.running) {
-                  DEBUG("cpd: checking for wattsup energy results");
-                  if (has_result(&wattsup_reading)) {
-                    DEBUG("cpd: wattsup result found, writing out");
-                    double *ret =
-                        (static_cast<double *>(get_result(&wattsup_reading)));
-                    fprintf(result_file, ",");
-                    fprintf(result_file, R"("wattsup": %1lf)", *ret);
-                    delete ret;
-                    DEBUG("cpd: restarting wattsup energy readings");
-                    restart_reading(&wattsup_reading);
-                  }
-                }
-
-                fprintf(result_file, R"(
-                  },
-                  "stackFrames": [
-                    )");
-
-                bool is_first_stack = true;
-                uint64_t callchain_section = 0;
-                DEBUG("cpd: looking up " << ps.num_instruction_pointers
-                                         << " inst ptrs");
-                for (uint64_t i = 0; i < ps.num_instruction_pointers; i++) {
-                  uint64_t inst_ptr = ps.instruction_pointers[i];
-                  if (is_callchain_marker(inst_ptr)) {
-                    callchain_section = inst_ptr;
-                    continue;
-                  }
-                  DEBUG("cpd: on instruction pointer "
-                        << int_to_hex(inst_ptr) << " (" << (i + 1) << "/"
-                        << ps.num_instruction_pointers << ")");
-
-                  if (is_first_stack) {
-                    is_first_stack = false;
-                  } else {
-                    fprintf(result_file, ",");
-                  }
-
-                  fprintf(result_file,
-                          R"(
-                  { "address": "%p",
-                    "section": "%s",)",
-                          reinterpret_cast<void *>(inst_ptr),
-                          callchain_str(callchain_section));
-
-                  string sym_name_str;
-                  const char *sym_name = nullptr, *file_name = nullptr,
-                             *function_name = nullptr;
-                  char *demangled_name = nullptr;
-                  void *file_base = nullptr, *sym_addr = nullptr;
-                  DEBUG("cpd: looking up symbol for inst ptr "
-                        << ptr_fmt((void *)inst_ptr));
-                  if (callchain_section == CALLCHAIN_USER) {
-                    DEBUG("cpd: looking up user stack frame");
-                    Dl_info info;
-                    // Lookup the name of the function given the function
-                    // pointer
-                    if (dladdr(reinterpret_cast<void *>(inst_ptr), &info) !=
-                        0) {
-                      sym_name = info.dli_sname;
-                      file_name = info.dli_fname;
-                      file_base = info.dli_fbase;
-                      sym_addr = info.dli_saddr;
-                    } else {
-                      DEBUG("cpd: could not look up user stack frame");
-                    }
-                  } else if (callchain_section == CALLCHAIN_KERNEL) {
-                    DEBUG("cpd: looking up kernel stack frame");
-                    uint64_t addr = lookup_kernel_addr(kernel_syms, inst_ptr);
-                    if (addr != -1) {
-                      auto ks = kernel_syms.at(addr);
-                      sym_name_str = ks.sym;
-                      sym_name = sym_name_str.c_str();
-                      file_name = "(kernel)";
-                      file_base = nullptr;
-                      sym_addr = reinterpret_cast<void *>(addr);
-                    }
-                  }
-                  // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
-                  if (sym_name != nullptr) {
-                    int demangle_status;
-                    demangled_name = abi::__cxa_demangle(
-                        sym_name, nullptr, nullptr, &demangle_status);
-                    if (demangle_status == 0) {
-                      function_name = demangled_name;
-                    } else {
-                      function_name = sym_name;
-
-                      if (demangle_status == -1) {
-                        DEBUG(
-                            "cpd: demangling errored due to memory allocation "
-                            "failure");
-                        parent_shutdown(INTERNAL_ERROR);
-                      } else if (demangle_status == -2) {
-                        DEBUG("cpd: could not demangle name " << sym_name);
-                      } else if (demangle_status == -3) {
-                        DEBUG(
-                            "cpd: demangling errored due to invalid arguments");
-                        parent_shutdown(INTERNAL_ERROR);
-                      }
-                    }
-                  }
-
-                  fprintf(result_file,
-                          R"(
-                        "symName": "%s",
-                        "fileName": "%s",
-                        "fileBase": "%p",
-                        "symAddr": "%p",
-                        "mangledName": "%s"
-                      )",
-                          function_name, file_name, file_base, sym_addr,
-                          sym_name);
-                  free(demangled_name);  // NOLINT
-
-                  // Need to subtract one. PC is the return address, but we're
-                  // looking for the callsite.
-                  dwarf::taddr pc = inst_ptr - 1;
-
-                  // Find the CU containing pc
-                  // XXX Use .debug_aranges
-                  auto line = -1, column = -1;
-                  char *fullLocation = nullptr;
-
-                  static dwarf::dwarf dw = read_dwarf();
-
-                  for (auto &cu : dw.compilation_units()) {
-                    if (die_pc_range(cu.root()).contains(pc)) {
-                      // Map PC to a line
-                      auto &lt = cu.get_line_table();
-                      auto it = lt.find_address(pc);
-                      if (it != lt.end()) {
-                        line = it->line;
-                        column = it->column;
-                        fullLocation =
-                            const_cast<char *>(it->file->path.c_str());
-                      }
-                      break;
-                    }
-                  }
-                  fprintf(result_file,
-                          R"(,
-                    "line": %d,
-                    "col": %d,
-                    "fullLocation": "%s" })",
-                          line, column, fullLocation);
-                }
-                fprintf(result_file, R"(
-                  ]
-                  }
-                  )");
-                is_first_sample = false;
-              }
+              process_sample_record(perf_result, info, is_first_sample,
+                                    num_timer_ticks, &rapl_reading,
+                                    &wattsup_reading, kernel_syms);
+              is_first_sample = false;
             } else {
               DEBUG("cpd: sample type was not recognized ( " << sample_type
                                                              << ")");
