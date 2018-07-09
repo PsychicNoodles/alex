@@ -29,45 +29,45 @@ bool check_events(char *event_name) {
 map<pair<string, vector<string>>, bool> checkPresets(const string &preset) {
   map<pair<string, vector<string>>, bool> events;
   if (preset == "cache") {
-    events.insert(pair < pair<string, vector<string>, bool>(
-                             pair<string, vector<string>>(
-                                 "hits", {"MEM_LOAD_RETIRED.L3_HIT"}),
-                             check_events((char *)"MEM_LOAD_RETIRED.L3_HIT")));
-    events.insert(pair<pair<string, string>, bool>(
-        pair<string, string>("misses", "MEM_LOAD_RETIRED.L3_MISS"),
+    events.insert(pair<pair<string, vector<string>>, bool>(
+        pair<string, vector<string>>("hits", {"MEM_LOAD_RETIRED.L3_HIT"}),
+        check_events((char *)"MEM_LOAD_RETIRED.L3_HIT")));
+    events.insert(pair<pair<string, vector<string>>, bool>(
+        pair<string, vector<string>>("misses", {"MEM_LOAD_RETIRED.L3_MISS"}),
         check_events((char *)"MEM_LOAD_RETIRED.L3_MISS")));
     // events.insert(pair<pair<string, string>, bool>(
     //     pair<string, string>("all-cache", "cache-misses"),
     //     check_events((char *)"cache-misses")));
   } else if (preset == "cpu") {
-    events.insert(pair<pair<string, string>, bool>(
-        pair<string, string>("cpuCycles", "cpu-cycles"),
+    events.insert(pair<pair<string, vector<string>>, bool>(
+        pair<string, vector<string>>("cpuCycles", {"cpu-cycles"}),
         check_events((char *)"cpu-cycles")));
-    events.insert(pair<pair<string, string>, bool>(
-        pair<string, string>("instructions", "instructions"),
+    events.insert(pair<pair<string, vector<string>>, bool>(
+        pair<string, vector<string>>("instructions", {"instructions"}),
         check_events((char *)"instructions")));
   } else if (preset == "branches") {
-    events.insert(pair<pair<string, string>, bool>(
-        pair<string, string>("branches", "branches"),
+    events.insert(pair<pair<string, vector<string>>, bool>(
+        pair<string, vector<string>>("branches", {"branches"}),
         check_events((char *)"branches")));
-    events.insert(pair<pair<string, string>, bool>(
-        pair<string, string>("branch-misses", "branch-misses"),
+    events.insert(pair<pair<string, vector<string>>, bool>(
+        pair<string, vector<string>>("branchMisses", {"branch-misses"}),
         check_events((char *)"branch-misses")));
   } else if (preset == "wattsup") {
     bool wattsup_available = false;
     if (wattsupSetUp() != -1) {
       wattsup_available = true;
     }
-    events.insert(pair<pair<string, string>, bool>(
-        pair<string, string>("wattsup", "wattsup"), wattsup_available));
+    events.insert(pair<pair<string, vector<string>>, bool>(
+        pair<string, vector<string>>("wattsup", {"wattsup"}),
+        wattsup_available));
   } else if (preset == "rapl") {
     vector<string> powerzones = find_in_dir(ENERGY_ROOT, "intel-rapl:");
     bool rapl_available = false;
     if (powerzones.size() != 0) {
       rapl_available = true;
     }
-    events.insert(pair<pair<string, string>, bool>(
-        pair<string, string>("rapl", "rapl"), rapl_available));
+    events.insert(pair<pair<string, vector<string>>, bool>(
+        pair<string, vector<string>>("rapl", {"rapl"}), rapl_available));
   }
   return events;
 }
@@ -99,13 +99,15 @@ int main(int argc, char **argv) {
   }
 
   for (auto preset : real_presets) {
-    map<pair<string, string>, bool> events = checkPresets(preset);
+    map<pair<string, vector<string>>, bool> events = checkPresets(preset);
     printf("Preset: %s\n", preset.c_str());
     printf("%-30s %-35s %s \n", "Options", "Events", "Status");
     for (auto event : events) {
-      printf("%-30s [\"%-30s %-30s\n", event.first.first.c_str(),
-             (event.first.second + "\"]").c_str(),
-             event.second ? "AVAILABLE" : "UNAVAILABLE");
+      for (auto event_name : event.first.second) {
+        printf("%-30s [\"%-30s %-30s\n", event.first.first.c_str(),
+               (event_name + "\"]").c_str(),
+               event.second ? "AVAILABLE" : "UNAVAILABLE");
+      }
     }
     printf("\n\n");
   }
