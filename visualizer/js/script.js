@@ -11,6 +11,7 @@ require("bootstrap");
 const { processData } = require("./process-data");
 const { draw } = require("./draw");
 const functionRuntimes = require("./function-runtimes");
+const { setupLayers } = require("./layers");
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, resultFile) => {
@@ -92,6 +93,8 @@ ipcRenderer.on("result", (event, resultFile) => {
       xAxisLabel,
       yAxisLabel
     );
+
+    setupLayers(result);
 
     bar.destroy();
   });

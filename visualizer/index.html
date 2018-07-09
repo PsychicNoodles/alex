@@ -24,7 +24,25 @@
         <svg id="chart"></svg>
       </div>
 			<svg id="legend" class="col-sm-1"></svg>
-      <div class="x-axis-select col-sm-3"></div>
+      <div class="col-sm-3">
+        <div class="accordion" id="layersAccordion">
+          <div class="card">
+            <div class="card-header">
+              Layers
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header" id="headingErrors">
+              <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseErrors" aria-expanded="true" aria-controls="collapseErrors">
+                Errors
+              </button>
+            </div>
+            <div id="collapseErrors" class="collapse" aria-labelledby="headingErrors" data-parent="#layersAccordion">
+              <div class="list-group"></div>
+            </div>
+          </div>
+        </div>
+      </div>
       <button id = "btnClearBrushes">Clear brushes</button>
     </div>
     <div class="row">
