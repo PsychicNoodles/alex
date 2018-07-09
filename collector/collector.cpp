@@ -220,7 +220,7 @@ static int collector_main(int argc, char **argv, char **env) {
     }
 
     DEBUG("collector_main: received child ready signal, starting collector");
-    result = collect_perf_data(subject_pid, kernel_syms, sigterm_fd, sockets[0],
+    result = collect_perf_data(kernel_syms, sigterm_fd, sockets[0],
                                wu_fd, result_file);
 
     DEBUG("collector_main: finished collector, closing file");

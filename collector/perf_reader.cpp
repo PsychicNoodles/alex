@@ -78,11 +78,6 @@ union base_record {
   throttle_record tr;
 };
 
-// pid of the subject of the data collection
-pid_t subject_pid;
-// pid of the data collector itself
-pid_t collector_pid;
-
 // output file for data collection results
 FILE *result_file;
 
@@ -95,6 +90,10 @@ int sample_epfd = epoll_create1(0);
 // a count of the number of fds added to the epoll
 size_t sample_fd_count = 0;
 
+void parent_shutdown(int code) {
+  shutdown(global->subject_pid, result_file, code);
+}
+
 /*
  * Adds a file descriptor to the global epoll
  */
@@ -106,7 +105,7 @@ void add_fd_to_epoll(int fd) {
     char buf[128];
     snprintf(buf, 128, "error adding perf fd %d", fd);
     perror(buf);
-    shutdown(subject_pid, result_file, INTERNAL_ERROR);
+    parent_shutdown(INTERNAL_ERROR);
   }
   sample_fd_count++;
 }
@@ -121,7 +120,7 @@ void delete_fd_from_epoll(int fd) {
     char buf[128];
     snprintf(buf, 128, "error removing perf fd %d", fd);
     perror(buf);
-    shutdown(subject_pid, result_file, INTERNAL_ERROR);
+    parent_shutdown(INTERNAL_ERROR);
   }
   sample_fd_count--;
 }
@@ -153,7 +152,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   perf_buffer cpu_clock_perf{};
   if (setup_monitoring(&cpu_clock_perf, &cpu_clock_attr, target) !=
       SAMPLER_MONITOR_SUCCESS) {
-    shutdown(subject_pid, result_file, INTERNAL_ERROR);
+    parent_shutdown(INTERNAL_ERROR);
   }
   info->cpu_clock_fd = cpu_clock_perf.fd;
   info->sample_buf = cpu_clock_perf;
@@ -175,7 +174,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
           setup_pfm_os_event(&attr, const_cast<char *>(event.c_str()));
       if (pfm_result != PFM_SUCCESS) {
         DEBUG("pfm encoding error: " << pfm_strerror(pfm_result));
-        shutdown(subject_pid, result_file, EVENT_ERROR);
+        parent_shutdown(EVENT_ERROR);
       }
       attr.disabled = false;
 
@@ -184,7 +183,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
       auto event_fd = perf_event_open(&attr, target, -1, cpu_clock_perf.fd, 0);
       if (event_fd == -1) {
         perror("couldn't perf_event_open for event");
-        shutdown(subject_pid, result_file, INTERNAL_ERROR);
+        parent_shutdown(INTERNAL_ERROR);
       }
 
       info->event_fds[event] = event_fd;
@@ -194,7 +193,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   // all related events are ready, so time to start monitoring
   DEBUG("starting monitoring");
   if (start_monitoring(info->cpu_clock_fd) != SAMPLER_MONITOR_SUCCESS) {
-    shutdown(subject_pid, result_file, INTERNAL_ERROR);
+    parent_shutdown(INTERNAL_ERROR);
   }
 }
 
@@ -267,7 +266,7 @@ dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
   int fd = open(const_cast<char *>(file), O_RDONLY);
   if (fd < 0) {
     perror("cannot open executable (/proc/self/exe)");
-    shutdown(subject_pid, result_file, EXECUTABLE_FILE_ERROR);
+    parent_shutdown(EXECUTABLE_FILE_ERROR);
   }
 
   elf::elf ef(elf::create_mmap_loader(fd));
@@ -347,8 +346,8 @@ void print_errors(vector<pair<int, base_record *>> errors) {
  * Sets up the required events and records performance of subject process into
  * result file.
  */
-int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
-                      int sigt_fd, int socket, int wu_fd, FILE *res_file) {
+int collect_perf_data(map<uint64_t, kernel_sym> kernel_syms, int sigt_fd,
+                      int socket, int wu_fd, FILE *res_file) {
   result_file = res_file;
 
   vector<pair<int, base_record *>> errors;
@@ -362,7 +361,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
   DEBUG("cpd: setting up perf events for main thread in subject");
   perf_fd_info subject_info;
 
-  setup_perf_events(subject_pid, HANDLE_EVENTS, &subject_info);
+  setup_perf_events(global->subject_pid, HANDLE_EVENTS, &subject_info);
   setup_buffer(&subject_info);
   handle_perf_register(&subject_info);
 
@@ -438,7 +437,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
     if (ready_fds == -1) {
       perror("sample epoll wait was unsuccessful");
-      shutdown(subject_pid, result_file, INTERNAL_ERROR);
+      parent_shutdown(INTERNAL_ERROR);
     } else if (ready_fds == 0) {
       DEBUG("cpd: no sample fds were ready within the timeout ("
             << SAMPLE_EPOLL_TIMEOUT << ")");
@@ -467,14 +466,14 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             if (cmd == SOCKET_CMD_REGISTER) {
               DEBUG("cpd: setting up buffer for fd " << info->cpu_clock_fd);
               if (setup_buffer(info) != SAMPLER_MONITOR_SUCCESS) {
-                shutdown(subject_pid, result_file, INTERNAL_ERROR);
+                parent_shutdown(INTERNAL_ERROR);
               }
               handle_perf_register(info);
             } else if (cmd == SOCKET_CMD_UNREGISTER) {
               handle_perf_unregister(info);
             } else {
               DEBUG("cpd: unknown command, shutting down");
-              shutdown(global->subject_pid, result_file, INTERNAL_ERROR);
+              parent_shutdown(INTERNAL_ERROR);
             }
           }
           DEBUG("cpd: exhausted requests");
@@ -495,7 +494,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
         } catch (out_of_range &e) {
           DEBUG("cpd: tried looking up a perf fd that has no info (" << fd
                                                                      << ")");
-          shutdown(subject_pid, result_file, INTERNAL_ERROR);
+          parent_shutdown(INTERNAL_ERROR);
         }
 
         int64_t num_timer_ticks = 0;
@@ -505,7 +504,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                                       << " num of cycles: " << num_timer_ticks);
         if (reset_monitoring(fd) != SAMPLER_MONITOR_SUCCESS) {
           cerr << "Couldn't reset monitoring for fd: " << fd;
-          shutdown(subject_pid, result_file, INTERNAL_ERROR);
+          parent_shutdown(INTERNAL_ERROR);
         }
 
         if (!has_next_sample(&info.sample_buf)) {
@@ -516,7 +515,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             DEBUG(
                 "cpd: reached max number of consecutive sample period skips, "
                 "exitting");
-            shutdown(subject_pid, result_file, INTERNAL_ERROR);
+            parent_shutdown(INTERNAL_ERROR);
           }
         } else {
           sample_period_skips = 0;
@@ -536,7 +535,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
             if (sample_type == PERF_RECORD_THROTTLE ||
                 sample_type == PERF_RECORD_UNTHROTTLE) {
               if (adjust_period(sample_type) == -1) {
-                shutdown(subject_pid, result_file, INTERNAL_ERROR);
+                parent_shutdown(INTERNAL_ERROR);
               }
               errors.emplace_back(make_pair(
                   sample_type,
@@ -580,7 +579,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                                                 << " count " << count);
                   if (reset_monitoring(info.event_fds[event]) !=
                       SAMPLER_MONITOR_SUCCESS) {
-                    shutdown(subject_pid, result_file, INTERNAL_ERROR);
+                    parent_shutdown(INTERNAL_ERROR);
                   }
 
                   fprintf(result_file, R"("%s": %ld)", event.c_str(), count);
@@ -698,14 +697,14 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                             "cpd: demangling errored due to memory "
                             "allocation "
                             "failure");
-                        shutdown(subject_pid, result_file, INTERNAL_ERROR);
+                        parent_shutdown(INTERNAL_ERROR);
                       } else if (demangle_status == -2) {
                         DEBUG("cpd: could not demangle name " << sym_name);
                       } else if (demangle_status == -3) {
                         DEBUG(
                             "cpd: demangling errored due to invalid "
                             "arguments");
-                        shutdown(subject_pid, result_file, INTERNAL_ERROR);
+                        parent_shutdown(INTERNAL_ERROR);
                       }
                     }
                   }
