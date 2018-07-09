@@ -8,8 +8,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
   <link rel="stylesheet" href="../node_modules/bootstrap/dist/css/bootstrap.css">
-  <link rel="stylesheet" href="./css/style.css" />
+  <link rel="stylesheet" href="./css/main.css" />
   <link rel="stylesheet" href="./css/function-runtimes.css" />
+  <link rel="stylesheet" href="./css/chart.css" />
+  <link rel="stylesheet" href="./css/brushes.css" />
 </head>
 
 <body>
@@ -20,15 +22,15 @@
       </div>
     </div>
     <div class="row">
-      <div class="col-sm-8">
-        <svg id="chart"></svg>
+      <div id="charts" class="col-sm-8">
       </div>
-			<svg id="legend" class="col-sm-1"></svg>
-      <div class="x-axis-select col-sm-3"></div>
-      <button id = "btnClearBrushes">Clear brushes</button>
+      <svg id="legend" class="col-sm-2"></svg>
+      <div class="col-sm-2">
+        <button id="btnClearBrushes">Clear brushes</button>
+      </div>
     </div>
     <div class="row">
-      <table class="function-runtimes">
+      <table id="function-runtimes">
       </table>
     </div>
   </div>
