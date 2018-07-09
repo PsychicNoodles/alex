@@ -110,10 +110,6 @@ ipcRenderer.on("result", (event, resultFile) => {
     const xAxisLabel = "CPU Time Elapsed";
     const getIndependentVariable = d => d.cpuTime - processedData[0].cpuTime;
 
-    d3.select("#function-runtimes").call(functionRuntimes.render, {
-      data: processedData
-    });
-
     const xScaleMin = getIndependentVariable(processedData[0]);
     const xScaleMax = getIndependentVariable(
       processedData[processedData.length - 1]
