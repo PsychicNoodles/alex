@@ -307,8 +307,7 @@ void process_throttle_record(void *perf_result, int sample_type,
 }
 
 void process_sample_record(void *perf_result, const perf_fd_info &info,
-                           bool is_first_sample, int64_t num_timer_ticks,
-                           bg_reading *rapl_reading,
+                           bool is_first_sample, bg_reading *rapl_reading,
                            bg_reading *wattsup_reading,
                            const map<uint64_t, kernel_sym> &kernel_syms) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
@@ -329,6 +328,16 @@ void process_sample_record(void *perf_result, const perf_fd_info &info,
     memcpy(ps.instruction_pointers,
            static_cast<sample_record *>(perf_result)->instruction_pointers,
            sizeof(uint64_t) * ps.num_instruction_pointers);
+
+    int64_t num_timer_ticks = 0;
+    DEBUG("cpd: reading from fd " << info.cpu_clock_fd);
+    read(info.cpu_clock_fd, &num_timer_ticks, sizeof(num_timer_ticks));
+    DEBUG("cpd: read in from fd " << info.cpu_clock_fd
+                                  << " num of cycles: " << num_timer_ticks);
+    if (reset_monitoring(info.cpu_clock_fd) != SAMPLER_MONITOR_SUCCESS) {
+      cerr << "Couldn't reset monitoring for fd: " << info.cpu_clock_fd;
+      parent_shutdown(INTERNAL_ERROR);
+    }
 
     fprintf(result_file,
             R"(
@@ -735,16 +744,6 @@ int collect_perf_data(map<uint64_t, kernel_sym> kernel_syms, int sigt_fd,
           parent_shutdown(INTERNAL_ERROR);
         }
 
-        int64_t num_timer_ticks = 0;
-        DEBUG("cpd: reading from fd " << fd);
-        read(fd, &num_timer_ticks, sizeof(num_timer_ticks));
-        DEBUG("cpd: read in from fd " << fd
-                                      << " num of cycles: " << num_timer_ticks);
-        if (reset_monitoring(fd) != SAMPLER_MONITOR_SUCCESS) {
-          cerr << "Couldn't reset monitoring for fd: " << fd;
-          parent_shutdown(INTERNAL_ERROR);
-        }
-
         if (!has_next_sample(&info.sample_buf)) {
           sample_period_skips++;
           DEBUG("cpd: SKIPPED SAMPLE PERIOD (" << sample_period_skips
@@ -775,8 +774,8 @@ int collect_perf_data(map<uint64_t, kernel_sym> kernel_syms, int sigt_fd,
               process_throttle_record(perf_result, sample_type, errors);
             } else if (sample_type == PERF_RECORD_SAMPLE) {
               process_sample_record(perf_result, info, is_first_sample,
-                                    num_timer_ticks, &rapl_reading,
-                                    &wattsup_reading, kernel_syms);
+                                    &rapl_reading, &wattsup_reading,
+                                    kernel_syms);
               is_first_sample = false;
             } else {
               DEBUG("cpd: sample type was not recognized ( " << sample_type
