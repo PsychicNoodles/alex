@@ -4,13 +4,10 @@
 
 const d3 = require("d3");
 
-const analyze = require("./analysis");
-
-function render(root, { data }) {
+function render(root, { functionList }) {
   root.classed("function-runtimes", true);
 
-  const functionRuntimesArray = analyze(data).functionList;
-  console.log(functionRuntimesArray);
+  console.log(functionList);
 
   //const newArray = [...new Set([...functionRuntimesArray, ...(chiSquaredData.functionList)])];
   //console.log(newArray);
@@ -27,7 +24,7 @@ function render(root, { data }) {
 
   const tableDataSelection = root
     .selectAll(".function-runtimes__data-row")
-    .data(functionRuntimesArray.slice(0, 100));
+    .data(functionList.slice(0, 100));
 
   tableDataSelection
     .enter()

@@ -7,7 +7,7 @@ const d3 = require("d3");
 const { cloneDeep } = require("lodash");
 
 function processData(immutableData) {
-  const data = cloneDeep(immutableData).filter(
+  return cloneDeep(immutableData).filter(
     timeslice =>
       timeslice.cpuTime &&
       timeslice.stackFrames &&
@@ -16,13 +16,6 @@ function processData(immutableData) {
       timeslice.pid &&
       timeslice.tid
   );
-
-  for (const timeslice of data) {
-    // Deselect all
-    timeslice.selected = false;
-  }
-
-  return data;
 }
 
 function getEventCount(timeslice, lowLevelNames) {

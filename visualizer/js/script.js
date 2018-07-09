@@ -2,8 +2,8 @@ const { ipcRenderer } = require("electron");
 const fs = require("fs");
 const readline = require("readline");
 const d3 = require("d3");
-
 const ProgressBar = require("progressbar.js");
+const analyze = require("./analysis");
 
 require("bootstrap");
 
@@ -15,6 +15,7 @@ const {
 const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
 const legend = require("./legend");
+const brushes = require("./brushes");
 
 const PROGRESS_HEIGHT = "8px";
 const PROGRESS_DIVISIONS = 10;
@@ -110,10 +111,6 @@ ipcRenderer.on("result", (event, resultFile) => {
     const xAxisLabel = "CPU Time Elapsed";
     const getIndependentVariable = d => d.cpuTime - processedData[0].cpuTime;
 
-    d3.select("#function-runtimes").call(functionRuntimes.render, {
-      data: processedData
-    });
-
     const xScaleMin = getIndependentVariable(processedData[0]);
     const xScaleMax = getIndependentVariable(
       processedData[processedData.length - 1]
@@ -176,5 +173,23 @@ ipcRenderer.on("result", (event, resultFile) => {
     }
 
     d3.select("#legend").call(legend.render, { densityMax, spectrum });
+
+    brushes.store.subscribe(({ selections }) => {
+      const { functionList } = analyze(
+        processedData.map(timeslice => {
+          const x = xScale(getIndependentVariable(timeslice));
+          return {
+            ...timeslice,
+            selected: selections.some(
+              ({ range }) => range[0] <= x && x <= range[1]
+            )
+          };
+        })
+      );
+
+      d3.select("#function-runtimes").call(functionRuntimes.render, {
+        functionList
+      });
+    });
   });
 });
