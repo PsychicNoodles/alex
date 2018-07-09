@@ -56,7 +56,31 @@ void setup_global_vars() {
   }
   DEBUG("period is " << period);
 
-  init_global_vars({period});
+  // set up events array, will be a set later though
+  DEBUG("collector_main: getting events from env var");
+  vector<string> events = str_split_vec(getenv_safe("COLLECTOR_EVENTS"), ",");
+  set<string> presets = str_split_set(getenv_safe("COLLECTOR_PRESETS"), ",");
+  if (presets.find("cpu") != presets.end() ||
+      presets.find("all") != presets.end()) {
+    map<string, string> cpu = buildPresets("cpu");
+    for (auto &it : cpu) {
+      events.emplace_back(it.second.c_str());
+    }
+  }
+
+  if (presets.find("cache") != presets.end() ||
+      presets.find("all") != presets.end()) {
+    map<string, string> cache = buildPresets("cache");
+    for (auto &it : cache) {
+      events.emplace_back(it.second.c_str());
+    }
+  }
+
+  auto collector_pid = getpid();
+
+  init_global_vars({period, events, presets, -1, collector_pid});
+
+  debug_global_var();
 }
 
 map<uint64_t, kernel_sym> read_kernel_syms(
@@ -123,31 +147,10 @@ static int collector_main(int argc, char **argv, char **env) {
     exit(INTERNAL_ERROR);
   }
 
-  // set up events array, will be a set later though
-  DEBUG("collector_main: getting events from env var");
-  events = str_split_vec(getenv_safe("COLLECTOR_EVENTS"), ",");
-  presets = str_split_set(getenv_safe("COLLECTOR_PRESETS"), ",");
-  if (presets.find("cpu") != presets.end() ||
-      presets.find("all") != presets.end()) {
-    map<string, string> cpu = buildPresets("cpu");
-    for (auto &it : cpu) {
-      events.emplace_back(it.second.c_str());
-    }
-  }
-
-  if (presets.find("cache") != presets.end() ||
-      presets.find("all") != presets.end()) {
-    map<string, string> cache = buildPresets("cache");
-    for (auto &it : cache) {
-      events.emplace_back(it.second.c_str());
-    }
-  }
-
   DEBUG("collector_main: initializing pfm");
   pfm_initialize();
 
-  collector_pid = getpid();
-  subject_pid = real_fork();
+  pid_t subject_pid = real_fork();
   if (subject_pid == 0) {
     DEBUG(
         "collector_main: in child process, waiting for parent to be ready "
@@ -157,7 +160,7 @@ static int collector_main(int argc, char **argv, char **env) {
     close(sockets[0]);
     set_perf_register_sock(sockets[1]);
 
-    if (kill(collector_pid, SIGUSR2)) {
+    if (kill(global->collector_pid, SIGUSR2)) {
       perror("couldn't signal collector process");
       exit(INTERNAL_ERROR);
     }
@@ -171,7 +174,7 @@ static int collector_main(int argc, char **argv, char **env) {
     result = subject_main_fn(argc, argv, env);
 
     DEBUG("collector_main: finished in child, killing parent");
-    if (kill(collector_pid, SIGTERM)) {
+    if (kill(global->collector_pid, SIGTERM)) {
       perror("couldn't kill collector process");
       exit(INTERNAL_ERROR);
     }
@@ -180,10 +183,11 @@ static int collector_main(int argc, char **argv, char **env) {
     DEBUG(
         "collector_main: in parent process, opening result file for writing "
         "(pid: "
-        << collector_pid << ")");
+        << global->collector_pid << ")");
+    set_subject_pid(subject_pid);
     string env_res = getenv_safe("COLLECTOR_RESULT_FILE", "result.txt");
     DEBUG("collector_main: result file " << env_res);
-    result_file = fopen(env_res.c_str(), "w");
+    auto result_file = fopen(env_res.c_str(), "w");
 
     close(sockets[1]);
 
@@ -196,8 +200,9 @@ static int collector_main(int argc, char **argv, char **env) {
 
     map<uint64_t, kernel_sym> kernel_syms = read_kernel_syms();
 
-    const bool wattsup_enabled = presets.find("wattsup") != presets.end() ||
-                                 presets.find("all") != presets.end();
+    const bool wattsup_enabled =
+        global->presets.find("wattsup") != global->presets.end() ||
+        global->presets.find("all") != global->presets.end();
     int wu_fd = -1;
     if (wattsup_enabled) {
       // setting up wattsup
@@ -216,7 +221,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
     DEBUG("collector_main: received child ready signal, starting collector");
     result = collect_perf_data(subject_pid, kernel_syms, sigterm_fd, sockets[0],
-                               wu_fd);
+                               wu_fd, result_file);
 
     DEBUG("collector_main: finished collector, closing file");
 

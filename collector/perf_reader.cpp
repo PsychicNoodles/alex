@@ -11,12 +11,10 @@
 #include <sys/epoll.h>
 #include <sys/mman.h>
 #include <sys/signalfd.h>
-#include <sys/socket.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <algorithm>
 #include <cassert>
 #include <cinttypes>
 #include <csignal>
@@ -42,6 +40,7 @@
 #include "perf_reader.hpp"
 #include "rapl.hpp"
 #include "shared.hpp"
+#include "sockets.hpp"
 #include "util.hpp"
 #include "wattsup.hpp"
 
@@ -50,10 +49,6 @@ using std::set;
 using std::string;
 using std::unique_ptr;
 using std::vector;
-
-// command numbers sent over the socket from threads in the subject program
-#define SOCKET_CMD_REGISTER 1
-#define SOCKET_CMD_UNREGISTER 2
 
 // contents of buffer filled when PERF_RECORD_SAMPLE type is enabled plus
 // certain sample types
@@ -92,10 +87,6 @@ pid_t collector_pid;
 // output file for data collection results
 FILE *result_file;
 
-// a list of the events enumerated in COLLECTOR_EVENTS env var
-vector<string> events;
-set<string> presets;
-
 // map between cpu cycles fd (the only fd in a thread that is sampled) and its
 // related information/fds
 map<int, perf_fd_info> perf_info_mappings;
@@ -104,13 +95,6 @@ map<int, perf_fd_info> perf_info_mappings;
 int sample_epfd = epoll_create1(0);
 // a count of the number of fds added to the epoll
 size_t sample_fd_count = 0;
-
-/*
- * Calculates the number of perf file descriptors per thread
- * #0 cpu cycles and samples
- * #1-? each event
- */
-inline size_t num_perf_fds() { return 1 + events.size(); }
 
 /*
  * Adds a file descriptor to the global epoll
@@ -176,12 +160,12 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   info->sample_buf = cpu_clock_perf;
   info->tid = target;
 
-  if (setup_events && !events.empty()) {
+  if (setup_events && !global->events.empty()) {
     DEBUG("setting up events");
-    for (auto &e : events) {
+    for (auto &e : global->events) {
       DEBUG("event: " << e);
     }
-    for (const auto &event : events) {
+    for (const auto &event : global->events) {
       DEBUG("setting up event: " << event);
       perf_event_attr attr{};
       memset(&attr, 0, sizeof(perf_event_attr));
@@ -215,91 +199,6 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   }
 }
 
-inline map<int, perf_fd_info>::iterator find_perf_info_by_thread(pid_t tid) {
-  return find_if(
-      perf_info_mappings.begin(), perf_info_mappings.end(),
-      [tid](const pair<int, perf_fd_info> &p) { return p.second.tid == tid; });
-}
-
-/*
- * Receives data from thread in the subject program through the shared Unix
- * socket and stores it into the info struct.
- * Returns the received command or -1 on error.
- */
-int recv_perf_fds(int socket, perf_fd_info *info) {
-  size_t n_fds = num_perf_fds();
-  int ancil_fds[n_fds];
-  pid_t tid;
-  int cmd;
-  struct iovec ios[]{{&tid, sizeof(pid_t)}, {&cmd, sizeof(int)}};
-
-  int n_recv = ancil_recv_fds_with_msg(socket, ancil_fds, n_fds, ios, 2);
-  if (n_recv > 0) {
-    DEBUG("received tid " << tid << ", cmd " << cmd);
-    if (cmd == SOCKET_CMD_REGISTER) {
-      DEBUG("request to register " << n_recv << " new fds for tid " << tid);
-      for (int i = 0; i < n_fds; i++) {
-        DEBUG("recv fds[" << i << "]: " << ancil_fds[i]);
-      }
-      // copy perf fd info
-      info->cpu_clock_fd = ancil_fds[0];
-      for (int i = 0; i < events.size(); i++) {
-        info->event_fds[events[i]] = ancil_fds[i + 1];
-      }
-      info->tid = tid;
-      return cmd;
-    } else if (cmd == SOCKET_CMD_UNREGISTER) {
-      DEBUG("request to unregister fds for tid " << tid);
-      auto pair = find_perf_info_by_thread(tid);
-      if (pair != perf_info_mappings.end()) {
-        DEBUG("found perf info");
-        *info = pair->second;
-        return cmd;
-      } else {
-        DEBUG("couldn't find perf info for thread " << tid);
-      }
-    } else {
-      DEBUG("received invalid socket cmd");
-      shutdown(subject_pid, result_file, INTERNAL_ERROR);
-      return -1;
-    }
-  }
-  return -1;
-}
-
-/*
- * Sends fds from thread in subject program through the shared Unix socket to be
- * registered in the collector.
- */
-bool register_perf_fds(int socket, perf_fd_info *info) {
-  DEBUG("registering perf fds");
-  size_t n_fds = num_perf_fds();
-  int ancil_fds[n_fds];
-  // copy the locally used file descriptors
-  ancil_fds[0] = info->cpu_clock_fd;
-  for (int i = 0; i < events.size(); i++) {
-    ancil_fds[i + 1] = info->event_fds[events[i]];
-  }
-  pid_t tid = gettid();
-  int cmd = SOCKET_CMD_REGISTER;
-  DEBUG("sending tid " << tid << ", cmd " << cmd);
-  struct iovec ios[]{{&tid, sizeof(pid_t)}, {&cmd, sizeof(int)}};
-  return ancil_send_fds_with_msg(socket, ancil_fds, n_fds, ios, 2) == 0;
-}
-
-/*
- * Sends fds from thread in subject program through the shared Unix socket to be
- * unregistered in the collector.
- */
-bool unregister_perf_fds(int socket) {
-  DEBUG("unregistering perf fds");
-  pid_t tid = gettid();
-  int cmd = SOCKET_CMD_UNREGISTER;
-  DEBUG("sending tid " << tid << ", cmd " << cmd);
-  struct iovec ios[]{{&tid, sizeof(pid_t)}, {&cmd, sizeof(int)}};
-  return ancil_send_fds_with_msg(socket, nullptr, 0, ios, 2) == 0;
-}
-
 /*
  * Performs bookkeeping saving for received perf fd data from thread in subject
  * program.
@@ -309,8 +208,8 @@ void handle_perf_register(perf_fd_info *info) {
         << info->tid << ", adding to epoll");
   add_fd_to_epoll(info->cpu_clock_fd);
   DEBUG("cpd: inserting mapping for fd " << info->cpu_clock_fd);
-  for (int i = 0; i < events.size(); i++) {
-    DEBUG("event[" << i << "]: " << info->event_fds[events[i]]);
+  for (int i = 0; i < global->events.size(); i++) {
+    DEBUG("event[" << i << "]: " << info->event_fds[global->events.at(i)]);
   }
   perf_info_mappings.emplace(make_pair(info->cpu_clock_fd, *info));
   DEBUG("cpd: successfully added fd " << info->cpu_clock_fd
@@ -399,7 +298,7 @@ int adjust_period(int sample_type) {
   return 0;
 }
 
-void print_errors(vector<pair<int, base_record *>> errors, FILE *result_file) {
+void print_errors(vector<pair<int, base_record *>> errors) {
   bool is_first_element = true;
   for (auto &p : errors) {
     if (is_first_element) {
@@ -450,7 +349,9 @@ void print_errors(vector<pair<int, base_record *>> errors, FILE *result_file) {
  * result file.
  */
 int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
-                      int sigt_fd, int socket, int wu_fd) {
+                      int sigt_fd, int socket, int wu_fd, FILE *res_file) {
+  result_file = res_file;
+
   vector<pair<int, base_record *>> errors;
 
   DEBUG("collector_main: registering " << sigt_fd << " as sigterm fd");
@@ -476,7 +377,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               ,
               )",
           VERSION);
-  printPresetEvents(presets, result_file);
+  printPresetEvents(global->presets, result_file);
   fprintf(result_file,
           R"(
             },
@@ -489,8 +390,8 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
 
   // setting up RAPL energy reading
   bg_reading rapl_reading = {nullptr};
-  if (presets.find("rapl") != presets.end() ||
-      presets.find("all") != presets.end()) {
+  if (global->presets.find("rapl") != global->presets.end() ||
+      global->presets.find("all") != global->presets.end()) {
     setup_reading(&rapl_reading,
                   [](void *_) -> void * {
                     auto m = new map<string, uint64_t>;
@@ -560,8 +461,9 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           DEBUG("cpd: received message from a thread in subject");
           int cmd;
           perf_fd_info *info = new perf_fd_info;
-          for (cmd = recv_perf_fds(socket, info); cmd != -1;
-               info = new perf_fd_info, cmd = recv_perf_fds(socket, info)) {
+          for (cmd = recv_perf_fds(socket, info, perf_info_mappings); cmd != -1;
+               info = new perf_fd_info,
+              cmd = recv_perf_fds(socket, info, perf_info_mappings)) {
             DEBUG("cpd: received cmd " << cmd);
             if (cmd == SOCKET_CMD_REGISTER) {
               DEBUG("cpd: setting up buffer for fd " << info->cpu_clock_fd);
@@ -571,6 +473,9 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               handle_perf_register(info);
             } else if (cmd == SOCKET_CMD_UNREGISTER) {
               handle_perf_unregister(info);
+            } else {
+              DEBUG("cpd: unknown command, shutting down");
+              shutdown(global->subject_pid, result_file, INTERNAL_ERROR);
             }
           }
           DEBUG("cpd: exhausted requests");
@@ -661,7 +566,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
                 DEBUG("cpd: reading from each fd");
 
                 bool is_first_event = true;
-                for (const auto &event : events) {
+                for (const auto &event : global->events) {
                   // fprintf(result_file, "%s", event.c_str());
                   if (is_first_event) {
                     is_first_event = false;
@@ -891,7 +796,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               "error": [
                           )");
 
-  print_errors(errors, result_file);
+  print_errors(errors);
   fprintf(result_file,
           R"(       
               ]

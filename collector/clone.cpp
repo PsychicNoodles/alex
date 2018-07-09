@@ -4,14 +4,16 @@
 //
 
 #include <sys/socket.h>
+#include <unistd.h>
 #include <cstring>
 
-#include <unistd.h>
 #include "clone.hpp"
 #include "const.hpp"
 #include "debug.hpp"
 #include "perf_reader.hpp"
 #include "perf_sampler.hpp"
+#include "shared.hpp"
+#include "sockets.hpp"
 #include "util.hpp"
 
 using std::string;
@@ -41,7 +43,7 @@ void *__imposter(void *arg) {
             << " with collector for bookkeeping");
   if (!register_perf_fds(perf_register_sock, &info)) {
     perror("failed to send new thread's fd");
-    shutdown(collector_pid, nullptr, INTERNAL_ERROR);
+    shutdown(global->collector_pid, nullptr, INTERNAL_ERROR);
   }
 
   DEBUG(tid << ": starting routine");

@@ -1,7 +1,7 @@
 CXX := clang++
 GIT_VERSION := $(shell git describe --abbrev=4 --dirty --always --tags)
 CFLAGS := $(shell pkg-config --cflags --libs libelf++ libdwarf++) -DVERSION=\"$(GIT_VERSION)\"
-SOURCES := collector.cpp perf_reader.cpp const.cpp util.cpp debug.cpp perf_sampler.cpp clone.cpp rapl.cpp wattsup.cpp bg_readings.cpp ancillary.cpp find_events.cpp shared.cpp
+SOURCES := collector.cpp perf_reader.cpp const.cpp util.cpp debug.cpp perf_sampler.cpp clone.cpp rapl.cpp wattsup.cpp bg_readings.cpp ancillary.cpp find_events.cpp shared.cpp sockets.cpp
 EVENT_SOURCES := available-events.cpp debug.cpp wattsup.cpp rapl.cpp perf_sampler.cpp util.cpp
 SRC_DIR := .
 TIDY := clang-tidy
