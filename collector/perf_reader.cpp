@@ -296,6 +296,16 @@ int adjust_period(int sample_type) {
   return 0;
 }
 
+void process_throttle_record(void *perf_result, int sample_type,
+                             vector<pair<int, base_record *>> &errors) {
+  if (adjust_period(sample_type) == -1) {
+    parent_shutdown(INTERNAL_ERROR);
+  }
+  errors.emplace_back(make_pair(
+      sample_type, new base_record{.tr = *reinterpret_cast<throttle_record *>(
+                                       perf_result)}));
+}
+
 void process_sample_record(void *perf_result, const perf_fd_info &info,
                            bool is_first_sample, int64_t num_timer_ticks,
                            bg_reading *rapl_reading,
@@ -762,13 +772,7 @@ int collect_perf_data(map<uint64_t, kernel_sym> kernel_syms, int sigt_fd,
 
             if (sample_type == PERF_RECORD_THROTTLE ||
                 sample_type == PERF_RECORD_UNTHROTTLE) {
-              if (adjust_period(sample_type) == -1) {
-                parent_shutdown(INTERNAL_ERROR);
-              }
-              errors.emplace_back(make_pair(
-                  sample_type,
-                  new base_record{.tr = *reinterpret_cast<throttle_record *>(
-                                      perf_result)}));
+              process_throttle_record(perf_result, sample_type, errors);
             } else if (sample_type == PERF_RECORD_SAMPLE) {
               process_sample_record(perf_result, info, is_first_sample,
                                     num_timer_ticks, &rapl_reading,
