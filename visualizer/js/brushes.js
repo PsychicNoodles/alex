@@ -142,15 +142,6 @@ function onBrushMove({
   if (d3.event.selection !== null) {
     selectPoints({ timeslices, chart, root, xScale, getIndependentVariable });
 
-    // d3.select(currentBrush)
-    //   .select(".brush__close")
-    //   .attr(
-    //     "transform",
-    //     `translate(${d3.brushSelection(currentBrush)[1] - 24},0)`
-    //   );
-
-    // d3.select(currentBrush).classed("brush--invisible", false);
-
     updateSelections(currentBrush);
   }
 }
