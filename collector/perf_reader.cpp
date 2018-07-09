@@ -696,16 +696,14 @@ int collect_perf_data(map<uint64_t, kernel_sym> kernel_syms, int sigt_fd,
 
                       if (demangle_status == -1) {
                         DEBUG(
-                            "cpd: demangling errored due to memory "
-                            "allocation "
+                            "cpd: demangling errored due to memory allocation "
                             "failure");
                         parent_shutdown(INTERNAL_ERROR);
                       } else if (demangle_status == -2) {
                         DEBUG("cpd: could not demangle name " << sym_name);
                       } else if (demangle_status == -3) {
                         DEBUG(
-                            "cpd: demangling errored due to invalid "
-                            "arguments");
+                            "cpd: demangling errored due to invalid arguments");
                         parent_shutdown(INTERNAL_ERROR);
                       }
                     }
