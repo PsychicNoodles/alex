@@ -41,14 +41,16 @@ void printPresetEvents(const set<string>& presets, FILE* result_file) {
     real_presets.insert("cpu");
     real_presets.insert("energy");
     real_presets.insert("branch");
-  } else
+  } else {
     real_presets = presets;
+  }
   bool is_first_preset = true;
-  for (auto preset : real_presets) {
+  for (const auto& preset : real_presets) {
     if (is_first_preset) {
       is_first_preset = false;
-    } else
+    } else {
       fprintf(result_file, ",");
+    }
     map<string, string> events = buildPresets(preset);
     bool is_first = true;
     fprintf(result_file, R"(

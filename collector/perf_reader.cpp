@@ -45,7 +45,6 @@
 #include "wattsup.hpp"
 
 using std::map;
-using std::set;
 using std::string;
 using std::unique_ptr;
 using std::vector;
@@ -460,7 +459,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
         } else if (fd == socket) {
           DEBUG("cpd: received message from a thread in subject");
           int cmd;
-          perf_fd_info *info = new perf_fd_info;
+          auto *info = new perf_fd_info;
           for (cmd = recv_perf_fds(socket, info, perf_info_mappings); cmd != -1;
                info = new perf_fd_info,
               cmd = recv_perf_fds(socket, info, perf_info_mappings)) {
