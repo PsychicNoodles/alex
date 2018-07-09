@@ -1,5 +1,5 @@
 const d3 = require("d3");
-const functionRuntimes = require("./function-runtimes");
+
 const { Store } = require("./store");
 
 const brushId = d3.local();
@@ -16,17 +16,7 @@ document.getElementById("btnClearBrushes").addEventListener("click", () => {
   }));
 });
 
-function render(
-  root,
-  {
-    timeslices,
-    chart,
-    xScale,
-    getIndependentVariable,
-    selections,
-    nextSelectionId
-  }
-) {
+function render(root, { selections, nextSelectionId }) {
   // Require here to avoid circular dependency
   const { WIDTH, HEIGHT } = require("./chart");
 
@@ -36,24 +26,10 @@ function render(
     .brushX()
     .extent([[0, 0], [WIDTH, HEIGHT]])
     .on("brush", function() {
-      onBrushMove({
-        currentBrush: this,
-        timeslices,
-        xScale,
-        chart,
-        root,
-        getIndependentVariable
-      });
+      updateSelections(this);
     })
     .on("end", function() {
-      onBrushMoveEnd({
-        currentBrush: this,
-        timeslices,
-        root,
-        chart,
-        xScale,
-        getIndependentVariable
-      });
+      updateSelections(this);
     });
 
   const brushSelection = root.selectAll("g.brush").data(
@@ -130,30 +106,6 @@ function render(
   });
 }
 
-// Re-color the circles in the region that was selected by the user
-function onBrushMove({
-  currentBrush,
-  timeslices,
-  xScale,
-  chart,
-  root,
-  getIndependentVariable
-}) {
-  if (d3.event.selection !== null) {
-    selectPoints({ timeslices, chart, root, xScale, getIndependentVariable });
-
-    updateSelections(currentBrush);
-  }
-}
-
-function onBrushMoveEnd({ currentBrush, timeslices }) {
-  d3.select("#function-runtimes").call(functionRuntimes.render, {
-    data: timeslices
-  });
-
-  updateSelections(currentBrush);
-}
-
 function updateSelections(currentBrush) {
   const id = brushId.get(currentBrush);
   const range = d3.brushSelection(currentBrush);
@@ -177,46 +129,6 @@ function updateSelections(currentBrush) {
       }));
     }
   }
-}
-
-function selectPoints({
-  timeslices,
-  chart,
-  root,
-  xScale,
-  getIndependentVariable
-}) {
-  const circles = chart.selectAll(".circles circle");
-
-  circles.attr("class", "");
-
-  for (const timeslice of timeslices) {
-    timeslice.selected = false;
-  }
-
-  root.selectAll("g.brush").each(function() {
-    const brushArea = d3.brushSelection(this);
-
-    if (brushArea) {
-      circles
-        .filter(function() {
-          const cx = d3.select(this).attr("cx");
-          return brushArea[0] <= cx && cx <= brushArea[1];
-        })
-        .attr("class", "brushed");
-
-      for (const timeslice of timeslices) {
-        const x = xScale(getIndependentVariable(timeslice));
-        if (brushArea[0] <= x && x <= brushArea[1]) {
-          timeslice.selected = true;
-        }
-      }
-    }
-  });
-
-  d3.select("#function-runtimes").call(functionRuntimes.render, {
-    data: timeslices
-  });
 }
 
 module.exports = { render, store };

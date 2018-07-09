@@ -2,15 +2,15 @@ const d3 = require("d3");
 
 const plot = require("./plot");
 const brushes = require("./brushes");
-const functionRuntimes = require("./function-runtimes");
 
 const WIDTH = 500;
 const HEIGHT = 250;
 
+const brushesSubscription = d3.local();
+
 function render(
   root,
   {
-    timeslices,
     spectrum,
     plotData,
     densityMax,
@@ -39,32 +39,19 @@ function render(
 
   const brushesGroup = root.append("g");
 
-  const brushesSubscription = brushes.store.subscribe(
-    ({ selections, nextSelectionId }) => {
+  const oldBrushesSubscription = root.property(brushesSubscription);
+  if (oldBrushesSubscription) {
+    oldBrushesSubscription.unsubscribe();
+  }
+  root.property(
+    brushesSubscription,
+    brushes.store.subscribe(({ selections, nextSelectionId }) => {
       brushesGroup.call(brushes.render, {
-        timeslices,
-        chart: root,
-        xScale,
-        getIndependentVariable,
         selections,
         nextSelectionId
       });
-    }
+    })
   );
-
-  document.getElementById("btnClearBrushes").addEventListener("click", () => {
-    const circles = root.selectAll("circle");
-
-    for (const timeslice of timeslices) {
-      timeslice.selected = false;
-    }
-
-    circles.attr("class", "circle");
-
-    d3.select("#function-runtimes").call(functionRuntimes.render, {
-      data: timeslices
-    });
-  });
 
   root
     .append("g")
