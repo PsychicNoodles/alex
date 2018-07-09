@@ -21,7 +21,7 @@ PRELOAD_VAR  := LD_PRELOAD
 CXXLIB       := $(CXX) -shared -fPIC -Wl,-soname,interposer.so
 endif
 
-all: collector.$(SHLIB_SUFFIX) available-events
+all: collector.$(SHLIB_SUFFIX)
 
 pedantic: WARN = -Werror
 pedantic: all
