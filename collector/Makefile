@@ -34,6 +34,7 @@ minlog: all
 
 clean:
 	@rm -f collector.$(SHLIB_SUFFIX)
+	@rm -f available-events
 
 clean-res:
 	@rm -f err-* out-* res-*
