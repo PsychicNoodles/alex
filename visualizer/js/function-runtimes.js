@@ -5,7 +5,10 @@
 const d3 = require("d3");
 
 const analyze = require("./analysis");
+
 function render(root, { data }) {
+  root.classed("function-runtimes", true);
+
   const functionRuntimesArray = analyze(data).functionList;
   console.log(functionRuntimesArray);
 
