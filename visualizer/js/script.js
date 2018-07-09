@@ -86,6 +86,7 @@ ipcRenderer.on("result", (event, resultFile) => {
 
     const charts = [
       {
+        presetsRequired: ["cache"],
         yAxisLabel: "Cache Miss Rate",
         yFormat: d3.format(".0%"),
         getDependentVariable: d =>
@@ -94,13 +95,16 @@ ipcRenderer.on("result", (event, resultFile) => {
               getEventCount(d, result.header.presets.cache.misses)) || 0
       },
       {
+        presetsRequired: ["cpu"],
         yAxisLabel: "Instructions Per Cycle",
         yFormat: d3.format(".2"),
         getDependentVariable: d =>
           getEventCount(d, result.header.presets.cpu.instructions) /
             getEventCount(d, result.header.presets.cpu.CPUcycles) || 0
       }
-    ];
+    ].filter(({ presetsRequired }) =>
+      presetsRequired.every(presetName => presetName in result.header.presets)
+    );
 
     const xAxisLabel = "CPU Time Elapsed";
     const getIndependentVariable = d => d.cpuTime - processedData[0].cpuTime;
