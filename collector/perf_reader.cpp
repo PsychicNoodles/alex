@@ -760,8 +760,8 @@ int collect_perf_data(map<uint64_t, kernel_sym> kernel_syms, int sigt_fd,
                 is_first_sample = false;
               }
             } else {
-              DEBUG("cpd: sample type was not PERF_RECORD_SAMPLE, it was "
-                    << sample_type);
+              DEBUG("cpd: sample type was not recognized ( " << sample_type
+                                                             << ")");
             }
           }
         }
