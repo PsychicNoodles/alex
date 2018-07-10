@@ -45,12 +45,20 @@ body {
 
 #side-bar {
   grid-area: side-bar;
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 #side-bar-header {
+  display: flex;
+  align-items: center;
   padding: 10px;
   background-color: #ededed;
+}
+
+#function-runtimes-wrapper {
+  overflow: auto;
 }
 
 button {
