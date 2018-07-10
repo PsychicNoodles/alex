@@ -13,7 +13,7 @@ build/fork: fork.c | build
 	clang -g -Wall -lpthread -o build/fork fork.c
 
 build/branch-predict: branch-predict.cpp | build
-	clang++ -g -Wall -rdynamic -o build/branch-predict branch-predict.cpp
+	clang++ -g -Wall -rdynamic -lpthread -o build/branch-predict branch-predict.cpp
 
 clean:
 	$(RM) -rf build

@@ -1,6 +1,11 @@
 .brush .selection {
   fill: #000;
   opacity: 0.2;
+  transition: opacity 200ms;
+}
+
+body:not(:active) .brush--selection-hovered .selection {
+  opacity: 0.3;
 }
 
 .brush__close {

@@ -62,6 +62,9 @@ int recv_perf_fds(int socket, perf_fd_info *info,
       DEBUG("received invalid socket cmd");
       return cmd;
     }
+  } else if (n_recv == 0) {
+    DEBUG("socket was closed");
+    return -1;
   }
   return -1;
 }
