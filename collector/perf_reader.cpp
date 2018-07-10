@@ -405,12 +405,13 @@ bool process_sample_record(sample_record *sample, const perf_fd_info &info,
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
-  uintptr_t end_data = (uintptr_t)info.sample_buf.info +
-                       info.sample_buf.info->data_size +
-                       info.sample_buf.info->data_offset;
+  auto end_data = reinterpret_cast<uintptr_t>(
+           info.sample_buf.info + info.sample_buf.info->data_size +
+           info.sample_buf.info->data_offset),
+       sample_ptr = reinterpret_cast<uintptr_t>(sample);
   DEBUG("cpd: processing sample record at " << ptr_fmt(sample));
-  if (is_first_sample || (uintptr_t)sample == end_data) {
-    if ((uintptr_t)sample == end_data) {
+  if (is_first_sample || sample_ptr == end_data) {
+    if (sample_ptr == end_data) {
       DEBUG("cpd: sample is on the edge of mmap page, skipping");
       return true;
     }
@@ -883,7 +884,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                  i++) {
               DEBUG("cpd: getting next record");
               int sample_type, sample_size;
-              base_record *perf_result =
+              auto *perf_result =
                   reinterpret_cast<base_record *>(get_next_record(
                       &info.sample_buf, &sample_type, &sample_size));
               DEBUG("cpd: record type is " << record_type_str(sample_type));

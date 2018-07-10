@@ -28,7 +28,7 @@ string ptr_fmt(void* ptr) {
   return string(buf);
 }
 
-string ptr_fmt(uintptr_t ptr) { return ptr_fmt((void*)ptr); }
+string ptr_fmt(uintptr_t ptr) { return ptr_fmt(reinterpret_cast<void*>(ptr)); }
 
 char* int_to_hex(uint64_t i) {
   static char buf[19];
