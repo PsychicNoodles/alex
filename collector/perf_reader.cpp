@@ -579,6 +579,10 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
               handle_perf_unregister(info);
             }
           }
+          if (cmd == 0) {
+            DEBUG("cpd: removing closed socket from epoll");
+            delete_fd_from_epoll(socket);
+          }
           DEBUG("cpd: exhausted requests");
           // re-poll for data
           fds.clear();
