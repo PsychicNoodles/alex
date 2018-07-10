@@ -23,7 +23,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, int wu_fd, FILE* res_file,
                              bg_reading* rapl_reading,
                              bg_reading* wattsup_reading);
 int collect_perf_data(const map<uint64_t, kernel_sym>& kernel_syms, int sigt_fd,
-                      int socket, FILE* res_file, bg_reading* rapl_reading,
+                      int socket, bg_reading* rapl_reading,
                       bg_reading* wattsup_reading);
 
 bool register_perf_fds(int socket, perf_fd_info* info);
