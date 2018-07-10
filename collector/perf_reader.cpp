@@ -768,7 +768,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
             parent_shutdown(INTERNAL_ERROR);
           }
 
-          if (!has_next_sample(&info.sample_buf)) {
+          if (!has_next_record(&info.sample_buf)) {
             sample_period_skips++;
             DEBUG("cpd: SKIPPED SAMPLE PERIOD (" << sample_period_skips
                                                  << " in a row)");
@@ -788,12 +788,12 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
 
             bool is_first_sample = true;
             for (int i = 0;
-                 has_next_sample(&info.sample_buf) && i < MAX_RECORD_READS;
+                 has_next_record(&info.sample_buf) && i < MAX_RECORD_READS;
                  i++) {
               DEBUG("cpd: getting next sample");
               int sample_type, sample_size;
               void *perf_result =
-                  get_next_sample(&info.sample_buf, &sample_type, &sample_size);
+                  get_next_record(&info.sample_buf, &sample_type, &sample_size);
 
               if (sample_type == PERF_RECORD_THROTTLE ||
                   sample_type == PERF_RECORD_UNTHROTTLE) {
