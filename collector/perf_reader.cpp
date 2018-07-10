@@ -246,14 +246,14 @@ void handle_perf_unregister(perf_fd_info *info) {
  * Returns true if there were priority fds, false otherwise
  */
 bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
-                        int socket, bool &done) {
+                        int socket, bool *done) {
   // check for high priority fds
   for (int i = 0; i < ready_fds; i++) {
     int fd = evlist[i].data.fd;
     // check if it's sigterm or request to register thread
     if (fd == sigt_fd) {
       DEBUG("cpd: received sigterm, stopping");
-      done = true;
+      *done = true;
       // don't check the other fds, jump back to epolling
       return true;
     } else if (fd == socket) {
@@ -340,11 +340,11 @@ int adjust_period(int sample_type) {
 }
 
 void process_throttle_record(void *perf_result, int sample_type,
-                             vector<pair<int, base_record *>> &errors) {
+                             vector<pair<int, base_record *>> *errors) {
   if (adjust_period(sample_type) == -1) {
     parent_shutdown(INTERNAL_ERROR);
   }
-  errors.emplace_back(make_pair(
+  errors->emplace_back(make_pair(
       sample_type, new base_record{.tr = *reinterpret_cast<throttle_record *>(
                                        perf_result)}));
 }
@@ -733,7 +733,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
     } else {
       DEBUG("cpd: " << ready_fds << " sample fds were ready");
 
-      if (!check_priority_fds(evlist, ready_fds, sigt_fd, socket, done)) {
+      if (!check_priority_fds(evlist, ready_fds, sigt_fd, socket, &done)) {
         for (int i = 0; i < ready_fds; i++) {
           const auto fd = evlist[i].data.fd;
           DEBUG("cpd: perf fd " << fd << " is ready");
@@ -774,7 +774,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
 
               if (sample_type == PERF_RECORD_THROTTLE ||
                   sample_type == PERF_RECORD_UNTHROTTLE) {
-                process_throttle_record(perf_result, sample_type, errors);
+                process_throttle_record(perf_result, sample_type, &errors);
               } else if (sample_type == PERF_RECORD_SAMPLE) {
                 process_sample_record(perf_result, info, is_first_sample,
                                       &rapl_reading, &wattsup_reading,
