@@ -1,3 +1,6 @@
+#ifndef COLLECTOR_BG_READINGS
+#define COLLECTOR_BG_READINGS
+
 #include <condition_variable>
 #include <mutex>
 
@@ -20,3 +23,5 @@ void stop_reading(bg_reading* reading);
 
 bool has_result(bg_reading* reading);
 void* get_result(bg_reading* reading);
+
+#endif
