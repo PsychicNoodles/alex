@@ -1,23 +1,28 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
-void main() {
-    int arr[1000];
-    int arr2[1000];
-    for(int i = 0; i < 1000; i++) {
-        arr[i] = i;
-        arr2[i] = arr[i] * i;
+void multiply_ints() {
+    int num = 1;
+    for(int i = 0; i < 1000000; i++) {
+        num = num * 3;
+    }
+}
+
+void multiply_floats() {
+    float num = 1.234235245;
+    for(int i = 0; i < 1000000; i++) {
+        num = num * 3.1231412321;
+    }
+}
+
+int main() {
+
+    for(int i = 0; i < 10000; i++) {
+        multiply_floats();
     }
 
-    for(int i = 0; i < 1000; i++) {
-        int n = arr[i] + arr2[i];
-    }
-
-    float floatArr[1000];
-    float floatArr2[1000];
-
-    for(int i = 0; i < 1000; i++) {
-        floatArr[i] = i / 3.12314134;
-        floatArr2[i] = floatArr[i] * 5.13413123;
+    for(int i = 0; i < 10000; i++) {
+        multiply_ints();
     }
 }

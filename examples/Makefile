@@ -1,4 +1,4 @@
-all: build/matrixmultiplier build/threadarray build/fork
+all: build/matrixmultiplier build/threadarray build/fork build/power
 
 build:
 	mkdir -p build

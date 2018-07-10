@@ -10,7 +10,7 @@ function render(root, { data }) {
   const functionRuntimesMap = {};
   for (const timeSlice of selected) {
     for (const i in timeSlice.stackFrames) {
-      const functionName = timeSlice.stackFrames[i].name;
+      const functionName = timeSlice.stackFrames[i].symName;
       if (functionName !== "(null)") {
         functionRuntimesMap[functionName] = functionRuntimesMap[
           functionName
