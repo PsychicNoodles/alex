@@ -1,6 +1,74 @@
 const chi = require("chi-squared");
 
-module.exports = chiSquaredTest;
+module.exports = analyze;
+
+/**
+ * Run analyses of data.
+ * @param data All the data.
+ * @returns Results of the analysis.
+ * @todo Move out the partitioning from subfunctions into this function.
+ * @todo Let client choose sort? */
+
+function analyze(inputData) {
+  const outputData = {
+    chiSquaredProbability: 0,
+    functionList: []
+  };
+
+  runtimePerFunction(inputData, outputData);
+  chiSquared(inputData, outputData);
+
+  outputData.functionList.sort((a, b) => b.squaredDeviance - a.squaredDeviance);
+  return outputData;
+}
+
+function runtimePerFunction(inputData, outputData) {
+  const selected = inputData.filter(d => d.selected);
+  const functionRuntimesMap = {};
+  selected.forEach(datum => {
+    for (const i in datum.stackFrames) {
+      let functionName = "";
+      for (let i = datum.stackFrames.length - 1; i >= 0; i--) {
+        functionName = functionName.concat(datum.stackFrames[i].symName);
+        if (i !== 0) {
+          functionName = functionName.concat(" > ");
+        }
+      }
+      functionRuntimesMap[functionName] = functionRuntimesMap[functionName] || {
+        selfTime: 0,
+        cumulativeTime: 0,
+        /* Move this into analyze later */
+        expected: 0,
+        observed: 0,
+        squaredDeviance: 0
+      };
+      functionRuntimesMap[functionName].cumulativeTime +=
+        datum.numCPUTimerTicks;
+      if (+i === 0) {
+        functionRuntimesMap[functionName].selfTime += datum.numCPUTimerTicks;
+      }
+    }
+  });
+
+  let index;
+  for (const functionName in functionRuntimesMap) {
+    index = outputData.functionList.findIndex(
+      element => element.name === functionName
+    );
+    if (index === -1) {
+      outputData.functionList.push({
+        ...functionRuntimesMap[functionName],
+        name: functionName
+      });
+    } else {
+      console.log("target");
+      outputData.functionList[index].selfTime =
+        functionRuntimesMap[functionName].selfTime;
+      outputData.functionList[index].cumulativeTime =
+        functionRuntimesMap[functionName].cumulativeTime;
+    }
+  }
+}
 
 /**
  * Conducts a chi-squared test on the given data, intended to determine whether
@@ -9,29 +77,37 @@ module.exports = chiSquaredTest;
  * (i.e. selected data IS special). Intended null hypothesis: Each datapoint's
  * associated function is independent of the datapoint's selected state.
  *
- * @param data All data collected by the collector
+ * @param inputData All data collected by the collector
  * @returns {number} The chi-squared probability, in percent
  * @todo Consider changes for performance: conversion of forEach loops,
  * different ways of accessing the "associative arrays" or converting them into
  * true arrays of pair-ish objects, using one loop to initialize
  * selected/unselected instead of "checking === undefined" every "loop"
  */
-function chiSquaredTest(data) {
+function chiSquared(inputData, outputData) {
   /* "Associative arrays", containing counts of function appearances within a
     region. Key = function name. Value = function count. */
+
   const selected = {};
+
   let selectedTotal = 0;
   const unselected = {};
   let unselectedTotal = 0;
-  const total = data.length;
+  const total = inputData.length;
 
   /* Normal array, containing one of each function collected. */
   const uniqueFunctions = [];
 
   /* Populate a "table" with function counts for unselected/selected */
-  let functionName;
-  data.forEach(datum => {
-    functionName = datum.stackFrames[0].name;
+  inputData.forEach(datum => {
+    let functionName = "";
+    for (let i = datum.stackFrames.length - 1; i >= 0; i--) {
+      functionName = functionName.concat(datum.stackFrames[i].symName);
+      if (i !== 0) {
+        functionName = functionName.concat(" > ");
+      }
+    }
+    //functionName = datum.stackFrames[0].symName;
     /* "Initialize" the associative arrays at this datapoint's function, if this
     hasn't already been done. */
     if (selected[functionName] === undefined) {
@@ -76,9 +152,7 @@ function chiSquaredTest(data) {
   let observed;
   let expected;
   let squaredDeviance;
-  const rankedFunctions = []; /* This is a separate array from uniqueFunctions
-  purely because I found it hard to make an alternative to the .includes()
-  above. */
+  let index;
   uniqueFunctions.forEach(uniqueFunction => {
     // Compute chi-squared through the "row" representing selected state
     observed = selected[uniqueFunction];
@@ -86,23 +160,33 @@ function chiSquaredTest(data) {
       ((selected[uniqueFunction] + unselected[uniqueFunction]) *
         selectedTotal) /
       total;
-
     squaredDeviance = Math.pow(observed - expected, 2) / expected;
-    rankedFunctions.push({
-      name: uniqueFunction,
-      expected: expected,
-      observed: observed,
-      squaredDeviance: squaredDeviance
-    });
     chiSquared += squaredDeviance;
 
+    /* Add *only* data on selected functions to the output list */
+    index = outputData.functionList.findIndex(
+      element => element.name === uniqueFunction
+    );
+    if (index === -1) {
+      outputData.functionList.push({
+        name: uniqueFunction,
+        expected: expected,
+        observed: observed,
+        squaredDeviance: squaredDeviance
+      });
+    } else {
+      outputData.functionList[index].expected = expected;
+      outputData.functionList[index].observed = observed;
+      outputData.functionList[index].squaredDeviance = squaredDeviance;
+    }
     /* console.log(
       `Saw ${observed} of ${uniqueFunction}, expected ~${Math.round(
         expected
       )}, chiSquared of ${squaredDeviance}`
     ); */
 
-    // Compute chi-squared sum through the "row" representing unselected state
+    /* Compute chi-squared sum through the "row" representing unselected state
+    (required only for calculating overall probability) */
     observed = unselected[uniqueFunction];
     expected =
       ((unselected[uniqueFunction] + selected[uniqueFunction]) *
@@ -111,10 +195,6 @@ function chiSquaredTest(data) {
     chiSquared += Math.pow(observed - expected, 2) / expected;
   });
 
-  // Compute the probability
   const probability = chi.cdf(chiSquared, degreesOfFreedom);
-
-  rankedFunctions.sort((a, b) => b.squaredDeviance - a.squaredDeviance);
-
-  return { probability: probability, functionList: rankedFunctions };
+  outputData.chiSquaredProbability = probability;
 }

@@ -11,8 +11,8 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <string>
 #include <map>
+#include <string>
 
 struct perf_buffer {
   int fd;
@@ -40,7 +40,7 @@ struct perf_fd_info {
 inline size_t perf_buffer_data_size() { return BUFFER_SIZE - PAGE_SIZE; }
 
 // Configure the perf buffer
-int setup_monitoring(perf_buffer *perf, perf_event_attr *attr, int pid);
+int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid);
 int setup_buffer(perf_fd_info *info);
 
 // Control monitoring
@@ -50,10 +50,13 @@ int stop_monitoring(int fd);
 int resume_monitoring(int fd);
 
 /* does the perf_event buffer have any new records? */
-bool has_next_sample(perf_buffer *perf);
+bool has_next_record(perf_buffer *perf);
 
 /* get the next record */
-void *get_next_sample(perf_buffer *perf, int *type, int *size);
+void *get_next_record(perf_buffer *perf, int *type, int *size);
+
+/* remove remaining samples */
+void clear_records(perf_buffer *perf);
 
 int setup_pfm_os_event(perf_event_attr *attr, char *event_name);
 

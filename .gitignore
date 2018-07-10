@@ -298,3 +298,6 @@ tags
 /err-*
 /out-*
 /result-*
+
+# Individual vscode settings
+.vscode/tasks.json

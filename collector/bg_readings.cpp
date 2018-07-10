@@ -12,7 +12,7 @@ struct reading_fn_args {
 void *reading_fn_wrapper(void *raw_args) {
   pthread_t t = pthread_self();
   DEBUG(t << ": in reading_fn_wrapper");
-  reading_fn_args *args = (reading_fn_args *)raw_args;
+  auto *args = static_cast<reading_fn_args *>(raw_args);
   auto reading = args->reading;
   unique_lock<mutex> lock(reading->mtx);
   DEBUG(t << ": waiting for notification to start");
@@ -41,8 +41,8 @@ void *reading_fn_wrapper(void *raw_args) {
       }
     }
   }
-  free(args);
-  return NULL;
+  delete args;
+  return nullptr;
 }
 
 bool setup_reading(bg_reading *reading, void *(reading_fn)(void *),
@@ -50,16 +50,17 @@ bool setup_reading(bg_reading *reading, void *(reading_fn)(void *),
   DEBUG("setting up background reading");
   pthread_t t;
 
-  reading->result = NULL;
+  reading->result = nullptr;
   reading->running = true;
   reading->ready = false;
 
-  reading_fn_args *rf_args = (reading_fn_args *)malloc(sizeof(reading_fn_args));
+  auto *rf_args = new reading_fn_args;
   rf_args->reading_fn = reading_fn;
   rf_args->args = args;
   rf_args->reading = reading;
 
-  if ((errno = real_pthread_create(&t, 0, reading_fn_wrapper, rf_args)) != 0) {
+  if ((errno = real_pthread_create(&t, nullptr, reading_fn_wrapper, rf_args)) !=
+      0) {
     perror("failed to create background reading thread");
     return false;
   }
@@ -83,16 +84,16 @@ void stop_reading(bg_reading *reading) {
   reading->running = false;
   lock.unlock();
   reading->cv.notify_one();
-  pthread_join(reading->thread, NULL);
+  pthread_join(reading->thread, nullptr);
 }
 
 bool has_result(bg_reading *reading) {
-  return reading->running && reading->result != NULL;
+  return reading->running && reading->result != nullptr;
 }
 
 void *get_result(bg_reading *reading) {
   void *ret = reading->result;
   DEBUG("result for tid " << reading->thread << " is " << ptr_fmt(ret));
-  reading->result = NULL;
+  reading->result = nullptr;
   return ret;
 }

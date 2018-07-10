@@ -1,27 +1,32 @@
 #include <dlfcn.h>
 #include <fcntl.h>
-#include <signal.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <csignal>
 #include <fstream>
 #include <map>
 #include <sstream>
 #include <string>
 
+#include "bg_readings.hpp"
 #include "clone.hpp"
 #include "const.hpp"
 #include "debug.hpp"
 #include "find_events.hpp"
 #include "perf_reader.hpp"
+#include "shared.hpp"
 #include "util.hpp"
 #include "wattsup.hpp"
 
-using namespace std;
+using std::ifstream;
+using std::istringstream;
+using std::map;
+using std::string;
 
-typedef int (*main_fn_t)(int, char **, char **);
+using main_fn_t = int (*)(int, char **, char **);
 
 static main_fn_t subject_main_fn;
 
@@ -31,6 +36,71 @@ void ready_handler(int signum) {
   if (signum == SIGUSR2) {
     ready = true;
   }
+}
+
+void setup_global_vars() {
+  DEBUG("collector_main: setting up globals");
+  // set up period
+  uint64_t period = -1;
+
+  if (period == -1) {
+    try {
+      period = stoull(getenv_safe("COLLECTOR_PERIOD", "10000000"));
+      // catch stoll exceptions
+    } catch (std::invalid_argument &e) {
+      DEBUG("failed to get period: Invalid argument");
+      exit(ENV_ERROR);
+    } catch (std::out_of_range &e) {
+      DEBUG("failed to get period: Out of range");
+      exit(ENV_ERROR);
+    }
+  }
+  DEBUG("period is " << period);
+
+  if (period < MIN_PERIOD) {
+    DEBUG("period is smaller than " << MIN_PERIOD);
+    exit(PARAM_ERROR);
+  }
+
+  // set up events array, will be a set later though
+  DEBUG("collector_main: getting events from env var");
+  auto events = str_split_vec(getenv_safe("COLLECTOR_EVENTS"), ",");
+  auto presets = str_split_set(getenv_safe("COLLECTOR_PRESETS"), ",");
+  if (presets.find("cpu") != presets.end() ||
+      presets.find("all") != presets.end()) {
+    map<string, vector<string>> cpu = buildPresets("cpu");
+    for (auto &it : cpu) {
+      for (const auto &event : it.second) {
+        events.emplace_back(event.c_str());
+      }
+    }
+  }
+
+  if (presets.find("cache") != presets.end() ||
+      presets.find("all") != presets.end()) {
+    map<string, vector<string>> cache = buildPresets("cache");
+    for (auto &it : cache) {
+      for (const auto &event : it.second) {
+        events.emplace_back(event.c_str());
+      }
+    }
+  }
+
+  if (presets.find("branches") != presets.end() ||
+      presets.find("all") != presets.end()) {
+    map<string, vector<string>> branches = buildPresets("branches");
+    for (auto &it : branches) {
+      for (const auto &event : it.second) {
+        events.emplace_back(event.c_str());
+      }
+    }
+  }
+
+  auto collector_pid = getpid();
+
+  init_global_vars({period, events, presets, -1, collector_pid});
+
+  debug_global_var();
 }
 
 map<uint64_t, kernel_sym> read_kernel_syms(
@@ -45,12 +115,12 @@ map<uint64_t, kernel_sym> read_kernel_syms(
     uint64_t addr;
 
     getline(line_stream, addr_s, ' ');
-    addr = stoul(addr_s, 0, 16);
+    addr = stoul(addr_s, nullptr, 16);
     getline(line_stream, type_s, ' ');
     sym.type = type_s[0];
     getline(line_stream, tail);
     size_t tab;
-    if ((tab = tail.find("\t")) == string::npos) {
+    if ((tab = tail.find('\t')) == string::npos) {
       sym.sym = tail;
       sym.cat = "";
     } else {
@@ -71,21 +141,25 @@ int setup_sigterm_handler() {
   int sigterm_fd = signalfd(-1, &done_mask, SFD_NONBLOCK);
 
   // prevent default behavior of immediately killing program
-  sigprocmask(SIG_BLOCK, &done_mask, NULL);
+  sigprocmask(SIG_BLOCK, &done_mask, nullptr);
 
   return sigterm_fd;
 }
 
 static int collector_main(int argc, char **argv, char **env) {
+  DEBUG("Version: " << VERSION);
+
   enable_segfault_trace();
+
+  setup_global_vars();
 
   int result = 0;
 
-  struct sigaction ready_act;
+  struct sigaction ready_act {};
   ready_act.sa_handler = ready_handler;
   sigemptyset(&ready_act.sa_mask);
   ready_act.sa_flags = 0;
-  sigaction(SIGUSR2, &ready_act, NULL);
+  sigaction(SIGUSR2, &ready_act, nullptr);
 
   int sockets[2];
   if (socketpair(PF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0, sockets) == -1) {
@@ -93,33 +167,10 @@ static int collector_main(int argc, char **argv, char **env) {
     exit(INTERNAL_ERROR);
   }
 
-  // set up events array, will be a set later though
-  DEBUG("collector_main: getting events from env var");
-  events = str_split_vec(getenv_safe("COLLECTOR_EVENTS"), ",");
-  presets = str_split_set(getenv_safe("COLLECTOR_PRESETS"), ",");
-  if (presets.find("cpu") != presets.end() ||
-      presets.find("all") != presets.end()) {
-    map<string, string> cpu = findEvents("cpu");
-    for (map<string, string>::iterator it = cpu.begin(); it != cpu.end();
-         ++it) {
-      events.push_back(it->second.c_str());
-    }
-  }
-
-  if (presets.find("cache") != presets.end() ||
-      presets.find("all") != presets.end()) {
-    map<string, string> cache = findEvents("cache");
-    for (map<string, string>::iterator it = cache.begin(); it != cache.end();
-         ++it) {
-      events.push_back(it->second.c_str());
-    }
-  }
-
   DEBUG("collector_main: initializing pfm");
   pfm_initialize();
 
-  collector_pid = getpid();
-  subject_pid = real_fork();
+  pid_t subject_pid = real_fork();
   if (subject_pid == 0) {
     DEBUG(
         "collector_main: in child process, waiting for parent to be ready "
@@ -129,12 +180,13 @@ static int collector_main(int argc, char **argv, char **env) {
     close(sockets[0]);
     set_perf_register_sock(sockets[1]);
 
-    if (kill(collector_pid, SIGUSR2)) {
+    if (kill(global->collector_pid, SIGUSR2)) {
       perror("couldn't signal collector process");
       exit(INTERNAL_ERROR);
     }
-    while (!ready)
-      ;
+    while (!ready) {
+      // wait for parent
+    }
 
     DEBUG(
         "collector_main: received parent ready signal, starting child/real "
@@ -142,23 +194,24 @@ static int collector_main(int argc, char **argv, char **env) {
     result = subject_main_fn(argc, argv, env);
 
     DEBUG("collector_main: finished in child, killing parent");
-    close(sockets[1]);
-    if (kill(collector_pid, SIGTERM)) {
+    if (kill(global->collector_pid, SIGTERM)) {
       perror("couldn't kill collector process");
       exit(INTERNAL_ERROR);
     }
+    close(sockets[1]);
   } else if (subject_pid > 0) {
     DEBUG(
         "collector_main: in parent process, opening result file for writing "
         "(pid: "
-        << collector_pid << ")");
+        << global->collector_pid << ")");
+    set_subject_pid(subject_pid);
     string env_res = getenv_safe("COLLECTOR_RESULT_FILE", "result.txt");
     DEBUG("collector_main: result file " << env_res);
-    result_file = fopen(env_res.c_str(), "w");
+    auto result_file = fopen(env_res.c_str(), "w");
 
     close(sockets[1]);
 
-    if (result_file == NULL) {
+    if (result_file == nullptr) {
       perror("couldn't open result file");
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
@@ -167,8 +220,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
     map<uint64_t, kernel_sym> kernel_syms = read_kernel_syms();
 
-    const bool wattsup_enabled = presets.find("wattsup") != presets.end() ||
-                                 presets.find("all") != presets.end();
+    const bool wattsup_enabled = preset_enabled("wattsup");
     int wu_fd = -1;
     if (wattsup_enabled) {
       // setting up wattsup
@@ -176,17 +228,24 @@ static int collector_main(int argc, char **argv, char **env) {
       DEBUG("WATTSUP setup, wu_fd is: " << wu_fd);
     }
 
+    DEBUG("collector_main: setting up collector");
+    bg_reading rapl_reading, wattsup_reading;
+    setup_collect_perf_data(sigterm_fd, sockets[0], wu_fd, result_file,
+                            &rapl_reading, &wattsup_reading);
+
     DEBUG(
-        "collector_main: result file opened, sending ready (SIGUSR2) signal to "
+        "collector_main: result file opened, sending ready (SIGUSR2) "
+        "signal to "
         "child");
 
     kill(subject_pid, SIGUSR2);
-    while (!ready)
-      ;
+    while (!ready) {
+      // wait for child
+    }
 
     DEBUG("collector_main: received child ready signal, starting collector");
-    result = collect_perf_data(subject_pid, kernel_syms, sigterm_fd, sockets[0],
-                               wu_fd);
+    result = collect_perf_data(kernel_syms, sigterm_fd, sockets[0],
+                               &rapl_reading, &wattsup_reading);
 
     DEBUG("collector_main: finished collector, closing file");
 

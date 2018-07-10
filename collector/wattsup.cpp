@@ -8,20 +8,20 @@
  *
  ***************************************************************************************/
 
-#include <ctype.h>
-#include <errno.h>
 #include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <termios.h>
-#include <time.h>
 #include <unistd.h>
+#include <cctype>
+#include <cerrno>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
 
 #include <sys/stat.h>
 #include <sys/time.h>
 
-#include <signal.h>
+#include <csignal>
 
 #include "debug.hpp"
 #include "util.hpp"
@@ -80,7 +80,7 @@ int wu_stop_external_log(int wu_fd) {
 
 /* Open our device, probably ttyUSB0 */
 int open_device(char* device_name) {
-  struct stat s;
+  struct stat s {};
   int ret;
   char full_device_name[BUFSIZ];
 
@@ -88,25 +88,26 @@ int open_device(char* device_name) {
 
   ret = stat(full_device_name, &s);
   if (ret < 0) {
-    DEBUG("Problem statting "<< full_device_name << strerror(errno));
+    DEBUG("Problem statting " << full_device_name << strerror(errno));
     return -1;
   }
 
   if (!S_ISCHR(s.st_mode)) {
-    DEBUG( "Error: " << full_device_name << " is not a TTY character device.");
+    DEBUG("Error: " << full_device_name << " is not a TTY character device.");
     return -1;
   }
 
   ret = access(full_device_name, R_OK | W_OK);
   if (ret) {
-    DEBUG( "Error: " << full_device_name << " is not writable, " << strerror(errno));
+    DEBUG("Error: " << full_device_name << " is not writable, "
+                    << strerror(errno));
     return -1;
   }
 
   /* Not NONBLOCK */
   ret = open(full_device_name, O_RDWR);
   if (ret < 0) {
-    DEBUG ("Error! Could not open " << full_device_name << strerror(errno));
+    DEBUG("Error! Could not open " << full_device_name << strerror(errno));
     return -1;
   }
 
@@ -115,7 +116,7 @@ int open_device(char* device_name) {
 
 /* Do the annoying Linux serial setup */
 int setup_serial_device(int fd) {
-  struct termios t;
+  struct termios t {};
   int ret;
   char* errm;
 
@@ -173,7 +174,8 @@ double wu_read(int fd) {
     DEBUG("Read return bytes read: " << ret);
     DEBUG("Read returned " << string);
     if ((ret < 0) && (ret != EAGAIN)) {
-      DEBUG("error reading from device" << strerror(errno));
+      perror("error reading from wattsup device");
+      return -1;
     }
     if (string[0] != '#') {
       DEBUG("Protocol error with string " << string);
@@ -188,11 +190,13 @@ double wu_read(int fd) {
     offset += ret;
   }
 
-  char watts_string[BUFSIZ] = {0};
+  char watts_string[BUFSIZ];
   double watts;
   int i = 0, j = 0, commas = 0;
   while (i < strlen(string)) {
-    if (string[i] == ',') commas++;
+    if (string[i] == ',') {
+      commas++;
+    }
     if (commas == 3) {
       i++;
       while (string[i] != ',') {
@@ -215,8 +219,8 @@ double wu_read(int fd) {
 
 int wattsupSetUp() {
   char* errm;
-  char* device_name =
-      (char*)getenv_safe("COLLECTOR_WATTSUP_DEVICE", "ttyUSB0").c_str();
+  char* device_name = const_cast<char*>(
+      getenv_safe("COLLECTOR_WATTSUP_DEVICE", "ttyUSB0").c_str());
   int ret;
   int wu_fd = 0;
 

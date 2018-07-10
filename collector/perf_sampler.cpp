@@ -17,23 +17,24 @@ int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
 }
 
 int setup_buffer(perf_fd_info *info) {
-  void *buffer = mmap(0, BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED,
+  void *buffer = mmap(nullptr, BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED,
                       info->cpu_clock_fd, 0);
   if (buffer == MAP_FAILED) {
     perror("setup_monitoring: mmap");
     return SAMPLER_MONITOR_ERROR;
   }
-  info->sample_buf.info = (perf_event_mmap_page *)buffer;
-  info->sample_buf.data = (char *)buffer + PAGE_SIZE;
+  info->sample_buf.info = static_cast<perf_event_mmap_page *>(buffer);
+  info->sample_buf.data = static_cast<char *>(buffer) + PAGE_SIZE;
 
   return SAMPLER_MONITOR_SUCCESS;
 }
 
-void *get_next_sample(perf_buffer *perf, int *type, int *size) {
-  perf_event_header *event_header =
-      (perf_event_header *)((char *)perf->data +
-                            (perf->info->data_tail % perf->info->data_size));
-  void *event_data = (char *)event_header + sizeof(perf_event_header);
+void *get_next_record(perf_buffer *perf, int *type, int *size) {
+  auto *event_header = reinterpret_cast<perf_event_header *>(
+      (static_cast<char *>(perf->data) +
+       (perf->info->data_tail % perf->info->data_size)));
+  void *event_data =
+      reinterpret_cast<char *>(event_header) + sizeof(perf_event_header);
   perf->info->data_tail += event_header->size;
   *type = event_header->type;
   *size = event_header->size;
@@ -41,8 +42,15 @@ void *get_next_sample(perf_buffer *perf, int *type, int *size) {
   return event_data;
 }
 
-bool has_next_sample(perf_buffer *perf) {
+bool has_next_record(perf_buffer *perf) {
   return (perf->info->data_head != perf->info->data_tail);
+}
+
+void clear_records(perf_buffer *perf) {
+  DEBUG("clearing " << static_cast<size_t>(perf->info->data_head -
+                                           perf->info->data_tail)
+                    << " bytes of records");
+  perf->info->data_tail = perf->info->data_head;
 }
 
 int start_monitoring(int fd) {
@@ -85,7 +93,7 @@ int setup_pfm_os_event(perf_event_attr *attr, char *event_name) {
   DEBUG("setting up pfm os event");
   pfm_perf_encode_arg_t pfm;
   pfm.attr = attr;
-  pfm.fstr = 0;
+  pfm.fstr = nullptr;
   pfm.size = sizeof(pfm_perf_encode_arg_t);
   DEBUG("getting encoding");
   int pfm_result = pfm_get_os_event_encoding(event_name, PFM_PLM3,

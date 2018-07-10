@@ -1,12 +1,12 @@
+#include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <termios.h>
-#include <ctype.h>
 #include <time.h>
+#include <unistd.h>
 
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -14,7 +14,6 @@
 #include <signal.h>
 
 #include "debug.hpp"
-
 
 /* start the external logging of power info */
 /* #L,W,3,E,<Reserved>,<Interval>; */
