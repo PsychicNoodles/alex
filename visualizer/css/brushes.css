@@ -1,0 +1,23 @@
+.brush .selection {
+  fill: #000;
+  opacity: 0.2;
+}
+
+.brush__close {
+  fill: #000;
+  pointer-events: all;
+  opacity: 1;
+  transition: opacity 200ms;
+}
+
+.brush .selection:not(:hover) ~ .brush__close:not(:hover) {
+  opacity: 0;
+}
+
+.brush--invisible .brush__close {
+  display: none;
+}
+
+.brush:not(.brush--invisible) .overlay {
+  pointer-events: none;
+}

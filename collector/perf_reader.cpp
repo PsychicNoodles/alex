@@ -46,7 +46,6 @@
 
 using std::map;
 using std::string;
-using std::unique_ptr;
 using std::vector;
 
 // contents of buffer filled when PERF_RECORD_SAMPLE type is enabled plus
@@ -637,7 +636,7 @@ void print_errors(vector<pair<int, base_record *>> errors) {
  * Sets up the required events and records performance of subject process into
  * result file.
  */
-int collect_perf_data(map<uint64_t, kernel_sym> kernel_syms, int sigt_fd,
+int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                       int socket, int wu_fd, FILE *res_file) {
   result_file = res_file;
 
