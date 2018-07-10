@@ -154,7 +154,13 @@ ipcRenderer.on("result", (event, resultFile) => {
           ),
         0
       );
+
       const spectrum = d3.interpolateGreens;
+      let pointsSpectrum = spectrum;
+
+      if (densityMax <= 2) {
+        pointsSpectrum = d3.interpolateRgb("#3A72F2", "#3A72F2");
+      }
 
       for (const chartParams of charts) {
         const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
@@ -171,7 +177,7 @@ ipcRenderer.on("result", (event, resultFile) => {
             yFormat,
             plotData: plotDataByChart.get(chartParams),
             densityMax,
-            spectrum
+            pointsSpectrum
           });
       }
 
