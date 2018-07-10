@@ -23,10 +23,30 @@ class Store {
     onStateChange(this._state);
 
     return {
-      unsubscribe() {
+      unsubscribe: () => {
         this._listeners.delete(onStateChange);
       }
     };
+  }
+
+  /**
+   * Attach a subscription to a d3 selection.
+   *
+   * If subscribeUnique is called multiple times on the same element using the
+   * same propertyName, the old subscription will be unsubscribed so that only
+   * one subscription is ever present.
+   *
+   * @param selection A d3 selection of a single element where the subscription will be attached.
+   * @param propertyName A string or object with toString where the subscription will be stored.
+   * @param onStateChange The callback to be passed to Store.subscribe.
+   */
+  subscribeUnique(selection, propertyName, onStateChange) {
+    const oldSubscription = selection.property(propertyName);
+    if (oldSubscription) {
+      oldSubscription.unsubscribe();
+    }
+
+    selection.property(propertyName, this.subscribe(onStateChange));
   }
 
   /**
