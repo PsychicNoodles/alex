@@ -46,6 +46,13 @@ bool has_next_sample(perf_buffer *perf) {
   return (perf->info->data_head != perf->info->data_tail);
 }
 
+void clear_records(perf_buffer *perf) {
+  DEBUG("clearing " << static_cast<size_t>(perf->info->data_head -
+                                           perf->info->data_tail)
+                    << " bytes of records");
+  perf->info->data_tail = perf->info->data_head;
+}
+
 int start_monitoring(int fd) {
   if (ioctl(fd, PERF_EVENT_IOC_ENABLE, 0) == -1) {
     perror("start_monitoring");

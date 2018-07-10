@@ -809,6 +809,8 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                       << ")");
               }
             }
+            DEBUG("cpd: limit reached, clearing remaining samples");
+            clear_records(&info.sample_buf);
           }
         }
       }
