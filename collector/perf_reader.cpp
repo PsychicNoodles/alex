@@ -565,7 +565,7 @@ int collect_perf_data(int subject_pid, map<uint64_t, kernel_sym> kernel_syms,
           DEBUG("cpd: received message from a thread in subject");
           int cmd;
           perf_fd_info *info = create_perf_fd_info();
-          for (cmd = recv_perf_fds(socket, info); cmd != -1;
+          for (cmd = recv_perf_fds(socket, info); cmd > 0;
                info = create_perf_fd_info(),
               cmd = recv_perf_fds(socket, info)) {
             DEBUG("cpd: received cmd " << cmd);
