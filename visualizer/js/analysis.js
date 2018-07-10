@@ -93,9 +93,15 @@ function chiSquared(inputData, outputData) {
   const uniqueFunctions = [];
 
   /* Populate a "table" with function counts for unselected/selected */
-  let functionName;
   inputData.forEach(datum => {
-    functionName = datum.stackFrames[0].symName;
+    let functionName = "";
+    for (let i = datum.stackFrames.length - 1; i >= 0; i--) {
+      functionName = functionName.concat(datum.stackFrames[i].symName);
+      if (i !== 0) {
+        functionName = functionName.concat(" > ");
+      }
+    }
+    //functionName = datum.stackFrames[0].symName;
     /* "Initialize" the associative arrays at this datapoint's function, if this
     hasn't already been done. */
     if (selected[functionName] === undefined) {
