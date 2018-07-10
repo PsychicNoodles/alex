@@ -185,9 +185,9 @@ ipcRenderer.on("result", (event, resultFile) => {
             const x = xScale(getIndependentVariable(timeslice));
             return {
               ...timeslice,
-              selected: selections.some(
-                ({ range }) => range[0] <= x && x <= range[1]
-              )
+              selected:
+                selections.length === 0 ||
+                selections.some(({ range }) => range[0] <= x && x <= range[1])
             };
           })
         );
