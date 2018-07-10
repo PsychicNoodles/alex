@@ -41,6 +41,8 @@ const char* callchain_str(uint64_t callchain);
 #define PERIOD_ADJUST_SCALE \
   10  // scale to increase/decrease period due to throttle/unthrottle events
 #define MIN_PERIOD 10  // any lower will break everything
+#define MAX_RECORD_READS \
+  20  // max number of times to check for another record before epolling again
 
 const char* record_type_str(int type);
 

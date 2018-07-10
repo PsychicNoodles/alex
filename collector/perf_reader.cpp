@@ -787,7 +787,9 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
             }
 
             bool is_first_sample = true;
-            while (has_next_sample(&info.sample_buf)) {
+            for (int i = 0;
+                 has_next_sample(&info.sample_buf) && i < MAX_RECORD_READS;
+                 i++) {
               DEBUG("cpd: getting next sample");
               int sample_type, sample_size;
               void *perf_result =
