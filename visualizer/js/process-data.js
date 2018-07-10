@@ -1,21 +1,22 @@
-//
-// Process the data, but do not draw it.
-// Processing mutates the data.
-//
-
 const d3 = require("d3");
-const { cloneDeep } = require("lodash");
 
-function processData(immutableData) {
-  return cloneDeep(immutableData).filter(
-    timeslice =>
-      timeslice.cpuTime &&
-      timeslice.stackFrames &&
-      timeslice.stackFrames.length &&
-      timeslice.stackFrames.every(sf => sf.address !== "(nil)") &&
-      timeslice.pid &&
-      timeslice.tid
-  );
+function processData(data) {
+  return data
+    .filter(
+      timeslice =>
+        timeslice.cpuTime &&
+        timeslice.stackFrames &&
+        timeslice.stackFrames.length &&
+        timeslice.stackFrames.every(sf => sf.address !== "(nil)") &&
+        timeslice.pid &&
+        timeslice.tid
+    )
+    .map(timeslice => ({
+      ...timeslice,
+      stackFrames: timeslice.stackFrames.filter(
+        frame => frame.symName !== "(null)"
+      )
+    }));
 }
 
 function getEventCount(timeslice, lowLevelNames) {
