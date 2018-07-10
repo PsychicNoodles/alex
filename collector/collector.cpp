@@ -145,6 +145,14 @@ static int collector_main(int argc, char **argv, char **env) {
     }
   }
 
+  if (presets.find("branches") != presets.end() ||
+      presets.find("all") != presets.end()) {
+    map<string, vector<string>> branches = buildPresets("branches");
+    for (auto &it : branches) {
+      for (auto event : it.second) events.emplace_back(event.c_str());
+    }
+  }
+
   DEBUG("collector_main: initializing pfm");
   pfm_initialize();
 

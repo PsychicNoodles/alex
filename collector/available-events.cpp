@@ -88,7 +88,7 @@ int main(int argc, char **argv) {
     if (strcmp(argv[1], "all") == 0) {
       real_presets.insert("cache");
       real_presets.insert("cpu");
-      real_presets.insert("branch");
+      real_presets.insert("branches");
       real_presets.insert("rapl");
       real_presets.insert("wattsup");
     } else {
