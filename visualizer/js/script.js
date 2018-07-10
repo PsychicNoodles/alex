@@ -15,6 +15,7 @@ const functionRuntimes = require("./function-runtimes");
 const legend = require("./legend");
 const brushes = require("./brushes");
 const sourceSelect = require("./source-select");
+const stream = require("./stream");
 
 const PROGRESS_HEIGHT = "8px";
 const PROGRESS_DIVISIONS = 10;
@@ -189,11 +190,13 @@ ipcRenderer.on("result", (event, resultFile) => {
         sources: [...sourcesSet]
       });
 
-      let brushesSubscription;
-      sourceSelect.hiddenSourcesStore.subscribe(hiddenSources => {
-        if (brushesSubscription) brushesSubscription.unsubscribe();
-        brushesSubscription = brushes.selectionStore.subscribe(
-          ({ selections }) => {
+      stream
+        .fromStreamables([
+          sourceSelect.hiddenSourcesStore.stream,
+          brushes.selectionStore.stream
+        ])
+        .pipe(
+          stream.subscribe(([hiddenSources, { selections }]) => {
             const { functionList } = analyze(
               processedData
                 .map(timeslice => {
@@ -216,9 +219,8 @@ ipcRenderer.on("result", (event, resultFile) => {
             d3.select("#function-runtimes").call(functionRuntimes.render, {
               functionList
             });
-          }
+          })
         );
-      });
     });
   });
 });
