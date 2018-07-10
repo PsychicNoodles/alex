@@ -1,15 +1,15 @@
 const { ipcRenderer } = require("electron");
+const d3 = require("d3");
 const fs = require("fs");
 const readline = require("readline");
-const d3 = require("d3");
 const ProgressBar = require("progressbar.js");
-const analyze = require("./analysis");
 
 const {
   processData,
   computeRenderableData,
   getEventCount
 } = require("./process-data");
+const { analyze } = require("./analysis");
 const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
 const legend = require("./legend");

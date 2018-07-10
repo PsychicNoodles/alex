@@ -17,9 +17,8 @@ function render(root, { functionList }) {
     .insert("tr", "tr")
     .attr("class", "function-runtimes__header-row");
   headerRowSelection.append("th").text("Function Name");
-  headerRowSelection.append("th").text("Self Time (CPU Time)");
-  headerRowSelection.append("th").text("Cumulative Time (CPU Time)");
-  headerRowSelection.append("th").text("Expected Count(Rounded)");
+  headerRowSelection.append("th").text("CPU Time");
+  headerRowSelection.append("th").text("Expected Count");
   headerRowSelection.append("th").text("Observed Count");
 
   const tableDataSelection = root
@@ -31,18 +30,11 @@ function render(root, { functionList }) {
     .append("tr")
     .attr("class", "function-runtimes__data-row")
     .merge(tableDataSelection)
-    .each(function({ name, selfTime, cumulativeTime, expected, observed }) {
-      const numberFormatter = d3.format(".4s");
+    .each(function({ name, time, expected, observed }) {
       const row = d3
         .select(this)
         .selectAll("td")
-        .data([
-          name,
-          numberFormatter(selfTime),
-          numberFormatter(cumulativeTime),
-          expected.toFixed(0),
-          observed
-        ]);
+        .data([name, d3.format(".4s")(time), expected.toFixed(0), observed]);
 
       row
         .enter()

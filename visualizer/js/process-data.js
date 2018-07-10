@@ -6,7 +6,6 @@ function processData(data) {
       timeslice =>
         timeslice.cpuTime &&
         timeslice.stackFrames &&
-        timeslice.stackFrames.length &&
         timeslice.stackFrames.every(sf => sf.address !== "(nil)") &&
         timeslice.pid &&
         timeslice.tid
@@ -16,7 +15,8 @@ function processData(data) {
       stackFrames: timeslice.stackFrames.filter(
         frame => frame.symName !== "(null)"
       )
-    }));
+    }))
+    .filter(timeslice => timeslice.stackFrames.length);
 }
 
 function getEventCount(timeslice, lowLevelNames) {
