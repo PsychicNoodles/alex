@@ -189,24 +189,35 @@ ipcRenderer.on("result", (event, resultFile) => {
         sources: [...sourcesSet]
       });
 
-      sourceSelect.hiddenSourcesStore.subscribe(console.log);
+      let brushesSubscription;
+      sourceSelect.hiddenSourcesStore.subscribe(hiddenSources => {
+        if (brushesSubscription) brushesSubscription.unsubscribe();
+        brushesSubscription = brushes.selectionStore.subscribe(
+          ({ selections }) => {
+            const { functionList } = analyze(
+              processedData
+                .map(timeslice => {
+                  const x = xScale(getIndependentVariable(timeslice));
+                  return {
+                    ...timeslice,
+                    selected:
+                      selections.length === 0 ||
+                      selections.some(
+                        ({ range }) => range[0] <= x && x <= range[1]
+                      ),
+                    stackFrames: timeslice.stackFrames.filter(
+                      frame => !hiddenSources.includes(frame.fileName)
+                    )
+                  };
+                })
+                .filter(timeslice => timeslice.stackFrames.length)
+            );
 
-      brushes.selectionStore.subscribe(({ selections }) => {
-        const { functionList } = analyze(
-          processedData.map(timeslice => {
-            const x = xScale(getIndependentVariable(timeslice));
-            return {
-              ...timeslice,
-              selected:
-                selections.length === 0 ||
-                selections.some(({ range }) => range[0] <= x && x <= range[1])
-            };
-          })
+            d3.select("#function-runtimes").call(functionRuntimes.render, {
+              functionList
+            });
+          }
         );
-
-        d3.select("#function-runtimes").call(functionRuntimes.render, {
-          functionList
-        });
       });
     });
   });
