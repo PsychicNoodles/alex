@@ -33,6 +33,10 @@ bool is_callchain_marker(uint64_t instruction_pointers);
 const char* callchain_str(uint64_t callchain);
 
 #define SAMPLE_TYPE (PERF_SAMPLE_TIME | PERF_SAMPLE_CALLCHAIN | PERF_SAMPLE_TID)
+#define SAMPLE_ID_ALL true  // whether sample_id_all should be set
+#define SAMPLE_ID_ALL_TYPE (PERF_SAMPLE_IDENTIFIER | PERF_SAMPLE_STREAM_ID)
+#define SAMPLE_TYPE_COMBINED (SAMPLE_TYPE | SAMPLE_ID_ALL_TYPE)
+
 #define SAMPLE_EPOLL_TIMEOUT -1  // wait "forever"
 #define MAX_SAMPLE_PERIOD_SKIPS 10
 #define MAX_MONITORING_SETUP_ATTEMPTS 10

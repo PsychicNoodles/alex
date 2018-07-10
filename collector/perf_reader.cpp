@@ -49,13 +49,32 @@ using std::vector;
 
 /// the following record structs all have the perf_event_header shaved off,
 /// since it's removed by the get_next_record function
+
+#ifdef SAMPLE_ID_ALL
+// the sample_id struct, if sample_id_all is enabled
+struct record_sample_id {
+  uint32_t pid;
+  uint32_t tid;
+  uint64_t time;
+  uint64_t stream_id;
+  // PERF_SAMPLE_CPU is not enabled
+  uint64_t id;  // actually the id for the group leader
+};
+#endif
+
 // contents of PERF_RECORD_SAMPLE buffer plus certain sample types
 struct sample_record {
+#if SAMPLE_ID_ALL
+  uint64_t sample_id;
+#endif
   // PERF_SAMPLE_TID
   uint32_t pid;
   uint32_t tid;
   // PERF_SAMPLE_TIME
   uint64_t time;
+#if SAMPLE_ID_ALL
+  uint64_t stream_id;
+#endif
   // PERF_SAMPLE_CALLCHAIN
   uint64_t num_instruction_pointers;
   uint64_t instruction_pointers[];
@@ -69,12 +88,18 @@ struct throttle_record {
   uint64_t id;
   // PERF_SAMPLE_STREAM_ID
   uint64_t stream_id;
+#ifdef SAMPLE_ID_ALL
+  record_sample_id sample_id;
+#endif
 };
 
 // contents of PERF_RECORD_LOST buffer
 struct lost_record {
   uint64_t id;
   uint64_t lost;
+#ifdef SAMPLE_ID_ALL
+  record_sample_id sample_id;
+#endif
 };
 
 union base_record {
@@ -150,9 +175,11 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   cpu_clock_attr.size = sizeof(perf_event_attr);
   cpu_clock_attr.type = PERF_TYPE_SOFTWARE;
   cpu_clock_attr.config = PERF_COUNT_SW_CPU_CLOCK;
-  cpu_clock_attr.sample_type = SAMPLE_TYPE;
+  cpu_clock_attr.sample_type =
+      SAMPLE_ID_ALL ? SAMPLE_TYPE_COMBINED : SAMPLE_TYPE;
   cpu_clock_attr.sample_period = global->period;
   cpu_clock_attr.wakeup_events = 1;
+  cpu_clock_attr.sample_id_all = SAMPLE_ID_ALL;
 
   perf_buffer cpu_clock_perf{};
   if (setup_monitoring(&cpu_clock_perf, &cpu_clock_attr, target) !=
@@ -389,6 +416,7 @@ void process_sample_record(sample_record *sample, const perf_fd_info &info,
                           << ptr_fmt(ps.instruction_pointers));
     memcpy(ps.instruction_pointers, sample->instruction_pointers,
            sizeof(uint64_t) * ps.num_instruction_pointers);
+    DEBUG("cpd: made local copy of sample_record");
 
     int64_t num_timer_ticks = 0;
     DEBUG("cpd: reading from fd " << info.cpu_clock_fd);
@@ -613,6 +641,8 @@ void process_lost_record(lost_record *lost,
   errors.emplace_back(make_pair(PERF_RECORD_LOST, base_record{.lost = *lost}));
 }
 
+void print_sample_id(record_sample_id sample_id) {}
+
 void print_errors(vector<pair<int, base_record>> errors) {
   bool is_first_element = true;
   for (auto &p : errors) {
@@ -624,29 +654,39 @@ void print_errors(vector<pair<int, base_record>> errors) {
     )");
     }
     if (p.first == PERF_RECORD_THROTTLE) {
-      auto perf_record = p.second.throttle;
-      uint64_t time = perf_record.time;
-      uint64_t id = perf_record.id;
+      auto throttle = p.second.throttle;
+      uint64_t time = throttle.time;
+      uint64_t id = throttle.id;
       fprintf(result_file, R"(
       {
        "type": "PERF_RECORD_THROTTLE",
        "time": %lu, 
        "id": %lu
-      }
     )",
               time, id);
+      if (SAMPLE_ID_ALL) {
+        print_sample_id(throttle.sample_id);
+      }
+      fprintf(result_file, R"(
+      }
+        )");
     } else if (p.first == PERF_RECORD_UNTHROTTLE) {
-      auto perf_record = p.second.throttle;
-      uint64_t time = perf_record.time;
-      uint64_t id = perf_record.id;
+      auto throttle = p.second.throttle;
+      uint64_t time = throttle.time;
+      uint64_t id = throttle.id;
       fprintf(result_file, R"(
       {
        "type": "PERF_RECORD_UNTHROTTLE",
        "time": %lu,
        "id": %lu
-      }
     )",
               time, id);
+      if (SAMPLE_ID_ALL) {
+        print_sample_id(throttle.sample_id);
+      }
+      fprintf(result_file, R"(
+      }
+        )");
     } else {
       DEBUG("couldn't determine type of error for " << p.first << "!");
       fprintf(result_file, R"|(
@@ -807,15 +847,15 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
 
               if (sample_type == PERF_RECORD_THROTTLE ||
                   sample_type == PERF_RECORD_UNTHROTTLE) {
-                process_throttle_record(&perf_result->throttle, sample_type,
+                process_throttle_record(&(perf_result->throttle), sample_type,
                                         &errors);
               } else if (sample_type == PERF_RECORD_SAMPLE) {
-                process_sample_record(&perf_result->sample, info,
+                process_sample_record(&(perf_result->sample), info,
                                       is_first_sample, rapl_reading,
                                       wattsup_reading, kernel_syms);
                 is_first_sample = false;
               } else if (sample_type == PERF_RECORD_LOST) {
-                process_lost_record(&perf_result->lost, errors);
+                process_lost_record(&(perf_result->lost), errors);
               } else {
                 DEBUG("cpd: sample type was not recognized ("
                       << record_type_str(sample_type) << " " << sample_type
