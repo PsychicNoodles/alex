@@ -876,11 +876,6 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
             }
           } else {
             sample_period_skips = 0;
-            if (is_first_timeslice) {
-              is_first_timeslice = false;
-            } else {
-              fprintf(result_file, ",");
-            }
 
             bool is_first_sample = true;
             for (int i = 0;
@@ -898,9 +893,13 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                 process_throttle_record(&(perf_result->throttle), sample_type,
                                         &errors);
               } else if (sample_type == PERF_RECORD_SAMPLE) {
-                is_first_sample = process_sample_record(
-                    &(perf_result->sample), info, is_first_sample, rapl_reading,
-                    wattsup_reading, kernel_syms);
+                if (!is_first_timeslice && is_first_sample) {
+                  fprintf(result_file, ",");
+                }
+                process_sample_record(&(perf_result->sample), info,
+                                      is_first_sample, rapl_reading,
+                                      wattsup_reading, kernel_syms);
+                is_first_sample = false;
               } else if (sample_type == PERF_RECORD_LOST) {
                 process_lost_record(&(perf_result->lost), errors);
               } else {
@@ -911,6 +910,10 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
             }
             DEBUG("cpd: limit reached, clearing remaining samples");
             clear_records(&info.sample_buf);
+
+            if (is_first_timeslice) {
+              is_first_timeslice = false;
+            }
           }
         }
       }
