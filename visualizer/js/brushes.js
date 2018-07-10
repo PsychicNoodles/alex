@@ -13,12 +13,14 @@ const selectionStore = new Store({
 const hoveredSelectionSubscription = d3.local();
 const hoveredSelectionStore = new Store(null);
 
-document.getElementById("btnClearBrushes").addEventListener("click", () => {
-  selectionStore.dispatch(state => ({
-    ...state,
-    selections: []
-  }));
-});
+document
+  .getElementById("clear-brushes-button")
+  .addEventListener("click", () => {
+    selectionStore.dispatch(state => ({
+      ...state,
+      selections: []
+    }));
+  });
 
 function render(root) {
   // Require here to avoid circular dependency
