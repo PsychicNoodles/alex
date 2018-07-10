@@ -60,7 +60,7 @@ int recv_perf_fds(int socket, perf_fd_info *info,
       }
     } else {
       DEBUG("received invalid socket cmd");
-      return -1;
+      return cmd;
     }
   }
   return -1;
