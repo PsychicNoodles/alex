@@ -396,15 +396,23 @@ void process_throttle_record(throttle_record *throttle, int sample_type,
       make_pair(sample_type, base_record{.throttle = *throttle}));
 }
 
-void process_sample_record(sample_record *sample, const perf_fd_info &info,
+bool process_sample_record(sample_record *sample, const perf_fd_info &info,
                            bool is_first_sample, bg_reading *rapl_reading,
                            bg_reading *wattsup_reading,
                            const map<uint64_t, kernel_sym> &kernel_syms) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
-  DEBUG("cpd: processing sample record");
-  if (is_first_sample) {
+  uintptr_t end_data = (uintptr_t)info.sample_buf.info +
+                       info.sample_buf.info->data_size +
+                       info.sample_buf.info->data_offset;
+  DEBUG("cpd: processing sample record at " << ptr_fmt(sample));
+  if (is_first_sample || (uintptr_t)sample == end_data) {
+    if ((uintptr_t)sample == end_data) {
+      DEBUG("cpd: sample is on the edge of mmap page, skipping");
+      return true;
+    }
+
     // if period is too high, the data may be changed under our feet
     sample_record ps{};
     DEBUG("cpd: copying main sample_record struct from "
@@ -634,6 +642,7 @@ void process_sample_record(sample_record *sample, const perf_fd_info &info,
   } else {
     DEBUG("cpd: not first sample, skipping");
   }
+  return false;
 }
 
 void process_lost_record(lost_record *lost,
@@ -850,10 +859,9 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                 process_throttle_record(&(perf_result->throttle), sample_type,
                                         &errors);
               } else if (sample_type == PERF_RECORD_SAMPLE) {
-                process_sample_record(&(perf_result->sample), info,
-                                      is_first_sample, rapl_reading,
-                                      wattsup_reading, kernel_syms);
-                is_first_sample = false;
+                is_first_sample = process_sample_record(
+                    &(perf_result->sample), info, is_first_sample, rapl_reading,
+                    wattsup_reading, kernel_syms);
               } else if (sample_type == PERF_RECORD_LOST) {
                 process_lost_record(&(perf_result->lost), errors);
               } else {
