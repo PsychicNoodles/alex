@@ -47,8 +47,9 @@ using std::map;
 using std::string;
 using std::vector;
 
-// contents of buffer filled when PERF_RECORD_SAMPLE type is enabled plus
-// certain sample types
+/// the following record structs all have the perf_event_header shaved off,
+/// since it's removed by the get_next_record function
+// contents of PERF_RECORD_SAMPLE buffer plus certain sample types
 struct sample_record {
   // PERF_SAMPLE_TID
   uint32_t pid;
@@ -60,8 +61,7 @@ struct sample_record {
   uint64_t instruction_pointers[];
 };
 
-// contents of buffer filled when PERF_RECORD_THROTTLE or PERF_RECORD_UNTHROTTLE
-// is returned
+// contents of PERF_RECORD_THROTTLE or PERF_RECORD_UNTHROTTLE buffer
 struct throttle_record {
   // PERF_SAMPLE_TIME
   uint64_t time;
@@ -71,9 +71,16 @@ struct throttle_record {
   uint64_t stream_id;
 };
 
+// contents of PERF_RECORD_LOST buffer
+struct lost_record {
+  uint64_t id;
+  uint64_t lost;
+};
+
 union base_record {
-  sample_record sr;
-  throttle_record tr;
+  sample_record sample;
+  throttle_record throttle;
+  lost_record lost;
 };
 
 // output file for data collection results
@@ -359,8 +366,8 @@ void process_throttle_record(void *perf_result, int sample_type,
     parent_shutdown(INTERNAL_ERROR);
   }
   errors->emplace_back(make_pair(
-      sample_type,
-      base_record{.tr = *reinterpret_cast<throttle_record *>(perf_result)}));
+      sample_type, base_record{.throttle = *reinterpret_cast<throttle_record *>(
+                                   perf_result)}));
 }
 
 void process_sample_record(void *perf_result, const perf_fd_info &info,
@@ -604,6 +611,13 @@ void process_sample_record(void *perf_result, const perf_fd_info &info,
   }
 }
 
+void process_lost_record(void *perf_result,
+                         vector<pair<int, base_record>> errors) {
+  errors.emplace_back(make_pair(
+      PERF_RECORD_LOST,
+      base_record{.lost = *reinterpret_cast<lost_record *>(perf_result)}));
+}
+
 void print_errors(vector<pair<int, base_record>> errors) {
   bool is_first_element = true;
   for (auto &p : errors) {
@@ -615,7 +629,7 @@ void print_errors(vector<pair<int, base_record>> errors) {
     )");
     }
     if (p.first == PERF_RECORD_THROTTLE) {
-      auto perf_record = p.second.tr;
+      auto perf_record = p.second.throttle;
       uint64_t time = perf_record.time;
       uint64_t id = perf_record.id;
       fprintf(result_file, R"(
@@ -627,7 +641,7 @@ void print_errors(vector<pair<int, base_record>> errors) {
     )",
               time, id);
     } else if (p.first == PERF_RECORD_UNTHROTTLE) {
-      auto perf_record = p.second.tr;
+      auto perf_record = p.second.throttle;
       uint64_t time = perf_record.time;
       uint64_t id = perf_record.id;
       fprintf(result_file, R"(
@@ -803,6 +817,8 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                                       rapl_reading, wattsup_reading,
                                       kernel_syms);
                 is_first_sample = false;
+              } else if (sample_type == PERF_RECORD_LOST) {
+                process_lost_record(perf_result, errors);
               } else {
                 DEBUG("cpd: sample type was not recognized ("
                       << record_type_str(sample_type) << " " << sample_type
