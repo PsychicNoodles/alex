@@ -57,6 +57,11 @@ void setup_global_vars() {
   }
   DEBUG("period is " << period);
 
+  if (period < MIN_PERIOD) {
+    DEBUG("period is smaller than 1000");
+    exit(PARAM_ERROR);
+  }
+
   // set up events array, will be a set later though
   DEBUG("collector_main: getting events from env var");
   auto events = str_split_vec(getenv_safe("COLLECTOR_EVENTS"), ",");

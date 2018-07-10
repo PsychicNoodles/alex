@@ -181,7 +181,8 @@ function collect({
       3: "There was a problem with the executable file.",
       4: "There was a problem with the debug symbols file.",
       5: "There was a problem accessing an environment variable.",
-      6: "There was a problem opening the event name."
+      6: "There was a problem opening the event name.",
+      7: "Invalid parameter(s) for collector"
     };
 
     if (code in errorCodes) {
