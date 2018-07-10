@@ -1,19 +1,22 @@
-all: build/matrixmultiplier build/threadarray build/fork build/branch-predict
+all: build/branch-predict build/cache build/fork build/matrixmultiplier build/threadarray
 
 build:
 	mkdir -p build
+
+build/branch-predict: branch-predict.cpp | build
+	clang++ -g -Wall -rdynamic -lpthread -o build/branch-predict branch-predict.cpp
+
+build/cache: cache.c | build
+	clang -g -Wall -o build/cache cache.c
+
+build/fork: fork.c | build
+	clang -g -Wall -lpthread -o build/fork fork.c
 
 build/matrixmultiplier: matrixmultiplier.c | build
 	clang -g -Wall -rdynamic -o build/matrixmultiplier matrixmultiplier.c
 
 build/threadarray: threadarray.c | build
 	clang -g -Wall -rdynamic -lpthread -o build/threadarray threadarray.c
-
-build/fork: fork.c | build
-	clang -g -Wall -lpthread -o build/fork fork.c
-
-build/branch-predict: branch-predict.cpp | build
-	clang++ -g -Wall -rdynamic -lpthread -o build/branch-predict branch-predict.cpp
 
 clean:
 	$(RM) -rf build
