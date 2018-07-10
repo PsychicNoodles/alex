@@ -57,8 +57,8 @@ void setup_global_vars() {
   }
   DEBUG("period is " << period);
 
-  if (period <= MIN_PERIOD) {
-    DEBUG("period is smaller than 1000");
+  if (period < MIN_PERIOD) {
+    DEBUG("period is smaller than " << MIN_PERIOD);
     exit(PARAM_ERROR);
   }
 

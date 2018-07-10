@@ -41,7 +41,7 @@ const char* callchain_str(uint64_t callchain);
   100  // max timestamp difference between epoll_wait before printing to err log
 #define PERIOD_ADJUST_SCALE \
   10  // scale to increase/decrease period due to throttle/unthrottle events
-#define MIN_PERIOD 10000  // any lower will break everything
+#define MIN_PERIOD 1000  // any lower will break everything
 #define MAX_RECORD_READS \
   100  // max number of times to check for another record before epolling again
 
