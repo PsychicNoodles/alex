@@ -5,8 +5,6 @@ const d3 = require("d3");
 const ProgressBar = require("progressbar.js");
 const analyze = require("./analysis");
 
-require("bootstrap");
-
 const {
   processData,
   computeRenderableData,
