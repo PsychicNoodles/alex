@@ -259,7 +259,7 @@ bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
       DEBUG("cpd: received message from a thread in subject");
       int cmd;
       auto *info = new perf_fd_info;
-      for (cmd = recv_perf_fds(socket, info, perf_info_mappings); cmd != -1;
+      for (cmd = recv_perf_fds(socket, info, perf_info_mappings); cmd > 0;
            info = new perf_fd_info,
           cmd = recv_perf_fds(socket, info, perf_info_mappings)) {
         DEBUG("cpd: received cmd " << cmd);
