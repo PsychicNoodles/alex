@@ -276,7 +276,7 @@ bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
           parent_shutdown(INTERNAL_ERROR);
         }
       }
-      if(cmd != -1) {
+      if (cmd != -1) {
         DEBUG("cpd: unknown command, shutting down");
         parent_shutdown(INTERNAL_ERROR);
       }
@@ -327,8 +327,16 @@ int adjust_period(int sample_type) {
     DEBUG("throttle event detected, increasing period");
     global->period = (global->period) * PERIOD_ADJUST_SCALE;
   } else {
-    DEBUG("unthrottle event detected, decreasing period");
-    global->period = (global->period) / PERIOD_ADJUST_SCALE;
+    if ((global->period) / PERIOD_ADJUST_SCALE <= MIN_PERIOD) {
+      DEBUG(
+          "unthrottle event detected, but further unthrottling would go below "
+          "minimum "
+          << MIN_PERIOD << " (currently " << global->period << ")");
+      return 0;
+    } else {
+      DEBUG("unthrottle event detected, decreasing period");
+      global->period = (global->period) / PERIOD_ADJUST_SCALE;
+    }
   }
 
   DEBUG("new period is " << global->period);
@@ -434,6 +442,8 @@ void process_sample_record(void *perf_result, const perf_fd_info &info,
         delete nrg;
         DEBUG("cpd: restarting RAPL energy readings");
         restart_reading(rapl_reading);
+      } else {
+        DEBUG("cpd: no RAPL result available");
       }
     }
 
@@ -448,6 +458,8 @@ void process_sample_record(void *perf_result, const perf_fd_info &info,
         delete ret;
         DEBUG("cpd: restarting wattsup energy readings");
         restart_reading(wattsup_reading);
+      } else {
+        DEBUG("cpd: no wattsup result available");
       }
     }
 
