@@ -50,17 +50,19 @@ using std::vector;
 /// the following record structs all have the perf_event_header shaved off,
 /// since it's removed by the get_next_record function
 
-#ifdef SAMPLE_ID_ALL
 // the sample_id struct, if sample_id_all is enabled
 struct record_sample_id {
+  // PERF_SAMPLE_TID
   uint32_t pid;
   uint32_t tid;
+  // PERF_SAMPLE_TIME
   uint64_t time;
+  // PERF_SAMPLE_STREAM_ID
   uint64_t stream_id;
   // PERF_SAMPLE_CPU is not enabled
+  // PERF_STREAM_IDENTIFIER
   uint64_t id;  // actually the id for the group leader
 };
-#endif
 
 // contents of PERF_RECORD_SAMPLE buffer plus certain sample types
 struct sample_record {
@@ -650,9 +652,23 @@ void process_lost_record(lost_record *lost,
   errors.emplace_back(make_pair(PERF_RECORD_LOST, base_record{.lost = *lost}));
 }
 
-void print_sample_id(record_sample_id sample_id) {}
+void write_sample_id(const record_sample_id &sample_id) {
+  fprintf(result_file, R"(,
+       "pid": %u,
+       "tid": %u,
+       "time": %lu,
+       "stream_id": %lu,
+       "id": %lu
+  )",
+          sample_id.pid, sample_id.tid, sample_id.time, sample_id.stream_id,
+          sample_id.id);
+}
 
-void print_errors(vector<pair<int, base_record>> errors) {
+void write_errors(vector<pair<int, base_record>> errors) {
+  fprintf(result_file, R"(
+    ],
+    "error": [
+                )");
   bool is_first_element = true;
   for (auto &p : errors) {
     if (is_first_element) {
@@ -670,11 +686,10 @@ void print_errors(vector<pair<int, base_record>> errors) {
       {
        "type": "PERF_RECORD_THROTTLE",
        "time": %lu, 
-       "id": %lu
-    )",
+       "id": %lu)",
               time, id);
       if (SAMPLE_ID_ALL) {
-        print_sample_id(throttle.sample_id);
+        write_sample_id(throttle.sample_id);
       }
       fprintf(result_file, R"(
       }
@@ -687,11 +702,10 @@ void print_errors(vector<pair<int, base_record>> errors) {
       {
        "type": "PERF_RECORD_UNTHROTTLE",
        "time": %lu,
-       "id": %lu
-    )",
+       "id": %lu)",
               time, id);
       if (SAMPLE_ID_ALL) {
-        print_sample_id(throttle.sample_id);
+        write_sample_id(throttle.sample_id);
       }
       fprintf(result_file, R"(
       }
@@ -705,6 +719,11 @@ void print_errors(vector<pair<int, base_record>> errors) {
     )|");
     }
   }
+
+  fprintf(result_file, R"(       
+    ]
+  }
+)");
 }
 
 void setup_collect_perf_data(int sigt_fd, int socket, int wu_fd, FILE *res_file,
@@ -884,18 +903,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
   DEBUG("cpd: stopping wattsup reading thread");
   stop_reading(wattsup_reading);
 
-  fprintf(result_file,
-          R"(
-              ],
-              "error": [
-                          )");
-
-  print_errors(errors);
-  fprintf(result_file,
-          R"(       
-              ]
-            }
-          )");
+  write_errors(errors);
 
   return 0;
 }
