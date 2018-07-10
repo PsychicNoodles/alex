@@ -45,20 +45,20 @@ body {
   background-color: #ededed;
 }
 
-#clear-brushes-button {
+button {
   padding: 5px 10px;
   border: 1px solid #999;
   background-color: #ededed;
   border-radius: 2px;
 }
 
-#clear-brushes-button:hover,
-#clear-brushes-button:focus {
+button:hover,
+button:focus {
   background-color: #d7d7d7;
   outline: none;
 }
 
-#clear-brushes-button:active {
+button:active {
   background-color: #ccc;
   outline: none;
 }
