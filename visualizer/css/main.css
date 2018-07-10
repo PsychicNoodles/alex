@@ -1,3 +1,96 @@
 body {
-  min-width: 900px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+
+  min-width: 600px;
+  display: grid;
+}
+
+#progress {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  padding: 20px;
+  background: #ededed;
+  display: none;
+}
+
+#progress.progress--visible {
+  display: block;
+}
+
+#charts {
+  grid-area: charts;
+  overflow: auto;
+  padding: 20px;
+}
+
+#legend {
+  grid-area: legend;
+  width: 100px;
+  padding: 20px;
+}
+
+#side-bar {
+  grid-area: side-bar;
+  overflow: auto;
+}
+
+#side-bar-header {
+  padding: 10px;
+  background-color: #ededed;
+}
+
+#clear-brushes-button {
+  padding: 5px 10px;
+  border: 1px solid #999;
+  background-color: #ededed;
+  border-radius: 2px;
+}
+
+#clear-brushes-button:hover,
+#clear-brushes-button:focus {
+  background-color: #d7d7d7;
+  outline: none;
+}
+
+#clear-brushes-button:active {
+  background-color: #ccc;
+  outline: none;
+}
+
+@media (max-width: 750px) {
+  #charts {
+    padding: 0;
+  }
+}
+
+@media (max-width: 1500px) {
+  body {
+    grid-template-rows: 2fr 1fr;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "charts   legend"
+      "side-bar side-bar";
+  }
+
+  #side-bar {
+    border-top: 1px solid #999;
+  }
+}
+
+@media (min-width: 1500px) {
+  body {
+    grid-template-rows: 1fr;
+    grid-template-columns: 700px auto 1fr;
+    grid-template-areas: "charts legend side-bar";
+  }
+
+  #side-bar {
+    border-left: 1px solid #999;
+  }
 }

@@ -21,11 +21,16 @@ function render(
     yFormat
   }
 ) {
-  root.classed("chart", true).attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`);
+  root.classed("chart", true);
 
   root.selectAll("*").remove();
 
-  root.append("g").call(plot.render, {
+  const svg = root
+    .append("svg")
+    .attr("class", "chart__svg")
+    .attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`);
+
+  svg.append("g").call(plot.render, {
     data: plotData,
     xScale,
     yScale,
@@ -35,9 +40,9 @@ function render(
     spectrum
   });
 
-  root.append("g").call(brushes.render);
+  svg.append("g").call(brushes.render);
 
-  root
+  svg
     .append("g")
     .attr("class", "chart__axis chart__axis--x")
     .attr("transform", `translate(0, ${HEIGHT})`)
@@ -51,7 +56,7 @@ function render(
     .attr("y", 50)
     .text(xAxisLabel);
 
-  root
+  svg
     .append("g")
     .attr("class", "chart__axis chart__axis--y")
     .call(d3.axisLeft(yScale).tickFormat(yFormat))

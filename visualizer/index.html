@@ -15,25 +15,17 @@
 </head>
 
 <body>
-  <div class="container-fluid">
-    <div class="row">
-      <div class="col-sm-9">
-        <div id="progress"></div>
-      </div>
-    </div>
-    <div class="row">
-      <div id="charts" class="col-sm-8">
-      </div>
-      <svg id="legend" class="col-sm-2"></svg>
-      <div class="col-sm-2">
-        <button id="btnClearBrushes">Clear brushes</button>
-      </div>
-    </div>
-    <div class="row">
-      <table id="function-runtimes">
-      </table>
-    </div>
-  </div>
+  <div id="progress"></div>
+
+  <div id="charts"></div>
+  <svg id="legend"></svg>
+
+  <aside id="side-bar">
+    <header id="side-bar-header">
+      <button id="clear-brushes-button">Clear Selections</button>
+    </header>
+    <table id="function-runtimes"></table>
+  </aside>
 
   <script>require("./js/script")</script>
 </body>

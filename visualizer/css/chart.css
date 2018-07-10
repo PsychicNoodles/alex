@@ -1,7 +1,12 @@
-svg.chart {
+.chart {
+  max-width: 600px;
+  margin: 30px;
+}
+
+svg.chart__svg {
   overflow: visible;
-  margin-left: 10%;
-  margin-bottom: 10%;
+  margin-left: 8.5%;
+  margin-bottom: 8%;
 }
 
 .chart__axis path,
