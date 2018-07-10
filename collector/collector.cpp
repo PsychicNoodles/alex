@@ -11,6 +11,7 @@
 #include <sstream>
 #include <string>
 
+#include "bg_readings.hpp"
 #include "clone.hpp"
 #include "const.hpp"
 #include "debug.hpp"
@@ -222,8 +223,14 @@ static int collector_main(int argc, char **argv, char **env) {
       DEBUG("WATTSUP setup, wu_fd is: " << wu_fd);
     }
 
+    DEBUG("collector_main: setting up collector");
+    bg_reading rapl_reading, wattsup_reading;
+    setup_collect_perf_data(sigterm_fd, sockets[0], wu_fd, result_file,
+                            &rapl_reading, &wattsup_reading);
+
     DEBUG(
-        "collector_main: result file opened, sending ready (SIGUSR2) signal to "
+        "collector_main: result file opened, sending ready (SIGUSR2) "
+        "signal to "
         "child");
 
     kill(subject_pid, SIGUSR2);
@@ -232,8 +239,8 @@ static int collector_main(int argc, char **argv, char **env) {
     }
 
     DEBUG("collector_main: received child ready signal, starting collector");
-    result = collect_perf_data(kernel_syms, sigterm_fd, sockets[0], wu_fd,
-                               result_file);
+    result = collect_perf_data(kernel_syms, sigterm_fd, sockets[0], result_file,
+                               &rapl_reading, &wattsup_reading);
 
     DEBUG("collector_main: finished collector, closing file");
 

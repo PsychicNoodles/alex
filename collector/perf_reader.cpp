@@ -33,7 +33,6 @@
 #include <libelfin/elf/elf++.hh>
 
 #include "ancillary.hpp"
-#include "bg_readings.hpp"
 #include "const.hpp"
 #include "debug.hpp"
 #include "find_events.hpp"
@@ -276,6 +275,10 @@ bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
           DEBUG("cpd: unknown command, shutting down");
           parent_shutdown(INTERNAL_ERROR);
         }
+      }
+      if(cmd != -1) {
+        DEBUG("cpd: unknown command, shutting down");
+        parent_shutdown(INTERNAL_ERROR);
       }
       DEBUG("cpd: exhausted requests");
       // re-poll for data
@@ -632,15 +635,10 @@ void print_errors(vector<pair<int, base_record *>> errors) {
   }
 }
 
-/*
- * Sets up the required events and records performance of subject process into
- * result file.
- */
-int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
-                      int socket, int wu_fd, FILE *res_file) {
+void setup_collect_perf_data(int sigt_fd, int socket, int wu_fd, FILE *res_file,
+                             bg_reading *rapl_reading,
+                             bg_reading *wattsup_reading) {
   result_file = res_file;
-
-  vector<pair<int, base_record *>> errors;
 
   DEBUG("collector_main: registering " << sigt_fd << " as sigterm fd");
   add_fd_to_epoll(sigt_fd);
@@ -672,28 +670,21 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
               "timeslices": [
           )");
 
-  bool is_first_timeslice = true;
-  bool done = false;
-  int sample_period_skips = 0;
-
   // setting up RAPL energy reading
-  bg_reading rapl_reading = {nullptr};
   if (preset_enabled("rapl")) {
-    setup_reading(&rapl_reading,
+    setup_reading(rapl_reading,
                   [](void *_) -> void * {
                     auto m = new map<string, uint64_t>;
                     measure_energy_into_map(m);
                     return m;
                   },
                   nullptr);
-    restart_reading(&rapl_reading);
-    DEBUG("cpd: rapl reading in tid " << rapl_reading.thread);
+    DEBUG("cpd: rapl reading in tid " << rapl_reading->thread);
   }
 
   // setting up wattsup energy reading
-  bg_reading wattsup_reading = {nullptr};
   if (wu_fd != -1) {
-    setup_reading(&wattsup_reading,
+    setup_reading(wattsup_reading,
                   [](void *raw_args) -> void * {
                     int wu_fd = (static_cast<int *>(raw_args))[0];
                     auto d = new double;
@@ -701,13 +692,28 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                     return d;
                   },
                   &wu_fd);
-    restart_reading(&wattsup_reading);
-    DEBUG("cpd: wattsup reading in tid " << wattsup_reading.thread);
+    DEBUG("cpd: wattsup reading in tid " << wattsup_reading->thread);
   } else {
     DEBUG("cpd: wattsup couldn't open device, skipping setup");
   }
+}
+
+/*
+ * Sets up the required events and records performance of subject process into
+ * result file.
+ */
+int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
+                      int socket, FILE *res_file, bg_reading *rapl_reading,
+                      bg_reading *wattsup_reading) {
+  bool is_first_timeslice = true;
+  bool done = false;
+  int sample_period_skips = 0;
+  vector<pair<int, base_record *>> errors;
 
   size_t last_ts = time_ms(), finish_ts = last_ts, curr_ts = 0;
+
+  restart_reading(rapl_reading);
+  restart_reading(wattsup_reading);
 
   DEBUG("cpd: entering epoll ready loop");
   while (!done) {
@@ -777,12 +783,13 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                 process_throttle_record(perf_result, sample_type, &errors);
               } else if (sample_type == PERF_RECORD_SAMPLE) {
                 process_sample_record(perf_result, info, is_first_sample,
-                                      &rapl_reading, &wattsup_reading,
+                                      rapl_reading, wattsup_reading,
                                       kernel_syms);
                 is_first_sample = false;
               } else {
-                DEBUG("cpd: sample type was not recognized ( " << sample_type
-                                                               << ")");
+                DEBUG("cpd: sample type was not recognized ("
+                      << record_type_str(sample_type) << " " << sample_type
+                      << ")");
               }
             }
           }
@@ -793,9 +800,9 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
     delete[] evlist;
   }
   DEBUG("cpd: stopping RAPL reading thread");
-  stop_reading(&rapl_reading);
+  stop_reading(rapl_reading);
   DEBUG("cpd: stopping wattsup reading thread");
-  stop_reading(&wattsup_reading);
+  stop_reading(wattsup_reading);
 
   fprintf(result_file,
           R"(
