@@ -4,10 +4,10 @@
 
 const d3 = require("d3");
 
-const analyze = require("./analysis");
-function render(root, { data }) {
-  const functionRuntimesArray = analyze(data).functionList;
-  console.log(functionRuntimesArray);
+function render(root, { functionList }) {
+  root.classed("function-runtimes", true);
+
+  console.log(functionList);
 
   //const newArray = [...new Set([...functionRuntimesArray, ...(chiSquaredData.functionList)])];
   //console.log(newArray);
@@ -19,17 +19,19 @@ function render(root, { data }) {
   headerRowSelection.append("th").text("Function Name");
   headerRowSelection.append("th").text("Self Time (CPU Time)");
   headerRowSelection.append("th").text("Cumulative Time (CPU Time)");
+  headerRowSelection.append("th").text("Expected Count(Rounded)");
+  headerRowSelection.append("th").text("Observed Count");
 
   const tableDataSelection = root
     .selectAll(".function-runtimes__data-row")
-    .data(functionRuntimesArray.slice(0, 100));
+    .data(functionList.slice(0, 100));
 
   tableDataSelection
     .enter()
     .append("tr")
     .attr("class", "function-runtimes__data-row")
     .merge(tableDataSelection)
-    .each(function({ name, selfTime, cumulativeTime }) {
+    .each(function({ name, selfTime, cumulativeTime, expected, observed }) {
       const numberFormatter = d3.format(".4s");
       const row = d3
         .select(this)
@@ -37,7 +39,9 @@ function render(root, { data }) {
         .data([
           name,
           numberFormatter(selfTime),
-          numberFormatter(cumulativeTime)
+          numberFormatter(cumulativeTime),
+          expected.toFixed(0),
+          observed
         ]);
 
       row

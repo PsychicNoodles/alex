@@ -29,7 +29,7 @@ int setup_buffer(perf_fd_info *info) {
   return SAMPLER_MONITOR_SUCCESS;
 }
 
-void *get_next_sample(perf_buffer *perf, int *type, int *size) {
+void *get_next_record(perf_buffer *perf, int *type, int *size) {
   auto *event_header = reinterpret_cast<perf_event_header *>(
       (static_cast<char *>(perf->data) +
        (perf->info->data_tail % perf->info->data_size)));
@@ -42,8 +42,15 @@ void *get_next_sample(perf_buffer *perf, int *type, int *size) {
   return event_data;
 }
 
-bool has_next_sample(perf_buffer *perf) {
+bool has_next_record(perf_buffer *perf) {
   return (perf->info->data_head != perf->info->data_tail);
+}
+
+void clear_records(perf_buffer *perf) {
+  DEBUG("clearing " << static_cast<size_t>(perf->info->data_head -
+                                           perf->info->data_tail)
+                    << " bytes of records");
+  perf->info->data_tail = perf->info->data_head;
 }
 
 int start_monitoring(int fd) {

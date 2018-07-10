@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 #ifndef VERSION
-#define VERSION -1  // should be set by make command
+#define VERSION "whoops"  // should be set by make command
 #endif
 
 #define PAGE_SIZE 0x1000LL
@@ -18,7 +18,8 @@
 #define EXECUTABLE_FILE_ERROR 3     // Problem with the executable file
 #define DEBUG_SYMBOLS_FILE_ERROR 4  // Problem with the debug symbols file
 #define ENV_ERROR 5                 // Cannot get environment variable
-#define EVENT_ERROR 6                 // Cannot open event
+#define EVENT_ERROR 6               // Cannot open event
+#define PARAM_ERROR 7               // Period is too small
 
 // https://godoc.org/github.com/aclements/go-perf/perffile#pkg-constants
 #define CALLCHAIN_HYPERVISOR 0xffffffffffffffe0
@@ -40,5 +41,10 @@ const char* callchain_str(uint64_t callchain);
   100  // max timestamp difference between epoll_wait before printing to err log
 #define PERIOD_ADJUST_SCALE \
   10  // scale to increase/decrease period due to throttle/unthrottle events
+#define MIN_PERIOD 1000  // any lower will break everything
+#define MAX_RECORD_READS \
+  100  // max number of times to check for another record before epolling again
+
+const char* record_type_str(int type);
 
 #endif

@@ -27,7 +27,13 @@ function runtimePerFunction(inputData, outputData) {
   const functionRuntimesMap = {};
   selected.forEach(datum => {
     for (const i in datum.stackFrames) {
-      const functionName = datum.stackFrames[i].symName;
+      let functionName = "";
+      for (let i = datum.stackFrames.length - 1; i >= 0; i--) {
+        functionName = functionName.concat(datum.stackFrames[i].symName);
+        if (i !== 0) {
+          functionName = functionName.concat(" > ");
+        }
+      }
       functionRuntimesMap[functionName] = functionRuntimesMap[functionName] || {
         selfTime: 0,
         cumulativeTime: 0,
@@ -46,10 +52,9 @@ function runtimePerFunction(inputData, outputData) {
 
   let index;
   for (const functionName in functionRuntimesMap) {
-    /* eslint-disable-next-line arrow-body-style */
-    index = outputData.functionList.findIndex(element => {
-      return element.name === functionName;
-    });
+    index = outputData.functionList.findIndex(
+      element => element.name === functionName
+    );
     if (index === -1) {
       outputData.functionList.push({
         ...functionRuntimesMap[functionName],
@@ -82,7 +87,9 @@ function runtimePerFunction(inputData, outputData) {
 function chiSquared(inputData, outputData) {
   /* "Associative arrays", containing counts of function appearances within a
     region. Key = function name. Value = function count. */
+
   const selected = {};
+
   let selectedTotal = 0;
   const unselected = {};
   let unselectedTotal = 0;
@@ -92,10 +99,15 @@ function chiSquared(inputData, outputData) {
   const uniqueFunctions = [];
 
   /* Populate a "table" with function counts for unselected/selected */
-  let functionName;
   inputData.forEach(datum => {
-    if (datum.stackFrames.length === 0) return;
-    functionName = datum.stackFrames[0].symName;
+    let functionName = "";
+    for (let i = datum.stackFrames.length - 1; i >= 0; i--) {
+      functionName = functionName.concat(datum.stackFrames[i].symName);
+      if (i !== 0) {
+        functionName = functionName.concat(" > ");
+      }
+    }
+    //functionName = datum.stackFrames[0].symName;
     /* "Initialize" the associative arrays at this datapoint's function, if this
     hasn't already been done. */
     if (selected[functionName] === undefined) {
@@ -152,10 +164,9 @@ function chiSquared(inputData, outputData) {
     chiSquared += squaredDeviance;
 
     /* Add *only* data on selected functions to the output list */
-    /* eslint-disable-next-line arrow-body-style */
-    index = outputData.functionList.findIndex(element => {
-      return element.name === uniqueFunction;
-    });
+    index = outputData.functionList.findIndex(
+      element => element.name === uniqueFunction
+    );
     if (index === -1) {
       outputData.functionList.push({
         name: uniqueFunction,

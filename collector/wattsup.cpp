@@ -174,7 +174,8 @@ double wu_read(int fd) {
     DEBUG("Read return bytes read: " << ret);
     DEBUG("Read returned " << string);
     if ((ret < 0) && (ret != EAGAIN)) {
-      DEBUG("error reading from device" << strerror(errno));
+      perror("error reading from wattsup device");
+      return -1;
     }
     if (string[0] != '#') {
       DEBUG("Protocol error with string " << string);

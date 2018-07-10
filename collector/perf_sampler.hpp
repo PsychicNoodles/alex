@@ -50,10 +50,13 @@ int stop_monitoring(int fd);
 int resume_monitoring(int fd);
 
 /* does the perf_event buffer have any new records? */
-bool has_next_sample(perf_buffer *perf);
+bool has_next_record(perf_buffer *perf);
 
 /* get the next record */
-void *get_next_sample(perf_buffer *perf, int *type, int *size);
+void *get_next_record(perf_buffer *perf, int *type, int *size);
+
+/* remove remaining samples */
+void clear_records(perf_buffer *perf);
 
 int setup_pfm_os_event(perf_event_attr *attr, char *event_name);
 

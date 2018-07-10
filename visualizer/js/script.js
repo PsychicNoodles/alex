@@ -2,16 +2,21 @@ const { ipcRenderer } = require("electron");
 const fs = require("fs");
 const readline = require("readline");
 const d3 = require("d3");
-
 const ProgressBar = require("progressbar.js");
-const { PROGRESS_HEIGHT, PROGRESS_DIVISIONS } = require("./util");
+const analyze = require("./analysis");
 
-require("bootstrap");
-
-const { processData } = require("./process-data");
-const { draw } = require("./draw");
+const {
+  processData,
+  computeRenderableData,
+  getEventCount
+} = require("./process-data");
+const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
-const { setupLayers } = require("./layers");
+const legend = require("./legend");
+const brushes = require("./brushes");
+
+const PROGRESS_HEIGHT = "8px";
+const PROGRESS_DIVISIONS = 10;
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", (event, resultFile) => {
@@ -25,6 +30,7 @@ ipcRenderer.on("result", (event, resultFile) => {
     const progressPoints = [...Array(PROGRESS_DIVISIONS).keys()].map(
       n => bytesTotal * (n / PROGRESS_DIVISIONS)
     );
+
     bar = new ProgressBar.Line("#progress", {
       strokeWidth: 4,
       easing: "easeInOut",
@@ -45,6 +51,8 @@ ipcRenderer.on("result", (event, resultFile) => {
           `Read in ${Math.round(bar.value() * 100) + "%"} of result file`
         )
     });
+    d3.select("#progress").classed("progress--visible", true);
+
     rl = readline
       .createInterface({
         input: fs.createReadStream(resultFile)
@@ -73,29 +81,119 @@ ipcRenderer.on("result", (event, resultFile) => {
     bar.set(1.0);
     bar.setText("Parsing JSON...");
 
-    result = JSON.parse(result);
-    const processedData = processData(result.timeslices, result.header);
+    requestAnimationFrame(() => {
+      result = JSON.parse(result);
+      const processedData = processData(result.timeslices, result.header);
 
-    const xAxisLabel = "CPU Time Elapsed";
-    const getIndependentVariable = d => d.cpuTime;
+      bar.destroy();
+      d3.select("#progress").classed("progress--visible", false);
 
-    const yAxisLabel = "Cache Miss Rate";
-    const getDependentVariable = d => d.events.missRate;
+      const { presets } = result.header;
+      const charts = [
+        {
+          presetsRequired: ["cache"],
+          yAxisLabel: "Cache Miss Rate",
+          yFormat: d3.format(".0%"),
+          getDependentVariable: d =>
+            getEventCount(d, presets.cache.misses) /
+              (getEventCount(d, presets.cache.hits) +
+                getEventCount(d, presets.cache.misses)) || 0
+        },
+        {
+          presetsRequired: ["cpu"],
+          yAxisLabel: "Instructions Per Cycle",
+          yFormat: d3.format(".2"),
+          getDependentVariable: d =>
+            getEventCount(d, presets.cpu.instructions) /
+              getEventCount(d, presets.cpu.cpuCycles) || 0
+        }
+      ].filter(({ presetsRequired }) =>
+        presetsRequired.every(presetName => presetName in presets)
+      );
 
-    d3.select(".function-runtimes").call(functionRuntimes.render, {
-      data: processedData
+      const xAxisLabel = "CPU Time Elapsed";
+      const getIndependentVariable = d => d.cpuTime - processedData[0].cpuTime;
+
+      const xScaleMin = getIndependentVariable(processedData[0]);
+      const xScaleMax = getIndependentVariable(
+        processedData[processedData.length - 1]
+      );
+      const xScale = d3
+        .scaleLinear()
+        .domain([xScaleMin, xScaleMax])
+        .range([0, chart.WIDTH]);
+
+      const yScalesByChart = new WeakMap();
+      const plotDataByChart = new WeakMap();
+
+      for (const chartParams of charts) {
+        const { getDependentVariable } = chartParams;
+        const yScaleMax = d3.max(processedData, getDependentVariable);
+        const yScale = d3
+          .scaleLinear()
+          .domain([yScaleMax, 0])
+          .range([0, chart.HEIGHT]);
+
+        const plotData = computeRenderableData({
+          data: processedData,
+          xScale,
+          yScale,
+          getIndependentVariable,
+          getDependentVariable
+        });
+
+        yScalesByChart.set(chartParams, yScale);
+        plotDataByChart.set(chartParams, plotData);
+      }
+
+      const densityMax = charts.reduce(
+        (currentMax, chart) =>
+          Math.max(
+            currentMax,
+            d3.max(plotDataByChart.get(chart), d => d.densityAvg)
+          ),
+        0
+      );
+      const spectrum = d3.interpolateGreens;
+
+      for (const chartParams of charts) {
+        const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
+        d3.select("#charts")
+          .append("div")
+          .call(chart.render, {
+            timeslices: processedData,
+            getIndependentVariable,
+            getDependentVariable,
+            xAxisLabel,
+            yAxisLabel,
+            xScale,
+            yScale: yScalesByChart.get(chartParams),
+            yFormat,
+            plotData: plotDataByChart.get(chartParams),
+            densityMax,
+            spectrum
+          });
+      }
+
+      d3.select("#legend").call(legend.render, { densityMax, spectrum });
+
+      brushes.selectionStore.subscribe(({ selections }) => {
+        const { functionList } = analyze(
+          processedData.map(timeslice => {
+            const x = xScale(getIndependentVariable(timeslice));
+            return {
+              ...timeslice,
+              selected:
+                selections.length === 0 ||
+                selections.some(({ range }) => range[0] <= x && x <= range[1])
+            };
+          })
+        );
+
+        d3.select("#function-runtimes").call(functionRuntimes.render, {
+          functionList
+        });
+      });
     });
-
-    draw(
-      processedData,
-      getIndependentVariable,
-      getDependentVariable,
-      xAxisLabel,
-      yAxisLabel
-    );
-
-    setupLayers(result);
-
-    bar.destroy();
   });
 });

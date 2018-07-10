@@ -18,11 +18,6 @@
 
 #include "debug.hpp"
 
-#define ENERGY_ROOT "/sys/class/powercap/intel-rapl/"
-#define ENERGY_PREFIX "intel-rapl"
-#define ENERGY_NAME "name"
-#define ENERGY_FILE "energy_uj"
-
 using std::map;
 using std::string;
 using std::vector;
