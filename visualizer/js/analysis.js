@@ -52,10 +52,9 @@ function runtimePerFunction(inputData, outputData) {
 
   let index;
   for (const functionName in functionRuntimesMap) {
-    /* eslint-disable-next-line arrow-body-style */
-    index = outputData.functionList.findIndex(element => {
-      return element.name === functionName;
-    });
+    index = outputData.functionList.findIndex(
+      element => element.name === functionName
+    );
     if (index === -1) {
       outputData.functionList.push({
         ...functionRuntimesMap[functionName],
@@ -165,10 +164,9 @@ function chiSquared(inputData, outputData) {
     chiSquared += squaredDeviance;
 
     /* Add *only* data on selected functions to the output list */
-    /* eslint-disable-next-line arrow-body-style */
-    index = outputData.functionList.findIndex(element => {
-      return element.name === uniqueFunction;
-    });
+    index = outputData.functionList.findIndex(
+      element => element.name === uniqueFunction
+    );
     if (index === -1) {
       outputData.functionList.push({
         name: uniqueFunction,
@@ -181,11 +179,11 @@ function chiSquared(inputData, outputData) {
       outputData.functionList[index].observed = observed;
       outputData.functionList[index].squaredDeviance = squaredDeviance;
     }
-    console.log(
+    /* console.log(
       `Saw ${observed} of ${uniqueFunction}, expected ~${Math.round(
         expected
       )}, chiSquared of ${squaredDeviance}`
-    );
+    ); */
 
     /* Compute chi-squared sum through the "row" representing unselected state
     (required only for calculating overall probability) */
