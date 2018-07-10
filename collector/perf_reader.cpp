@@ -652,6 +652,12 @@ void process_lost_record(lost_record *lost,
   errors.emplace_back(make_pair(PERF_RECORD_LOST, base_record{.lost = *lost}));
 }
 
+/*
+ * Writes the information from the sample_id struct to the result file.
+ * Error entries may end up having duplicate key-values, particularly time and
+ * stream_id, since the sample_id struct simply tries to provide the same
+ * information across all supported record types.
+ */
 void write_sample_id(const record_sample_id &sample_id) {
   fprintf(result_file, R"(,
        "pid": %u,
@@ -682,12 +688,14 @@ void write_errors(vector<pair<int, base_record>> errors) {
       auto throttle = p.second.throttle;
       uint64_t time = throttle.time;
       uint64_t id = throttle.id;
+      uint64_t stream_id = throttle.stream_id;
       fprintf(result_file, R"(
       {
        "type": "PERF_RECORD_THROTTLE",
        "time": %lu, 
-       "id": %lu)",
-              time, id);
+       "id": %lu,
+       "stream_id": %lu)",
+              time, id, stream_id);
       if (SAMPLE_ID_ALL) {
         write_sample_id(throttle.sample_id);
       }
@@ -698,18 +706,30 @@ void write_errors(vector<pair<int, base_record>> errors) {
       auto throttle = p.second.throttle;
       uint64_t time = throttle.time;
       uint64_t id = throttle.id;
+      uint64_t stream_id = throttle.stream_id;
       fprintf(result_file, R"(
       {
        "type": "PERF_RECORD_UNTHROTTLE",
        "time": %lu,
-       "id": %lu)",
-              time, id);
+       "id": %lu,
+       "stream_id": %lu)",
+              time, id, stream_id);
       if (SAMPLE_ID_ALL) {
         write_sample_id(throttle.sample_id);
       }
       fprintf(result_file, R"(
       }
         )");
+    } else if (p.first == PERF_RECORD_LOST) {
+      auto lost = p.second.lost;
+      uint64_t id = lost.id;
+      uint64_t num_lost = lost.lost;
+      fprintf(result_file, R"(
+      {
+       "type": "PERF_RECORD_LOST",
+       "id": %lu,
+       "lost": %lu)",
+              id, num_lost);
     } else {
       DEBUG("couldn't determine type of error for " << p.first << "!");
       fprintf(result_file, R"|(
