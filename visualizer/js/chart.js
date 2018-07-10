@@ -45,7 +45,7 @@ function render(
   }
   root.property(
     brushesSubscription,
-    brushes.store.subscribe(({ selections, nextSelectionId }) => {
+    brushes.selectionStore.subscribe(({ selections, nextSelectionId }) => {
       brushesGroup.call(brushes.render, {
         selections,
         nextSelectionId

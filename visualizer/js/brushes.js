@@ -4,13 +4,16 @@ const { Store } = require("./store");
 
 const brushId = d3.local();
 
-const store = new Store({
+const selectionStore = new Store({
   selections: [],
   nextSelectionId: 0
 });
 
+const hoveredSelectionSubscription = d3.local();
+const hoveredSelectionStore = new Store(null);
+
 document.getElementById("btnClearBrushes").addEventListener("click", () => {
-  store.dispatch(state => ({
+  selectionStore.dispatch(state => ({
     ...state,
     selections: []
   }));
@@ -52,7 +55,7 @@ function render(root, { selections, nextSelectionId }) {
     .property(brushId, brush => brush.id)
     .classed("brush--invisible", ({ id }) => id === nextSelectionId)
     .call(brush)
-    .each(function({ range }) {
+    .each(function({ id, range }) {
       const actualRange = d3.brushSelection(this);
       if (
         !actualRange ||
@@ -61,7 +64,27 @@ function render(root, { selections, nextSelectionId }) {
       ) {
         d3.select(this).call(brush.move, range);
       }
+
+      d3.select(this)
+        .selectAll(".selection, .brush__close")
+        .on("mouseover", () => {
+          hoveredSelectionStore.dispatch(() => id);
+        })
+        .on("mouseleave", () => {
+          hoveredSelectionStore.dispatch(() => null);
+        });
     });
+
+  hoveredSelectionStore.subscribeUnique(
+    root,
+    hoveredSelectionSubscription,
+    hoveredSelection => {
+      brushMergeSelection.classed(
+        "brush--selection-hovered",
+        ({ id }) => id === hoveredSelection
+      );
+    }
+  );
 
   brushSelection.exit().remove();
 
@@ -73,7 +96,7 @@ function render(root, { selections, nextSelectionId }) {
       .append("g")
       .attr("class", "brush__close")
       .on("click", () => {
-        store.dispatch(state => ({
+        selectionStore.dispatch(state => ({
           ...state,
           selections: state.selections.filter(
             ({ id }) => id !== brushId.get(brushElement)
@@ -111,16 +134,16 @@ function updateSelections(currentBrush) {
   const range = d3.brushSelection(currentBrush);
 
   if (range) {
-    if (id === store.getState().nextSelectionId) {
+    if (id === selectionStore.getState().nextSelectionId) {
       // If we selected the invisible brush, add it to the official list
-      store.dispatch(state => ({
+      selectionStore.dispatch(state => ({
         ...state,
         selections: [{ id, range }, ...state.selections],
         nextSelectionId: state.nextSelectionId + 1
       }));
     } else {
       // Otherwise, update the range of the existing selection
-      store.dispatch(state => ({
+      selectionStore.dispatch(state => ({
         ...state,
         selections: state.selections.map(
           selection =>
@@ -131,4 +154,4 @@ function updateSelections(currentBrush) {
   }
 }
 
-module.exports = { render, store };
+module.exports = { render, selectionStore };
