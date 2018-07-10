@@ -1,4 +1,4 @@
-all: build/matrixmultiplier build/threadarray build/fork build/power build/branch-predict
+all: build/matrixmultiplier build/threadarray build/fork 
 
 build:
 	mkdir -p build
@@ -14,9 +14,6 @@ build/fork: fork.c | build
 
 build/power: power.c | build
 	clang -g -Wall -rdynamic -o build/power power.c
-
-build/branch-predict: branch-predict.cpp | build
-	clang++ -g -Wall -rdynamic -lpthread -o build/branch-predict branch-predict.cpp
 
 clean:
 	$(RM) -rf build
