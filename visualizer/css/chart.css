@@ -1,14 +1,20 @@
-svg.chart {
+.chart {
+  max-width: 650px;
+  margin: 30px;
+}
+
+svg.chart__svg {
+  /* Make space for the axes */
   overflow: visible;
-  margin-left: 10%;
-  margin-bottom: 10%;
+  margin-left: 8.5%;
+  margin-bottom: 8%;
 }
 
 .chart__axis path,
 .chart__axis line {
   fill: none;
   stroke: #000;
-  shape-rendering: crispEdges;
+  shape-rendering: geometricPrecision;
 }
 
 .chart__axis text {
