@@ -174,7 +174,7 @@ ipcRenderer.on("result", (event, resultFile) => {
 
     d3.select("#legend").call(legend.render, { densityMax, spectrum });
 
-    brushes.store.subscribe(({ selections }) => {
+    brushes.selectionStore.subscribe(({ selections }) => {
       const { functionList } = analyze(
         processedData.map(timeslice => {
           const x = xScale(getIndependentVariable(timeslice));

@@ -6,8 +6,6 @@ const brushes = require("./brushes");
 const WIDTH = 500;
 const HEIGHT = 250;
 
-const brushesSubscription = d3.local();
-
 function render(
   root,
   {
@@ -37,21 +35,7 @@ function render(
     spectrum
   });
 
-  const brushesGroup = root.append("g");
-
-  const oldBrushesSubscription = root.property(brushesSubscription);
-  if (oldBrushesSubscription) {
-    oldBrushesSubscription.unsubscribe();
-  }
-  root.property(
-    brushesSubscription,
-    brushes.store.subscribe(({ selections, nextSelectionId }) => {
-      brushesGroup.call(brushes.render, {
-        selections,
-        nextSelectionId
-      });
-    })
-  );
+  root.append("g").call(brushes.render);
 
   root
     .append("g")
