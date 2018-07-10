@@ -602,7 +602,6 @@ void process_sample_record(void *perf_result, const perf_fd_info &info,
   } else {
     DEBUG("cpd: not first sample, skipping");
   }
-  return 0;
 }
 
 void print_errors(vector<pair<int, base_record>> errors) {
