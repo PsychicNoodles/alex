@@ -276,7 +276,10 @@ bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
           parent_shutdown(INTERNAL_ERROR);
         }
       }
-      if (cmd != -1) {
+      if (cmd == 0) {
+        DEBUG("cpd: removing closed socket from epoll");
+        delete_fd_from_epoll(socket);
+      } else if (cmd != -1) {
         DEBUG("cpd: unknown command, shutting down");
         parent_shutdown(INTERNAL_ERROR);
       }
