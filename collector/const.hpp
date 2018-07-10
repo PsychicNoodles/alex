@@ -41,4 +41,6 @@ const char* callchain_str(uint64_t callchain);
 #define PERIOD_ADJUST_SCALE \
   10  // scale to increase/decrease period due to throttle/unthrottle events
 
+const char* record_type_str(int type);
+
 #endif
