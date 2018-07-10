@@ -14,6 +14,7 @@ const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
 const legend = require("./legend");
 const brushes = require("./brushes");
+const sourceSelect = require("./source-select");
 
 const PROGRESS_HEIGHT = "8px";
 const PROGRESS_DIVISIONS = 10;
@@ -176,6 +177,19 @@ ipcRenderer.on("result", (event, resultFile) => {
       }
 
       d3.select("#legend").call(legend.render, { densityMax, spectrum });
+
+      const sourcesSet = new Set();
+      processedData.forEach(timeslice => {
+        timeslice.stackFrames.forEach(frame => {
+          sourcesSet.add(frame.fileName);
+        });
+      });
+
+      d3.select("#source-select").call(sourceSelect.render, {
+        sources: [...sourcesSet]
+      });
+
+      sourceSelect.hiddenSourcesStore.subscribe(console.log);
 
       brushes.selectionStore.subscribe(({ selections }) => {
         const { functionList } = analyze(
