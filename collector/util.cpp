@@ -28,6 +28,8 @@ string ptr_fmt(void* ptr) {
   return string(buf);
 }
 
+string ptr_fmt(uintptr_t ptr) { return ptr_fmt((void*)ptr); }
+
 char* int_to_hex(uint64_t i) {
   static char buf[19];
   snprintf(buf, 19, "%#018lx", i);
