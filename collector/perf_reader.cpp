@@ -360,17 +360,16 @@ int adjust_period(int sample_type) {
   return 0;
 }
 
-void process_throttle_record(void *perf_result, int sample_type,
+void process_throttle_record(throttle_record *throttle, int sample_type,
                              vector<pair<int, base_record>> *errors) {
   if (adjust_period(sample_type) == -1) {
     parent_shutdown(INTERNAL_ERROR);
   }
-  errors->emplace_back(make_pair(
-      sample_type, base_record{.throttle = *reinterpret_cast<throttle_record *>(
-                                   perf_result)}));
+  errors->emplace_back(
+      make_pair(sample_type, base_record{.throttle = *throttle}));
 }
 
-void process_sample_record(void *perf_result, const perf_fd_info &info,
+void process_sample_record(sample_record *sample, const perf_fd_info &info,
                            bool is_first_sample, bg_reading *rapl_reading,
                            bg_reading *wattsup_reading,
                            const map<uint64_t, kernel_sym> &kernel_syms) {
@@ -381,16 +380,14 @@ void process_sample_record(void *perf_result, const perf_fd_info &info,
   if (is_first_sample) {
     // if period is too high, the data may be changed under our feet
     sample_record ps{};
-    DEBUG("cpd: copying main perf_result struct from "
-          << ptr_fmt(perf_result) << " to " << ptr_fmt(&ps));
-    memcpy(&ps, perf_result, sizeof(sample_record));
+    DEBUG("cpd: copying main sample_record struct from "
+          << ptr_fmt(sample) << " to " << ptr_fmt(&ps));
+    memcpy(&ps, sample, sizeof(sample_record));
     DEBUG("cpd: copying " << ps.num_instruction_pointers
                           << " inst ptrs array from "
-                          << ptr_fmt(static_cast<sample_record *>(perf_result)
-                                         ->instruction_pointers)
-                          << " to " << ptr_fmt(ps.instruction_pointers));
-    memcpy(ps.instruction_pointers,
-           static_cast<sample_record *>(perf_result)->instruction_pointers,
+                          << ptr_fmt(sample->instruction_pointers) << " to "
+                          << ptr_fmt(ps.instruction_pointers));
+    memcpy(ps.instruction_pointers, sample->instruction_pointers,
            sizeof(uint64_t) * ps.num_instruction_pointers);
 
     int64_t num_timer_ticks = 0;
@@ -611,11 +608,9 @@ void process_sample_record(void *perf_result, const perf_fd_info &info,
   }
 }
 
-void process_lost_record(void *perf_result,
+void process_lost_record(lost_record *lost,
                          vector<pair<int, base_record>> errors) {
-  errors.emplace_back(make_pair(
-      PERF_RECORD_LOST,
-      base_record{.lost = *reinterpret_cast<lost_record *>(perf_result)}));
+  errors.emplace_back(make_pair(PERF_RECORD_LOST, base_record{.lost = *lost}));
 }
 
 void print_errors(vector<pair<int, base_record>> errors) {
@@ -805,20 +800,22 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                  i++) {
               DEBUG("cpd: getting next record");
               int sample_type, sample_size;
-              void *perf_result =
-                  get_next_record(&info.sample_buf, &sample_type, &sample_size);
+              base_record *perf_result =
+                  reinterpret_cast<base_record *>(get_next_record(
+                      &info.sample_buf, &sample_type, &sample_size));
               DEBUG("cpd: record type is " << record_type_str(sample_type));
 
               if (sample_type == PERF_RECORD_THROTTLE ||
                   sample_type == PERF_RECORD_UNTHROTTLE) {
-                process_throttle_record(perf_result, sample_type, &errors);
+                process_throttle_record(&perf_result->throttle, sample_type,
+                                        &errors);
               } else if (sample_type == PERF_RECORD_SAMPLE) {
-                process_sample_record(perf_result, info, is_first_sample,
-                                      rapl_reading, wattsup_reading,
-                                      kernel_syms);
+                process_sample_record(&perf_result->sample, info,
+                                      is_first_sample, rapl_reading,
+                                      wattsup_reading, kernel_syms);
                 is_first_sample = false;
               } else if (sample_type == PERF_RECORD_LOST) {
-                process_lost_record(perf_result, errors);
+                process_lost_record(&perf_result->lost, errors);
               } else {
                 DEBUG("cpd: sample type was not recognized ("
                       << record_type_str(sample_type) << " " << sample_type
