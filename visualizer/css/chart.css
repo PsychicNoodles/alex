@@ -1,9 +1,10 @@
 .chart {
-  max-width: 600px;
+  max-width: 650px;
   margin: 30px;
 }
 
 svg.chart__svg {
+  /* Make space for the axes */
   overflow: visible;
   margin-left: 8.5%;
   margin-bottom: 8%;
@@ -13,7 +14,7 @@ svg.chart__svg {
 .chart__axis line {
   fill: none;
   stroke: #000;
-  shape-rendering: crispEdges;
+  shape-rendering: geometricPrecision;
 }
 
 .chart__axis text {

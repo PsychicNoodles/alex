@@ -1,3 +1,7 @@
+* {
+  box-sizing: border-box;
+}
+
 body {
   position: absolute;
   top: 0;
@@ -7,6 +11,10 @@ body {
 
   min-width: 600px;
   display: grid;
+
+  font-family: "Trebuchet MS", "Lucida Sans Unicode", "Lucida Grande",
+    "Lucida Sans", Arial, sans-serif;
+  margin: 0;
 }
 
 #progress {

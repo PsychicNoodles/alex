@@ -28,7 +28,7 @@ app
     console.info("Creating window...");
 
     win = new BrowserWindow({
-      width: 820,
+      width: 860,
       height: 900,
       minWidth: 600,
       show: false,
