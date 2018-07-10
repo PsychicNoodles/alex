@@ -27,7 +27,13 @@ function runtimePerFunction(inputData, outputData) {
   const functionRuntimesMap = {};
   selected.forEach(datum => {
     for (const i in datum.stackFrames) {
-      const functionName = datum.stackFrames[i].symName;
+      let functionName = "";
+      for (let i = datum.stackFrames.length - 1; i >= 0; i--) {
+        functionName = functionName.concat(datum.stackFrames[i].symName);
+        if (i !== 0) {
+          functionName = functionName.concat(" > ");
+        }
+      }
       functionRuntimesMap[functionName] = functionRuntimesMap[functionName] || {
         selfTime: 0,
         cumulativeTime: 0,
@@ -84,6 +90,7 @@ function chiSquared(inputData, outputData) {
     region. Key = function name. Value = function count. */
 
   const selected = {};
+
   let selectedTotal = 0;
   const unselected = {};
   let unselectedTotal = 0;
@@ -174,11 +181,11 @@ function chiSquared(inputData, outputData) {
       outputData.functionList[index].observed = observed;
       outputData.functionList[index].squaredDeviance = squaredDeviance;
     }
-    /* console.log(
+    console.log(
       `Saw ${observed} of ${uniqueFunction}, expected ~${Math.round(
         expected
       )}, chiSquared of ${squaredDeviance}`
-    ); */
+    );
 
     /* Compute chi-squared sum through the "row" representing unselected state
     (required only for calculating overall probability) */
