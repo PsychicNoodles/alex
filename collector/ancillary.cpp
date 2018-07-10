@@ -90,8 +90,9 @@ int ancil_recv_fds_with_msg(int sock, int *fds, unsigned n_fds,
     (reinterpret_cast<int *> CMSG_DATA(cmsg))[i] = -1;
   }
 
-  if (recvmsg(sock, &msghdr, 0) < 0) {
-    return (-1);
+  int received;
+  if ((received = recvmsg(sock, &msghdr, 0)) <= 0) {
+    return received;
   }
   for (i = 0; i < n_fds; i++) {
     fds[i] = (reinterpret_cast<int *> CMSG_DATA(cmsg))[i];

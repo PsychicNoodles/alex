@@ -263,6 +263,9 @@ int recv_perf_fds(int socket, perf_fd_info *info) {
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
       return -1;
     }
+  } else if (n_recv == 0) {
+    DEBUG("socket was closed");
+    return -1;
   }
   return -1;
 }
