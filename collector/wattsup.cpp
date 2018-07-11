@@ -171,10 +171,11 @@ double wu_read(int fd) {
 
   while (ret < 0 || string[0] != '#') {
     ret = read(fd, string, STRING_SIZE);
-    DEBUG("Read return bytes read: " << ret);
-    DEBUG("Read returned " << string);
-    if ((ret < 0) && (ret != EAGAIN)) {
+    DEBUG("WATTSUP: Read return bytes read: " << ret);
+    DEBUG("WATTSUP: Read returned " << string);
+    if ((ret < 0) && (errno != EAGAIN)) {
       perror("error reading from wattsup device");
+      DEBUG("error is " << errno << ": " << strerror(errno));
       return -1;
     }
     if (string[0] != '#') {
@@ -247,6 +248,8 @@ int wattsupSetUp() {
 
     return -1;
   }
+
+  DEBUG("IN WATTSUP wu_fd is " << wu_fd);
 
   return wu_fd;
 }
