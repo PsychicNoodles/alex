@@ -399,7 +399,8 @@ void process_throttle_record(throttle_record *throttle, int sample_type,
 }
 
 bool process_sample_record(sample_record *sample, const perf_fd_info &info,
-                           bool is_first_sample, bg_reading *rapl_reading,
+                           bool is_first_timeslice, bool is_first_sample,
+                           bg_reading *rapl_reading,
                            bg_reading *wattsup_reading,
                            const map<uint64_t, kernel_sym> &kernel_syms) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
@@ -439,6 +440,10 @@ bool process_sample_record(sample_record *sample, const perf_fd_info &info,
     if (reset_monitoring(info.cpu_clock_fd) != SAMPLER_MONITOR_SUCCESS) {
       cerr << "Couldn't reset monitoring for fd: " << info.cpu_clock_fd;
       parent_shutdown(INTERNAL_ERROR);
+    }
+
+    if (!is_first_timeslice && is_first_sample) {
+      fprintf(result_file, ",");
     }
 
     fprintf(result_file,
@@ -896,13 +901,11 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                 process_throttle_record(&(perf_result->throttle), sample_type,
                                         &errors);
               } else if (sample_type == PERF_RECORD_SAMPLE) {
-                if (!is_first_timeslice && is_first_sample) {
-                  fprintf(result_file, ",");
-                }
-                process_sample_record(&(perf_result->sample), info,
-                                      is_first_sample, rapl_reading,
-                                      wattsup_reading, kernel_syms);
-                is_first_sample = false;
+                // is reset to true if the timeslice was skipped, else false
+                is_first_sample = process_sample_record(
+                    &(perf_result->sample), info, is_first_timeslice,
+                    is_first_sample, rapl_reading, wattsup_reading,
+                    kernel_syms);
               } else if (sample_type == PERF_RECORD_LOST) {
                 process_lost_record(&(perf_result->lost), &errors);
               } else {
