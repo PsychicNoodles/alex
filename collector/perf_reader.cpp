@@ -439,6 +439,12 @@ void copy_record_to_stack(base_record *record, base_record *local,
                              (sizeof(uint64_t) * SAMPLE_MAX_STACK),
              inst_ptrs_dst = local_ptr + record_size -
                              (sizeof(uint64_t) * SAMPLE_MAX_STACK);
+    if (local->sample.num_instruction_pointers > SAMPLE_MAX_STACK) {
+      DEBUG(
+          "cpd: number of inst ptrs exceeds the max stack size, something went "
+          "wrong copying! (period might be too high)");
+      parent_shutdown(INTERNAL_ERROR);
+    }
     DEBUG("cpd: copying " << local->sample.num_instruction_pointers
                           << " inst ptrs from " << ptr_fmt(inst_ptrs_src)
                           << " to " << ptr_fmt(inst_ptrs_dst));
