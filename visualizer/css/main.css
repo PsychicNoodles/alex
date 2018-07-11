@@ -45,13 +45,16 @@ button:disabled {
   top: 0;
   right: 0;
   left: 0;
-  padding: 20px;
   background: #ededed;
   display: none;
 }
 
 #progress.progress--visible {
   display: block;
+}
+
+#progress .progressbar-text {
+  margin: 20px;
 }
 
 #charts {
@@ -86,6 +89,7 @@ button:disabled {
 
 #function-runtimes-wrapper {
   overflow: auto;
+  flex: 1;
 }
 
 @media (max-width: 750px) {
