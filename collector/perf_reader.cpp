@@ -126,6 +126,20 @@ void parent_shutdown(int code) {
   shutdown(global->subject_pid, result_file, code);
 }
 
+int get_record_size(int record_type) {
+  switch (record_type) {
+    case PERF_RECORD_SAMPLE:
+      return sizeof(sample_record);
+    case PERF_RECORD_THROTTLE:
+    case PERF_RECORD_UNTHROTTLE:
+      return sizeof(throttle_record);
+    case PERF_RECORD_LOST:
+      return sizeof(lost_record);
+    default:
+      return -1;
+  }
+}
+
 /*
  * Adds a file descriptor to the global epoll
  */
@@ -160,7 +174,7 @@ void delete_fd_from_epoll(int fd) {
 /*
  * Sets up all the perf events for the target process/thread
  * The current list of perf events is:
- *   all samples listed in SAMPLE_TYPE constant, on cpu cycles
+ *   all samples listed in record_type constant, on cpu cycles
  *   a count of instructions
  *   all events listed in COLLECTOR_EVENTS env var
  * The cpu cycles event is set as the group leader and initially disabled, with
@@ -361,8 +375,8 @@ dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
 /*
  * reset the period of sampling to handle throttle/unthrottle events
  */
-int adjust_period(int sample_type) {
-  if (sample_type == PERF_RECORD_THROTTLE) {
+int adjust_period(int record_type) {
+  if (record_type == PERF_RECORD_THROTTLE) {
     DEBUG("throttle event detected, increasing period");
     global->period = (global->period) * PERIOD_ADJUST_SCALE;
   } else {
@@ -389,49 +403,64 @@ int adjust_period(int sample_type) {
   return 0;
 }
 
-void process_throttle_record(throttle_record *throttle, int sample_type,
+void copy_record_to_stack(base_record *record, base_record *local,
+                          int record_type, int record_size,
+                          uintptr_t data_start, uintptr_t data_end) {
+  DEBUG("cpd: copying record " << ptr_fmt(record) << " to stack "
+                               << ptr_fmt(local));
+  auto record_ptr = reinterpret_cast<uintptr_t>(record),
+       local_ptr = reinterpret_cast<uintptr_t>(local);
+  uintptr_t first_part_bytes, second_part_start;
+  if (record_ptr + record_size > data_end) {
+    DEBUG("cpd: record extends past end of page, copying in two parts");
+    first_part_bytes = data_end - record_ptr;
+    second_part_start = data_start;
+    DEBUG("cpd: copying " << first_part_bytes << " bytes first from "
+                          << ptr_fmt(record) << " to " << ptr_fmt(local));
+    memcpy(local, record, first_part_bytes);
+  } else {
+    first_part_bytes = 0;
+    second_part_start = record_ptr;
+  }
+  DEBUG("cpd: copying " << (record_size - first_part_bytes) << " bytes from "
+                        << ptr_fmt(second_part_start) << " to "
+                        << ptr_fmt(local_ptr + first_part_bytes));
+  memcpy((void *)(local_ptr + first_part_bytes), (void *)second_part_start,
+         record_size - first_part_bytes);
+  // special cases
+  if (record_type == PERF_RECORD_SAMPLE) {
+    // array starts one uint64_t before the end of the struct
+    DEBUG("cpd: copying " << local->sample.num_instruction_pointers
+                          << " inst ptrs from "
+                          << (second_part_start + record_size -
+                              first_part_bytes - sizeof(uint64_t))
+                          << " to "
+                          << (local_ptr + record_size - sizeof(uint64_t)));
+    memcpy((void *)(local_ptr + record_size - sizeof(uint64_t)),
+           (void *)(second_part_start + record_size - first_part_bytes -
+                    sizeof(uint64_t)),
+           sizeof(uint64_t) * local->sample.num_instruction_pointers);
+  }
+}
+
+void process_throttle_record(const throttle_record &throttle, int record_type,
                              vector<pair<int, base_record>> *errors) {
-  if (adjust_period(sample_type) == -1) {
+  if (adjust_period(record_type) == -1) {
     parent_shutdown(INTERNAL_ERROR);
   }
   errors->emplace_back(
-      make_pair(sample_type, base_record{.throttle = *throttle}));
+      make_pair(record_type, base_record{.throttle = throttle}));
 }
 
-bool process_sample_record(sample_record *sample, const perf_fd_info &info,
-                           bool is_first_timeslice, bool is_first_sample,
-                           bg_reading *rapl_reading,
+bool process_sample_record(const sample_record &sample,
+                           const perf_fd_info &info, bool is_first_timeslice,
+                           bool is_first_sample, bg_reading *rapl_reading,
                            bg_reading *wattsup_reading,
                            const map<uint64_t, kernel_sym> &kernel_syms) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
-  uintptr_t end_data = reinterpret_cast<uintptr_t>(info.sample_buf.info) +
-                       info.sample_buf.info->data_size +
-                       info.sample_buf.info->data_offset,
-            sample_ptr = reinterpret_cast<uintptr_t>(sample);
-  DEBUG("end_data: " << end_data);
-  DEBUG("sample_ptr: " << sample_ptr);
-  DEBUG("cpd: processing sample record at " << ptr_fmt(sample));
-  if (is_first_sample || sample_ptr == end_data) {
-    if (sample_ptr == end_data) {
-      DEBUG("cpd: sample is on the edge of mmap page, skipping");
-      return true;
-    }
-
-    // if period is too high, the data may be changed under our feet
-    sample_record ps{};
-    DEBUG("cpd: copying main sample_record struct from "
-          << ptr_fmt(sample) << " to " << ptr_fmt(&ps));
-    memcpy(&ps, sample, sizeof(sample_record));
-    DEBUG("cpd: copying " << ps.num_instruction_pointers
-                          << " inst ptrs array from "
-                          << ptr_fmt(sample->instruction_pointers) << " to "
-                          << ptr_fmt(ps.instruction_pointers));
-    memcpy(ps.instruction_pointers, sample->instruction_pointers,
-           sizeof(uint64_t) * ps.num_instruction_pointers);
-    DEBUG("cpd: made local copy of sample_record");
-
+  if (is_first_sample) {
     int64_t num_timer_ticks = 0;
     DEBUG("cpd: reading from fd " << info.cpu_clock_fd);
     read(info.cpu_clock_fd, &num_timer_ticks, sizeof(num_timer_ticks));
@@ -455,7 +484,7 @@ bool process_sample_record(sample_record *sample, const perf_fd_info &info,
                         "tid": %u,
                         "events": {
                     )",
-            ps.time, num_timer_ticks, ps.pid, ps.tid);
+            sample.time, num_timer_ticks, sample.pid, sample.tid);
 
     DEBUG("cpd: reading from each fd");
 
@@ -523,16 +552,17 @@ bool process_sample_record(sample_record *sample, const perf_fd_info &info,
 
     bool is_first_stack = true;
     uint64_t callchain_section = 0;
-    DEBUG("cpd: looking up " << ps.num_instruction_pointers << " inst ptrs");
-    for (uint64_t i = 0; i < ps.num_instruction_pointers; i++) {
-      uint64_t inst_ptr = ps.instruction_pointers[i];
+    DEBUG("cpd: looking up " << sample.num_instruction_pointers
+                             << " inst ptrs");
+    for (uint64_t i = 0; i < sample.num_instruction_pointers; i++) {
+      uint64_t inst_ptr = sample.instruction_pointers[i];
       if (is_callchain_marker(inst_ptr)) {
         callchain_section = inst_ptr;
         continue;
       }
       DEBUG("cpd: on instruction pointer "
             << int_to_hex(inst_ptr) << " (" << (i + 1) << "/"
-            << ps.num_instruction_pointers << ")");
+            << sample.num_instruction_pointers << ")");
 
       if (is_first_stack) {
         is_first_stack = false;
@@ -655,9 +685,9 @@ bool process_sample_record(sample_record *sample, const perf_fd_info &info,
   return false;
 }
 
-void process_lost_record(lost_record *lost,
+void process_lost_record(const lost_record &lost,
                          vector<pair<int, base_record>> *errors) {
-  errors->emplace_back(make_pair(PERF_RECORD_LOST, base_record{.lost = *lost}));
+  errors->emplace_back(make_pair(PERF_RECORD_LOST, base_record{.lost = lost}));
 }
 
 /*
@@ -886,32 +916,58 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
             sample_period_skips = 0;
 
             bool is_first_sample = true;
+            uintptr_t data_start =
+                          reinterpret_cast<uintptr_t>(info.sample_buf.data),
+                      data_end = data_start + info.sample_buf.info->data_size;
+            DEBUG("cpd: mmapped region starts at " << ptr_fmt(data_start)
+                                                   << " and ends at "
+                                                   << ptr_fmt(data_end));
             for (int i = 0;
                  has_next_record(&info.sample_buf) && i < MAX_RECORD_READS;
                  i++) {
               DEBUG("cpd: getting next record");
-              int sample_type, sample_size;
-              auto *perf_result =
-                  reinterpret_cast<base_record *>(get_next_record(
-                      &info.sample_buf, &sample_type, &sample_size));
-              DEBUG("cpd: record type is " << record_type_str(sample_type));
+              int record_type, record_size;
+              base_record *perf_result = reinterpret_cast<base_record *>(
+                              get_next_record(&info.sample_buf, &record_type,
+                                              &record_size)),
+                          local_result;
 
-              if (sample_type == PERF_RECORD_THROTTLE ||
-                  sample_type == PERF_RECORD_UNTHROTTLE) {
-                process_throttle_record(&(perf_result->throttle), sample_type,
-                                        &errors);
-              } else if (sample_type == PERF_RECORD_SAMPLE) {
-                // is reset to true if the timeslice was skipped, else false
-                is_first_sample = process_sample_record(
-                    &(perf_result->sample), info, is_first_timeslice,
-                    is_first_sample, rapl_reading, wattsup_reading,
-                    kernel_syms);
-              } else if (sample_type == PERF_RECORD_LOST) {
-                process_lost_record(&(perf_result->lost), &errors);
-              } else {
-                DEBUG("cpd: sample type was not recognized ("
-                      << record_type_str(sample_type) << " " << sample_type
+              // record_size is not entirely accurate, since our version of the
+              // structs is generally abridged
+              record_size = get_record_size(record_type);
+              if (record_size == -1) {
+                DEBUG("cpd: record type was not recognized ("
+                      << record_type_str(record_type) << " " << record_type
                       << ")");
+              } else {
+                DEBUG("cpd: record type is " << record_type << " "
+                                             << record_type_str(record_type)
+                                             << " with size " << record_size);
+
+                copy_record_to_stack(perf_result, &local_result, record_type,
+                                     record_size, data_start, data_end);
+
+                DEBUG("cpd: record type is " << record_type << " "
+                                             << record_type_str(record_type)
+                                             << " with size " << record_size);
+
+                if (record_type == PERF_RECORD_THROTTLE ||
+                    record_type == PERF_RECORD_UNTHROTTLE) {
+                  process_throttle_record(local_result.throttle, record_type,
+                                          &errors);
+                } else if (record_type == PERF_RECORD_SAMPLE) {
+                  // is reset to true if the timeslice was skipped, else false
+                  is_first_sample = process_sample_record(
+                      local_result.sample, info, is_first_timeslice,
+                      is_first_sample, rapl_reading, wattsup_reading,
+                      kernel_syms);
+                } else if (record_type == PERF_RECORD_LOST) {
+                  process_lost_record(local_result.lost, &errors);
+                } else {
+                  DEBUG("cpd: record type was not recognized ("
+                        << record_type_str(record_type) << " " << record_type
+                        << ")");
+                }
               }
             }
             DEBUG("cpd: limit reached, clearing remaining samples");
