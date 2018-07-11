@@ -196,8 +196,8 @@ ipcRenderer.on("result", (event, resultFile) => {
           brushes.selectionStore.stream
         ])
         .pipe(
-          stream.subscribe(([hiddenSources, { selections }]) => {
-            const { functionList } = analyze(
+          stream.map(([hiddenSources, { selections }]) =>
+            analyze(
               processedData
                 .map(timeslice => {
                   const x = xScale(getIndependentVariable(timeslice));
@@ -214,8 +214,11 @@ ipcRenderer.on("result", (event, resultFile) => {
                   };
                 })
                 .filter(timeslice => timeslice.stackFrames.length)
-            );
-
+            )
+          )
+        )
+        .pipe(
+          stream.subscribe(({ functionList }) => {
             d3.select("#function-runtimes").call(functionRuntimes.render, {
               functionList
             });

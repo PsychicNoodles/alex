@@ -5,7 +5,7 @@ const done = Symbol("stream.done");
 
 /**
  * Create a new stream from a callback attacher.
- * @param streamable A function that accepts a callback for data.
+ * @param {Function} streamable A function that accepts a callback for data.
  */
 function fromStreamable(streamable) {
   let isDone = false;
@@ -56,11 +56,29 @@ function fromStreamables(streamables) {
 }
 
 /**
+ * Like Array.map but operates on a stream.
+ * @param {Function} transformData A function that accepts an element of the
+ * stream and returns the corresponding element of the new stream.
+ */
+function map(transformData) {
+  return streamable =>
+    fromStreamable(onData =>
+      streamable(data => {
+        if (data === done) {
+          onData(done);
+        } else {
+          onData(transformData(data));
+        }
+      })
+    );
+}
+
+/**
  * Attach a callback to a stream and return the stream's return value.
- * @param onData A callback for data.
+ * @param {Function} onData A callback for data.
  */
 function subscribe(onData) {
   return streamable => streamable(onData);
 }
 
-module.exports = { fromStreamable, fromStreamables, subscribe, done };
+module.exports = { fromStreamable, fromStreamables, map, subscribe, done };
