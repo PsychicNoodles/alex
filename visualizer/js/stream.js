@@ -22,6 +22,21 @@ function fromStreamable(streamable) {
 
   stream.pipe = transform => transform(stream);
 
+  stream.then = resolve => {
+    const values = [];
+    if (isDone) {
+      resolve(values);
+    } else {
+      stream(data => {
+        if (data === done) {
+          resolve(values);
+        } else {
+          values.push(data);
+        }
+      });
+    }
+  };
+
   return stream;
 }
 
