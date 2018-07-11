@@ -9,7 +9,7 @@ const HEIGHT = 250;
 function render(
   root,
   {
-    pointsSpectrum,
+    spectrum,
     plotData,
     densityMax,
     getIndependentVariable,
@@ -37,7 +37,7 @@ function render(
     getIndependentVariable,
     getDependentVariable,
     densityMax,
-    pointsSpectrum
+    spectrum
   });
 
   svg.append("g").call(brushes.render);

@@ -151,20 +151,15 @@ ipcRenderer.on("result", async (event, resultFile) => {
   }
 
   const densityMax = charts.reduce(
-    (currentMax, chart) =>
+    (currentMax, chartParams) =>
       Math.max(
         currentMax,
-        d3.max(plotDataByChart.get(chart), d => d.densityAvg)
+        d3.max(plotDataByChart.get(chartParams), d => d.densityAvg)
       ),
     0
   );
 
   const spectrum = d3.interpolateGreens;
-  let pointsSpectrum = spectrum;
-
-  if (densityMax <= 2) {
-    pointsSpectrum = d3.interpolateRgb("#3A72F2", "#3A72F2");
-  }
 
   for (const chartParams of charts) {
     const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
@@ -181,7 +176,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
         yFormat,
         plotData: plotDataByChart.get(chartParams),
         densityMax,
-        pointsSpectrum
+        spectrum:
+          d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) <= 2
+            ? d3.interpolateRgb("#3A72F2", "#3A72F2")
+            : spectrum
       });
   }
 
