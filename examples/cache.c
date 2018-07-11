@@ -3,12 +3,14 @@
 #include <sys/random.h> // for getrandom()
 #include <time.h>       // for time()
 
-#define TINY_BUFLEN 8192
-#define SMALL_BUFLEN 73728
-#define MEDIUM_BUFLEN 1646592
-#define LARGE_BUFLEN 25165824
+#define TINY_BUFLEN 8192      // 25% of L1d cache
+#define SMALL_BUFLEN 73728    // 25% of L1d + L2 cache
+#define MEDIUM_BUFLEN 1646592 // 25% of L1d + L2 + L3 cache
+#define LARGE_BUFLEN 26222592 // 400% of L1d + L2 + L3 cache
 
-#define TEST_DURATION 5
+#define CACHE_LINE_LEN 64
+
+#define TEST_DURATION 1
 
 void random_access_test(unsigned char *buf, size_t buflen, size_t range_start,
                         size_t range_end);
@@ -43,11 +45,26 @@ int main() {
     return 1;
   }
 
+  int tiny_random = rand() % (TINY_BUFLEN - CACHE_LINE_LEN);
+  int small_random = rand() % (SMALL_BUFLEN - CACHE_LINE_LEN);
+  int medium_random = rand() % (MEDIUM_BUFLEN - CACHE_LINE_LEN);
+  int large_random = rand() % (LARGE_BUFLEN - CACHE_LINE_LEN);
+
   // TESTS
+  /* For each size of array, randomly access anywhere within the array, then
+   * randomly access within a random 64-byte chunk of it. */
   random_access_test(tiny_buf, TINY_BUFLEN, 0, TINY_BUFLEN);
+  random_access_test(tiny_buf, TINY_BUFLEN, tiny_random,
+                     tiny_random + CACHE_LINE_LEN);
   random_access_test(small_buf, SMALL_BUFLEN, 0, SMALL_BUFLEN);
+  random_access_test(small_buf, SMALL_BUFLEN, small_random,
+                     small_random + CACHE_LINE_LEN);
   random_access_test(medium_buf, MEDIUM_BUFLEN, 0, MEDIUM_BUFLEN);
+  random_access_test(medium_buf, MEDIUM_BUFLEN, medium_random,
+                     medium_random + CACHE_LINE_LEN);
   random_access_test(large_buf, LARGE_BUFLEN, 0, LARGE_BUFLEN);
+  random_access_test(large_buf, LARGE_BUFLEN, large_random,
+                     large_random + CACHE_LINE_LEN);
   return 0;
 }
 
