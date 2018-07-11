@@ -104,4 +104,28 @@ function render(root, { errors }) {
   );
 }
 
-module.exports = { render, hiddenErrorsStore };
+function drawLines(root, { xScale, yScale, errorsRecord, cpuTimeOffset }) {
+  root.classed("errorLine", true);
+
+  const lines = root
+    .append("g")
+    .attr("class", "lines")
+    .selectAll("line")
+    .data(errorsRecord);
+
+  lines
+    .enter()
+    .append("line")
+    .merge(lines)
+    .attr("class", "line")
+    .attr("x1", d => xScale(d.time - cpuTimeOffset))
+    .attr("x2", d => xScale(d.time - cpuTimeOffset))
+    .attr("y1", 0)
+    .attr("y2", 250)
+    .attr("position", "absolute")
+    .style("stroke", "grey")
+    .style("stroke-width", 0.1)
+    .style("stroke-opacity", 0.2);
+}
+
+module.exports = { render, hiddenErrorsStore, drawLines };

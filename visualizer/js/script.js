@@ -118,7 +118,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
   );
 
   const xAxisLabel = "CPU Time Elapsed";
-  const getIndependentVariable = d => d.cpuTime - processedData[0].cpuTime;
+  const cpuTimeOffset = processedData[0].cpuTime;
+  const getIndependentVariable = d => d.cpuTime - cpuTimeOffset;
 
   const xScaleMin = getIndependentVariable(processedData[0]);
   const xScaleMax = getIndependentVariable(
@@ -181,7 +182,9 @@ ipcRenderer.on("result", async (event, resultFile) => {
         spectrum:
           d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) <= 2
             ? d3.interpolateRgb("#3A72F2", "#3A72F2")
-            : spectrum
+            : spectrum,
+        cpuTimeOffset,
+        errorsRecord
       });
   }
 
