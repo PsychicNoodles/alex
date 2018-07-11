@@ -477,7 +477,7 @@ bool process_sample_record(const sample_record &sample,
   DEBUG("cpd: read in from fd " << info.cpu_clock_fd
                                 << " num of cycles: " << num_timer_ticks);
   if (reset_monitoring(info.cpu_clock_fd) != SAMPLER_MONITOR_SUCCESS) {
-    cerr << "Couldn't reset monitoring for fd: " << info.cpu_clock_fd;
+    DEBUG("Couldn't reset monitoring for fd: " << info.cpu_clock_fd);
     parent_shutdown(INTERNAL_ERROR);
   }
 
