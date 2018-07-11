@@ -17,6 +17,29 @@ body {
   margin: 0;
 }
 
+button {
+  padding: 5px 10px;
+  border: 1px solid #999;
+  background-color: #ededed;
+  border-radius: 2px;
+}
+
+button:hover,
+button:focus {
+  background-color: #d7d7d7;
+  outline: none;
+}
+
+button:active {
+  background-color: #ccc;
+  outline: none;
+}
+
+button:disabled {
+  background-color: #ededed;
+  border: 1px solid #ddd;
+}
+
 #progress {
   position: absolute;
   top: 0;
@@ -63,29 +86,6 @@ body {
 
 #function-runtimes-wrapper {
   overflow: auto;
-}
-
-button {
-  padding: 5px 10px;
-  border: 1px solid #999;
-  background-color: #ededed;
-  border-radius: 2px;
-}
-
-button:hover,
-button:focus {
-  background-color: #d7d7d7;
-  outline: none;
-}
-
-button:active {
-  background-color: #ccc;
-  outline: none;
-}
-
-button:disabled {
-  background-color: #ededed;
-  border: 1px solid #ddd;
 }
 
 @media (max-width: 750px) {
