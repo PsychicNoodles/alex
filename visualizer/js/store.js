@@ -1,5 +1,7 @@
 const { isEqual } = require("lodash");
 
+const stream = require("./stream");
+
 /**
  * Represents a piece of state that can be listened to for changes.
  */
@@ -7,6 +9,10 @@ class Store {
   constructor(initialState) {
     this._state = initialState;
     this._listeners = new Set();
+
+    this.stream = stream.fromStreamable(onStateChange =>
+      this.subscribe(onStateChange)
+    );
   }
 
   /**

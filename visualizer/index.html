@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="./css/function-runtimes.css" />
   <link rel="stylesheet" href="./css/chart.css" />
   <link rel="stylesheet" href="./css/brushes.css" />
+  <link rel="stylesheet" href="./css/source-select.css" />
 </head>
 
 <body>
@@ -22,8 +23,11 @@
   <aside id="side-bar">
     <header id="side-bar-header">
       <button id="clear-brushes-button">Clear Selections</button>
+      <div id="source-select"></div>
     </header>
-    <table id="function-runtimes"></table>
+    <div id="function-runtimes-wrapper">
+      <table id="function-runtimes"></table>
+    </div>
   </aside>
 
   <script>require("./js/script")</script>

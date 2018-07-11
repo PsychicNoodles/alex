@@ -1,73 +1,46 @@
 const chi = require("chi-squared");
 
-module.exports = analyze;
-
 /**
  * Run analyses of data.
- * @param data All the data.
+ * @param inputData All the data.
  * @returns Results of the analysis.
  * @todo Move out the partitioning from subfunctions into this function.
- * @todo Let client choose sort? */
-
+ * @todo Let client choose sort?
+ */
 function analyze(inputData) {
+  const functionRuntimesMap = {};
+  inputData.forEach(timeslice => {
+    if (timeslice.selected) {
+      const functionName = getCallStackName(timeslice.stackFrames);
+      functionRuntimesMap[functionName] =
+        (functionRuntimesMap[functionName] || 0) + timeslice.numCPUTimerTicks;
+    }
+  });
+
+  const functionList = Object.keys(functionRuntimesMap).map(functionName => ({
+    name: functionName,
+    time: functionRuntimesMap[functionName],
+    expected: 0,
+    observed: 0,
+    squaredDeviance: 0
+  }));
+
   const outputData = {
     chiSquaredProbability: 0,
-    functionList: []
+    functionList
   };
 
-  runtimePerFunction(inputData, outputData);
   chiSquared(inputData, outputData);
 
   outputData.functionList.sort((a, b) => b.squaredDeviance - a.squaredDeviance);
   return outputData;
 }
 
-function runtimePerFunction(inputData, outputData) {
-  const selected = inputData.filter(d => d.selected);
-  const functionRuntimesMap = {};
-  selected.forEach(datum => {
-    for (const i in datum.stackFrames) {
-      let functionName = "";
-      for (let i = datum.stackFrames.length - 1; i >= 0; i--) {
-        functionName = functionName.concat(datum.stackFrames[i].symName);
-        if (i !== 0) {
-          functionName = functionName.concat(" > ");
-        }
-      }
-      functionRuntimesMap[functionName] = functionRuntimesMap[functionName] || {
-        selfTime: 0,
-        cumulativeTime: 0,
-        /* Move this into analyze later */
-        expected: 0,
-        observed: 0,
-        squaredDeviance: 0
-      };
-      functionRuntimesMap[functionName].cumulativeTime +=
-        datum.numCPUTimerTicks;
-      if (+i === 0) {
-        functionRuntimesMap[functionName].selfTime += datum.numCPUTimerTicks;
-      }
-    }
-  });
-
-  let index;
-  for (const functionName in functionRuntimesMap) {
-    index = outputData.functionList.findIndex(
-      element => element.name === functionName
-    );
-    if (index === -1) {
-      outputData.functionList.push({
-        ...functionRuntimesMap[functionName],
-        name: functionName
-      });
-    } else {
-      console.log("target");
-      outputData.functionList[index].selfTime =
-        functionRuntimesMap[functionName].selfTime;
-      outputData.functionList[index].cumulativeTime =
-        functionRuntimesMap[functionName].cumulativeTime;
-    }
-  }
+function getCallStackName(stackFrames) {
+  return stackFrames
+    .map(frame => frame.symName)
+    .reverse()
+    .join(" > ");
 }
 
 /**
@@ -78,7 +51,7 @@ function runtimePerFunction(inputData, outputData) {
  * associated function is independent of the datapoint's selected state.
  *
  * @param inputData All data collected by the collector
- * @returns {number} The chi-squared probability, in percent
+ * @param outputData Mutable reference to the output data.
  * @todo Consider changes for performance: conversion of forEach loops,
  * different ways of accessing the "associative arrays" or converting them into
  * true arrays of pair-ish objects, using one loop to initialize
@@ -99,14 +72,9 @@ function chiSquared(inputData, outputData) {
   const uniqueFunctions = [];
 
   /* Populate a "table" with function counts for unselected/selected */
-  inputData.forEach(datum => {
-    let functionName = "";
-    for (let i = datum.stackFrames.length - 1; i >= 0; i--) {
-      functionName = functionName.concat(datum.stackFrames[i].symName);
-      if (i !== 0) {
-        functionName = functionName.concat(" > ");
-      }
-    }
+  inputData.forEach(timeslice => {
+    const functionName = getCallStackName(timeslice.stackFrames);
+
     //functionName = datum.stackFrames[0].symName;
     /* "Initialize" the associative arrays at this datapoint's function, if this
     hasn't already been done. */
@@ -119,7 +87,7 @@ function chiSquared(inputData, outputData) {
 
     /* Add 1 to the number of times this datum's associated function
     appeared in the selected (or unselected) region. */
-    if (datum.selected) {
+    if (timeslice.selected) {
       selected[functionName]++;
       selectedTotal++;
     } else {
@@ -149,32 +117,21 @@ function chiSquared(inputData, outputData) {
   const degreesOfFreedom = uniqueFunctions.length - 1;
 
   let chiSquared = 0;
-  let observed;
-  let expected;
-  let squaredDeviance;
-  let index;
   uniqueFunctions.forEach(uniqueFunction => {
     // Compute chi-squared through the "row" representing selected state
-    observed = selected[uniqueFunction];
-    expected =
+    let observed = selected[uniqueFunction];
+    let expected =
       ((selected[uniqueFunction] + unselected[uniqueFunction]) *
         selectedTotal) /
       total;
-    squaredDeviance = Math.pow(observed - expected, 2) / expected;
+    const squaredDeviance = Math.pow(observed - expected, 2) / expected;
     chiSquared += squaredDeviance;
 
     /* Add *only* data on selected functions to the output list */
-    index = outputData.functionList.findIndex(
+    const index = outputData.functionList.findIndex(
       element => element.name === uniqueFunction
     );
-    if (index === -1) {
-      outputData.functionList.push({
-        name: uniqueFunction,
-        expected: expected,
-        observed: observed,
-        squaredDeviance: squaredDeviance
-      });
-    } else {
+    if (index !== -1) {
       outputData.functionList[index].expected = expected;
       outputData.functionList[index].observed = observed;
       outputData.functionList[index].squaredDeviance = squaredDeviance;
@@ -198,3 +155,5 @@ function chiSquared(inputData, outputData) {
   const probability = chi.cdf(chiSquared, degreesOfFreedom);
   outputData.chiSquaredProbability = probability;
 }
+
+module.exports = { analyze };
