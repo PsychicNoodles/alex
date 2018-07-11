@@ -922,7 +922,8 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
             DEBUG("cpd: mmapped region starts at " << ptr_fmt(data_start)
                                                    << " and ends at "
                                                    << ptr_fmt(data_end));
-            for (int i = 0;
+            int i;
+            for (i = 0;
                  has_next_record(&info.sample_buf) && i < MAX_RECORD_READS;
                  i++) {
               DEBUG("cpd: getting next record");
@@ -936,7 +937,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
               // structs generally have different contents
               record_size = get_record_size(record_type);
               if (record_size == -1) {
-                DEBUG("cpd: record type was not recognized ("
+                DEBUG("cpd: record type is not supported ("
                       << record_type_str(record_type) << " " << record_type
                       << ")");
               } else {
@@ -974,8 +975,12 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                 }
               }
             }
-            DEBUG("cpd: limit reached, clearing remaining samples");
-            clear_records(&info.sample_buf);
+            if (i == MAX_RECORD_READS) {
+              DEBUG("cpd: limit reached, clearing remaining samples");
+              clear_records(&info.sample_buf);
+            } else {
+              DEBUG("cpd: read through all records");
+            }
 
             if (is_first_timeslice) {
               is_first_timeslice = false;
@@ -992,6 +997,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
   DEBUG("cpd: stopping wattsup reading thread");
   stop_reading(wattsup_reading);
 
+  DEBUG("cpd: writing errors");
   write_errors(errors);
 
   return 0;
