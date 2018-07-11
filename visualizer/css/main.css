@@ -53,8 +53,12 @@ body {
 #side-bar-header {
   display: flex;
   align-items: center;
-  padding: 10px;
+  padding: 5px;
   background-color: #ededed;
+}
+
+#side-bar-header > * {
+  margin: 5px;
 }
 
 #function-runtimes-wrapper {
