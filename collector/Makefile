@@ -3,7 +3,7 @@ GIT_VERSION := $(shell git describe --abbrev=4 --dirty --always --tags)
 PERF_SAMPLE_MAX_STACK := $(shell cat /proc/sys/kernel/perf_event_max_stack)
 CFLAGS := $(shell pkg-config --cflags --libs libelf++ libdwarf++) -DVERSION=\"$(GIT_VERSION)\"
 SOURCES := collector.cpp perf_reader.cpp const.cpp util.cpp debug.cpp perf_sampler.cpp clone.cpp rapl.cpp wattsup.cpp bg_readings.cpp ancillary.cpp find_events.cpp shared.cpp sockets.cpp
-EVENT_SOURCES := available-events.cpp debug.cpp wattsup.cpp rapl.cpp perf_sampler.cpp util.cpp
+EVENT_SOURCES := available-events.cpp debug.cpp wattsup.cpp rapl.cpp perf_sampler.cpp util.cpp shared.cpp
 SRC_DIR := .
 TIDY := clang-tidy
 TIDY_CHECKS := bugprone-*,cppcoreguidelines-*,-cppcoreguidelines-pro-*,\
@@ -22,7 +22,7 @@ PRELOAD_VAR  := LD_PRELOAD
 CXXLIB       := $(CXX) -shared -fPIC -Wl,-soname,interposer.so
 endif
 
-all: collector.$(SHLIB_SUFFIX)
+all: collector.$(SHLIB_SUFFIX) available-events
 
 pedantic: WARN = -Werror
 pedantic: all
