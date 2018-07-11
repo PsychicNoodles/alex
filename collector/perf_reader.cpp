@@ -649,8 +649,8 @@ void print_errors(vector<pair<int, base_record>> errors) {
   }
 }
 
-void setup_collect_perf_data(int sigt_fd, int socket, int wu_fd, FILE *res_file,
-                             bg_reading *rapl_reading,
+void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
+                             FILE *res_file, bg_reading *rapl_reading,
                              bg_reading *wattsup_reading) {
   result_file = res_file;
 
@@ -700,13 +700,15 @@ void setup_collect_perf_data(int sigt_fd, int socket, int wu_fd, FILE *res_file,
   if (wu_fd != -1) {
     setup_reading(wattsup_reading,
                   [](void *raw_args) -> void * {
-                    int wu_fd = (static_cast<int *>(raw_args))[0];
+                    int wu_fd_fn = (static_cast<int *>(raw_args))[0];
+                    DEBUG("wu fd inside function is " << wu_fd_fn);
                     auto d = new double;
-                    *d = wu_read(wu_fd);
+                    *d = wu_read(wu_fd_fn);
                     return d;
                   },
-                  &wu_fd);
+                  const_cast<int *>(&wu_fd));
     DEBUG("cpd: wattsup reading in tid " << wattsup_reading->thread);
+    DEBUG("wattsup fd is " << wu_fd);
   } else {
     DEBUG("cpd: wattsup couldn't open device, skipping setup");
   }
