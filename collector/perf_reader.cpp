@@ -47,6 +47,32 @@ using std::map;
 using std::string;
 using std::vector;
 
+bool find_pc(const dwarf::die &d, dwarf::taddr pc, vector<dwarf::die> *stack) {
+  using namespace dwarf;
+
+  // Scan children first to find most specific DIE
+  bool found = false;
+  for (auto &child : d) {
+    if ((found = find_pc(child, pc, stack))) break;
+  }
+  switch (d.tag) {
+    case DW_TAG::subprogram:
+    case DW_TAG::inlined_subroutine:
+      try {
+        if (found || die_pc_range(d).contains(pc)) {
+          found = true;
+          stack->push_back(d);
+        }
+      } catch (out_of_range &e) {
+      } catch (value_type_mismatch &e) {
+      }
+      break;
+    default:
+      break;
+  }
+  return found;
+}
+
 // contents of buffer filled when PERF_RECORD_SAMPLE type is enabled plus
 // certain sample types
 struct sample_record {
@@ -567,6 +593,7 @@ void process_sample_record(void *perf_result, const perf_fd_info &info,
       // Need to subtract one. PC is the return address, but we're
       // looking for the callsite.
       dwarf::taddr pc = inst_ptr - 1;
+      dump_table_and_symbol((char *)"/proc/self/exe", inst_ptr - 1);
 
       // Find the CU containing pc
       // XXX Use .debug_aranges
@@ -588,6 +615,7 @@ void process_sample_record(void *perf_result, const perf_fd_info &info,
           break;
         }
       }
+
       fprintf(result_file,
               R"(,
                     "line": %d,

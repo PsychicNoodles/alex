@@ -61,6 +61,7 @@
     "mutex": "cpp",
     "thread": "cpp",
     "condition_variable": "cpp",
-    "stdio.h": "c"
+    "stdio.h": "c",
+    "ratio": "cpp"
   }
 }

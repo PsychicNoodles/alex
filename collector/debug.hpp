@@ -31,6 +31,6 @@ void disable_segfault_trace();
 
 void dump_die(const dwarf::die& node);
 void dump_line_table(const dwarf::line_table& lt);
-int dump_table_and_symbol(char* path);
+int dump_table_and_symbol(char* path, uint64_t inst_ptr);
 
 #endif
