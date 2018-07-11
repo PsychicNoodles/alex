@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <link.h>
 #include <linux/perf_event.h>
+#include <linux/version.h>
 #include <perfmon/perf_event.h>
 #include <perfmon/pfmlib.h>
 #include <perfmon/pfmlib_perf_event.h>
@@ -79,7 +80,8 @@ struct sample_record {
 #endif
   // PERF_SAMPLE_CALLCHAIN
   uint64_t num_instruction_pointers;
-  uint64_t instruction_pointers[];
+  // technically an array, but needs to be assignable
+  uint64_t instruction_pointers[SAMPLE_MAX_STACK];
 };
 
 // contents of PERF_RECORD_THROTTLE or PERF_RECORD_UNTHROTTLE buffer
@@ -196,6 +198,9 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   cpu_clock_attr.sample_period = global->period;
   cpu_clock_attr.wakeup_events = 1;
   cpu_clock_attr.sample_id_all = SAMPLE_ID_ALL;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
+  cpu_clock_attr.sample_max_stack = SAMPLE_MAX_STACK;
+#endif
 
   perf_buffer cpu_clock_perf{};
   if (setup_monitoring(&cpu_clock_perf, &cpu_clock_attr, target) !=
@@ -429,16 +434,15 @@ void copy_record_to_stack(base_record *record, base_record *local,
          record_size - first_part_bytes);
   // special cases
   if (record_type == PERF_RECORD_SAMPLE) {
-    // array starts one uint64_t before the end of the struct
+    uint64_t inst_ptrs_src = second_part_start - first_part_bytes +
+                             record_size -
+                             (sizeof(uint64_t) * SAMPLE_MAX_STACK),
+             inst_ptrs_dst = local_ptr + record_size -
+                             (sizeof(uint64_t) * SAMPLE_MAX_STACK);
     DEBUG("cpd: copying " << local->sample.num_instruction_pointers
-                          << " inst ptrs from "
-                          << (second_part_start + record_size -
-                              first_part_bytes - sizeof(uint64_t))
-                          << " to "
-                          << (local_ptr + record_size - sizeof(uint64_t)));
-    memcpy((void *)(local_ptr + record_size - sizeof(uint64_t)),
-           (void *)(second_part_start + record_size - first_part_bytes -
-                    sizeof(uint64_t)),
+                          << " inst ptrs from " << ptr_fmt(inst_ptrs_src)
+                          << " to " << ptr_fmt(inst_ptrs_dst));
+    memcpy((void *)inst_ptrs_dst, (void *)inst_ptrs_src,
            sizeof(uint64_t) * local->sample.num_instruction_pointers);
   }
 }

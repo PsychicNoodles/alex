@@ -36,6 +36,8 @@ const char* callchain_str(uint64_t callchain);
 #define SAMPLE_ID_ALL true  // whether sample_id_all should be set
 #define SAMPLE_ID_ALL_TYPE (PERF_SAMPLE_IDENTIFIER | PERF_SAMPLE_STREAM_ID)
 #define SAMPLE_TYPE_COMBINED (SAMPLE_TYPE | SAMPLE_ID_ALL_TYPE)
+#define SAMPLE_MAX_STACK \
+  127  // default value found in /proc/sys/kernel/perf_event_max_stacks
 
 #define SAMPLE_EPOLL_TIMEOUT -1  // wait "forever"
 #define MAX_SAMPLE_PERIOD_SKIPS 30
