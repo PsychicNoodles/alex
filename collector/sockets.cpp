@@ -9,8 +9,8 @@
 #include "shared.hpp"
 #include "util.hpp"
 
-using std::map;
 using std::find_if;
+using std::map;
 using std::pair;
 
 inline map<int, perf_fd_info>::iterator find_perf_info_by_thread(

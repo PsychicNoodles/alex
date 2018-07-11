@@ -354,13 +354,13 @@ int adjust_period(int sample_type) {
 }
 
 void process_throttle_record(void *perf_result, int sample_type,
-                             vector<pair<int, base_record *>> *errors) {
+                             vector<pair<int, base_record>> *errors) {
   if (adjust_period(sample_type) == -1) {
     parent_shutdown(INTERNAL_ERROR);
   }
   errors->emplace_back(make_pair(
-      sample_type, new base_record{.tr = *reinterpret_cast<throttle_record *>(
-                                       perf_result)}));
+      sample_type,
+      base_record{.tr = *reinterpret_cast<throttle_record *>(perf_result)}));
 }
 
 void process_sample_record(void *perf_result, const perf_fd_info &info,
@@ -604,7 +604,7 @@ void process_sample_record(void *perf_result, const perf_fd_info &info,
   }
 }
 
-void print_errors(vector<pair<int, base_record *>> errors) {
+void print_errors(vector<pair<int, base_record>> errors) {
   bool is_first_element = true;
   for (auto &p : errors) {
     if (is_first_element) {
@@ -615,7 +615,7 @@ void print_errors(vector<pair<int, base_record *>> errors) {
     )");
     }
     if (p.first == PERF_RECORD_THROTTLE) {
-      auto perf_record = p.second->tr;
+      auto perf_record = p.second.tr;
       uint64_t time = perf_record.time;
       uint64_t id = perf_record.id;
       fprintf(result_file, R"(
@@ -627,7 +627,7 @@ void print_errors(vector<pair<int, base_record *>> errors) {
     )",
               time, id);
     } else if (p.first == PERF_RECORD_UNTHROTTLE) {
-      auto perf_record = p.second->tr;
+      auto perf_record = p.second.tr;
       uint64_t time = perf_record.time;
       uint64_t id = perf_record.id;
       fprintf(result_file, R"(
@@ -646,7 +646,6 @@ void print_errors(vector<pair<int, base_record *>> errors) {
       }
     )|");
     }
-    delete p.second;
   }
 }
 
@@ -723,7 +722,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
   bool is_first_timeslice = true;
   bool done = false;
   int sample_period_skips = 0;
-  vector<pair<int, base_record *>> errors;
+  vector<pair<int, base_record>> errors;
 
   size_t last_ts = time_ms(), finish_ts = last_ts, curr_ts = 0;
 
@@ -780,25 +779,24 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
             }
           } else {
             sample_period_skips = 0;
-            if (is_first_timeslice) {
-              is_first_timeslice = false;
-            } else {
-              fprintf(result_file, ",");
-            }
 
             bool is_first_sample = true;
             for (int i = 0;
                  has_next_record(&info.sample_buf) && i < MAX_RECORD_READS;
                  i++) {
-              DEBUG("cpd: getting next sample");
+              DEBUG("cpd: getting next record");
               int sample_type, sample_size;
               void *perf_result =
                   get_next_record(&info.sample_buf, &sample_type, &sample_size);
+              DEBUG("cpd: record type is " << record_type_str(sample_type));
 
               if (sample_type == PERF_RECORD_THROTTLE ||
                   sample_type == PERF_RECORD_UNTHROTTLE) {
                 process_throttle_record(perf_result, sample_type, &errors);
               } else if (sample_type == PERF_RECORD_SAMPLE) {
+                if (!is_first_timeslice && is_first_sample) {
+                  fprintf(result_file, ",");
+                }
                 process_sample_record(perf_result, info, is_first_sample,
                                       rapl_reading, wattsup_reading,
                                       kernel_syms);
@@ -811,6 +809,10 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
             }
             DEBUG("cpd: limit reached, clearing remaining samples");
             clear_records(&info.sample_buf);
+
+            if (is_first_timeslice) {
+              is_first_timeslice = false;
+            }
           }
         }
       }
