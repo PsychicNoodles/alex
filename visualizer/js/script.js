@@ -15,6 +15,7 @@ const functionRuntimes = require("./function-runtimes");
 const legend = require("./legend");
 const brushes = require("./brushes");
 const sourceSelect = require("./source-select");
+const errors = require("./errors");
 const stream = require("./stream");
 
 const PROGRESS_HEIGHT = "8px";
@@ -88,6 +89,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
   const result = JSON.parse(resultString);
   const processedData = processData(result.timeslices, result.header);
+  const errorsRecord = result.error;
 
   bar.destroy();
   d3.select("#progress").classed("progress--visible", false);
@@ -194,6 +196,14 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
   d3.select("#source-select").call(sourceSelect.render, {
     sources: [...sourcesSet]
+  });
+
+  const errorsSet = new Set();
+  errorsRecord.forEach(error => {
+    errorsSet.add(error.type);
+  });
+  d3.select("#errors").call(errors.render, {
+    errors: [...errorsSet]
   });
 
   stream
