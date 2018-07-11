@@ -83,6 +83,11 @@ button:active {
   outline: none;
 }
 
+button:disabled {
+  background-color: #ededed;
+  border: 1px solid #ddd;
+}
+
 @media (max-width: 750px) {
   #charts {
     padding: 0;
