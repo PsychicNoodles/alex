@@ -80,7 +80,6 @@ struct sample_record {
 #endif
   // PERF_SAMPLE_CALLCHAIN
   uint64_t num_instruction_pointers;
-  // technically an array, but needs to be assignable
   uint64_t instruction_pointers[SAMPLE_MAX_STACK];
 };
 
@@ -934,7 +933,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                           local_result{};
 
               // record_size is not entirely accurate, since our version of the
-              // structs is generally abridged
+              // structs generally have different contents
               record_size = get_record_size(record_type);
               if (record_size == -1) {
                 DEBUG("cpd: record type was not recognized ("
