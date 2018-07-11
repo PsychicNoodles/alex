@@ -148,7 +148,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
       d3.select("#charts")
         .append("div")
         .call(chart.render, {
-          timeslices: processedData,
           getIndependentVariable,
           getDependentVariable,
           xAxisLabel,
@@ -183,6 +182,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         sourceSelect.hiddenSourcesStore.stream,
         brushes.selectionStore.stream
       ])
+      .pipe(stream.debounce(100))
       .pipe(
         stream.map(([hiddenSources, { selections }]) =>
           analyze(

@@ -89,6 +89,22 @@ function map(transformData) {
 }
 
 /**
+ * Don't emit a value if another value is emitted within the duration.
+ * @param {number} duration Time in milliseconds to wait before emitting.
+ */
+function debounce(duration) {
+  return streamable =>
+    fromStreamable(onData => {
+      let timeout = null;
+
+      return streamable(data => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => onData(data), duration);
+      });
+    });
+}
+
+/**
  * Attach a callback to a stream and return the stream's return value.
  * @param {Function} onData A callback for data.
  */
@@ -96,4 +112,11 @@ function subscribe(onData) {
   return streamable => streamable(onData);
 }
 
-module.exports = { fromStreamable, fromStreamables, map, subscribe, done };
+module.exports = {
+  fromStreamable,
+  fromStreamables,
+  map,
+  debounce,
+  subscribe,
+  done
+};
