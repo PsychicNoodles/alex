@@ -17,6 +17,29 @@ body {
   margin: 0;
 }
 
+button {
+  padding: 5px 10px;
+  border: 1px solid #999;
+  background-color: #ededed;
+  border-radius: 2px;
+}
+
+button:hover,
+button:focus {
+  background-color: #d7d7d7;
+  outline: none;
+}
+
+button:active {
+  background-color: #ccc;
+  outline: none;
+}
+
+button:disabled {
+  background-color: #ededed;
+  border: 1px solid #ddd;
+}
+
 #progress {
   position: absolute;
   top: 0;
@@ -45,30 +68,24 @@ body {
 
 #side-bar {
   grid-area: side-bar;
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 #side-bar-header {
-  padding: 10px;
+  display: flex;
+  align-items: center;
+  padding: 5px;
   background-color: #ededed;
 }
 
-button {
-  padding: 5px 10px;
-  border: 1px solid #999;
-  background-color: #ededed;
-  border-radius: 2px;
+#side-bar-header > * {
+  margin: 5px;
 }
 
-button:hover,
-button:focus {
-  background-color: #d7d7d7;
-  outline: none;
-}
-
-button:active {
-  background-color: #ccc;
-  outline: none;
+#function-runtimes-wrapper {
+  overflow: auto;
 }
 
 @media (max-width: 750px) {
