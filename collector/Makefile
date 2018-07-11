@@ -44,7 +44,7 @@ tidy:
 	@for src in $(SOURCES) ; do \
 		echo "Running $(TIDY) on $$src..." ; \
 		$(TIDY) -extra-arg=-std=c++11 -format-style=file -checks="$(TIDY_CHECKS)"\
-			$(TIDY_FIX) "$(SRC_DIR)/$$src" -- "$(SRC_DIR)/$$src" ; \
+			$(TIDY_FIX) "$(SRC_DIR)/$$src" -- "$(SRC_DIR)/$$src" 2>/dev/null ; \
 	done
 	@echo "Finished tidying"
 
