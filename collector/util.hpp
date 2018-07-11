@@ -12,6 +12,7 @@ using std::vector;
 
 size_t time_ms();
 string ptr_fmt(void* ptr);
+string ptr_fmt(uintptr_t ptr);
 char* int_to_hex(uint64_t i);
 vector<string> str_split_vec(const string& str, const string& delim);
 set<string> str_split_set(const string& str, const string& delim);
