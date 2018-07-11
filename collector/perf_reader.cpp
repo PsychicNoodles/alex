@@ -706,8 +706,7 @@ void write_sample_id(const record_sample_id &sample_id) {
        "tid": %u,
        "time": %lu,
        "stream_id": %lu,
-       "id": %lu
-  )",
+       "id": %lu)",
           sample_id.pid, sample_id.tid, sample_id.time, sample_id.stream_id,
           sample_id.id);
 }
@@ -734,12 +733,15 @@ void write_errors(vector<pair<int, base_record>> errors) {
       fprintf(result_file, R"(
       {
        "type": "PERF_RECORD_THROTTLE",
-       "time": %lu, 
-       "id": %lu,
-       "stream_id": %lu)",
-              time, id, stream_id);
+       "time": %lu)",
+              time);
       if (SAMPLE_ID_ALL) {
         write_sample_id(throttle.sample_id);
+      } else {
+        fprintf(result_file, R"(, 
+       "id": %lu,
+       "stream_id": %lu)",
+                id, stream_id);
       }
       fprintf(result_file, R"(
       }
@@ -752,12 +754,15 @@ void write_errors(vector<pair<int, base_record>> errors) {
       fprintf(result_file, R"(
       {
        "type": "PERF_RECORD_UNTHROTTLE",
-       "time": %lu,
-       "id": %lu,
-       "stream_id": %lu)",
-              time, id, stream_id);
+       "time": %lu)",
+              time);
       if (SAMPLE_ID_ALL) {
         write_sample_id(throttle.sample_id);
+      } else {
+        fprintf(result_file, R"(, 
+       "id": %lu,
+       "stream_id": %lu)",
+                id, stream_id);
       }
       fprintf(result_file, R"(
       }
@@ -768,10 +773,21 @@ void write_errors(vector<pair<int, base_record>> errors) {
       uint64_t num_lost = lost.lost;
       fprintf(result_file, R"(
       {
-       "type": "PERF_RECORD_LOST",
-       "id": %lu,
+       "type": "PERF_RECORD_LOST",)");
+      if (!SAMPLE_ID_ALL) {
+        fprintf(result_file, R"(
+       "id": %lu,)",
+                id);
+      }
+      fprintf(result_file, R"(
        "lost": %lu)",
-              id, num_lost);
+              num_lost);
+      if (SAMPLE_ID_ALL) {
+        write_sample_id(lost.sample_id);
+      }
+      fprintf(result_file, R"(
+      }
+        )");
     } else {
       DEBUG("couldn't determine type of error for " << p.first << "!");
       fprintf(result_file, R"|(
