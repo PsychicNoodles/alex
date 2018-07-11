@@ -405,10 +405,12 @@ bool process_sample_record(sample_record *sample, const perf_fd_info &info,
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
-  auto end_data = reinterpret_cast<uintptr_t>(
-           info.sample_buf.info + info.sample_buf.info->data_size +
-           info.sample_buf.info->data_offset),
-       sample_ptr = reinterpret_cast<uintptr_t>(sample);
+  uintptr_t end_data = reinterpret_cast<uintptr_t>(info.sample_buf.info) +
+                       info.sample_buf.info->data_size +
+                       info.sample_buf.info->data_offset,
+            sample_ptr = reinterpret_cast<uintptr_t>(sample);
+  DEBUG("end_data: " << end_data);
+  DEBUG("sample_ptr: " << sample_ptr);
   DEBUG("cpd: processing sample record at " << ptr_fmt(sample));
   if (is_first_sample || sample_ptr == end_data) {
     if (sample_ptr == end_data) {
@@ -649,8 +651,8 @@ bool process_sample_record(sample_record *sample, const perf_fd_info &info,
 }
 
 void process_lost_record(lost_record *lost,
-                         vector<pair<int, base_record>> errors) {
-  errors.emplace_back(make_pair(PERF_RECORD_LOST, base_record{.lost = *lost}));
+                         vector<pair<int, base_record>> *errors) {
+  errors->emplace_back(make_pair(PERF_RECORD_LOST, base_record{.lost = *lost}));
 }
 
 /*
@@ -902,7 +904,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                                       wattsup_reading, kernel_syms);
                 is_first_sample = false;
               } else if (sample_type == PERF_RECORD_LOST) {
-                process_lost_record(&(perf_result->lost), errors);
+                process_lost_record(&(perf_result->lost), &errors);
               } else {
                 DEBUG("cpd: sample type was not recognized ("
                       << record_type_str(sample_type) << " " << sample_type
