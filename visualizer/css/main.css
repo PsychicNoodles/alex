@@ -45,16 +45,6 @@ button:disabled {
   top: 0;
   right: 0;
   left: 0;
-  background: #ededed;
-  display: none;
-}
-
-#progress.progress--visible {
-  display: block;
-}
-
-#progress .progressbar-text {
-  margin: 20px;
 }
 
 #charts {

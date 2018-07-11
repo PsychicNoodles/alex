@@ -2,7 +2,6 @@ const { ipcRenderer } = require("electron");
 const d3 = require("d3");
 const fs = require("fs");
 const progressStream = require("progress-stream");
-const { Line: LineProgressBar } = require("progressbar.js");
 const streamJSON = require("stream-json");
 const JSONAssembler = require("stream-json/Assembler");
 
@@ -18,6 +17,13 @@ const legend = require("./legend");
 const brushes = require("./brushes");
 const sourceSelect = require("./source-select");
 const stream = require("./stream");
+const progressBar = require("./progress-bar");
+const { Store } = require("./store");
+
+const loadingProgressStore = new Store({
+  percentage: 0,
+  progressBarIsVisible: true
+});
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", async (event, resultFile) => {
@@ -33,32 +39,19 @@ ipcRenderer.on("result", async (event, resultFile) => {
       });
     });
 
-    const progressBar = new LineProgressBar("#progress", {
-      strokeWidth: 4,
-      easing: "easeInOut",
-      color: "#4daf62",
-      trailColor: "#eee",
-      trailWidth: 1,
-      svgStyle: { width: "100%", height: "15px" },
-      text: {
-        style: {
-          color: "#999",
-          verticalAlign: "middle",
-          textAlign: "center"
-        },
-        autoStyleContainer: false
-      },
-      step: (state, bar) =>
-        bar.setText(`Reading Result File (${Math.round(bar.value() * 100)}%)`)
+    loadingProgressStore.subscribe(({ percentage, progressBarIsVisible }) => {
+      d3.select("#progress").call(progressBar.render, {
+        percentage,
+        text: "Reading Result File",
+        isVisible: progressBarIsVisible
+      });
     });
-    d3.select("#progress").classed("progress--visible", true);
 
     const jsonTokenStream = fs
       .createReadStream(resultFile)
       .pipe(
-        progressStream({ length: bytesTotal, time: 100 }, progress => {
-          console.log(progress.percentage);
-          progressBar.animate(progress.percentage / 100);
+        progressStream({ length: bytesTotal, time: 100 }, ({ percentage }) => {
+          loadingProgressStore.dispatch(state => ({ ...state, percentage }));
         })
       )
       .pipe(streamJSON.parser());
@@ -74,10 +67,12 @@ ipcRenderer.on("result", async (event, resultFile) => {
         .on("error", reject)
     );
 
-    progressBar.destroy();
-    d3.select("#progress").classed("progress--visible", false);
-
     const processedData = processData(result.timeslices, result.header);
+
+    loadingProgressStore.dispatch(state => ({
+      ...state,
+      progressBarIsVisible: false
+    }));
 
     const { presets } = result.header;
     const charts = [
