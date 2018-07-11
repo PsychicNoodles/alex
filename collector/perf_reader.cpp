@@ -430,7 +430,8 @@ void copy_record_to_stack(base_record *record, base_record *local,
   DEBUG("cpd: copying " << (record_size - first_part_bytes) << " bytes from "
                         << ptr_fmt(second_part_start) << " to "
                         << ptr_fmt(local_ptr + first_part_bytes));
-  memcpy((void *)(local_ptr + first_part_bytes), (void *)second_part_start,
+  memcpy(reinterpret_cast<void *>(local_ptr + first_part_bytes),
+         reinterpret_cast<void *>(second_part_start),
          record_size - first_part_bytes);
   // special cases
   if (record_type == PERF_RECORD_SAMPLE) {
@@ -442,7 +443,8 @@ void copy_record_to_stack(base_record *record, base_record *local,
     DEBUG("cpd: copying " << local->sample.num_instruction_pointers
                           << " inst ptrs from " << ptr_fmt(inst_ptrs_src)
                           << " to " << ptr_fmt(inst_ptrs_dst));
-    memcpy((void *)inst_ptrs_dst, (void *)inst_ptrs_src,
+    memcpy(reinterpret_cast<void *>(inst_ptrs_dst),
+           reinterpret_cast<void *>(inst_ptrs_src),
            sizeof(uint64_t) * local->sample.num_instruction_pointers);
   }
 }
@@ -927,7 +929,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
               base_record *perf_result = reinterpret_cast<base_record *>(
                               get_next_record(&info.sample_buf, &record_type,
                                               &record_size)),
-                          local_result;
+                          local_result{};
 
               // record_size is not entirely accurate, since our version of the
               // structs is generally abridged
