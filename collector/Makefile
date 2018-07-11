@@ -1,5 +1,6 @@
 CXX := clang++
 GIT_VERSION := $(shell git describe --abbrev=4 --dirty --always --tags)
+PERF_SAMPLE_MAX_STACK := $(shell cat /proc/sys/kernel/perf_event_max_stack)
 CFLAGS := $(shell pkg-config --cflags --libs libelf++ libdwarf++) -DVERSION=\"$(GIT_VERSION)\"
 SOURCES := collector.cpp perf_reader.cpp const.cpp util.cpp debug.cpp perf_sampler.cpp clone.cpp rapl.cpp wattsup.cpp bg_readings.cpp ancillary.cpp find_events.cpp shared.cpp sockets.cpp
 EVENT_SOURCES := available-events.cpp debug.cpp wattsup.cpp rapl.cpp perf_sampler.cpp util.cpp shared.cpp
@@ -43,7 +44,7 @@ tidy:
 	@for src in $(SOURCES) ; do \
 		echo "Running $(TIDY) on $$src..." ; \
 		$(TIDY) -extra-arg=-std=c++11 -format-style=file -checks="$(TIDY_CHECKS)"\
-			$(TIDY_FIX) "$(SRC_DIR)/$$src" -- "$(SRC_DIR)/$$src" ; \
+			$(TIDY_FIX) "$(SRC_DIR)/$$src" -- "$(SRC_DIR)/$$src" 2>/dev/null ; \
 	done
 	@echo "Finished tidying"
 
@@ -51,7 +52,7 @@ tidy-fix: TIDY_FIX = -fix
 tidy-fix: tidy
 
 collector.$(SHLIB_SUFFIX): $(SOURCES)
-	$(CXXLIB) $(CFLAGS) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -ldl -lpfm -pthread -rdynamic
+	$(CXXLIB) $(CFLAGS) -DSAMPLE_MAX_STACK="$(PERF_SAMPLE_MAX_STACK)" $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -ldl -lpfm -pthread -rdynamic
 
 available-events: $(EVENT_SOURCES)
 	$(CXX) $(CFLAGS) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -lpfm -rdynamic

@@ -33,8 +33,16 @@ bool is_callchain_marker(uint64_t instruction_pointers);
 const char* callchain_str(uint64_t callchain);
 
 #define SAMPLE_TYPE (PERF_SAMPLE_TIME | PERF_SAMPLE_CALLCHAIN | PERF_SAMPLE_TID)
+#define SAMPLE_ID_ALL true  // whether sample_id_all should be set
+#define SAMPLE_ID_ALL_TYPE (PERF_SAMPLE_IDENTIFIER | PERF_SAMPLE_STREAM_ID)
+#define SAMPLE_TYPE_COMBINED (SAMPLE_TYPE | SAMPLE_ID_ALL_TYPE)
+#ifndef SAMPLE_MAX_STACK
+#define SAMPLE_MAX_STACK \
+  127  // default value found in /proc/sys/kernel/perf_event_max_stacks
+#endif
+
 #define SAMPLE_EPOLL_TIMEOUT -1  // wait "forever"
-#define MAX_SAMPLE_PERIOD_SKIPS 10
+#define MAX_SAMPLE_PERIOD_SKIPS 30
 #define MAX_MONITORING_SETUP_ATTEMPTS 10
 #define HANDLE_EVENTS true  // an easy way to globally enable/disable events
 #define EPOLL_TIME_DIFF_MAX \
