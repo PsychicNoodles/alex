@@ -21,7 +21,8 @@ function render(
     yScale,
     yFormat,
     cpuTimeOffset,
-    errorRecords
+    errorRecords,
+    errorsDistinct
   }
 ) {
   root.classed("chart", true);
@@ -35,8 +36,8 @@ function render(
 
   svg.append("g").call(errors.renderLines, {
     xScale,
-    yScale,
     errorRecords,
+    errorsDistinct,
     cpuTimeOffset
   });
 

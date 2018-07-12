@@ -4,7 +4,7 @@
 <head>
   <title>ALEX</title>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-Qd0uiJ2KSbhEP4AkyK6udfUscZ6aVyRNBrLeiwPZ8Yg='; style-src 'self' 'unsafe-inline'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-Qd0uiJ2KSbhEP4AkyK6udfUscZ6aVyRNBrLeiwPZ8Yg='; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
   <link rel="stylesheet" href="./css/main.css" />
@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="./css/source-select.css" />
   <link rel="stylesheet" href="./css/progress-bar.css" />
   <link rel="stylesheet" href="./css/errors.css" />
+  <link rel="stylesheet" href="../node_modules/bootstrap-colorpicker/dist/css/bootstrap-colorpicker.min.css" />
 </head>
 
 <body>
@@ -25,26 +26,6 @@
   <aside id="side-bar">
     <header id="side-bar-header">
       <button id="clear-brushes-button">Clear Selections</button>
-      <!-- <div class="col-sm-3">
-        <div class="accordion" id="layersAccordion">
-          <div class="card">
-            <div class="card-header">
-              Layers
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-header" id="headingErrors">
-              <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseErrors" aria-expanded="true" aria-controls="collapseErrors">
-                Errors
-              </button>
-            </div>
-            <div id="collapseErrors" class="collapse" aria-labelledby="headingErrors" data-parent="#layersAccordion">
-              <div class="list-group"></div>
-            </div>
-          </div>
-        </div>
-      </div> -->
-
       <div id="source-select"></div>
       <div id="errors"></div>
     </header>

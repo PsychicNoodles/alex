@@ -36,3 +36,16 @@
 .errors__checkbox:not(:checked) ~ .errors__file-name {
   text-decoration: line-through;
 }
+
+/* css styles that are supposed to be inherited from bootstrap */
+.colorpicker.dropdown-menu {
+  position: absolute;
+  background-clip: "padding-box";
+  background-color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
+}
+
+.colorpicker-component .input-group-addon {
+  margin-left: 5px;
+}

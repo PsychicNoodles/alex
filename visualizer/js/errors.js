@@ -2,10 +2,17 @@ const d3 = require("d3");
 
 const { Store } = require("./store");
 
+// the author of this library seem to quite get how module.exports works
+require("bootstrap-colorpicker");
+// necessary evil of also requiring jquery to set handlers for its events
+const $ = require("jquery");
+
 const highlightedErrorsSubscription = d3.local();
 const highlightedErrorsStore = new Store([]);
 
 const dropdownIsOpen = d3.local();
+
+const DEFAULT_ERROR_COLOR = "rgba(255, 0, 0, 0.2)";
 
 function render(root, { errors }) {
   //set up dom
@@ -39,18 +46,46 @@ function render(root, { errors }) {
 
   const dropdownItemsEnterSelection = dropdownItemsSelection
     .enter()
-    .append("label")
-    .attr("class", "errors__dropdown-item");
+    .append("div")
+    .attr("class", "errors__dropdown-item input-group colorpicker-component");
 
   dropdownItemsEnterSelection
     .append("input")
     .attr("class", "errors__checkbox")
-    .attr("type", "checkbox");
+    .attr("type", "checkbox")
+    .attr("id", (d, i) => `error__checkbox-${i}`);
 
   dropdownItemsEnterSelection
-    .append("span")
+    .append("label")
     .attr("class", "errors__type")
+    .attr("for", (d, i) => `error__checkbox-${i}`)
     .text(error => error);
+
+  // color picker input
+  dropdownItemsEnterSelection
+    .append("input")
+    .attr("class", "errors__color-picker")
+    .attr("type", "hidden");
+
+  // color picker image/popover
+  dropdownItemsEnterSelection
+    .append("span")
+    .attr("class", "input-group-addon")
+    .append("i");
+
+  dropdownItemsEnterSelection.each((d, i, g) => {
+    if (i > 0) {
+      // skip the "All Error Types" item
+      $(g[i])
+        .colorpicker({
+          color: DEFAULT_ERROR_COLOR,
+          input: ".errors__color-picker"
+        })
+        .on("changeColor", e => {
+          d3.selectAll(`.error-lines__type-${i}`).style("stroke", e.color);
+        });
+    }
+  });
 
   //set up store subscription to update the error list so that other parts can be notified and update as well
 
@@ -117,7 +152,10 @@ function render(root, { errors }) {
   );
 }
 
-function renderLines(root, { xScale, yScale, errorRecords, cpuTimeOffset }) {
+function renderLines(
+  root,
+  { xScale, errorRecords, errorsDistinct, cpuTimeOffset }
+) {
   root.classed("error-lines", true);
 
   const linesSelection = root
@@ -127,12 +165,17 @@ function renderLines(root, { xScale, yScale, errorRecords, cpuTimeOffset }) {
   const linesUpdateSelection = linesSelection
     .enter()
     .append("line")
-    .attr("class", "error-lines__line")
+    .attr(
+      "class",
+      d =>
+        `error-lines__line error-lines__type-${errorsDistinct.indexOf(d.type) +
+          1}`
+    )
     .attr("y1", 0)
     .attr("y2", 250)
     .attr("position", "absolute")
     .style("stroke-width", 0.5)
-    .style("stroke-opacity", 0.2)
+    .style("stroke", DEFAULT_ERROR_COLOR)
     .merge(linesSelection)
     .attr("x1", d => xScale(d.time - cpuTimeOffset))
     .attr("x2", d => xScale(d.time - cpuTimeOffset));
@@ -142,11 +185,15 @@ function renderLines(root, { xScale, yScale, errorRecords, cpuTimeOffset }) {
     highlightedErrorsSubscription,
     highlightedErrors => {
       linesUpdateSelection.style(
-        "stroke",
-        d => (highlightedErrors.includes(d.type) ? "red" : "rgba(0,0,0,0)")
+        "stroke-opacity",
+        d => (highlightedErrors.includes(d.type) ? 1 : 0)
       );
     }
   );
 }
 
-module.exports = { render, highlightedErrorsStore, renderLines };
+module.exports = {
+  render,
+  highlightedErrorsStore,
+  renderLines
+};
