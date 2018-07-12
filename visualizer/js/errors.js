@@ -43,17 +43,19 @@ function render(root, { errors }) {
 
   const dropdownItemsEnterSelection = dropdownItemsSelection
     .enter()
-    .append("label")
+    .append("div")
     .attr("class", "errors__dropdown-item input-group colorpicker-component");
 
   dropdownItemsEnterSelection
     .append("input")
     .attr("class", "errors__checkbox")
-    .attr("type", "checkbox");
+    .attr("type", "checkbox")
+    .attr("id", (d, i) => `error__checkbox-${i}`);
 
   dropdownItemsEnterSelection
-    .append("span")
+    .append("label")
     .attr("class", "errors__type")
+    .attr("for", (d, i) => `error__checkbox-${i}`)
     .text(error => error);
 
   // color picker input
