@@ -37,6 +37,7 @@
 #include "const.hpp"
 #include "debug.hpp"
 #include "find_events.hpp"
+#include "inspect.h"
 #include "perf_reader.hpp"
 #include "rapl.hpp"
 #include "shared.hpp"
@@ -48,36 +49,30 @@ using std::map;
 using std::string;
 using std::vector;
 
-<<<<<<< HEAD
-bool find_pc(const dwarf::die &d, dwarf::taddr pc, vector<dwarf::die> *stack) {
-  using namespace dwarf;
+/**
+ * Read a link's contents and return it as a string
+ */
+static string readlink_str(const char *path) {
+  size_t exe_size = 1024;
+  ssize_t exe_used;
 
-  // Scan children first to find most specific DIE
-  bool found = false;
-  for (auto &child : d) {
-    if ((found = find_pc(child, pc, stack))) break;
+  while (true) {
+    char exe_path[exe_size];
+
+    exe_used = readlink(path, exe_path, exe_size - 1);
+    // REQUIRE(exe_used > 0) << "Unable to read link " << path;
+
+    if (exe_used < exe_size - 1) {
+      exe_path[exe_used] = '\0';
+      return string(exe_path);
+    }
+
+    exe_size += 1024;
   }
-  switch (d.tag) {
-    case DW_TAG::subprogram:
-    case DW_TAG::inlined_subroutine:
-      try {
-        if (found || die_pc_range(d).contains(pc)) {
-          found = true;
-          stack->push_back(d);
-        }
-      } catch (out_of_range &e) {
-      } catch (value_type_mismatch &e) {
-      }
-      break;
-    default:
-      break;
-  }
-  return found;
 }
 
 // contents of buffer filled when PERF_RECORD_SAMPLE type is enabled plus
 // certain sample types
-=======
 /// the following record structs all have the perf_event_header shaved off,
 /// since it's removed by the get_next_record function
 
@@ -96,7 +91,6 @@ struct record_sample_id {
 };
 
 // contents of PERF_RECORD_SAMPLE buffer plus certain sample types
->>>>>>> 14819c9f4bad4e5619ef204816c3b47555fc80f2
 struct sample_record {
 #if SAMPLE_ID_ALL
   uint64_t sample_id;
@@ -498,7 +492,8 @@ bool process_sample_record(const sample_record &sample,
                            const perf_fd_info &info, bool is_first_timeslice,
                            bool is_first_sample, bg_reading *rapl_reading,
                            bg_reading *wattsup_reading,
-                           const map<uint64_t, kernel_sym> &kernel_syms) {
+                           const map<uint64_t, kernel_sym> &kernel_syms,
+                           unordered_map<string, uintptr_t> full_binaries) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
@@ -647,6 +642,26 @@ bool process_sample_record(const sample_record &sample,
         sym_addr = reinterpret_cast<void *>(addr);
       }
     }
+
+    vector<string> binary_scope_v = {"MAIN"};
+    unordered_set<string> binary_scope(binary_scope_v.begin(),
+                                       binary_scope_v.end());
+
+    vector<string> source_scope_v = {"%%"};
+    unordered_set<string> source_scope(source_scope_v.begin(),
+                                       source_scope_v.end());
+
+    // Replace 'MAIN' in the binary_scope with the real path of the main
+    // executable
+    if (binary_scope.find("MAIN") != binary_scope.end()) {
+      binary_scope.erase("MAIN");
+      string main_name = readlink_str("/proc/self/exe");
+      binary_scope.insert(main_name);
+      DEBUG("Including MAIN, which is " << main_name);
+    }
+
+    memory_map::get_instance().build(binary_scope, source_scope, full_binaries,
+                                     inst_ptr);
     // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
     if (sym_name != nullptr) {
       int demangle_status;
@@ -686,6 +701,7 @@ bool process_sample_record(const sample_record &sample,
     // looking for the callsite.
     dwarf::taddr pc = inst_ptr - 1;
     dump_table_and_symbol((char *)"/proc/self/exe", inst_ptr - 1);
+    line *l = memory_map::get_instance().find_line(pc).get();
 
     // Find the CU containing pc
     // XXX Use .debug_aranges
@@ -708,19 +724,19 @@ bool process_sample_record(const sample_record &sample,
       }
       break;
     }
-  }
-  fprintf(result_file,
-          R"(,
+
+    fprintf(result_file,
+            R"(,
                     "line": %d,
                     "col": %d,
                     "fullLocation": "%s" })",
-          line, column, fullLocation);
-}
-fprintf(result_file, R"(
+            line, column, fullLocation);
+  }
+  fprintf(result_file, R"(
                   ]
                   }
                   )");
-return false;
+  return false;
 }
 
 void process_lost_record(const lost_record &lost,
@@ -910,6 +926,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
 int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                       int socket, bg_reading *rapl_reading,
                       bg_reading *wattsup_reading) {
+  unordered_map<string, uintptr_t> full_binaries = get_loaded_files();
   bool is_first_timeslice = true;
   bool done = false;
   int sample_period_skips = 0;
@@ -1016,7 +1033,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                     is_first_sample = process_sample_record(
                         local_result.sample, info, is_first_timeslice,
                         is_first_sample, rapl_reading, wattsup_reading,
-                        kernel_syms);
+                        kernel_syms, full_binaries);
                   } else {
                     DEBUG("cpd: not first sample, skipping");
                   }

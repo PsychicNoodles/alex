@@ -2,6 +2,7 @@ const d3 = require("d3");
 
 const plot = require("./plot");
 const brushes = require("./brushes");
+const errors = require("./errors");
 
 const WIDTH = 500;
 const HEIGHT = 250;
@@ -18,7 +19,9 @@ function render(
     yAxisLabel,
     xScale,
     yScale,
-    yFormat
+    yFormat,
+    cpuTimeOffset,
+    errorRecords
   }
 ) {
   root.classed("chart", true);
@@ -29,6 +32,13 @@ function render(
     .append("svg")
     .attr("class", "chart__svg")
     .attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`);
+
+  svg.append("g").call(errors.renderLines, {
+    xScale,
+    yScale,
+    errorRecords,
+    cpuTimeOffset
+  });
 
   svg.append("g").call(plot.render, {
     data: plotData,

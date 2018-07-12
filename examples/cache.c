@@ -3,8 +3,7 @@
 #include <sys/random.h> // for getrandom()
 #include <time.h>       // for time()
 
-#define CONTROL_BUFLEN 64
-#define TINY_BUFLEN 8192
+#define TINY_BUFLEN 8192 // the control
 #define SMALL_BUFLEN 73728
 #define MEDIUM_BUFLEN 1646592
 #define LARGE_BUFLEN 26222592
@@ -18,9 +17,6 @@ int main() {
 
   /* Some of the following *have* to be malloced; array declaration will cause
    * unexpected segfaults because they're too large for the stack. */
-  unsigned char *control_buf =
-      (unsigned char *)malloc(sizeof(unsigned char) * CONTROL_BUFLEN);
-
   // 25% OF L1D
   unsigned char *tiny_buf =
       (unsigned char *)malloc(sizeof(unsigned char) * TINY_BUFLEN);
@@ -38,10 +34,6 @@ int main() {
       (unsigned char *)malloc(sizeof(unsigned char) * LARGE_BUFLEN);
 
   /* Fill all these arrays with random junk. */
-  if (!getrandom(control_buf, CONTROL_BUFLEN, 0)) {
-    perror("Couldn't get random info for control buffer.");
-    return 1;
-  }
   if (!getrandom(tiny_buf, TINY_BUFLEN, 0)) {
     perror("Couldn't get random info for tiny buffer.");
     return 1;
@@ -60,7 +52,6 @@ int main() {
   }
 
   // TESTS
-  random_access_test(control_buf, CONTROL_BUFLEN);
   random_access_test(tiny_buf, TINY_BUFLEN);
   random_access_test(small_buf, SMALL_BUFLEN);
   random_access_test(medium_buf, MEDIUM_BUFLEN);
