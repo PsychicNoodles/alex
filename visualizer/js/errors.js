@@ -2,12 +2,13 @@ const d3 = require("d3");
 
 const { Store } = require("./store");
 
-const hiddenErrorsSubscription = d3.local();
-const hiddenErrorsStore = new Store([]);
+const highlightedErrorsSubscription = d3.local();
+const highlightedErrorsStore = new Store([]);
 
 const dropdownIsOpen = d3.local();
 
 function render(root, { errors }) {
+  //set up dom
   root.classed("errors", true);
 
   if (root.property(dropdownIsOpen) === undefined) {
@@ -22,6 +23,7 @@ function render(root, { errors }) {
     root.append("div").attr("class", "errors__dropdown");
   }
 
+  //class "open" if the errors button is clicked
   root.classed("errors--dropdown-open", root.property(dropdownIsOpen));
 
   root.select(".errors__button").on("click", () => {
@@ -50,19 +52,25 @@ function render(root, { errors }) {
     .attr("class", "errors__type")
     .text(error => error);
 
-  hiddenErrorsStore.subscribeUnique(
+  //set up store subscription to update the error list so that other parts can be notified and update as well
+
+  highlightedErrorsStore.subscribeUnique(
     root,
-    hiddenErrorsSubscription,
-    hiddenErrors => {
-      const showingAllErrors = hiddenErrors.length === 0;
-      const showingSomeErrors = errors.some(
-        error => !hiddenErrors.includes(error)
+    highlightedErrorsSubscription,
+    highlightedErrors => {
+      const highlightingAllErrors = errors.every(error =>
+        highlightedErrors.includes(error)
       );
+      const highlightingSomeErrors = highlightedErrors.length > 0;
       root
         .select(".errors__button")
         .text(
-          `Showing ${
-            showingAllErrors ? "All" : showingSomeErrors ? "Some" : "No"
+          `Highlighting ${
+            highlightingAllErrors
+              ? "All"
+              : highlightingSomeErrors
+                ? "Some"
+                : "No"
           } Error Types`
         );
 
@@ -73,27 +81,32 @@ function render(root, { errors }) {
             // We are on the All checkbox
             d3.select(this)
               .select(".errors__checkbox")
-              .property("checked", showingAllErrors)
-              .property("indeterminate", showingSomeErrors && !showingAllErrors)
+              .property("checked", highlightingAllErrors)
+              .property(
+                "indeterminate",
+                highlightingSomeErrors && !highlightingAllErrors
+              )
               .on("change", function() {
-                if (this.checked) {
-                  hiddenErrorsStore.dispatch(() => []);
+                if (!this.checked) {
+                  highlightedErrorsStore.dispatch(() => []);
                 } else {
-                  hiddenErrorsStore.dispatch(() => errors);
+                  highlightedErrorsStore.dispatch(() => errors);
                 }
               });
           } else {
             d3.select(this)
               .select(".errors__checkbox")
-              .property("checked", !hiddenErrors.includes(error))
+              .property("checked", highlightedErrors.includes(error))
               .on("change", function() {
-                if (this.checked) {
-                  hiddenErrorsStore.dispatch(hiddenErrors =>
-                    hiddenErrors.filter(hiddenSource => hiddenSource !== error)
+                if (!this.checked) {
+                  highlightedErrorsStore.dispatch(highlightedErrors =>
+                    highlightedErrors.filter(
+                      highlightedSource => highlightedSource !== error
+                    )
                   );
                 } else {
-                  hiddenErrorsStore.dispatch(hiddenErrors => [
-                    ...hiddenErrors,
+                  highlightedErrorsStore.dispatch(highlightedErrors => [
+                    ...highlightedErrors,
                     error
                   ]);
                 }
@@ -104,28 +117,36 @@ function render(root, { errors }) {
   );
 }
 
-function drawLines(root, { xScale, yScale, errorsRecord, cpuTimeOffset }) {
-  root.classed("errorLine", true);
+function renderLines(root, { xScale, yScale, errorRecords, cpuTimeOffset }) {
+  root.classed("error-lines", true);
 
-  const lines = root
-    .append("g")
-    .attr("class", "lines")
-    .selectAll("line")
-    .data(errorsRecord);
+  const linesSelection = root
+    .selectAll(".error-lines__line")
+    .data(errorRecords);
 
-  lines
+  const linesUpdateSelection = linesSelection
     .enter()
     .append("line")
-    .merge(lines)
-    .attr("class", "line")
-    .attr("x1", d => xScale(d.time - cpuTimeOffset))
-    .attr("x2", d => xScale(d.time - cpuTimeOffset))
+    .attr("class", "error-lines__line")
     .attr("y1", 0)
     .attr("y2", 250)
     .attr("position", "absolute")
-    .style("stroke", "grey")
-    .style("stroke-width", 0.1)
-    .style("stroke-opacity", 0.2);
+    .style("stroke-width", 0.5)
+    .style("stroke-opacity", 0.2)
+    .merge(linesSelection)
+    .attr("x1", d => xScale(d.time - cpuTimeOffset))
+    .attr("x2", d => xScale(d.time - cpuTimeOffset));
+
+  highlightedErrorsStore.subscribeUnique(
+    root,
+    highlightedErrorsSubscription,
+    highlightedErrors => {
+      linesUpdateSelection.style(
+        "stroke",
+        d => (highlightedErrors.includes(d.type) ? "red" : "rgba(0,0,0,0)")
+      );
+    }
+  );
 }
 
-module.exports = { render, hiddenErrorsStore, drawLines };
+module.exports = { render, highlightedErrorsStore, renderLines };

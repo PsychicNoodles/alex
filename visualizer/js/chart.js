@@ -21,7 +21,7 @@ function render(
     yScale,
     yFormat,
     cpuTimeOffset,
-    errorsRecord
+    errorRecords
   }
 ) {
   root.classed("chart", true);
@@ -33,10 +33,10 @@ function render(
     .attr("class", "chart__svg")
     .attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`);
 
-  svg.append("g").call(errors.drawLines, {
+  svg.append("g").call(errors.renderLines, {
     xScale,
     yScale,
-    errorsRecord,
+    errorRecords,
     cpuTimeOffset
   });
 

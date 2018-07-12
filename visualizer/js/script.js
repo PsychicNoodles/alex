@@ -89,7 +89,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
   const result = JSON.parse(resultString);
   const processedData = processData(result.timeslices, result.header);
-  const errorsRecord = result.error;
+  const errorRecords = result.error;
 
   bar.destroy();
   d3.select("#progress").classed("progress--visible", false);
@@ -184,7 +184,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
             ? d3.interpolateRgb("#3A72F2", "#3A72F2")
             : spectrum,
         cpuTimeOffset,
-        errorsRecord
+        errorRecords
       });
   }
 
@@ -202,7 +202,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
   });
 
   const errorsSet = new Set();
-  errorsRecord.forEach(error => {
+  errorRecords.forEach(error => {
     errorsSet.add(error.type);
   });
   d3.select("#errors").call(errors.render, {
