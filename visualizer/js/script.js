@@ -4,6 +4,7 @@ const fs = require("fs");
 const progressStream = require("progress-stream");
 const streamJSON = require("stream-json");
 const JSONAssembler = require("stream-json/Assembler");
+const { promisify } = require("util");
 
 const {
   processData,
@@ -26,47 +27,46 @@ const loadingProgressStore = new Store({
   progressBarIsVisible: true
 });
 
+loadingProgressStore.subscribe(({ percentage, progressBarIsVisible }) => {
+  d3.select("#progress").call(progressBar.render, {
+    percentage,
+    text: "Reading Result File",
+    isVisible: progressBarIsVisible
+  });
+});
+
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", async (event, resultFile) => {
   try {
-    const bytesTotal = await new Promise(resolve => {
-      fs.stat(resultFile, (err, { size }) => {
-        if (err) {
-          alert(`Couldn't find result file: ${err.message}`);
-          window.close();
-        }
+    let result;
+    try {
+      const { size: resultFileSize } = await promisify(fs.stat)(resultFile);
 
-        resolve(size);
-      });
-    });
+      const jsonTokenStream = fs
+        .createReadStream(resultFile)
+        .pipe(
+          progressStream(
+            { length: resultFileSize, time: 100 },
+            ({ percentage }) => {
+              loadingProgressStore.dispatch(state => ({
+                ...state,
+                percentage
+              }));
+            }
+          )
+        )
+        .pipe(streamJSON.parser());
 
-    loadingProgressStore.subscribe(({ percentage, progressBarIsVisible }) => {
-      d3.select("#progress").call(progressBar.render, {
-        percentage,
-        text: "Reading Result File",
-        isVisible: progressBarIsVisible
-      });
-    });
+      const assembler = await new Promise((resolve, reject) =>
+        JSONAssembler.connectTo(jsonTokenStream.on("error", reject))
+          .on("done", resolve)
+          .on("error", reject)
+      );
 
-    const jsonTokenStream = fs
-      .createReadStream(resultFile)
-      .pipe(
-        progressStream({ length: bytesTotal, time: 100 }, ({ percentage }) => {
-          loadingProgressStore.dispatch(state => ({ ...state, percentage }));
-        })
-      )
-      .pipe(streamJSON.parser());
-
-    jsonTokenStream.on("error", err => {
-      alert(`Invalid result file: ${err}`);
-      window.close();
-    });
-
-    const { current: result } = await new Promise((resolve, reject) =>
-      JSONAssembler.connectTo(jsonTokenStream)
-        .on("done", resolve)
-        .on("error", reject)
-    );
+      result = assembler.current;
+    } catch (err) {
+      throw new Error(`Couldn't load result file: ${err.message}`);
+    }
 
     const processedData = processData(result.timeslices, result.header);
     const errorRecords = result.error;

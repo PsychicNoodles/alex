@@ -6,6 +6,16 @@ const fs = require("fs");
 const readline = require("readline");
 const tempFile = require("tempfile");
 const path = require("path");
+const ProgressBar = require("progress");
+const { promisify } = require("util");
+const progressStream = require("progress-stream");
+const { parser: streamJSONParser } = require("stream-json");
+const { stringer: streamJSONStringer } = require("stream-json/Stringer");
+const StreamJSONAssembler = require("stream-json/Assembler");
+
+process.on("unhandledRejection", err => {
+  throw err;
+});
 
 yargs
   .command(
@@ -101,6 +111,7 @@ function collect({
   visualizeOption,
   wattsupDevice
 }) {
+  const rawResultFile = tempFile(".json");
   const resultFile = resultOption || tempFile(".json");
 
   console.info("Collecting performance data...");
@@ -124,7 +135,7 @@ function collect({
       COLLECTOR_PERIOD: period,
       COLLECTOR_PRESETS: presets.join(","),
       COLLECTOR_EVENTS: events.join(","),
-      COLLECTOR_RESULT_FILE: resultFile,
+      COLLECTOR_RESULT_FILE: rawResultFile,
       COLLECTOR_WATTSUP_DEVICE: wattsupDevice,
       LD_PRELOAD: path.join(__dirname, "./collector/collector.so")
     }
@@ -165,7 +176,7 @@ function collect({
     collector.stderr.pipe(process.stderr);
   }
 
-  collector.on("exit", code => {
+  collector.on("exit", async code => {
     clearInterval(progressInterval);
 
     const numSeconds = (Date.now() - startTime) / MS_PER_SEC;
@@ -189,37 +200,90 @@ function collect({
       console.error(errorCodes[code]);
       console.error(`Check ${errFile || "error logs"} for details`);
     } else {
-      console.info("Processing results...");
-      const result = JSON.parse(fs.readFileSync(resultFile).toString());
-      result.header = {
-        ...result.header,
-        events,
-        executableName: executable,
-        executableArgs
-      };
-      fs.writeFileSync(resultFile, JSON.stringify(result, null, 2));
+      const { size: resultFileSize } = await promisify(fs.stat)(rawResultFile);
+
+      const progressBar = new ProgressBar(
+        "Processing Results [:bar] :percent",
+        {
+          complete: "#",
+          width: 20,
+          total: resultFileSize
+        }
+      );
+
+      let resultsProcessed = false;
+      try {
+        const LARGE_FILE_SIZE = 0x10000000; // 256 MB
+
+        await new Promise((resolve, reject) => {
+          const tokenStream = fs
+            .createReadStream(rawResultFile)
+            .pipe(
+              progressStream(
+                { length: resultFileSize, time: 100 },
+                ({ delta }) => {
+                  progressBar.tick(delta);
+                }
+              )
+            )
+            .pipe(streamJSONParser())
+            .on("error", reject);
+
+          if (resultFileSize > LARGE_FILE_SIZE) {
+            // If it is a large file, don't stringify it all at once.
+            tokenStream
+              .pipe(streamJSONStringer())
+              .on("error", reject)
+              .pipe(fs.createWriteStream(resultFile))
+              .on("finish", resolve)
+              .on("error", reject);
+          } else {
+            StreamJSONAssembler.connectTo(tokenStream)
+              .on("done", ({ current }) => {
+                fs.writeFile(
+                  resultFile,
+                  JSON.stringify(current, null, 2),
+                  err => {
+                    if (err) {
+                      reject(err);
+                    } else {
+                      resolve();
+                    }
+                  }
+                );
+              })
+              .on("error", reject);
+          }
+        });
+        resultsProcessed = true;
+      } catch (err) {
+        console.error(`Couldn't process result file: ${err.message}`);
+        fs.copyFileSync(rawResultFile, resultFile);
+      }
 
       if (resultOption) {
         console.info(`Results saved to ${resultFile}`);
       }
 
-      if (visualizeOption === "window") {
-        visualize(resultFile);
-      } else if (visualizeOption === "ask") {
-        const readline_interface = readline.createInterface(
-          process.stdin,
-          process.stdout
-        );
-        readline_interface.question(
-          "Would you like to see a visualization of the results ([yes]/no)? ",
-          answer => {
-            if (answer !== "no") {
-              visualize(resultFile);
-            }
+      if (resultsProcessed) {
+        if (visualizeOption === "window") {
+          visualize(resultFile);
+        } else if (visualizeOption === "ask") {
+          const readline_interface = readline.createInterface(
+            process.stdin,
+            process.stdout
+          );
+          readline_interface.question(
+            "Would you like to see a visualization of the results ([yes]/no)? ",
+            answer => {
+              if (answer !== "no") {
+                visualize(resultFile);
+              }
 
-            readline_interface.close();
-          }
-        );
+              readline_interface.close();
+            }
+          );
+        }
       }
     }
   });
