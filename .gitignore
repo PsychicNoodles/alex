@@ -411,3 +411,6 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+### Custom ###
+result-*
