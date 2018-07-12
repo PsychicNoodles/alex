@@ -36,7 +36,6 @@ function render(
 
   svg.append("g").call(errors.renderLines, {
     xScale,
-    yScale,
     errorRecords,
     errorsDistinct,
     cpuTimeOffset
