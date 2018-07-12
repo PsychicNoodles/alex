@@ -86,6 +86,7 @@ function render(root, { sources }) {
                 }
               });
           } else {
+            console.log(this);
             d3.select(this)
               .select(".source-select__checkbox")
               .property("checked", !hiddenSources.includes(source))

@@ -84,6 +84,10 @@ button:disabled {
   margin: 5px;
 }
 
+#table-select {
+  text-align: right;
+}
+
 #function-runtimes-wrapper {
   overflow: auto;
 }

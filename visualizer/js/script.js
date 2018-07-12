@@ -15,6 +15,7 @@ const functionRuntimes = require("./function-runtimes");
 const legend = require("./legend");
 const brushes = require("./brushes");
 const sourceSelect = require("./source-select");
+const tableSelect = require("./table-select");
 const errors = require("./errors");
 const stream = require("./stream");
 
@@ -211,6 +212,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
   d3.select("#errors").call(errors.render, {
     errors: errorsDistinct
   });
+
+  d3.select("#table-select").call(tableSelect.render);
 
   stream
     .fromStreamables([
