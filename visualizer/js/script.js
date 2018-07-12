@@ -15,6 +15,7 @@ const functionRuntimes = require("./function-runtimes");
 const legend = require("./legend");
 const brushes = require("./brushes");
 const sourceSelect = require("./source-select");
+const errors = require("./errors");
 const stream = require("./stream");
 
 const PROGRESS_HEIGHT = "8px";
@@ -88,6 +89,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
   const result = JSON.parse(resultString);
   const processedData = processData(result.timeslices, result.header);
+  const errorRecords = result.error;
 
   bar.destroy();
   d3.select("#progress").classed("progress--visible", false);
@@ -116,7 +118,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
   );
 
   const xAxisLabel = "CPU Time Elapsed";
-  const getIndependentVariable = d => d.cpuTime - processedData[0].cpuTime;
+  const cpuTimeOffset = processedData[0].cpuTime;
+  const getIndependentVariable = d => d.cpuTime - cpuTimeOffset;
 
   const xScaleMin = getIndependentVariable(processedData[0]);
   const xScaleMax = getIndependentVariable(
@@ -179,7 +182,9 @@ ipcRenderer.on("result", async (event, resultFile) => {
         spectrum:
           d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) <= 2
             ? d3.interpolateRgb("#3A72F2", "#3A72F2")
-            : spectrum
+            : spectrum,
+        cpuTimeOffset,
+        errorRecords
       });
   }
 
@@ -194,6 +199,14 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
   d3.select("#source-select").call(sourceSelect.render, {
     sources: [...sourcesSet]
+  });
+
+  const errorsSet = new Set();
+  errorRecords.forEach(error => {
+    errorsSet.add(error.type);
+  });
+  d3.select("#errors").call(errors.render, {
+    errors: [...errorsSet]
   });
 
   stream
