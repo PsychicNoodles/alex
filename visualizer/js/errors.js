@@ -87,10 +87,10 @@ function render(root, { errors }) {
                 highlightingSomeErrors && !highlightingAllErrors
               )
               .on("change", function() {
-                if (!this.checked) {
-                  highlightedErrorsStore.dispatch(() => []);
-                } else {
+                if (this.checked) {
                   highlightedErrorsStore.dispatch(() => errors);
+                } else {
+                  highlightedErrorsStore.dispatch(() => []);
                 }
               });
           } else {
@@ -98,17 +98,17 @@ function render(root, { errors }) {
               .select(".errors__checkbox")
               .property("checked", highlightedErrors.includes(error))
               .on("change", function() {
-                if (!this.checked) {
+                if (this.checked) {
+                  highlightedErrorsStore.dispatch(highlightedErrors => [
+                    ...highlightedErrors,
+                    error
+                  ]);
+                } else {
                   highlightedErrorsStore.dispatch(highlightedErrors =>
                     highlightedErrors.filter(
                       highlightedSource => highlightedSource !== error
                     )
                   );
-                } else {
-                  highlightedErrorsStore.dispatch(highlightedErrors => [
-                    ...highlightedErrors,
-                    error
-                  ]);
                 }
               });
           }
