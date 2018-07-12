@@ -7,7 +7,7 @@ svg.chart__svg {
   /* Make space for the axes */
   overflow: visible;
   margin-left: 8.5%;
-  margin-bottom: 8%;
+  margin-bottom: 12%;
 }
 
 .chart__axis path,

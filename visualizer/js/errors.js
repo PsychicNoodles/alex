@@ -12,7 +12,7 @@ const highlightedErrorsStore = new Store([]);
 
 const dropdownIsOpen = d3.local();
 
-const DEFAULT_ERROR_COLOR = "rgba(255, 0, 0, 0.2)";
+const DEFAULT_ERROR_COLOR = "rgba(255, 0, 0, 0.8)";
 
 function render(root, { errors }) {
   //set up dom
@@ -171,8 +171,8 @@ function renderLines(
         `error-lines__line error-lines__type-${errorsDistinct.indexOf(d.type) +
           1}`
     )
-    .attr("y1", 0)
-    .attr("y2", 250)
+    .attr("y1", -20)
+    .attr("y2", 0)
     .attr("position", "absolute")
     .style("stroke-width", 0.5)
     .style("stroke", DEFAULT_ERROR_COLOR)
