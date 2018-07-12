@@ -26,6 +26,7 @@ Try `node . --help` to see usage information.
   preserving program behavior.
 - `npm run checkpreset` checks for available preset options
 - `npm run checkpreset:all` see all available options for preset settings
+- `dmesg`  see what the USB serial port is detected at after plugging in the wattsup device
 
 ## Data Collection
 
