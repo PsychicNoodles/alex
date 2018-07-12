@@ -188,8 +188,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       .pipe(
         stream.debounce(
           () =>
-            // If it takes longer a few frames to process, then
-            // debounce until mouseup.
+            // If it takes longer a few frames to process, then debounce.
             averageProcessingTime < 40 ? stream.empty : stream.fromTimeout(100)
         )
       )
