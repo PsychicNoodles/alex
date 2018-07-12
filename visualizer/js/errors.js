@@ -4,12 +4,15 @@ const { Store } = require("./store");
 
 // the author of this library seem to quite get how module.exports works
 require("bootstrap-colorpicker");
-const Colorpicker = require("jquery").colorpicker;
+// necessary evil of also requiring jquery to set handlers for its events
+const $ = require("jquery");
 
 const highlightedErrorsSubscription = d3.local();
 const highlightedErrorsStore = new Store([]);
 
 const dropdownIsOpen = d3.local();
+
+const DEFAULT_ERROR_COLOR = "red";
 
 function render(root, { errors }) {
   //set up dom
@@ -73,10 +76,14 @@ function render(root, { errors }) {
   dropdownItemsEnterSelection.each((d, i, g) => {
     if (i > 0) {
       // skip the "All Error Types" item
-      new Colorpicker(g[i], {
-        color: "red",
-        input: ".errors__color-picker"
-      });
+      $(g[i])
+        .colorpicker({
+          color: DEFAULT_ERROR_COLOR,
+          input: ".errors__color-picker"
+        })
+        .on("changeColor", e => {
+          d3.selectAll(`.error-lines__type-${i}`).style("stroke", e.color);
+        });
     }
   });
 
@@ -145,7 +152,10 @@ function render(root, { errors }) {
   );
 }
 
-function renderLines(root, { xScale, yScale, errorRecords, cpuTimeOffset }) {
+function renderLines(
+  root,
+  { xScale, yScale, errorRecords, errorsDistinct, cpuTimeOffset }
+) {
   root.classed("error-lines", true);
 
   const linesSelection = root
@@ -155,12 +165,18 @@ function renderLines(root, { xScale, yScale, errorRecords, cpuTimeOffset }) {
   const linesUpdateSelection = linesSelection
     .enter()
     .append("line")
-    .attr("class", "error-lines__line")
+    .attr(
+      "class",
+      d =>
+        `error-lines__line error-lines__type-${errorsDistinct.indexOf(d.type) +
+          1}`
+    )
     .attr("y1", 0)
     .attr("y2", 250)
     .attr("position", "absolute")
     .style("stroke-width", 0.5)
     .style("stroke-opacity", 0.2)
+    .style("stroke", DEFAULT_ERROR_COLOR)
     .merge(linesSelection)
     .attr("x1", d => xScale(d.time - cpuTimeOffset))
     .attr("x2", d => xScale(d.time - cpuTimeOffset));
@@ -170,8 +186,8 @@ function renderLines(root, { xScale, yScale, errorRecords, cpuTimeOffset }) {
     highlightedErrorsSubscription,
     highlightedErrors => {
       linesUpdateSelection.style(
-        "stroke",
-        d => (highlightedErrors.includes(d.type) ? "red" : "rgba(0,0,0,0)")
+        "stroke-opacity",
+        d => (highlightedErrors.includes(d.type) ? 0.2 : 0)
       );
     }
   );

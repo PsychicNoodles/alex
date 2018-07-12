@@ -21,7 +21,8 @@ function render(
     yScale,
     yFormat,
     cpuTimeOffset,
-    errorRecords
+    errorRecords,
+    errorsDistinct
   }
 ) {
   root.classed("chart", true);
@@ -37,6 +38,7 @@ function render(
     xScale,
     yScale,
     errorRecords,
+    errorsDistinct,
     cpuTimeOffset
   });
 

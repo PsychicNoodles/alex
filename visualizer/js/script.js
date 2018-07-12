@@ -164,6 +164,12 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
   const spectrum = d3.interpolateGreens;
 
+  const errorsSet = new Set();
+  errorRecords.forEach(error => {
+    errorsSet.add(error.type);
+  });
+  const errorsDistinct = [...errorsSet];
+
   for (const chartParams of charts) {
     const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
     d3.select("#charts")
@@ -184,7 +190,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
             ? d3.interpolateRgb("#3A72F2", "#3A72F2")
             : spectrum,
         cpuTimeOffset,
-        errorRecords
+        errorRecords,
+        errorsDistinct
       });
   }
 
@@ -201,12 +208,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
     sources: [...sourcesSet]
   });
 
-  const errorsSet = new Set();
-  errorRecords.forEach(error => {
-    errorsSet.add(error.type);
-  });
   d3.select("#errors").call(errors.render, {
-    errors: [...errorsSet]
+    errors: errorsDistinct
   });
 
   stream
