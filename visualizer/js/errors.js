@@ -12,7 +12,7 @@ const highlightedErrorsStore = new Store([]);
 
 const dropdownIsOpen = d3.local();
 
-const DEFAULT_ERROR_COLOR = "red";
+const DEFAULT_ERROR_COLOR = "rgba(255, 0, 0, 0.2)";
 
 function render(root, { errors }) {
   //set up dom
@@ -175,7 +175,6 @@ function renderLines(
     .attr("y2", 250)
     .attr("position", "absolute")
     .style("stroke-width", 0.5)
-    .style("stroke-opacity", 0.2)
     .style("stroke", DEFAULT_ERROR_COLOR)
     .merge(linesSelection)
     .attr("x1", d => xScale(d.time - cpuTimeOffset))
@@ -187,7 +186,7 @@ function renderLines(
     highlightedErrors => {
       linesUpdateSelection.style(
         "stroke-opacity",
-        d => (highlightedErrors.includes(d.type) ? 0.2 : 0)
+        d => (highlightedErrors.includes(d.type) ? 1 : 0)
       );
     }
   );
