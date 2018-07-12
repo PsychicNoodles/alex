@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <link.h>
 #include <linux/perf_event.h>
+#include <linux/version.h>
 #include <perfmon/perf_event.h>
 #include <perfmon/pfmlib.h>
 #include <perfmon/pfmlib_perf_event.h>
@@ -47,21 +48,42 @@ using std::map;
 using std::string;
 using std::vector;
 
-// contents of buffer filled when PERF_RECORD_SAMPLE type is enabled plus
-// certain sample types
-struct sample_record {
+/// the following record structs all have the perf_event_header shaved off,
+/// since it's removed by the get_next_record function
+
+// the sample_id struct, if sample_id_all is enabled
+struct record_sample_id {
   // PERF_SAMPLE_TID
   uint32_t pid;
   uint32_t tid;
   // PERF_SAMPLE_TIME
   uint64_t time;
-  // PERF_SAMPLE_CALLCHAIN
-  uint64_t num_instruction_pointers;
-  uint64_t instruction_pointers[];
+  // PERF_SAMPLE_STREAM_ID
+  uint64_t stream_id;
+  // PERF_SAMPLE_CPU is not enabled
+  // PERF_STREAM_IDENTIFIER
+  uint64_t id;  // actually the id for the group leader
 };
 
-// contents of buffer filled when PERF_RECORD_THROTTLE or PERF_RECORD_UNTHROTTLE
-// is returned
+// contents of PERF_RECORD_SAMPLE buffer plus certain sample types
+struct sample_record {
+#if SAMPLE_ID_ALL
+  uint64_t sample_id;
+#endif
+  // PERF_SAMPLE_TID
+  uint32_t pid;
+  uint32_t tid;
+  // PERF_SAMPLE_TIME
+  uint64_t time;
+#if SAMPLE_ID_ALL
+  uint64_t stream_id;
+#endif
+  // PERF_SAMPLE_CALLCHAIN
+  uint64_t num_instruction_pointers;
+  uint64_t instruction_pointers[SAMPLE_MAX_STACK];
+};
+
+// contents of PERF_RECORD_THROTTLE or PERF_RECORD_UNTHROTTLE buffer
 struct throttle_record {
   // PERF_SAMPLE_TIME
   uint64_t time;
@@ -69,11 +91,24 @@ struct throttle_record {
   uint64_t id;
   // PERF_SAMPLE_STREAM_ID
   uint64_t stream_id;
+#ifdef SAMPLE_ID_ALL
+  record_sample_id sample_id;
+#endif
+};
+
+// contents of PERF_RECORD_LOST buffer
+struct lost_record {
+  uint64_t id;
+  uint64_t lost;
+#ifdef SAMPLE_ID_ALL
+  record_sample_id sample_id;
+#endif
 };
 
 union base_record {
-  sample_record sr;
-  throttle_record tr;
+  sample_record sample;
+  throttle_record throttle;
+  lost_record lost;
 };
 
 // output file for data collection results
@@ -90,6 +125,20 @@ size_t sample_fd_count = 0;
 
 void parent_shutdown(int code) {
   shutdown(global->subject_pid, result_file, code);
+}
+
+int get_record_size(int record_type) {
+  switch (record_type) {
+    case PERF_RECORD_SAMPLE:
+      return sizeof(sample_record);
+    case PERF_RECORD_THROTTLE:
+    case PERF_RECORD_UNTHROTTLE:
+      return sizeof(throttle_record);
+    case PERF_RECORD_LOST:
+      return sizeof(lost_record);
+    default:
+      return -1;
+  }
 }
 
 /*
@@ -126,7 +175,7 @@ void delete_fd_from_epoll(int fd) {
 /*
  * Sets up all the perf events for the target process/thread
  * The current list of perf events is:
- *   all samples listed in SAMPLE_TYPE constant, on cpu cycles
+ *   all samples listed in record_type constant, on cpu cycles
  *   a count of instructions
  *   all events listed in COLLECTOR_EVENTS env var
  * The cpu cycles event is set as the group leader and initially disabled, with
@@ -143,9 +192,14 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   cpu_clock_attr.size = sizeof(perf_event_attr);
   cpu_clock_attr.type = PERF_TYPE_SOFTWARE;
   cpu_clock_attr.config = PERF_COUNT_SW_CPU_CLOCK;
-  cpu_clock_attr.sample_type = SAMPLE_TYPE;
+  cpu_clock_attr.sample_type =
+      SAMPLE_ID_ALL ? SAMPLE_TYPE_COMBINED : SAMPLE_TYPE;
   cpu_clock_attr.sample_period = global->period;
   cpu_clock_attr.wakeup_events = 1;
+  cpu_clock_attr.sample_id_all = SAMPLE_ID_ALL;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
+  cpu_clock_attr.sample_max_stack = SAMPLE_MAX_STACK;
+#endif
 
   perf_buffer cpu_clock_perf{};
   if (setup_monitoring(&cpu_clock_perf, &cpu_clock_attr, target) !=
@@ -325,8 +379,8 @@ dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
 /*
  * reset the period of sampling to handle throttle/unthrottle events
  */
-int adjust_period(int sample_type) {
-  if (sample_type == PERF_RECORD_THROTTLE) {
+int adjust_period(int record_type) {
+  if (record_type == PERF_RECORD_THROTTLE) {
     DEBUG("throttle event detected, increasing period");
     global->period = (global->period) * PERIOD_ADJUST_SCALE;
   } else {
@@ -353,51 +407,86 @@ int adjust_period(int sample_type) {
   return 0;
 }
 
-void process_throttle_record(void *perf_result, int sample_type,
-                             vector<pair<int, base_record>> *errors) {
-  if (adjust_period(sample_type) == -1) {
-    parent_shutdown(INTERNAL_ERROR);
+void copy_record_to_stack(base_record *record, base_record *local,
+                          int record_type, int record_size,
+                          uintptr_t data_start, uintptr_t data_end) {
+  DEBUG("cpd: copying record " << ptr_fmt(record) << " to stack "
+                               << ptr_fmt(local));
+  auto record_ptr = reinterpret_cast<uintptr_t>(record),
+       local_ptr = reinterpret_cast<uintptr_t>(local);
+  uintptr_t first_part_bytes, second_part_start;
+  if (record_ptr + record_size > data_end) {
+    DEBUG("cpd: record extends past end of page, copying in two parts");
+    first_part_bytes = data_end - record_ptr;
+    second_part_start = data_start;
+    DEBUG("cpd: copying " << first_part_bytes << " bytes first from "
+                          << ptr_fmt(record) << " to " << ptr_fmt(local));
+    memcpy(local, record, first_part_bytes);
+  } else {
+    first_part_bytes = 0;
+    second_part_start = record_ptr;
   }
-  errors->emplace_back(make_pair(
-      sample_type,
-      base_record{.tr = *reinterpret_cast<throttle_record *>(perf_result)}));
+  DEBUG("cpd: copying " << (record_size - first_part_bytes) << " bytes from "
+                        << ptr_fmt(second_part_start) << " to "
+                        << ptr_fmt(local_ptr + first_part_bytes));
+  memcpy(reinterpret_cast<void *>(local_ptr + first_part_bytes),
+         reinterpret_cast<void *>(second_part_start),
+         record_size - first_part_bytes);
+  // special cases
+  if (record_type == PERF_RECORD_SAMPLE) {
+    uint64_t inst_ptrs_src = second_part_start - first_part_bytes +
+                             record_size -
+                             (sizeof(uint64_t) * SAMPLE_MAX_STACK),
+             inst_ptrs_dst = local_ptr + record_size -
+                             (sizeof(uint64_t) * SAMPLE_MAX_STACK);
+    if (local->sample.num_instruction_pointers > SAMPLE_MAX_STACK) {
+      DEBUG(
+          "cpd: number of inst ptrs exceeds the max stack size, something went "
+          "wrong copying! (period might be too high)");
+      parent_shutdown(INTERNAL_ERROR);
+    }
+    DEBUG("cpd: copying " << local->sample.num_instruction_pointers
+                          << " inst ptrs from " << ptr_fmt(inst_ptrs_src)
+                          << " to " << ptr_fmt(inst_ptrs_dst));
+    memcpy(reinterpret_cast<void *>(inst_ptrs_dst),
+           reinterpret_cast<void *>(inst_ptrs_src),
+           sizeof(uint64_t) * local->sample.num_instruction_pointers);
+  }
 }
 
-void process_sample_record(void *perf_result, const perf_fd_info &info,
+void process_throttle_record(const throttle_record &throttle, int record_type,
+                             vector<pair<int, base_record>> *errors) {
+  if (adjust_period(record_type) == -1) {
+    parent_shutdown(INTERNAL_ERROR);
+  }
+  errors->emplace_back(
+      make_pair(record_type, base_record{.throttle = throttle}));
+}
+
+bool process_sample_record(const sample_record &sample,
+                           const perf_fd_info &info, bool is_first_timeslice,
                            bool is_first_sample, bg_reading *rapl_reading,
                            bg_reading *wattsup_reading,
                            const map<uint64_t, kernel_sym> &kernel_syms) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
-  DEBUG("cpd: processing sample record");
-  if (is_first_sample) {
-    // if period is too high, the data may be changed under our feet
-    sample_record ps{};
-    DEBUG("cpd: copying main perf_result struct from "
-          << ptr_fmt(perf_result) << " to " << ptr_fmt(&ps));
-    memcpy(&ps, perf_result, sizeof(sample_record));
-    DEBUG("cpd: copying " << ps.num_instruction_pointers
-                          << " inst ptrs array from "
-                          << ptr_fmt(static_cast<sample_record *>(perf_result)
-                                         ->instruction_pointers)
-                          << " to " << ptr_fmt(ps.instruction_pointers));
-    memcpy(ps.instruction_pointers,
-           static_cast<sample_record *>(perf_result)->instruction_pointers,
-           sizeof(uint64_t) * ps.num_instruction_pointers);
+  int64_t num_timer_ticks = 0;
+  DEBUG("cpd: reading from fd " << info.cpu_clock_fd);
+  read(info.cpu_clock_fd, &num_timer_ticks, sizeof(num_timer_ticks));
+  DEBUG("cpd: read in from fd " << info.cpu_clock_fd
+                                << " num of cycles: " << num_timer_ticks);
+  if (reset_monitoring(info.cpu_clock_fd) != SAMPLER_MONITOR_SUCCESS) {
+    DEBUG("Couldn't reset monitoring for fd: " << info.cpu_clock_fd);
+    parent_shutdown(INTERNAL_ERROR);
+  }
 
-    int64_t num_timer_ticks = 0;
-    DEBUG("cpd: reading from fd " << info.cpu_clock_fd);
-    read(info.cpu_clock_fd, &num_timer_ticks, sizeof(num_timer_ticks));
-    DEBUG("cpd: read in from fd " << info.cpu_clock_fd
-                                  << " num of cycles: " << num_timer_ticks);
-    if (reset_monitoring(info.cpu_clock_fd) != SAMPLER_MONITOR_SUCCESS) {
-      cerr << "Couldn't reset monitoring for fd: " << info.cpu_clock_fd;
-      parent_shutdown(INTERNAL_ERROR);
-    }
+  if (!is_first_timeslice && is_first_sample) {
+    fprintf(result_file, ",");
+  }
 
-    fprintf(result_file,
-            R"(
+  fprintf(result_file,
+          R"(
                       {
                         "cpuTime": %lu,
                         "numCPUTimerTicks": %ld,
@@ -405,206 +494,228 @@ void process_sample_record(void *perf_result, const perf_fd_info &info,
                         "tid": %u,
                         "events": {
                     )",
-            ps.time, num_timer_ticks, ps.pid, ps.tid);
+          sample.time, num_timer_ticks, sample.pid, sample.tid);
 
-    DEBUG("cpd: reading from each fd");
+  DEBUG("cpd: reading from each fd");
 
-    bool is_first_event = true;
-    for (const auto &event : global->events) {
-      // fprintf(result_file, "%s", event.c_str());
-      if (is_first_event) {
-        is_first_event = false;
-      } else {
+  bool is_first_event = true;
+  for (const auto &event : global->events) {
+    // fprintf(result_file, "%s", event.c_str());
+    if (is_first_event) {
+      is_first_event = false;
+    } else {
+      fprintf(result_file, ",");
+    }
+
+    int64_t count = 0;
+    DEBUG("cpd: reading from fd " << info.event_fds.at(event));
+    read(info.event_fds.at(event), &count, sizeof(int64_t));
+    DEBUG("cpd: read in from fd " << info.event_fds.at(event) << " count "
+                                  << count);
+    if (reset_monitoring(info.event_fds.at(event)) != SAMPLER_MONITOR_SUCCESS) {
+      parent_shutdown(INTERNAL_ERROR);
+    }
+
+    fprintf(result_file, R"("%s": %ld)", event.c_str(), count);
+  }
+
+  // rapl
+  if (rapl_reading->running) {
+    DEBUG("cpd: checking for RAPL energy results");
+    if (has_result(rapl_reading)) {
+      DEBUG("cpd: RAPL result found, writing out");
+      map<string, uint64_t> *nrg =
+          (static_cast<map<string, uint64_t> *>(get_result(rapl_reading)));
+      for (auto &p : *nrg) {
         fprintf(result_file, ",");
+        fprintf(result_file, R"("%s": %lu)", p.first.c_str(), p.second);
       }
-
-      int64_t count = 0;
-      DEBUG("cpd: reading from fd " << info.event_fds.at(event));
-      read(info.event_fds.at(event), &count, sizeof(int64_t));
-      DEBUG("cpd: read in from fd " << info.event_fds.at(event) << " count "
-                                    << count);
-      if (reset_monitoring(info.event_fds.at(event)) !=
-          SAMPLER_MONITOR_SUCCESS) {
-        parent_shutdown(INTERNAL_ERROR);
-      }
-
-      fprintf(result_file, R"("%s": %ld)", event.c_str(), count);
+      delete nrg;
+      DEBUG("cpd: restarting RAPL energy readings");
+      restart_reading(rapl_reading);
+    } else {
+      DEBUG("cpd: no RAPL result available");
     }
+  }
 
-    // rapl
-    if (rapl_reading->running) {
-      DEBUG("cpd: checking for RAPL energy results");
-      if (has_result(rapl_reading)) {
-        DEBUG("cpd: RAPL result found, writing out");
-        map<string, uint64_t> *nrg =
-            (static_cast<map<string, uint64_t> *>(get_result(rapl_reading)));
-        for (auto &p : *nrg) {
-          fprintf(result_file, ",");
-          fprintf(result_file, R"("%s": %lu)", p.first.c_str(), p.second);
-        }
-        delete nrg;
-        DEBUG("cpd: restarting RAPL energy readings");
-        restart_reading(rapl_reading);
-      } else {
-        DEBUG("cpd: no RAPL result available");
-      }
+  // wattsup
+  if (wattsup_reading->running) {
+    DEBUG("cpd: checking for wattsup energy results");
+    if (has_result(wattsup_reading)) {
+      DEBUG("cpd: wattsup result found, writing out");
+      double *ret = (static_cast<double *>(get_result(wattsup_reading)));
+      fprintf(result_file, ",");
+      fprintf(result_file, R"("wattsup": %1lf)", *ret);
+      delete ret;
+      DEBUG("cpd: restarting wattsup energy readings");
+      restart_reading(wattsup_reading);
+    } else {
+      DEBUG("cpd: no wattsup result available");
     }
+  }
 
-    // wattsup
-    if (wattsup_reading->running) {
-      DEBUG("cpd: checking for wattsup energy results");
-      if (has_result(wattsup_reading)) {
-        DEBUG("cpd: wattsup result found, writing out");
-        double *ret = (static_cast<double *>(get_result(wattsup_reading)));
-        fprintf(result_file, ",");
-        fprintf(result_file, R"("wattsup": %1lf)", *ret);
-        delete ret;
-        DEBUG("cpd: restarting wattsup energy readings");
-        restart_reading(wattsup_reading);
-      } else {
-        DEBUG("cpd: no wattsup result available");
-      }
-    }
-
-    fprintf(result_file, R"(
+  fprintf(result_file, R"(
                   },
                   "stackFrames": [
                     )");
 
-    bool is_first_stack = true;
-    uint64_t callchain_section = 0;
-    DEBUG("cpd: looking up " << ps.num_instruction_pointers << " inst ptrs");
-    for (uint64_t i = 0; i < ps.num_instruction_pointers; i++) {
-      uint64_t inst_ptr = ps.instruction_pointers[i];
-      if (is_callchain_marker(inst_ptr)) {
-        callchain_section = inst_ptr;
-        continue;
-      }
-      DEBUG("cpd: on instruction pointer "
-            << int_to_hex(inst_ptr) << " (" << (i + 1) << "/"
-            << ps.num_instruction_pointers << ")");
+  bool is_first_stack = true;
+  uint64_t callchain_section = 0;
+  DEBUG("cpd: looking up " << sample.num_instruction_pointers << " inst ptrs");
+  for (uint64_t i = 0; i < sample.num_instruction_pointers; i++) {
+    uint64_t inst_ptr = sample.instruction_pointers[i];
+    if (is_callchain_marker(inst_ptr)) {
+      callchain_section = inst_ptr;
+      continue;
+    }
+    DEBUG("cpd: on instruction pointer "
+          << int_to_hex(inst_ptr) << " (" << (i + 1) << "/"
+          << sample.num_instruction_pointers << ")");
 
-      if (is_first_stack) {
-        is_first_stack = false;
-      } else {
-        fprintf(result_file, ",");
-      }
+    if (is_first_stack) {
+      is_first_stack = false;
+    } else {
+      fprintf(result_file, ",");
+    }
 
-      fprintf(result_file,
-              R"(
+    fprintf(result_file,
+            R"(
                   { "address": "%p",
                     "section": "%s",)",
-              reinterpret_cast<void *>(inst_ptr),
-              callchain_str(callchain_section));
+            reinterpret_cast<void *>(inst_ptr),
+            callchain_str(callchain_section));
 
-      string sym_name_str;
-      const char *sym_name = nullptr, *file_name = nullptr,
-                 *function_name = nullptr;
-      char *demangled_name = nullptr;
-      void *file_base = nullptr, *sym_addr = nullptr;
-      DEBUG("cpd: looking up symbol for inst ptr "
-            << ptr_fmt((void *)inst_ptr));
-      if (callchain_section == CALLCHAIN_USER) {
-        DEBUG("cpd: looking up user stack frame");
-        Dl_info info;
-        // Lookup the name of the function given the function
-        // pointer
-        if (dladdr(reinterpret_cast<void *>(inst_ptr), &info) != 0) {
-          sym_name = info.dli_sname;
-          file_name = info.dli_fname;
-          file_base = info.dli_fbase;
-          sym_addr = info.dli_saddr;
-        } else {
-          DEBUG("cpd: could not look up user stack frame");
-        }
-      } else if (callchain_section == CALLCHAIN_KERNEL) {
-        DEBUG("cpd: looking up kernel stack frame");
-        uint64_t addr = lookup_kernel_addr(kernel_syms, inst_ptr);
-        if (addr != -1) {
-          auto ks = kernel_syms.at(addr);
-          sym_name_str = ks.sym;
-          sym_name = sym_name_str.c_str();
-          file_name = "(kernel)";
-          file_base = nullptr;
-          sym_addr = reinterpret_cast<void *>(addr);
+    string sym_name_str;
+    const char *sym_name = nullptr, *file_name = nullptr,
+               *function_name = nullptr;
+    char *demangled_name = nullptr;
+    void *file_base = nullptr, *sym_addr = nullptr;
+    DEBUG("cpd: looking up symbol for inst ptr " << ptr_fmt((void *)inst_ptr));
+    if (callchain_section == CALLCHAIN_USER) {
+      DEBUG("cpd: looking up user stack frame");
+      Dl_info info;
+      // Lookup the name of the function given the function
+      // pointer
+      if (dladdr(reinterpret_cast<void *>(inst_ptr), &info) != 0) {
+        sym_name = info.dli_sname;
+        file_name = info.dli_fname;
+        file_base = info.dli_fbase;
+        sym_addr = info.dli_saddr;
+      } else {
+        DEBUG("cpd: could not look up user stack frame");
+      }
+    } else if (callchain_section == CALLCHAIN_KERNEL) {
+      DEBUG("cpd: looking up kernel stack frame");
+      uint64_t addr = lookup_kernel_addr(kernel_syms, inst_ptr);
+      if (addr != -1) {
+        auto ks = kernel_syms.at(addr);
+        sym_name_str = ks.sym;
+        sym_name = sym_name_str.c_str();
+        file_name = "(kernel)";
+        file_base = nullptr;
+        sym_addr = reinterpret_cast<void *>(addr);
+      }
+    }
+    // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
+    if (sym_name != nullptr) {
+      int demangle_status;
+      demangled_name =
+          abi::__cxa_demangle(sym_name, nullptr, nullptr, &demangle_status);
+      if (demangle_status == 0) {
+        function_name = demangled_name;
+      } else {
+        function_name = sym_name;
+
+        if (demangle_status == -1) {
+          DEBUG(
+              "cpd: demangling errored due to memory allocation "
+              "failure");
+          parent_shutdown(INTERNAL_ERROR);
+        } else if (demangle_status == -2) {
+          DEBUG("cpd: could not demangle name " << sym_name);
+        } else if (demangle_status == -3) {
+          DEBUG("cpd: demangling errored due to invalid arguments");
+          parent_shutdown(INTERNAL_ERROR);
         }
       }
-      // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
-      if (sym_name != nullptr) {
-        int demangle_status;
-        demangled_name =
-            abi::__cxa_demangle(sym_name, nullptr, nullptr, &demangle_status);
-        if (demangle_status == 0) {
-          function_name = demangled_name;
-        } else {
-          function_name = sym_name;
+    }
 
-          if (demangle_status == -1) {
-            DEBUG(
-                "cpd: demangling errored due to memory allocation "
-                "failure");
-            parent_shutdown(INTERNAL_ERROR);
-          } else if (demangle_status == -2) {
-            DEBUG("cpd: could not demangle name " << sym_name);
-          } else if (demangle_status == -3) {
-            DEBUG("cpd: demangling errored due to invalid arguments");
-            parent_shutdown(INTERNAL_ERROR);
-          }
-        }
-      }
-
-      fprintf(result_file,
-              R"(
+    fprintf(result_file,
+            R"(
                         "symName": "%s",
                         "fileName": "%s",
                         "fileBase": "%p",
                         "symAddr": "%p",
                         "mangledName": "%s"
                       )",
-              function_name, file_name, file_base, sym_addr, sym_name);
-      free(demangled_name);  // NOLINT
+            function_name, file_name, file_base, sym_addr, sym_name);
+    free(demangled_name);  // NOLINT
 
-      // Need to subtract one. PC is the return address, but we're
-      // looking for the callsite.
-      dwarf::taddr pc = inst_ptr - 1;
+    // Need to subtract one. PC is the return address, but we're
+    // looking for the callsite.
+    dwarf::taddr pc = inst_ptr - 1;
 
-      // Find the CU containing pc
-      // XXX Use .debug_aranges
-      auto line = -1, column = -1;
-      char *fullLocation = nullptr;
+    // Find the CU containing pc
+    // XXX Use .debug_aranges
+    auto line = -1, column = -1;
+    char *fullLocation = nullptr;
 
-      static dwarf::dwarf dw = read_dwarf();
+    static dwarf::dwarf dw = read_dwarf();
 
-      for (auto &cu : dw.compilation_units()) {
-        if (die_pc_range(cu.root()).contains(pc)) {
-          // Map PC to a line
-          auto &lt = cu.get_line_table();
-          auto it = lt.find_address(pc);
-          if (it != lt.end()) {
-            line = it->line;
-            column = it->column;
-            fullLocation = const_cast<char *>(it->file->path.c_str());
-          }
-          break;
+    for (auto &cu : dw.compilation_units()) {
+      if (die_pc_range(cu.root()).contains(pc)) {
+        // Map PC to a line
+        auto &lt = cu.get_line_table();
+        auto it = lt.find_address(pc);
+        if (it != lt.end()) {
+          line = it->line;
+          column = it->column;
+          fullLocation = const_cast<char *>(it->file->path.c_str());
         }
+        break;
       }
-      fprintf(result_file,
-              R"(,
+    }
+    fprintf(result_file,
+            R"(,
                     "line": %d,
                     "col": %d,
                     "fullLocation": "%s" })",
-              line, column, fullLocation);
-    }
-    fprintf(result_file, R"(
+            line, column, fullLocation);
+  }
+  fprintf(result_file, R"(
                   ]
                   }
                   )");
-  } else {
-    DEBUG("cpd: not first sample, skipping");
-  }
+  return false;
 }
 
-void print_errors(vector<pair<int, base_record>> errors) {
+void process_lost_record(const lost_record &lost,
+                         vector<pair<int, base_record>> *errors) {
+  errors->emplace_back(make_pair(PERF_RECORD_LOST, base_record{.lost = lost}));
+}
+
+/*
+ * Writes the information from the sample_id struct to the result file.
+ * Error entries may end up having duplicate key-values, particularly time and
+ * stream_id, since the sample_id struct simply tries to provide the same
+ * information across all supported record types.
+ */
+void write_sample_id(const record_sample_id &sample_id) {
+  fprintf(result_file, R"(,
+       "pid": %u,
+       "tid": %u,
+       "time": %lu,
+       "stream_id": %lu,
+       "id": %lu)",
+          sample_id.pid, sample_id.tid, sample_id.time, sample_id.stream_id,
+          sample_id.id);
+}
+
+void write_errors(vector<pair<int, base_record>> errors) {
+  fprintf(result_file, R"(
+    ],
+    "error": [
+                )");
   bool is_first_element = true;
   for (auto &p : errors) {
     if (is_first_element) {
@@ -615,29 +726,68 @@ void print_errors(vector<pair<int, base_record>> errors) {
     )");
     }
     if (p.first == PERF_RECORD_THROTTLE) {
-      auto perf_record = p.second.tr;
-      uint64_t time = perf_record.time;
-      uint64_t id = perf_record.id;
+      auto throttle = p.second.throttle;
+      uint64_t time = throttle.time;
+      uint64_t id = throttle.id;
+      uint64_t stream_id = throttle.stream_id;
       fprintf(result_file, R"(
       {
        "type": "PERF_RECORD_THROTTLE",
-       "time": %lu, 
-       "id": %lu
+       "time": %lu)",
+              time);
+      if (SAMPLE_ID_ALL) {
+        write_sample_id(throttle.sample_id);
+      } else {
+        fprintf(result_file, R"(, 
+       "id": %lu,
+       "stream_id": %lu)",
+                id, stream_id);
       }
-    )",
-              time, id);
+      fprintf(result_file, R"(
+      }
+        )");
     } else if (p.first == PERF_RECORD_UNTHROTTLE) {
-      auto perf_record = p.second.tr;
-      uint64_t time = perf_record.time;
-      uint64_t id = perf_record.id;
+      auto throttle = p.second.throttle;
+      uint64_t time = throttle.time;
+      uint64_t id = throttle.id;
+      uint64_t stream_id = throttle.stream_id;
       fprintf(result_file, R"(
       {
        "type": "PERF_RECORD_UNTHROTTLE",
-       "time": %lu,
-       "id": %lu
+       "time": %lu)",
+              time);
+      if (SAMPLE_ID_ALL) {
+        write_sample_id(throttle.sample_id);
+      } else {
+        fprintf(result_file, R"(, 
+       "id": %lu,
+       "stream_id": %lu)",
+                id, stream_id);
       }
-    )",
-              time, id);
+      fprintf(result_file, R"(
+      }
+        )");
+    } else if (p.first == PERF_RECORD_LOST) {
+      auto lost = p.second.lost;
+      uint64_t id = lost.id;
+      uint64_t num_lost = lost.lost;
+      fprintf(result_file, R"(
+      {
+       "type": "PERF_RECORD_LOST",)");
+      if (!SAMPLE_ID_ALL) {
+        fprintf(result_file, R"(
+       "id": %lu,)",
+                id);
+      }
+      fprintf(result_file, R"(
+       "lost": %lu)",
+              num_lost);
+      if (SAMPLE_ID_ALL) {
+        write_sample_id(lost.sample_id);
+      }
+      fprintf(result_file, R"(
+      }
+        )");
     } else {
       DEBUG("couldn't determine type of error for " << p.first << "!");
       fprintf(result_file, R"|(
@@ -647,10 +797,15 @@ void print_errors(vector<pair<int, base_record>> errors) {
     )|");
     }
   }
+
+  fprintf(result_file, R"(       
+    ]
+  }
+)");
 }
 
-void setup_collect_perf_data(int sigt_fd, int socket, int wu_fd, FILE *res_file,
-                             bg_reading *rapl_reading,
+void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
+                             FILE *res_file, bg_reading *rapl_reading,
                              bg_reading *wattsup_reading) {
   result_file = res_file;
 
@@ -700,13 +855,15 @@ void setup_collect_perf_data(int sigt_fd, int socket, int wu_fd, FILE *res_file,
   if (wu_fd != -1) {
     setup_reading(wattsup_reading,
                   [](void *raw_args) -> void * {
-                    int wu_fd = (static_cast<int *>(raw_args))[0];
+                    int wu_fd_fn = (static_cast<int *>(raw_args))[0];
+                    DEBUG("wu fd inside function is " << wu_fd_fn);
                     auto d = new double;
-                    *d = wu_read(wu_fd);
+                    *d = wu_read(wu_fd_fn);
                     return d;
                   },
-                  &wu_fd);
+                  const_cast<int *>(&wu_fd));
     DEBUG("cpd: wattsup reading in tid " << wattsup_reading->thread);
+    DEBUG("wattsup fd is " << wu_fd);
   } else {
     DEBUG("cpd: wattsup couldn't open device, skipping setup");
   }
@@ -781,34 +938,71 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
             sample_period_skips = 0;
 
             bool is_first_sample = true;
-            for (int i = 0;
+            uintptr_t data_start =
+                          reinterpret_cast<uintptr_t>(info.sample_buf.data),
+                      data_end = data_start + info.sample_buf.info->data_size;
+            DEBUG("cpd: mmapped region starts at " << ptr_fmt(data_start)
+                                                   << " and ends at "
+                                                   << ptr_fmt(data_end));
+            int i;
+            for (i = 0;
                  has_next_record(&info.sample_buf) && i < MAX_RECORD_READS;
                  i++) {
               DEBUG("cpd: getting next record");
-              int sample_type, sample_size;
-              void *perf_result =
-                  get_next_record(&info.sample_buf, &sample_type, &sample_size);
-              DEBUG("cpd: record type is " << record_type_str(sample_type));
+              int record_type, record_size;
+              base_record *perf_result = reinterpret_cast<base_record *>(
+                              get_next_record(&info.sample_buf, &record_type,
+                                              &record_size)),
+                          local_result{};
 
-              if (sample_type == PERF_RECORD_THROTTLE ||
-                  sample_type == PERF_RECORD_UNTHROTTLE) {
-                process_throttle_record(perf_result, sample_type, &errors);
-              } else if (sample_type == PERF_RECORD_SAMPLE) {
-                if (!is_first_timeslice && is_first_sample) {
-                  fprintf(result_file, ",");
-                }
-                process_sample_record(perf_result, info, is_first_sample,
-                                      rapl_reading, wattsup_reading,
-                                      kernel_syms);
-                is_first_sample = false;
-              } else {
-                DEBUG("cpd: sample type was not recognized ("
-                      << record_type_str(sample_type) << " " << sample_type
+              // record_size is not entirely accurate, since our version of the
+              // structs generally have different contents
+              record_size = get_record_size(record_type);
+              if (record_size == -1) {
+                DEBUG("cpd: record type is not supported ("
+                      << record_type_str(record_type) << " " << record_type
                       << ")");
+              } else {
+                DEBUG("cpd: record type is " << record_type << " "
+                                             << record_type_str(record_type)
+                                             << " with size " << record_size);
+
+                if (record_type == PERF_RECORD_THROTTLE ||
+                    record_type == PERF_RECORD_UNTHROTTLE) {
+                  copy_record_to_stack(perf_result, &local_result, record_type,
+                                       record_size, data_start, data_end);
+                  process_throttle_record(local_result.throttle, record_type,
+                                          &errors);
+                } else if (record_type == PERF_RECORD_SAMPLE) {
+                  if (is_first_sample) {
+                    copy_record_to_stack(perf_result, &local_result,
+                                         record_type, record_size, data_start,
+                                         data_end);
+                    // is reset to true if the timeslice was skipped, else false
+                    is_first_sample = process_sample_record(
+                        local_result.sample, info, is_first_timeslice,
+                        is_first_sample, rapl_reading, wattsup_reading,
+                        kernel_syms);
+                  } else {
+                    DEBUG("cpd: not first sample, skipping");
+                  }
+                } else if (record_type == PERF_RECORD_LOST) {
+                  copy_record_to_stack(perf_result, &local_result, record_type,
+                                       record_size, data_start, data_end);
+                  process_lost_record(local_result.lost, &errors);
+                } else {
+                  DEBUG("cpd: record type was not recognized ("
+                        << record_type_str(record_type) << " " << record_type
+                        << ")");
+                }
               }
             }
-            DEBUG("cpd: limit reached, clearing remaining samples");
-            clear_records(&info.sample_buf);
+            if (i == MAX_RECORD_READS) {
+              DEBUG("cpd: limit reached, clearing remaining samples");
+              clear_records(&info.sample_buf);
+            } else {
+              DEBUG("cpd: read through all records");
+            }
 
             if (is_first_timeslice) {
               is_first_timeslice = false;
@@ -825,18 +1019,8 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
   DEBUG("cpd: stopping wattsup reading thread");
   stop_reading(wattsup_reading);
 
-  fprintf(result_file,
-          R"(
-              ],
-              "error": [
-                          )");
-
-  print_errors(errors);
-  fprintf(result_file,
-          R"(       
-              ]
-            }
-          )");
+  DEBUG("cpd: writing errors");
+  write_errors(errors);
 
   return 0;
 }

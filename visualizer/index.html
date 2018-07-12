@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="./css/brushes.css" />
   <link rel="stylesheet" href="./css/source-select.css" />
   <link rel="stylesheet" href="./css/progress-bar.css" />
+  <link rel="stylesheet" href="./css/errors.css" />
 </head>
 
 <body>
@@ -24,7 +25,28 @@
   <aside id="side-bar">
     <header id="side-bar-header">
       <button id="clear-brushes-button">Clear Selections</button>
+      <!-- <div class="col-sm-3">
+        <div class="accordion" id="layersAccordion">
+          <div class="card">
+            <div class="card-header">
+              Layers
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header" id="headingErrors">
+              <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseErrors" aria-expanded="true" aria-controls="collapseErrors">
+                Errors
+              </button>
+            </div>
+            <div id="collapseErrors" class="collapse" aria-labelledby="headingErrors" data-parent="#layersAccordion">
+              <div class="list-group"></div>
+            </div>
+          </div>
+        </div>
+      </div> -->
+
       <div id="source-select"></div>
+      <div id="errors"></div>
     </header>
     <div id="function-runtimes-wrapper">
       <table id="function-runtimes"></table>

@@ -1,6 +1,7 @@
 #include "perf_sampler.hpp"
 #include "debug.hpp"
 #include "perf_reader.hpp"
+#include "util.hpp"
 
 int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
   DEBUG("setting up monitoring for pid " << pid);
@@ -25,6 +26,10 @@ int setup_buffer(perf_fd_info *info) {
   }
   info->sample_buf.info = static_cast<perf_event_mmap_page *>(buffer);
   info->sample_buf.data = static_cast<char *>(buffer) + PAGE_SIZE;
+  DEBUG("set up buffer between "
+        << ptr_fmt(buffer) << " and "
+        << ptr_fmt((uintptr_t)buffer + info->sample_buf.info->data_size +
+                   info->sample_buf.info->data_offset));
 
   return SAMPLER_MONITOR_SUCCESS;
 }
