@@ -2,6 +2,10 @@ const d3 = require("d3");
 
 const { Store } = require("./store");
 
+// the author of this library seem to quite get how module.exports works
+require("bootstrap-colorpicker");
+const Colorpicker = require("jquery").colorpicker;
+
 const highlightedErrorsSubscription = d3.local();
 const highlightedErrorsStore = new Store([]);
 
@@ -40,7 +44,7 @@ function render(root, { errors }) {
   const dropdownItemsEnterSelection = dropdownItemsSelection
     .enter()
     .append("label")
-    .attr("class", "errors__dropdown-item");
+    .attr("class", "errors__dropdown-item input-group colorpicker-component");
 
   dropdownItemsEnterSelection
     .append("input")
@@ -51,6 +55,28 @@ function render(root, { errors }) {
     .append("span")
     .attr("class", "errors__type")
     .text(error => error);
+
+  // color picker input
+  dropdownItemsEnterSelection
+    .append("input")
+    .attr("class", "errors__color-picker")
+    .attr("type", "hidden");
+
+  // color picker image/popover
+  dropdownItemsEnterSelection
+    .append("span")
+    .attr("class", "input-group-addon")
+    .append("i");
+
+  dropdownItemsEnterSelection.each((d, i, g) => {
+    if (i > 0) {
+      // skip the "All Error Types" item
+      new Colorpicker(g[i], {
+        color: "red",
+        input: ".errors__color-picker"
+      });
+    }
+  });
 
   //set up store subscription to update the error list so that other parts can be notified and update as well
 
@@ -149,4 +175,8 @@ function renderLines(root, { xScale, yScale, errorRecords, cpuTimeOffset }) {
   );
 }
 
-module.exports = { render, highlightedErrorsStore, renderLines };
+module.exports = {
+  render,
+  highlightedErrorsStore,
+  renderLines
+};
