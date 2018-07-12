@@ -213,8 +213,6 @@ function collect({
 
       let resultsProcessed = false;
       try {
-        const LARGE_FILE_SIZE = 0x10000000; // 256 MB
-
         await new Promise((resolve, reject) => {
           const tokenStream = fs
             .createReadStream(rawResultFile)
@@ -229,6 +227,7 @@ function collect({
             .pipe(streamJSONParser())
             .on("error", reject);
 
+          const LARGE_FILE_SIZE = 0x10000000; // 256 MB
           if (resultFileSize > LARGE_FILE_SIZE) {
             // If it is a large file, don't stringify it all at once.
             tokenStream
@@ -238,6 +237,7 @@ function collect({
               .on("finish", resolve)
               .on("error", reject);
           } else {
+            // If it isn't huge, we can afford to load it into memory and stringify it
             StreamJSONAssembler.connectTo(tokenStream)
               .on("done", ({ current }) => {
                 fs.writeFile(
