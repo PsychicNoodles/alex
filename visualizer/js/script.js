@@ -177,15 +177,26 @@ ipcRenderer.on("result", async (event, resultFile) => {
       sources: [...sourcesSet]
     });
 
+    let averageProcessingTime = 0;
+    let numProcessingTimeSamples = 0;
+
     stream
       .fromStreamables([
         sourceSelect.hiddenSourcesStore.stream,
         brushes.selectionStore.stream
       ])
-      .pipe(stream.debounce(100))
       .pipe(
-        stream.map(([hiddenSources, { selections }]) =>
-          analyze(
+        stream.debounce(
+          () =>
+            // If it takes longer a few frames to process, then
+            // debounce until mouseup.
+            averageProcessingTime < 40 ? stream.empty : stream.fromTimeout(100)
+        )
+      )
+      .pipe(
+        stream.map(([hiddenSources, { selections }]) => {
+          const startTime = performance.now();
+          const result = analyze(
             processedData
               .map(timeslice => {
                 const x = xScale(getIndependentVariable(timeslice));
@@ -202,8 +213,20 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 };
               })
               .filter(timeslice => timeslice.stackFrames.length)
-          )
-        )
+          );
+
+          // Compute a cumulative moving average for processing time so we can
+          // debounce processing if it is slow
+          // https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
+          const timeTaken = performance.now() - startTime;
+          averageProcessingTime =
+            (timeTaken + numProcessingTimeSamples * averageProcessingTime) /
+            (numProcessingTimeSamples + 1);
+          numProcessingTimeSamples++;
+          console.log(averageProcessingTime);
+
+          return result;
+        })
       )
       .pipe(
         stream.subscribe(({ functionList }) => {
