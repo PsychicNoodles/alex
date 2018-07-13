@@ -13,10 +13,6 @@ const ERROR_DESCRIPTIONS = {
     "Some events were lost, possibly due to the period being too low"
 };
 
-const ERROR_VALUES = {
-  PERF_RECORD_LOST: "lost"
-};
-
 function render(root, { errors, cpuTimeOffset }) {
   root.classed("error-list", true);
 
@@ -65,7 +61,16 @@ function render(root, { errors, cpuTimeOffset }) {
   tableDataSelectionEnter
     .append("td")
     .attr("class", "error-list__data-row-value")
-    .text(e => ERROR_VALUES[e.type] || "");
+    .text(e => {
+      if (
+        e.type === "PERF_RECORD_THROTTLE" ||
+        e.type === "PERF_RECORD_UNTHROTTLE"
+      ) {
+        return `period changed to ${e.period}`;
+      } else if (e.type === "PERF_RECORD_LOST") {
+        return `lost ${e.lost} events`;
+      }
+    });
 
   timestampDivisorStore.subscribeUnique(
     root,
