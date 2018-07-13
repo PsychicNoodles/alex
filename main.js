@@ -133,7 +133,9 @@ function getPresets() {
       })
       .on("end", () => {
         try {
-          resolve(JSON.parse(output));
+          resolve(
+            JSON.parse(output).sort((a, b) => a.name.localeCompare(b.name))
+          );
         } catch (err) {
           reject(err);
         }
