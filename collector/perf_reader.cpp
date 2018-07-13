@@ -49,28 +49,6 @@ using std::map;
 using std::string;
 using std::vector;
 
-/**
- * Read a link's contents and return it as a string
- */
-static string readlink_str(const char *path) {
-  size_t exe_size = 1024;
-  ssize_t exe_used;
-
-  while (true) {
-    char exe_path[exe_size];
-
-    exe_used = readlink(path, exe_path, exe_size - 1);
-    // REQUIRE(exe_used > 0) << "Unable to read link " << path;
-
-    if (exe_used < exe_size - 1) {
-      exe_path[exe_used] = '\0';
-      return string(exe_path);
-    }
-
-    exe_size += 1024;
-  }
-}
-
 // contents of buffer filled when PERF_RECORD_SAMPLE type is enabled plus
 // certain sample types
 /// the following record structs all have the perf_event_header shaved off,
@@ -147,6 +125,28 @@ map<int, perf_fd_info> perf_info_mappings;
 int sample_epfd = epoll_create1(0);
 // a count of the number of fds added to the epoll
 size_t sample_fd_count = 0;
+
+/**
+ * Read a link's contents and return it as a string
+ */
+static string readlink_str(const char *path) {
+  size_t exe_size = 1024;
+  ssize_t exe_used;
+
+  while (true) {
+    char exe_path[exe_size];
+
+    exe_used = readlink(path, exe_path, exe_size - 1);
+    // REQUIRE(exe_used > 0) << "Unable to read link " << path;
+
+    if (exe_used < exe_size - 1) {
+      exe_path[exe_used] = '\0';
+      return string(exe_path);
+    }
+
+    exe_size += 1024;
+  }
+}
 
 void parent_shutdown(int code) {
   shutdown(global->subject_pid, result_file, code);
@@ -492,8 +492,7 @@ bool process_sample_record(const sample_record &sample,
                            const perf_fd_info &info, bool is_first_timeslice,
                            bool is_first_sample, bg_reading *rapl_reading,
                            bg_reading *wattsup_reading,
-                           const map<uint64_t, kernel_sym> &kernel_syms,
-                           unordered_map<string, uintptr_t> full_binaries) {
+                           const map<uint64_t, kernel_sym> &kernel_syms) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
@@ -643,25 +642,6 @@ bool process_sample_record(const sample_record &sample,
       }
     }
 
-    vector<string> binary_scope_v = {"MAIN"};
-    unordered_set<string> binary_scope(binary_scope_v.begin(),
-                                       binary_scope_v.end());
-
-    vector<string> source_scope_v = {"%%"};
-    unordered_set<string> source_scope(source_scope_v.begin(),
-                                       source_scope_v.end());
-
-    // Replace 'MAIN' in the binary_scope with the real path of the main
-    // executable
-    if (binary_scope.find("MAIN") != binary_scope.end()) {
-      binary_scope.erase("MAIN");
-      string main_name = readlink_str("/proc/self/exe");
-      binary_scope.insert(main_name);
-      DEBUG("Including MAIN, which is " << main_name);
-    }
-
-    memory_map::get_instance().build(binary_scope, source_scope, full_binaries,
-                                     inst_ptr);
     // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
     if (sym_name != nullptr) {
       int demangle_status;
@@ -696,21 +676,32 @@ bool process_sample_record(const sample_record &sample,
                       )",
             function_name, file_name, file_base, sym_addr, sym_name);
     free(demangled_name);  // NOLINT
+    char *fullLocation = nullptr;
 
     // Need to subtract one. PC is the return address, but we're
     // looking for the callsite.
     dwarf::taddr pc = inst_ptr - 1;
-    dump_table_and_symbol((char *)"/proc/self/exe", inst_ptr - 1);
-    line *l = memory_map::get_instance().find_line(pc).get();
+    auto ranges = memory_map::get_instance().ranges();
+    auto it = ranges.begin();
+    for (; it != ranges.end(); it++) {
+      // DEBUG("line before loop is " << it->second);
+      if (it->first.contains(pc)) {
+        DEBUG("line is " << it->second);
+        break;
+      }
+    }
+    if (it == ranges.end()) {
+      DEBUG("cannot find line\n");
+    }
 
-    // Find the CU containing pc
-    // XXX Use .debug_aranges
     auto line = -1, column = -1;
-    char *fullLocation = nullptr;
 
     static dwarf::dwarf dw = read_dwarf();
 
     for (auto &cu : dw.compilation_units()) {
+      // printf("--- <%" PRIx64 ">\n", cu.get_section_offset());
+      DEBUG("section offset is " << cu.get_section_offset());
+      dump_tree(cu.root());
       if (die_pc_range(cu.root()).contains(pc)) {
         // Map PC to a line
         auto &lt = cu.get_line_table();
@@ -941,13 +932,32 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
 int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                       int socket, bg_reading *rapl_reading,
                       bg_reading *wattsup_reading) {
-  unordered_map<string, uintptr_t> full_binaries = get_loaded_files();
+  // unordered_map<string, uintptr_t> full_binaries = get_loaded_files();
   bool is_first_timeslice = true;
   bool done = false;
   int sample_period_skips = 0;
   vector<pair<int, base_record>> errors;
 
   size_t last_ts = time_ms(), finish_ts = last_ts, curr_ts = 0;
+
+  vector<string> binary_scope_v = {"MAIN"};
+  unordered_set<string> binary_scope(binary_scope_v.begin(),
+                                     binary_scope_v.end());
+
+  vector<string> source_scope_v = {"%%"};
+  unordered_set<string> source_scope(source_scope_v.begin(),
+                                     source_scope_v.end());
+
+  // Replace 'MAIN' in the binary_scope with the real path of the main
+  // executable
+  if (binary_scope.find("MAIN") != binary_scope.end()) {
+    binary_scope.erase("MAIN");
+    string main_name = readlink_str("/proc/self/exe");
+    binary_scope.insert(main_name);
+    DEBUG("Including MAIN, which is " << main_name);
+  }
+
+  memory_map::get_instance().build(binary_scope, source_scope);
 
   restart_reading(rapl_reading);
   restart_reading(wattsup_reading);
@@ -1048,7 +1058,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                     is_first_sample = process_sample_record(
                         local_result.sample, info, is_first_timeslice,
                         is_first_sample, rapl_reading, wattsup_reading,
-                        kernel_syms, full_binaries);
+                        kernel_syms);
                   } else {
                     DEBUG("cpd: not first sample, skipping");
                   }

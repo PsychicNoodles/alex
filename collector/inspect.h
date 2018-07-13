@@ -20,6 +20,9 @@
 #include <unordered_set>
 #include <utility>
 
+#include <libelfin/dwarf/dwarf++.hh>
+#include <libelfin/elf/elf++.hh>
+
 using namespace std;
 
 namespace dwarf {
@@ -147,9 +150,7 @@ class memory_map {
   /// match the provided scope patterns, adding only source files matching the
   /// source scope patterns.
   void build(const std::unordered_set<std::string>& binary_scope,
-             const std::unordered_set<std::string>& source_scope,
-             unordered_map<string, uintptr_t> full_binaries,
-             uintptr_t inst_ptr);
+             const std::unordered_set<std::string>& source_scope);
 
   std::shared_ptr<line> find_line(const std::string& name);
   std::shared_ptr<line> find_line(uintptr_t addr);
@@ -216,5 +217,7 @@ static std::ostream& operator<<(std::ostream& os, const line* l) {
 }
 
 extern unordered_map<string, uintptr_t> get_loaded_files();
+extern dwarf::value find_attribute(const dwarf::die& d, dwarf::DW_AT attr);
+extern elf::elf locate_debug_executable(const string filename);
 
 #endif

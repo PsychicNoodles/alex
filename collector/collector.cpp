@@ -16,6 +16,7 @@
 #include "const.hpp"
 #include "debug.hpp"
 #include "find_events.hpp"
+#include "inspect.h"
 #include "perf_reader.hpp"
 #include "shared.hpp"
 #include "util.hpp"

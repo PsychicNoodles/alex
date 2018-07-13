@@ -8,6 +8,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
+#include <unordered_map>
+
+using namespace std;
 
 #include "const.hpp"
 #include "debug.hpp"
@@ -140,54 +144,68 @@ void dump_line_table(const dwarf::line_table &lt) {
   }
 }
 
-int dump_table_and_symbol(char *path, uint64_t inst_ptr) {
-  // std::cout << "inst prt is " << inst_ptr;
-  int fd = open(path, O_RDONLY);
-  if (fd < 0) {
-    perror(path);
-    return DEBUG_SYMBOLS_FILE_ERROR;
+void dump_tree(const dwarf::die &node, int depth) {
+  if (to_string(node.tag).compare("DW_TAG_subprogram") == 0) {
+    printf("%*.s<%" PRIx64 "> %s\n", depth, "", node.get_section_offset(),
+           to_string(node.tag).c_str());
+    for (auto &attr : node.attributes())
+      printf("%*.s      %s %s\n", depth, "", to_string(attr.first).c_str(),
+             to_string(attr.second).c_str());
   }
+  for (auto &child : node) dump_tree(child, depth + 1);
+}
 
-  elf::elf ef(elf::create_mmap_loader(fd));
-  dwarf::dwarf dw(dwarf::elf::create_loader(ef));
-
-  // printf("loading symbols");
-  for (auto &sec : ef.sections()) {
-    if (sec.get_hdr().type != elf::sht::symtab &&
-        sec.get_hdr().type != elf::sht::dynsym) {
-      continue;
+int dump_table_and_symbol(unordered_map<string, uintptr_t> result,
+                          uint64_t inst_ptr) {
+  // std::cout << "inst prt is " << inst_ptr;
+  uint64_t diff = -1;
+  struct elf::Sym<> real_data;
+  int i = 0;
+  char *name;
+  for (auto &f : result) {
+    char *path = (char *)f.first.c_str();
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) {
+      perror(path);
+      return DEBUG_SYMBOLS_FILE_ERROR;
     }
 
-    // printf("Symbol table '%s':\n", sec.get_name().c_str());
-    // printf("%6s: %-16s %-5s %-7s %-7s %-5s %s\n", "Num", "Value", "Size",
-    //        "Type", "Binding", "Index", "Name");
-    int i = 0;
-    uint64_t diff = -1;
-    struct elf::Sym<> real_data;
-    char *name;
-    for (auto sym : sec.as_symtab()) {
-      auto &d = sym.get_data();
-      uint64_t new_diff = inst_ptr - d.value;
-      if (diff == -1) {
-        real_data = d;
-        diff = new_diff;
-        name = (char *)sym.get_name().c_str();
-        i++;
-      } else if (new_diff > 0 && new_diff < diff) {
-        real_data = d;
-        diff = new_diff;
-        name = (char *)sym.get_name().c_str();
-        i++;
+    elf::elf ef(elf::create_mmap_loader(fd));
+    dwarf::dwarf dw(dwarf::elf::create_loader(ef));
+
+    // printf("loading symbols");
+    for (auto &sec : ef.sections()) {
+      if (sec.get_hdr().type != elf::sht::symtab &&
+          sec.get_hdr().type != elf::sht::dynsym) {
+        continue;
+      }
+
+      // printf("Symbol table '%s':\n", sec.get_name().c_str());
+      // printf("%6s: %-16s %-5s %-7s %-7s %-5s %s\n", "Num", "Value", "Size",
+      //        "Type", "Binding", "Index", "Name");
+      for (auto sym : sec.as_symtab()) {
+        auto &d = sym.get_data();
+        uint64_t new_diff = inst_ptr - d.value;
+        if (diff == -1) {
+          real_data = d;
+          diff = new_diff;
+          name = (char *)sym.get_name().c_str();
+          i++;
+        } else if (new_diff > 0 && new_diff < diff) {
+          real_data = d;
+          diff = new_diff;
+          name = (char *)sym.get_name().c_str();
+          i++;
+        }
       }
     }
-
-    printf("%6d: %016" PRIx64 " %5" PRId64 " %-7s %-7s %5s %s\n", i++,
-           real_data.value, real_data.size, to_string(real_data.type()).c_str(),
-           to_string(real_data.binding()).c_str(),
-           to_string(real_data.shnxd).c_str(), name);
-    // printf("d value is %lu\n", real_data.value);
-    //}
   }
+  printf("%6d: %016" PRIx64 " %5" PRId64 " %-7s %-7s %5s %s\n", i++,
+         real_data.value, real_data.size, to_string(real_data.type()).c_str(),
+         to_string(real_data.binding()).c_str(),
+         to_string(real_data.shnxd).c_str(), name);
+  // printf("d value is %lu\n", real_data.value);
+  //}
 
   return 0;
 }

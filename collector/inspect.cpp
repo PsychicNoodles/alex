@@ -141,7 +141,7 @@ static const string get_full_path(const string filename) {
  * This will work for files specified by relative path, absolute path, or raw
  * name resolved via the PATH variable.
  */
-static elf::elf locate_debug_executable(const string filename) {
+elf::elf locate_debug_executable(const string filename) {
   elf::elf f;
 
   const string full_path = get_full_path(filename);
@@ -315,23 +315,17 @@ bool in_scope(const string& name, const unordered_set<string>& scope) {
 }
 
 void memory_map::build(const unordered_set<string>& binary_scope,
-                       const unordered_set<string>& source_scope,
-                       unordered_map<string, uintptr_t> full_binaries,
-                       uintptr_t inst_ptr) {
+                       const unordered_set<string>& source_scope) {
   size_t in_scope_count = 0;
-  for (const auto& f : full_binaries) {
+  for (const auto& f : get_loaded_files()) {
     // if (in_scope(f.first, binary_scope)) {
     try {
-      // if (process_file(f.first, f.second, source_scope)) {
-      DEBUG("get to after processing file");
-      if (inst_ptr - 1 >= f.second) {
+      if (process_file(f.first, f.second, source_scope)) {
         DEBUG("Including lines from executable " << f.first);
-        DEBUG("Including addresses:  " << f.second);
+        in_scope_count++;
+      } else {
+        DEBUG("Unable to locate debug information for " << f.first);
       }
-      in_scope_count++;
-      //} else {
-      // DEBUG("Unable to locate debug information for " << f.first);
-      //}
     } catch (const system_error& e) {
       DEBUG("Processing file \"" << f.first << "\" failed: " << e.what());
     }
