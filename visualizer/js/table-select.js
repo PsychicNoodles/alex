@@ -2,12 +2,16 @@ const d3 = require("d3");
 
 const { Store } = require("./store");
 
+const TABLES = ["Function Runtimes", "Errors"];
+
 const selectedTableSubscription = d3.local();
-const selectedTableStore = new Store([]);
+const selectedTableStore = new Store(TABLES[0]);
 
 const dropdownIsOpen = d3.local();
 
 function render(root) {
+  root.classed("table-select", true);
+
   if (root.property(dropdownIsOpen) === undefined) {
     root.property(dropdownIsOpen, false);
   }
@@ -31,7 +35,7 @@ function render(root) {
   const dropdownItemsSelection = root
     .select(".table-select__dropdown")
     .selectAll(".table-select__dropdown-item")
-    .data(["Function Runtimes", "Errors"]);
+    .data(TABLES);
 
   const dropdownItemsEnterSelection = dropdownItemsSelection
     .enter()
@@ -54,18 +58,19 @@ function render(root) {
     selectedTable => {
       root.select(".table-select__button").text(selectedTable);
 
-      dropdownItemsSelection.merge(dropdownItemsEnterSelection).each(table => {
-        console.log(this);
-        d3.select(this)
-          .select(".table-select__radio")
-          .property("checked", selectedTable === table)
-          .on("change", () => {
-            // only need to update from the checked radio button
-            if (this.checked) {
-              selectedTableStore.dispatch(() => table);
-            }
-          });
-      });
+      dropdownItemsSelection
+        .merge(dropdownItemsEnterSelection)
+        .each(function(table) {
+          d3.select(this)
+            .select(".table-select__radio")
+            .property("checked", selectedTable === table)
+            .on("change", () => {
+              // only need to update from the checked radio button
+              if (this.checked) {
+                selectedTableStore.dispatch(() => table);
+              }
+            });
+        });
     }
   );
 }
