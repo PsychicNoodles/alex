@@ -28,6 +28,12 @@ yargs
 
     console.info("Available Presets:");
     console.info(
+      presetToString({
+        name: "all",
+        description: "Shortcut for all available presets."
+      })
+    );
+    console.info(
       presets
         .filter(preset => preset.isAvailable)
         .map(presetToString)
@@ -144,7 +150,7 @@ function getPresets() {
   });
 }
 
-function collect({
+async function collect({
   presets,
   events,
   resultOption,
@@ -165,21 +171,27 @@ function collect({
   const MS_PER_SEC = 1000;
   const startTime = Date.now();
   const progressInterval = setInterval(() => {
-    const numSeconds = Math.round((Date.now() - startTime) / MS_PER_SEC);
-    const s = numSeconds === 1 ? "" : "s";
-
     // Clear previous progress message
     process.stdout.clearLine();
     process.stdout.cursorTo(0);
 
+    const numSeconds = Math.round((Date.now() - startTime) / MS_PER_SEC);
+    const s = numSeconds === 1 ? "" : "s";
     process.stdout.write(`It's been ${numSeconds} second${s}. Still going...`);
   }, 1 * MS_PER_SEC);
+
+  const presetsSet = new Set([
+    ...presets.filter(preset => preset !== "all"),
+    ...(presets.includes("all")
+      ? (await getPresets()).map(info => info.name)
+      : [])
+  ]);
 
   const collector = spawn(executable, executableArgs, {
     env: {
       ...process.env,
       COLLECTOR_PERIOD: period,
-      COLLECTOR_PRESETS: presets.join(","),
+      COLLECTOR_PRESETS: [...presetsSet].join(","),
       COLLECTOR_EVENTS: events.join(","),
       COLLECTOR_RESULT_FILE: rawResultFile,
       COLLECTOR_WATTSUP_DEVICE: wattsupDevice,
