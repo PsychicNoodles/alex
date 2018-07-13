@@ -254,6 +254,23 @@ ipcRenderer.on("result", async (event, resultFile) => {
           });
         })
       );
+
+    const tableIds = {
+      "Function Runtimes": "#function-runtimes",
+      Errors: "#error-list"
+    };
+
+    stream
+      .fromStreamable(tableSelect.selectedTableStore.stream)
+      .pipe(stream.map(name => tableIds[name]))
+      .pipe(
+        stream.subscribe(id => {
+          d3.select(id).style("display", "table");
+          d3.selectAll("#tables-wrapper table")
+            .filter(`:not(${id})`)
+            .style("display", "none");
+        })
+      );
   } catch (err) {
     alert(err);
     window.close();

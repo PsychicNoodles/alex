@@ -81,7 +81,7 @@ button:disabled {
   text-align: right;
 }
 
-#function-runtimes-wrapper {
+#tables-wrapper {
   overflow: auto;
   flex: 1;
 }
