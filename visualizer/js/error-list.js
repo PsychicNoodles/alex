@@ -1,6 +1,8 @@
 const d3 = require("d3");
 
 const { Store } = require("./store");
+const { highlightedErrorsStore } = require("./errors");
+const highlightedErrorsSubscription = d3.local();
 
 const timestampDivisorSubscription = d3.local();
 const timestampDivisorStore = new Store(1);
@@ -21,6 +23,8 @@ function render(root, { errors, cpuTimeOffset }) {
     .insert("tr", "tr")
     .attr("class", "error-list__header-row");
   headerRowSelection.append("th").text("Type");
+
+  headerRowSelection.append("th").text("Show");
 
   const timestampUnitsSelect = headerRowSelection
     .append("th")
@@ -46,6 +50,36 @@ function render(root, { errors, cpuTimeOffset }) {
     .append("tr")
     .attr("class", "error-list__data-row")
     .merge(tableDataSelection);
+
+  const tableDataShow = tableDataSelectionEnter
+    .append("td")
+    .append("input")
+    .attr("type", "checkbox");
+
+  highlightedErrorsStore.subscribeUnique(
+    root,
+    highlightedErrorsSubscription,
+    highlightedErrors => {
+      tableDataShow
+        .property("checked", error => highlightedErrors.includes(error))
+        .each(function(error) {
+          d3.select(this).on("change", function() {
+            if (this.checked) {
+              highlightedErrorsStore.dispatch(highlightedErrors => [
+                ...highlightedErrors,
+                error
+              ]);
+            } else {
+              highlightedErrorsStore.dispatch(highlightedErrors =>
+                highlightedErrors.filter(
+                  highlightedError => highlightedError !== error
+                )
+              );
+            }
+          });
+        });
+    }
+  );
 
   tableDataSelectionEnter
     .append("td")
