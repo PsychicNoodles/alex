@@ -1,6 +1,4 @@
 {
-  "editor.formatOnSave": false,
-  "editor.formatOnPaste": true,
   "C_Cpp.clang_format_style": "Google",
   "prettier.semi": true,
   "eslint.enable": true,
@@ -8,7 +6,10 @@
     "datapoint's",
     "performant",
     "quadtree",
+    "renderable",
     "runtimes",
+    "streamable",
+    "streamables",
     "timeslice",
     "timeslices",
     "wattsup"
