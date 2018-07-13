@@ -148,11 +148,16 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
   const spectrum = d3.interpolateGreens;
 
-  const errorsSet = new Set();
+  const errorCountsMap = new Map();
   errorRecords.forEach(error => {
-    errorsSet.add(error.type);
+    if (errorCountsMap.has(error.type)) {
+      errorCountsMap.set(error.type, errorCountsMap.get(error.type) + 1);
+    } else {
+      errorCountsMap.set(error.type, 1);
+    }
   });
-  const errorsDistinct = [...errorsSet];
+  const errorCounts = [...errorCountsMap];
+  const errorsDistinct = [...errorCountsMap.keys()];
 
   for (const chartParams of charts) {
     const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
@@ -195,7 +200,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
   });
 
   d3.select("#errors").call(errors.render, {
-    errors: errorsDistinct
+    errorCounts,
+    errorRecords
   });
 
   d3.select("#error-list").call(errorList.render, {
