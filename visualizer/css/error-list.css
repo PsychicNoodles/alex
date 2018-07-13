@@ -1,0 +1,20 @@
+.error-list {
+  width: 100%;
+}
+
+.error-list th,
+.error-list td {
+  padding: 0 5px;
+}
+
+.error-list__header-row {
+  background-color: #c0c0c0;
+}
+
+.error-list__data-row:nth-child(odd) {
+  background-color: #d9d9d9;
+}
+
+.error-list__data-row-desc {
+  white-space: nowrap;
+}

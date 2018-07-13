@@ -14,6 +14,7 @@ const {
 const { analyze } = require("./analysis");
 const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
+const errorList = require("./error-list");
 const legend = require("./legend");
 const brushes = require("./brushes");
 const sourceSelect = require("./source-select");
@@ -195,6 +196,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
     d3.select("#errors").call(errors.render, {
       errors: errorsDistinct
+    });
+
+    d3.select("#error-list").call(errorList.render, {
+      errors: errorRecords
     });
 
     let averageProcessingTime = 0;
