@@ -16,7 +16,17 @@ function processData(data) {
         frame => frame.symName !== "(null)"
       )
     }))
-    .filter(timeslice => timeslice.stackFrames.length);
+    .filter(timeslice => timeslice.stackFrames.length)
+    .reduce((newData, currentNode) => {
+      newData.push(currentNode);
+      if (newData.length < 2) {
+        newData[newData.length - 1].events.power = 0;
+      } else {
+        newData[newData.length - 1].events.power =
+          currentNode.events.core - newData[newData.length - 2].events.core;
+      }
+      return newData;
+    }, new Array());
 }
 
 function getEventCount(timeslice, lowLevelNames) {

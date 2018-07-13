@@ -88,6 +88,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
   const result = JSON.parse(resultString);
   const processedData = processData(result.timeslices, result.header);
+  console.log(processedData);
 
   bar.destroy();
   d3.select("#progress").classed("progress--visible", false);
@@ -110,6 +111,12 @@ ipcRenderer.on("result", async (event, resultFile) => {
       getDependentVariable: d =>
         getEventCount(d, presets.cpu.instructions) /
           getEventCount(d, presets.cpu.cpuCycles) || 0
+    },
+    {
+      presetsRequired: ["rapl"],
+      yAxisLabel: "Power",
+      yFormat: d3.format("r"),
+      getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup)
     }
   ].filter(({ presetsRequired }) =>
     presetsRequired.every(presetName => presetName in presets)

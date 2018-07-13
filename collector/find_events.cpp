@@ -28,7 +28,9 @@ map<string, vector<string>> buildPresets(const string& preset) {
         pair<string, vector<string>>("branchMisses", {"branch-misses"}));
     events.insert(pair<string, vector<string>>("branches", {"branches"}));
   } else if (preset == "rapl") {
-    events.insert(pair<string, vector<string>>("rapl", {"rapl"}));
+    events.insert(pair<string, vector<string>>("core", {"core"}));
+    events.insert(pair<string, vector<string>>("dram", {"dram"}));
+    events.insert(pair<string, vector<string>>("package-0", {"package-0"}));
   } else if (preset == "wattsup") {
     events.insert(pair<string, vector<string>>("wattsup", {"wattsup"}));
   }
