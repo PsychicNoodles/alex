@@ -77,10 +77,6 @@ button:disabled {
   margin: 5px;
 }
 
-#table-select {
-  text-align: right;
-}
-
 #tables-wrapper {
   overflow: auto;
   flex: 1;
