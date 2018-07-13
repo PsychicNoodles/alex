@@ -166,6 +166,26 @@ async function collect({
   const rawResultFile = tempFile(".json");
   const resultFile = resultOption || tempFile(".json");
 
+  const allPresetInfo = await getAllPresetInfo();
+  const presetsSet = new Set([
+    ...presets.filter(preset => preset !== "all"),
+    ...(presets.includes("all") ? allPresetInfo.map(info => info.name) : [])
+  ]);
+
+  for (const preset of presetsSet) {
+    const presetInfo = allPresetInfo.find(info => info.name === preset);
+    if (!presetInfo) {
+      console.error(`Invalid preset: ${preset}`);
+      console.error("Try `alex list` to see a list of available presets.");
+      process.exit(1);
+    } else if (!presetInfo.isAvailable) {
+      console.error(`Preset unavailable: ${preset}`);
+      console.error("This is most likely due to a lack of hardware support.");
+      console.error("Try `alex list` to see a list of available presets.");
+      process.exit(1);
+    }
+  }
+
   console.info("Collecting performance data...");
 
   const MS_PER_SEC = 1000;
@@ -179,13 +199,6 @@ async function collect({
     const s = numSeconds === 1 ? "" : "s";
     process.stdout.write(`It's been ${numSeconds} second${s}. Still going...`);
   }, 1 * MS_PER_SEC);
-
-  const presetsSet = new Set([
-    ...presets.filter(preset => preset !== "all"),
-    ...(presets.includes("all")
-      ? (await getAllPresetInfo()).map(info => info.name)
-      : [])
-  ]);
 
   const collector = spawn(executable, executableArgs, {
     env: {
@@ -348,6 +361,8 @@ async function collect({
             }
           );
         }
+      } else {
+        process.exit(1);
       }
     }
   });
