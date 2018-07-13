@@ -1,5 +1,10 @@
 const d3 = require("d3");
 
+const { Store } = require("./store");
+
+const timestampDivisorSubscription = d3.local();
+const timestampDivisorStore = new Store(1);
+
 const ERROR_DESCRIPTIONS = {
   PERF_RECORD_THROTTLE:
     "Too many samples due to the period being too low, try increasing the period",
@@ -12,7 +17,7 @@ const ERROR_VALUES = {
   PERF_RECORD_LOST: "lost"
 };
 
-function render(root, { errors }) {
+function render(root, { errors, cpuTimeOffset }) {
   root.classed("error-list", true);
 
   root.select(".error-list__header-row").remove();
@@ -20,7 +25,20 @@ function render(root, { errors }) {
     .insert("tr", "tr")
     .attr("class", "error-list__header-row");
   headerRowSelection.append("th").text("Type");
-  headerRowSelection.append("th").text("Timestamp");
+
+  const timestampUnitsSelect = headerRowSelection
+    .append("th")
+    .text("Timestamp")
+    .append("select");
+
+  timestampUnitsSelect
+    .selectAll("option")
+    .data([["Nanoseconds", 1], ["Seconds", 1000000000]])
+    .enter()
+    .append("option")
+    .attr("value", d => d[1])
+    .text(d => d[0]);
+
   headerRowSelection.append("th").text("Value");
 
   const tableDataSelection = root
@@ -36,12 +54,32 @@ function render(root, { errors }) {
   tableDataSelectionEnter
     .append("td")
     .append("abbr")
+    .attr("class", "error-list__data-row-type")
     .attr("title", e => ERROR_DESCRIPTIONS[e.type])
     .text(e => e.type);
 
-  tableDataSelectionEnter.append("td").text(e => e.time);
+  const tableDataTimestamp = tableDataSelectionEnter
+    .append("td")
+    .attr("class", "error-list__data-row-timestamp");
 
-  tableDataSelectionEnter.append("td").text(e => ERROR_VALUES[e.type] || "");
+  tableDataSelectionEnter
+    .append("td")
+    .attr("class", "error-list__data-row-value")
+    .text(e => ERROR_VALUES[e.type] || "");
+
+  timestampDivisorStore.subscribeUnique(
+    root,
+    timestampDivisorSubscription,
+    timestampDivisor => {
+      tableDataTimestamp.text(e => (e.time - cpuTimeOffset) / timestampDivisor);
+
+      // option elements don't actually get the change event, their parent select does
+      timestampUnitsSelect.on("change", function() {
+        const opt = this.selectedOptions[0];
+        timestampDivisorStore.dispatch(() => opt.value);
+      });
+    }
+  );
 
   tableDataSelection.exit().remove();
 }

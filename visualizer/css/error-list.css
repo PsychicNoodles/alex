@@ -11,6 +11,10 @@
   background-color: #c0c0c0;
 }
 
+.error-list__header-row select {
+  margin-left: 3px;
+}
+
 .error-list__data-row:nth-child(odd) {
   background-color: #d9d9d9;
 }

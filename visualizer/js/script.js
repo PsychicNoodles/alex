@@ -39,245 +39,246 @@ loadingProgressStore.subscribe(({ percentage, progressBarIsVisible }) => {
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", async (event, resultFile) => {
+  // try {
+  let result;
   try {
-    let result;
-    try {
-      const { size: resultFileSize } = await promisify(fs.stat)(resultFile);
+    const { size: resultFileSize } = await promisify(fs.stat)(resultFile);
 
-      const jsonTokenStream = fs
-        .createReadStream(resultFile)
-        .pipe(
-          progressStream(
-            { length: resultFileSize, time: 100 },
-            ({ percentage }) => {
-              loadingProgressStore.dispatch(state => ({
-                ...state,
-                percentage
-              }));
-            }
-          )
-        )
-        .pipe(streamJSON.parser());
-
-      const assembler = await new Promise((resolve, reject) =>
-        JSONAssembler.connectTo(jsonTokenStream.on("error", reject))
-          .on("done", resolve)
-          .on("error", reject)
-      );
-
-      result = assembler.current;
-    } catch (err) {
-      throw new Error(`Couldn't load result file: ${err.message}`);
-    }
-
-    const processedData = processData(result.timeslices, result.header);
-    const errorRecords = result.error;
-
-    loadingProgressStore.dispatch(state => ({
-      ...state,
-      progressBarIsVisible: false
-    }));
-
-    const { presets } = result.header;
-    const charts = [
-      {
-        presetsRequired: ["cache"],
-        yAxisLabel: "Cache Miss Rate",
-        yFormat: d3.format(".0%"),
-        getDependentVariable: d =>
-          getEventCount(d, presets.cache.misses) /
-            (getEventCount(d, presets.cache.hits) +
-              getEventCount(d, presets.cache.misses)) || 0
-      },
-      {
-        presetsRequired: ["cpu"],
-        yAxisLabel: "Instructions Per Cycle",
-        yFormat: d3.format(".2"),
-        getDependentVariable: d =>
-          getEventCount(d, presets.cpu.instructions) /
-            getEventCount(d, presets.cpu.cpuCycles) || 0
-      }
-    ].filter(({ presetsRequired }) =>
-      presetsRequired.every(presetName => presetName in presets)
-    );
-
-    const xAxisLabel = "CPU Time Elapsed";
-    const cpuTimeOffset = processedData[0].cpuTime;
-    const getIndependentVariable = d => d.cpuTime - cpuTimeOffset;
-
-    const xScaleMin = getIndependentVariable(processedData[0]);
-    const xScaleMax = getIndependentVariable(
-      processedData[processedData.length - 1]
-    );
-    const xScale = d3
-      .scaleLinear()
-      .domain([xScaleMin, xScaleMax])
-      .range([0, chart.WIDTH]);
-
-    const yScalesByChart = new WeakMap();
-    const plotDataByChart = new WeakMap();
-
-    for (const chartParams of charts) {
-      const { getDependentVariable } = chartParams;
-      const yScaleMax = d3.max(processedData, getDependentVariable);
-      const yScale = d3
-        .scaleLinear()
-        .domain([yScaleMax, 0])
-        .range([0, chart.HEIGHT]);
-
-      const plotData = computeRenderableData({
-        data: processedData,
-        xScale,
-        yScale,
-        getIndependentVariable,
-        getDependentVariable
-      });
-
-      yScalesByChart.set(chartParams, yScale);
-      plotDataByChart.set(chartParams, plotData);
-    }
-
-    const densityMax = charts.reduce(
-      (currentMax, chartParams) =>
-        Math.max(
-          currentMax,
-          d3.max(plotDataByChart.get(chartParams), d => d.densityAvg)
-        ),
-      0
-    );
-
-    const spectrum = d3.interpolateGreens;
-
-    const errorsSet = new Set();
-    errorRecords.forEach(error => {
-      errorsSet.add(error.type);
-    });
-    const errorsDistinct = [...errorsSet];
-
-    for (const chartParams of charts) {
-      const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
-      d3.select("#charts")
-        .append("div")
-        .call(chart.render, {
-          timeslices: processedData,
-          getIndependentVariable,
-          getDependentVariable,
-          xAxisLabel,
-          yAxisLabel,
-          xScale,
-          yScale: yScalesByChart.get(chartParams),
-          yFormat,
-          plotData: plotDataByChart.get(chartParams),
-          densityMax,
-          spectrum:
-            d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) <= 2
-              ? d3.interpolateRgb("#3A72F2", "#3A72F2")
-              : spectrum,
-          cpuTimeOffset,
-          errorRecords,
-          errorsDistinct
-        });
-    }
-
-    d3.select("#legend").call(legend.render, { densityMax, spectrum });
-
-    const sourcesSet = new Set();
-    processedData.forEach(timeslice => {
-      timeslice.stackFrames.forEach(frame => {
-        sourcesSet.add(frame.fileName);
-      });
-    });
-
-    d3.select("#table-select").call(tableSelect.render);
-
-    d3.select("#source-select").call(sourceSelect.render, {
-      sources: [...sourcesSet]
-    });
-
-    d3.select("#errors").call(errors.render, {
-      errors: errorsDistinct
-    });
-
-    d3.select("#error-list").call(errorList.render, {
-      errors: errorRecords
-    });
-
-    let averageProcessingTime = 0;
-    let numProcessingTimeSamples = 0;
-
-    stream
-      .fromStreamables([
-        sourceSelect.hiddenSourcesStore.stream,
-        brushes.selectionStore.stream
-      ])
+    const jsonTokenStream = fs
+      .createReadStream(resultFile)
       .pipe(
-        stream.debounce(
-          () =>
-            // If it takes longer a few frames to process, then debounce.
-            averageProcessingTime < 40 ? stream.empty : stream.fromTimeout(100)
+        progressStream(
+          { length: resultFileSize, time: 100 },
+          ({ percentage }) => {
+            loadingProgressStore.dispatch(state => ({
+              ...state,
+              percentage
+            }));
+          }
         )
       )
-      .pipe(
-        stream.map(([hiddenSources, { selections }]) => {
-          const startTime = performance.now();
-          const result = analyze(
-            processedData
-              .map(timeslice => {
-                const x = xScale(getIndependentVariable(timeslice));
-                return {
-                  ...timeslice,
-                  selected:
-                    selections.length === 0 ||
-                    selections.some(
-                      ({ range }) => range[0] <= x && x <= range[1]
-                    ),
-                  stackFrames: timeslice.stackFrames.filter(
-                    frame => !hiddenSources.includes(frame.fileName)
-                  )
-                };
-              })
-              .filter(timeslice => timeslice.stackFrames.length)
-          );
+      .pipe(streamJSON.parser());
 
-          // Compute a cumulative moving average for processing time so we can
-          // debounce processing if it is slow
-          // https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
-          const timeTaken = performance.now() - startTime;
-          averageProcessingTime =
-            (timeTaken + numProcessingTimeSamples * averageProcessingTime) /
-            (numProcessingTimeSamples + 1);
-          numProcessingTimeSamples++;
-          console.log(averageProcessingTime);
+    const assembler = await new Promise((resolve, reject) =>
+      JSONAssembler.connectTo(jsonTokenStream.on("error", reject))
+        .on("done", resolve)
+        .on("error", reject)
+    );
 
-          return result;
-        })
-      )
-      .pipe(
-        stream.subscribe(({ functionList }) => {
-          d3.select("#function-runtimes").call(functionRuntimes.render, {
-            functionList
-          });
-        })
-      );
-
-    const tableIds = {
-      "Function Runtimes": "#function-runtimes",
-      Errors: "#error-list"
-    };
-
-    stream
-      .fromStreamable(tableSelect.selectedTableStore.stream)
-      .pipe(stream.map(name => tableIds[name]))
-      .pipe(
-        stream.subscribe(id => {
-          d3.select(id).style("display", "table");
-          d3.selectAll("#tables-wrapper table")
-            .filter(`:not(${id})`)
-            .style("display", "none");
-        })
-      );
+    result = assembler.current;
   } catch (err) {
-    alert(err);
-    window.close();
+    throw new Error(`Couldn't load result file: ${err.message}`);
   }
+
+  const processedData = processData(result.timeslices, result.header);
+  const errorRecords = result.error;
+
+  loadingProgressStore.dispatch(state => ({
+    ...state,
+    progressBarIsVisible: false
+  }));
+
+  const { presets } = result.header;
+  const charts = [
+    {
+      presetsRequired: ["cache"],
+      yAxisLabel: "Cache Miss Rate",
+      yFormat: d3.format(".0%"),
+      getDependentVariable: d =>
+        getEventCount(d, presets.cache.misses) /
+          (getEventCount(d, presets.cache.hits) +
+            getEventCount(d, presets.cache.misses)) || 0
+    },
+    {
+      presetsRequired: ["cpu"],
+      yAxisLabel: "Instructions Per Cycle",
+      yFormat: d3.format(".2"),
+      getDependentVariable: d =>
+        getEventCount(d, presets.cpu.instructions) /
+          getEventCount(d, presets.cpu.cpuCycles) || 0
+    }
+  ].filter(({ presetsRequired }) =>
+    presetsRequired.every(presetName => presetName in presets)
+  );
+
+  const xAxisLabel = "CPU Time Elapsed";
+  const cpuTimeOffset = processedData[0].cpuTime;
+  const getIndependentVariable = d => d.cpuTime - cpuTimeOffset;
+
+  const xScaleMin = getIndependentVariable(processedData[0]);
+  const xScaleMax = getIndependentVariable(
+    processedData[processedData.length - 1]
+  );
+  const xScale = d3
+    .scaleLinear()
+    .domain([xScaleMin, xScaleMax])
+    .range([0, chart.WIDTH]);
+
+  const yScalesByChart = new WeakMap();
+  const plotDataByChart = new WeakMap();
+
+  for (const chartParams of charts) {
+    const { getDependentVariable } = chartParams;
+    const yScaleMax = d3.max(processedData, getDependentVariable);
+    const yScale = d3
+      .scaleLinear()
+      .domain([yScaleMax, 0])
+      .range([0, chart.HEIGHT]);
+
+    const plotData = computeRenderableData({
+      data: processedData,
+      xScale,
+      yScale,
+      getIndependentVariable,
+      getDependentVariable
+    });
+
+    yScalesByChart.set(chartParams, yScale);
+    plotDataByChart.set(chartParams, plotData);
+  }
+
+  const densityMax = charts.reduce(
+    (currentMax, chartParams) =>
+      Math.max(
+        currentMax,
+        d3.max(plotDataByChart.get(chartParams), d => d.densityAvg)
+      ),
+    0
+  );
+
+  const spectrum = d3.interpolateGreens;
+
+  const errorsSet = new Set();
+  errorRecords.forEach(error => {
+    errorsSet.add(error.type);
+  });
+  const errorsDistinct = [...errorsSet];
+
+  for (const chartParams of charts) {
+    const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
+    d3.select("#charts")
+      .append("div")
+      .call(chart.render, {
+        timeslices: processedData,
+        getIndependentVariable,
+        getDependentVariable,
+        xAxisLabel,
+        yAxisLabel,
+        xScale,
+        yScale: yScalesByChart.get(chartParams),
+        yFormat,
+        plotData: plotDataByChart.get(chartParams),
+        densityMax,
+        spectrum:
+          d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) <= 2
+            ? d3.interpolateRgb("#3A72F2", "#3A72F2")
+            : spectrum,
+        cpuTimeOffset,
+        errorRecords,
+        errorsDistinct
+      });
+  }
+
+  d3.select("#legend").call(legend.render, { densityMax, spectrum });
+
+  const sourcesSet = new Set();
+  processedData.forEach(timeslice => {
+    timeslice.stackFrames.forEach(frame => {
+      sourcesSet.add(frame.fileName);
+    });
+  });
+
+  d3.select("#table-select").call(tableSelect.render);
+
+  d3.select("#source-select").call(sourceSelect.render, {
+    sources: [...sourcesSet]
+  });
+
+  d3.select("#errors").call(errors.render, {
+    errors: errorsDistinct
+  });
+
+  d3.select("#error-list").call(errorList.render, {
+    errors: errorRecords,
+    cpuTimeOffset
+  });
+
+  let averageProcessingTime = 0;
+  let numProcessingTimeSamples = 0;
+
+  stream
+    .fromStreamables([
+      sourceSelect.hiddenSourcesStore.stream,
+      brushes.selectionStore.stream
+    ])
+    .pipe(
+      stream.debounce(
+        () =>
+          // If it takes longer a few frames to process, then debounce.
+          averageProcessingTime < 40 ? stream.empty : stream.fromTimeout(100)
+      )
+    )
+    .pipe(
+      stream.map(([hiddenSources, { selections }]) => {
+        const startTime = performance.now();
+        const result = analyze(
+          processedData
+            .map(timeslice => {
+              const x = xScale(getIndependentVariable(timeslice));
+              return {
+                ...timeslice,
+                selected:
+                  selections.length === 0 ||
+                  selections.some(
+                    ({ range }) => range[0] <= x && x <= range[1]
+                  ),
+                stackFrames: timeslice.stackFrames.filter(
+                  frame => !hiddenSources.includes(frame.fileName)
+                )
+              };
+            })
+            .filter(timeslice => timeslice.stackFrames.length)
+        );
+
+        // Compute a cumulative moving average for processing time so we can
+        // debounce processing if it is slow
+        // https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
+        const timeTaken = performance.now() - startTime;
+        averageProcessingTime =
+          (timeTaken + numProcessingTimeSamples * averageProcessingTime) /
+          (numProcessingTimeSamples + 1);
+        numProcessingTimeSamples++;
+        console.log(averageProcessingTime);
+
+        return result;
+      })
+    )
+    .pipe(
+      stream.subscribe(({ functionList }) => {
+        d3.select("#function-runtimes").call(functionRuntimes.render, {
+          functionList
+        });
+      })
+    );
+
+  const tableIds = {
+    "Function Runtimes": "#function-runtimes",
+    Errors: "#error-list"
+  };
+
+  stream
+    .fromStreamable(tableSelect.selectedTableStore.stream)
+    .pipe(stream.map(name => tableIds[name]))
+    .pipe(
+      stream.subscribe(id => {
+        d3.select(id).style("display", "table");
+        d3.selectAll("#tables-wrapper table")
+          .filter(`:not(${id})`)
+          .style("display", "none");
+      })
+    );
+  // } catch (err) {
+  //   alert(err);
+  //   window.close();
+  // }
 });
