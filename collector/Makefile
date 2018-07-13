@@ -25,7 +25,7 @@ PRELOAD_VAR  := LD_PRELOAD
 CXXLIB       := $(CXX) -shared -fPIC -Wl,-soname,interposer.so
 endif
 
-all: collector.$(SHLIB_SUFFIX) available-events
+all: build/collector.$(SHLIB_SUFFIX) build/available-events
 
 pedantic: WARN = -Werror
 pedantic: all
@@ -54,9 +54,11 @@ tidy:
 tidy-fix: TIDY_FIX = -fix
 tidy-fix: tidy
 
-collector.$(SHLIB_SUFFIX): $(SOURCES)
+build:
+	mkdir -p build
+
+build/collector.$(SHLIB_SUFFIX): $(SOURCES) | build
 	$(CXXLIB) $(CFLAGS) $(PERF_SAMPLE_MAX_STACK_MACRO) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -ldl -lpfm -pthread -rdynamic
 
-available-events: $(EVENT_SOURCES)
+build/available-events: $(EVENT_SOURCES) | build
 	$(CXX) $(CFLAGS) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -lpfm -rdynamic
-

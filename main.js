@@ -137,7 +137,7 @@ function collect({
       COLLECTOR_EVENTS: events.join(","),
       COLLECTOR_RESULT_FILE: rawResultFile,
       COLLECTOR_WATTSUP_DEVICE: wattsupDevice,
-      LD_PRELOAD: path.join(__dirname, "./collector/collector.so")
+      LD_PRELOAD: path.join(__dirname, "./collector/build/collector.so")
     }
   });
 
