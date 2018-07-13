@@ -40,8 +40,6 @@ map<string, vector<string>> build_preset(const string& preset) {
         pair<string, vector<string>>("hits", {"MEM_LOAD_RETIRED.L3_HIT"}));
     events.insert(
         pair<string, vector<string>>("misses", {"MEM_LOAD_RETIRED.L3_MISS"}));
-    // events.insert(pair<string, string>("all-cache", "cache-misses"));
-    // events.insert(pair<string, string>("reference", "cache-reference"));
   } else if (preset == "cpu") {
     events.insert(pair<string, vector<string>>("cpuCycles", {"cpu-cycles"}));
     events.insert(

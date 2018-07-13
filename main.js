@@ -19,7 +19,7 @@ process.on("unhandledRejection", err => {
 
 yargs
   .command("list", "List available presets.", {}, async () => {
-    const presets = await getPresets();
+    const presets = await getAllPresetInfo();
     const maxNameLength = Math.max(
       ...presets.map(preset => preset.name.length)
     );
@@ -129,7 +129,7 @@ yargs
   .demandCommand()
   .help().argv;
 
-function getPresets() {
+function getAllPresetInfo() {
   return new Promise((resolve, reject) => {
     let output = "";
     spawn(path.join(__dirname, "./collector/build/list-presets"))
@@ -183,7 +183,7 @@ async function collect({
   const presetsSet = new Set([
     ...presets.filter(preset => preset !== "all"),
     ...(presets.includes("all")
-      ? (await getPresets()).map(info => info.name)
+      ? (await getAllPresetInfo()).map(info => info.name)
       : [])
   ]);
 
