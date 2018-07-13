@@ -12,13 +12,7 @@
     "precommit": "lint-staged",
     "eslint:fix": "eslint --fix .",
     "clean:outfiles": "rm -f out-* err-* result-*",
-    "example": "npm run clean:outfiles && node . collect --in examples/inputs/matrix-500x500.in -- examples/build/matrixmultiplier",
-    "checkpreset": "./collector/available-events",
-    "checkpreset:energy": "./collector/available-events energy 2>> err-available-event.log",
-    "checkpreset:cache": "./collector/available-events cache 2>> err-available-event.log",
-    "checkpreset:cpu": "./collector/available-events cpu 2>> err-available-event.log",
-    "checkpreset:branch": "./collector/available-events branch 2>> err-available-event.log",
-    "checkpreset:all": "./collector/available-events all 2>> err-available-event.log"
+    "example": "npm run clean:outfiles && node . collect --in examples/inputs/matrix-500x500.in -- examples/build/matrixmultiplier"
   },
   "bin": {
     "alex": "main.js"

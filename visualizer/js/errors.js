@@ -93,6 +93,7 @@ function render(root, { errorCounts, errorRecords }) {
     root,
     highlightedErrorsSubscription,
     highlightedErrors => {
+      const hasErrors = errorRecords.length > 0;
       const highlightedErrorsCounts = errorCounts.map(
         ([type]) =>
           highlightedErrors.filter(highlighted => highlighted.type === type)
@@ -108,14 +109,17 @@ function render(root, { errorCounts, errorRecords }) {
       const highlightedSomeAllErrors = highlightedSomeErrors.some(some => some);
       root
         .select(".errors__button")
+        .property("disabled", !hasErrors)
         .text(
-          `Highlighting ${
-            highlightedAllAllErrors
-              ? "All"
-              : highlightedSomeAllErrors
-                ? "Some"
-                : "No"
-          } Error Types`
+          hasErrors
+            ? `Highlighting ${
+                highlightedAllAllErrors
+                  ? "All"
+                  : highlightedSomeAllErrors
+                    ? "Some"
+                    : "No"
+              } Error Types`
+            : "No Errors"
         );
 
       dropdownItemsSelection

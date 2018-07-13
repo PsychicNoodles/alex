@@ -7,18 +7,39 @@
 #include "find_events.hpp"
 
 using std::map;
+using std::pair;
 using std::set;
 using std::string;
 
-map<string, vector<string>> buildPresets(const string& preset) {
+map<string, preset_info> get_all_preset_info() {
+  return {
+      pair<string, preset_info>("cache",
+                                {.description = "CPU cache hit rates."}),
+      pair<string, preset_info>(
+          "cpu", {.description = "CPU instructions and cycle rates."}),
+      pair<string, preset_info>(
+          "rapl", {.description = "High frequency, but limited power meter."}),
+      pair<string, preset_info>(
+          "wattsup", {.description = "Low frequency external power meter."}),
+      pair<string, preset_info>(
+          "branches", {.description = "Branch prediction success rates."})};
+}
+
+set<string> get_all_presets() {
+  set<string> keys;
+  for (auto entry : get_all_preset_info()) {
+    keys.insert(entry.first);
+  }
+  return keys;
+}
+
+map<string, vector<string>> build_preset(const string& preset) {
   map<string, vector<string>> events;
   if (preset == "cache") {
     events.insert(
         pair<string, vector<string>>("hits", {"MEM_LOAD_RETIRED.L3_HIT"}));
     events.insert(
         pair<string, vector<string>>("misses", {"MEM_LOAD_RETIRED.L3_MISS"}));
-    // events.insert(pair<string, string>("all-cache", "cache-misses"));
-    // events.insert(pair<string, string>("reference", "cache-reference"));
   } else if (preset == "cpu") {
     events.insert(pair<string, vector<string>>("cpuCycles", {"cpu-cycles"}));
     events.insert(
@@ -35,29 +56,18 @@ map<string, vector<string>> buildPresets(const string& preset) {
   return events;
 }
 
-void printPresetEvents(const set<string>& presets, FILE* result_file) {
-  set<string> real_presets;
+void print_preset_events(const set<string>& presets, FILE* result_file) {
   fprintf(result_file, R"(
       "presets": {
         )");
-  if (presets.find("all") != presets.end()) {
-    DEBUG("GET TO PRESET END ALL");
-    real_presets.insert("cache");
-    real_presets.insert("cpu");
-    real_presets.insert("rapl");
-    real_presets.insert("wattsup");
-    real_presets.insert("branches");
-  } else {
-    real_presets = presets;
-  }
   bool is_first_preset = true;
-  for (const auto& preset : real_presets) {
+  for (const auto& preset : presets) {
     if (is_first_preset) {
       is_first_preset = false;
     } else {
       fprintf(result_file, ",");
     }
-    map<string, vector<string>> events = buildPresets(preset);
+    map<string, vector<string>> events = build_preset(preset);
     bool is_first = true;
     fprintf(result_file, R"(
                  "%s": {

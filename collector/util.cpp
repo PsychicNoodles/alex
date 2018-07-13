@@ -84,8 +84,7 @@ void shutdown(pid_t pid, FILE* writef, int code) {
 pid_t gettid() { return syscall(SYS_gettid); }
 
 bool preset_enabled(const char* name) {
-  return global->presets.find(name) != global->presets.end() ||
-         global->presets.find("all") != global->presets.end();
+  return global->presets.find(name) != global->presets.end();
 }
 
 string getenv_safe(const char* var, const char* fallback) {
