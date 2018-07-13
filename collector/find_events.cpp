@@ -7,10 +7,15 @@
 #include "find_events.hpp"
 
 using std::map;
+using std::pair;
 using std::set;
 using std::string;
 
-map<string, vector<string>> build_presets(const string& preset) {
+set<string> get_all_presets() {
+  return set<string>{"cache", "cpu", "rapl", "wattsup", "branches"};
+}
+
+map<string, vector<string>> build_preset(const string& preset) {
   map<string, vector<string>> events;
   if (preset == "cache") {
     events.insert(
@@ -57,7 +62,7 @@ void print_preset_events(const set<string>& presets, FILE* result_file) {
     } else {
       fprintf(result_file, ",");
     }
-    map<string, vector<string>> events = build_presets(preset);
+    map<string, vector<string>> events = build_preset(preset);
     bool is_first = true;
     fprintf(result_file, R"(
                  "%s": {

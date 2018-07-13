@@ -68,7 +68,7 @@ void setup_global_vars() {
   auto presets = str_split_set(getenv_safe("COLLECTOR_PRESETS"), ",");
   if (presets.find("cpu") != presets.end() ||
       presets.find("all") != presets.end()) {
-    map<string, vector<string>> cpu = build_presets("cpu");
+    map<string, vector<string>> cpu = build_preset("cpu");
     for (auto &it : cpu) {
       for (const auto &event : it.second) {
         events.emplace_back(event.c_str());
@@ -78,7 +78,7 @@ void setup_global_vars() {
 
   if (presets.find("cache") != presets.end() ||
       presets.find("all") != presets.end()) {
-    map<string, vector<string>> cache = build_presets("cache");
+    map<string, vector<string>> cache = build_preset("cache");
     for (auto &it : cache) {
       for (const auto &event : it.second) {
         events.emplace_back(event.c_str());
@@ -88,7 +88,7 @@ void setup_global_vars() {
 
   if (presets.find("branches") != presets.end() ||
       presets.find("all") != presets.end()) {
-    map<string, vector<string>> branches = build_presets("branches");
+    map<string, vector<string>> branches = build_preset("branches");
     for (auto &it : branches) {
       for (const auto &event : it.second) {
         events.emplace_back(event.c_str());

@@ -6,7 +6,7 @@ PERF_SAMPLE_MAX_STACK_MACRO := -DSAMPLE_MAX_STACK="$(PERF_SAMPLE_MAX_STACK_MACRO
 endif
 CFLAGS := $(shell pkg-config --cflags --libs libelf++ libdwarf++) -DVERSION=\"$(GIT_VERSION)\"
 SOURCES := collector.cpp perf_reader.cpp const.cpp util.cpp debug.cpp perf_sampler.cpp clone.cpp rapl.cpp wattsup.cpp bg_readings.cpp ancillary.cpp find_events.cpp shared.cpp sockets.cpp
-EVENT_SOURCES := available-events.cpp debug.cpp wattsup.cpp rapl.cpp perf_sampler.cpp util.cpp shared.cpp
+EVENT_SOURCES := list-presets.cpp debug.cpp wattsup.cpp rapl.cpp perf_sampler.cpp util.cpp shared.cpp find_events.cpp
 SRC_DIR := .
 TIDY := clang-tidy
 TIDY_CHECKS := bugprone-*,cppcoreguidelines-*,-cppcoreguidelines-pro-*,\
@@ -25,7 +25,7 @@ PRELOAD_VAR  := LD_PRELOAD
 CXXLIB       := $(CXX) -shared -fPIC -Wl,-soname,interposer.so
 endif
 
-all: build/collector.$(SHLIB_SUFFIX) build/available-events
+all: build/collector.$(SHLIB_SUFFIX) build/list-presets
 
 pedantic: WARN = -Werror
 pedantic: all
@@ -38,7 +38,7 @@ minlog: all
 
 clean:
 	@rm -f collector.$(SHLIB_SUFFIX)
-	@rm -f available-events
+	@rm -f list-presets
 
 clean-res:
 	@rm -f err-* out-* res-*
@@ -60,5 +60,5 @@ build:
 build/collector.$(SHLIB_SUFFIX): $(SOURCES) | build
 	$(CXXLIB) $(CFLAGS) $(PERF_SAMPLE_MAX_STACK_MACRO) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -ldl -lpfm -pthread -rdynamic
 
-build/available-events: $(EVENT_SOURCES) | build
+build/list-presets: $(EVENT_SOURCES) | build
 	$(CXX) $(CFLAGS) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -lpfm -rdynamic
