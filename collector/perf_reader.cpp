@@ -846,7 +846,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
                 ],
           )");
 
-  printPresetEvents(global->presets, result_file);
+  print_preset_events(global->presets, result_file);
 
   fprintf(result_file,
           R"(

@@ -10,7 +10,7 @@ using std::map;
 using std::set;
 using std::string;
 
-map<string, vector<string>> buildPresets(const string& preset) {
+map<string, vector<string>> build_presets(const string& preset) {
   map<string, vector<string>> events;
   if (preset == "cache") {
     events.insert(
@@ -35,7 +35,7 @@ map<string, vector<string>> buildPresets(const string& preset) {
   return events;
 }
 
-void printPresetEvents(const set<string>& presets, FILE* result_file) {
+void print_preset_events(const set<string>& presets, FILE* result_file) {
   set<string> real_presets;
   fprintf(result_file, R"(
       "presets": {
@@ -57,7 +57,7 @@ void printPresetEvents(const set<string>& presets, FILE* result_file) {
     } else {
       fprintf(result_file, ",");
     }
-    map<string, vector<string>> events = buildPresets(preset);
+    map<string, vector<string>> events = build_presets(preset);
     bool is_first = true;
     fprintf(result_file, R"(
                  "%s": {
