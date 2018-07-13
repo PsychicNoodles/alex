@@ -11,8 +11,26 @@ using std::pair;
 using std::set;
 using std::string;
 
+map<string, preset_info> get_all_preset_info() {
+  return {
+      pair<string, preset_info>("cache",
+                                {.description = "CPU cache hit rates."}),
+      pair<string, preset_info>(
+          "cpu", {.description = "CPU instructions and cycle rates."}),
+      pair<string, preset_info>(
+          "rapl", {.description = "High frequency, but limited power meter."}),
+      pair<string, preset_info>(
+          "wattsup", {.description = "Low frequency external power meter."}),
+      pair<string, preset_info>(
+          "branches", {.description = "Branch prediction success rates."})};
+}
+
 set<string> get_all_presets() {
-  return set<string>{"cache", "cpu", "rapl", "wattsup", "branches"};
+  set<string> keys;
+  for (auto entry : get_all_preset_info()) {
+    keys.insert(entry.first);
+  }
+  return keys;
 }
 
 map<string, vector<string>> build_preset(const string& preset) {

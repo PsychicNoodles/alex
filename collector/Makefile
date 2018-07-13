@@ -25,6 +25,8 @@ PRELOAD_VAR  := LD_PRELOAD
 CXXLIB       := $(CXX) -shared -fPIC -Wl,-soname,interposer.so
 endif
 
+.PHONY: all pedantic nolog minlog clean tidy tidy-fix
+
 all: build/collector.$(SHLIB_SUFFIX) build/list-presets
 
 pedantic: WARN = -Werror
@@ -37,11 +39,7 @@ minlog: DEBUG = -D MINDEBUG
 minlog: all
 
 clean:
-	@rm -f collector.$(SHLIB_SUFFIX)
-	@rm -f list-presets
-
-clean-res:
-	@rm -f err-* out-* res-*
+	@rm -rf build
 
 tidy:
 	@for src in $(SOURCES) ; do \

@@ -18,6 +18,30 @@ process.on("unhandledRejection", err => {
 });
 
 yargs
+  .command("list", "List available presets.", {}, async () => {
+    const presets = await getPresets();
+    const maxNameLength = Math.max(
+      ...presets.map(preset => preset.name.length)
+    );
+    const presetToString = preset =>
+      `  ${preset.name.padEnd(maxNameLength)}  ${preset.description || ""}`;
+
+    console.info("Available Presets:");
+    console.info(
+      presets
+        .filter(preset => preset.isAvailable)
+        .map(presetToString)
+        .join("\n")
+    );
+    console.info("");
+    console.info("Unavailable Presets:");
+    console.info(
+      presets
+        .filter(preset => !preset.isAvailable)
+        .map(presetToString)
+        .join("\n")
+    );
+  })
   .command(
     "collect <executable> [args..]",
     "Collect performance data on an executable.",
@@ -33,7 +57,8 @@ yargs
         })
         .option("presets", {
           alias: "p",
-          description: "Sensible performance metrics.",
+          description:
+            "Sensible performance metrics.  Use alex list to see available presets.",
           type: "array",
           default: ["all"]
         })
@@ -97,6 +122,25 @@ yargs
   )
   .demandCommand()
   .help().argv;
+
+function getPresets() {
+  return new Promise((resolve, reject) => {
+    let output = "";
+    spawn(path.join(__dirname, "./collector/build/list-presets"))
+      .on("error", reject)
+      .stdout.on("data", chunk => {
+        output += chunk;
+      })
+      .on("end", () => {
+        try {
+          resolve(JSON.parse(output));
+        } catch (err) {
+          reject(err);
+        }
+      })
+      .on("error", reject);
+  });
+}
 
 function collect({
   presets,

@@ -61,14 +61,22 @@ int main(int argc, char **argv) {
 
   cout << "[" << endl;
   bool is_first = true;
-  for (auto preset : get_all_presets()) {
+  for (auto entry : get_all_preset_info()) {
     if (is_first) {
       is_first = false;
     } else {
       cout << "," << endl;
     }
-    cout << "  { \"name\": \"" << preset << "\", \"isAvailable\": "
-         << (preset_is_available(preset) ? "true" : "false") << " }";
+
+    string preset = entry.first;
+    auto info = entry.second;
+
+    cout << "  { ";
+    cout << "\"name\": \"" << preset << "\", ";
+    cout << "\"isAvailable\": "
+         << (preset_is_available(preset) ? "true" : "false") << ", ";
+    cout << "\"description\": \"" << info.description << "\"";
+    cout << " }";
   }
   cout << endl;
   cout << "]" << endl;
