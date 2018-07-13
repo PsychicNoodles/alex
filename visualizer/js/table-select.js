@@ -45,7 +45,8 @@ function render(root) {
   dropdownItemsEnterSelection
     .append("input")
     .attr("class", "table-select__radio")
-    .attr("type", "radio");
+    .attr("type", "radio")
+    .attr("name", "table-select__radio");
 
   dropdownItemsEnterSelection
     .append("span")
