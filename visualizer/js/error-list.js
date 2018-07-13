@@ -22,9 +22,8 @@ function render(root, { errors, cpuTimeOffset }) {
   const headerRowSelection = root
     .insert("tr", "tr")
     .attr("class", "error-list__header-row");
-  headerRowSelection.append("th").text("Type");
-
   headerRowSelection.append("th").text("Show");
+  headerRowSelection.append("th").text("Type");
 
   const timestampUnitsSelect = headerRowSelection
     .append("th")
