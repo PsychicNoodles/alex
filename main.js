@@ -64,7 +64,7 @@ yargs
         .option("presets", {
           alias: "p",
           description:
-            "Sensible performance metrics.  Use alex list to see available presets.",
+            "Sensible performance metrics.  Use `list` command to see available presets.",
           type: "array",
           default: ["all"]
         })
