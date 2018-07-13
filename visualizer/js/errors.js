@@ -154,7 +154,7 @@ function render(root, { errors }) {
 
 function renderLines(
   root,
-  { xScale, yScale, errorRecords, errorsDistinct, cpuTimeOffset }
+  { xScale, errorRecords, errorsDistinct, cpuTimeOffset }
 ) {
   root.classed("error-lines", true);
 

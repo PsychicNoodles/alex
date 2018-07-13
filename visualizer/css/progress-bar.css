@@ -1,0 +1,19 @@
+.progress-bar {
+  background: #ededed;
+}
+
+.progress-bar:not(.progress-bar--visible) {
+  display: none;
+}
+
+.progress-bar__bar {
+  height: 10px;
+  background: #4daf62;
+  transition: transform 200ms ease-in-out;
+  will-change: transform;
+}
+
+.progress-bar__text {
+  text-align: center;
+  padding: 20px;
+}
