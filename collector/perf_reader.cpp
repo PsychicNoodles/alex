@@ -47,6 +47,11 @@
 using std::map;
 using std::string;
 using std::vector;
+using std::pair;
+using std::make_pair;
+using std::tuple;
+using std::make_tuple;
+using std::tie;
 
 /// the following record structs all have the perf_event_header shaved off,
 /// since it's removed by the get_next_record function
@@ -455,12 +460,12 @@ void copy_record_to_stack(base_record *record, base_record *local,
 }
 
 void process_throttle_record(const throttle_record &throttle, int record_type,
-                             vector<pair<int, base_record>> *errors) {
+                             vector<tuple<int, base_record, int64_t>> *errors) {
   if (adjust_period(record_type) == -1) {
     parent_shutdown(INTERNAL_ERROR);
   }
-  errors->emplace_back(
-      make_pair(record_type, base_record{.throttle = throttle}));
+  errors->emplace_back(make_tuple(
+      record_type, base_record{.throttle = throttle}, global->period));
 }
 
 bool process_sample_record(const sample_record &sample,
@@ -690,8 +695,9 @@ bool process_sample_record(const sample_record &sample,
 }
 
 void process_lost_record(const lost_record &lost,
-                         vector<pair<int, base_record>> *errors) {
-  errors->emplace_back(make_pair(PERF_RECORD_LOST, base_record{.lost = lost}));
+                         vector<tuple<int, base_record, int64_t>> *errors) {
+  errors->emplace_back(
+      make_tuple(PERF_RECORD_LOST, base_record{.lost = lost}, 0));
 }
 
 /*
@@ -711,13 +717,17 @@ void write_sample_id(const record_sample_id &sample_id) {
           sample_id.id);
 }
 
-void write_errors(vector<pair<int, base_record>> errors) {
+void write_errors(vector<tuple<int, base_record, int64_t>> errors) {
   fprintf(result_file, R"(
     ],
     "error": [
                 )");
   bool is_first_element = true;
-  for (auto &p : errors) {
+  for (auto &t : errors) {
+    int record_type;
+    base_record record;
+    int64_t extra;
+    tie(record_type, record, extra) = t;
     if (is_first_element) {
       is_first_element = false;
     } else {
@@ -725,16 +735,17 @@ void write_errors(vector<pair<int, base_record>> errors) {
       ,
     )");
     }
-    if (p.first == PERF_RECORD_THROTTLE) {
-      auto throttle = p.second.throttle;
+    if (record_type == PERF_RECORD_THROTTLE) {
+      auto throttle = record.throttle;
       uint64_t time = throttle.time;
       uint64_t id = throttle.id;
       uint64_t stream_id = throttle.stream_id;
       fprintf(result_file, R"(
       {
        "type": "PERF_RECORD_THROTTLE",
-       "time": %lu)",
-              time);
+       "time": %lu,
+       "period": %ld)",
+              time, extra);
       if (SAMPLE_ID_ALL) {
         write_sample_id(throttle.sample_id);
       } else {
@@ -746,16 +757,17 @@ void write_errors(vector<pair<int, base_record>> errors) {
       fprintf(result_file, R"(
       }
         )");
-    } else if (p.first == PERF_RECORD_UNTHROTTLE) {
-      auto throttle = p.second.throttle;
+    } else if (record_type == PERF_RECORD_UNTHROTTLE) {
+      auto throttle = record.throttle;
       uint64_t time = throttle.time;
       uint64_t id = throttle.id;
       uint64_t stream_id = throttle.stream_id;
       fprintf(result_file, R"(
       {
        "type": "PERF_RECORD_UNTHROTTLE",
-       "time": %lu)",
-              time);
+       "time": %lu,
+       "period": %ld)",
+              time, extra);
       if (SAMPLE_ID_ALL) {
         write_sample_id(throttle.sample_id);
       } else {
@@ -767,8 +779,8 @@ void write_errors(vector<pair<int, base_record>> errors) {
       fprintf(result_file, R"(
       }
         )");
-    } else if (p.first == PERF_RECORD_LOST) {
-      auto lost = p.second.lost;
+    } else if (record_type == PERF_RECORD_LOST) {
+      auto lost = record.lost;
       uint64_t id = lost.id;
       uint64_t num_lost = lost.lost;
       fprintf(result_file, R"(
@@ -789,7 +801,7 @@ void write_errors(vector<pair<int, base_record>> errors) {
       }
         )");
     } else {
-      DEBUG("couldn't determine type of error for " << p.first << "!");
+      DEBUG("couldn't determine type of error for " << record_type << "!");
       fprintf(result_file, R"|(
       {
        "type": "(null)"
@@ -894,7 +906,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
   bool is_first_timeslice = true;
   bool done = false;
   int sample_period_skips = 0;
-  vector<pair<int, base_record>> errors;
+  vector<tuple<int, base_record, int64_t>> errors;
 
   size_t last_ts = time_ms(), finish_ts = last_ts, curr_ts = 0;
 
