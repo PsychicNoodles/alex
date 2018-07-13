@@ -258,19 +258,25 @@ async function collect({
       console.error(errorCodes[code]);
       console.error(`Check ${errFile || "error logs"} for details`);
     } else {
-      const { size: resultFileSize } = await promisify(fs.stat)(rawResultFile);
-
-      const progressBar = new ProgressBar(
-        "Processing Results [:bar] :percent",
-        {
-          complete: "#",
-          width: 20,
-          total: resultFileSize
-        }
-      );
-
       let resultsProcessed = false;
       try {
+        const { size: resultFileSize } = await promisify(fs.stat)(
+          rawResultFile
+        );
+
+        if (!resultFileSize) {
+          throw new Error("Result file empty");
+        }
+
+        const progressBar = new ProgressBar(
+          "Processing Results [:bar] :percent",
+          {
+            complete: "#",
+            width: 20,
+            total: resultFileSize
+          }
+        );
+
         await new Promise((resolve, reject) => {
           const tokenStream = fs
             .createReadStream(rawResultFile)
