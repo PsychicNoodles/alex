@@ -169,7 +169,9 @@ async function collect({
   const allPresetInfo = await getAllPresetInfo();
   const presetsSet = new Set([
     ...presets.filter(preset => preset !== "all"),
-    ...(presets.includes("all") ? allPresetInfo.map(info => info.name) : [])
+    ...(presets.includes("all")
+      ? allPresetInfo.filter(info => info.isAvailable).map(info => info.name)
+      : [])
   ]);
 
   for (const preset of presetsSet) {

@@ -57,22 +57,11 @@ map<string, vector<string>> build_preset(const string& preset) {
 }
 
 void print_preset_events(const set<string>& presets, FILE* result_file) {
-  set<string> real_presets;
   fprintf(result_file, R"(
       "presets": {
         )");
-  if (presets.find("all") != presets.end()) {
-    DEBUG("GET TO PRESET END ALL");
-    real_presets.insert("cache");
-    real_presets.insert("cpu");
-    real_presets.insert("rapl");
-    real_presets.insert("wattsup");
-    real_presets.insert("branches");
-  } else {
-    real_presets = presets;
-  }
   bool is_first_preset = true;
-  for (const auto& preset : real_presets) {
+  for (const auto& preset : presets) {
     if (is_first_preset) {
       is_first_preset = false;
     } else {
