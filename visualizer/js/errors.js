@@ -93,20 +93,25 @@ function render(root, { errors }) {
     root,
     highlightedErrorsSubscription,
     highlightedErrors => {
+      const hasErrors = errors.length > 0;
       const highlightingAllErrors = errors.every(error =>
         highlightedErrors.includes(error)
       );
       const highlightingSomeErrors = highlightedErrors.length > 0;
+
       root
         .select(".errors__button")
+        .property("disabled", !hasErrors)
         .text(
-          `Highlighting ${
-            highlightingAllErrors
-              ? "All"
-              : highlightingSomeErrors
-                ? "Some"
-                : "No"
-          } Error Types`
+          hasErrors
+            ? `Highlighting ${
+                highlightingAllErrors
+                  ? "All"
+                  : highlightingSomeErrors
+                    ? "Some"
+                    : "No"
+              } Errors`
+            : "No Errors"
         );
 
       dropdownItemsSelection
