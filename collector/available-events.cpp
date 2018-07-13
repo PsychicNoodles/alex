@@ -26,7 +26,7 @@ bool check_events(char *event_name) {
   return true;
 }
 
-map<pair<string, vector<string>>, bool> checkPresets(const string &preset) {
+map<pair<string, vector<string>>, bool> check_presets(const string &preset) {
   map<pair<string, vector<string>>, bool> events;
   if (preset == "cache") {
     events.insert(pair<pair<string, vector<string>>, bool>(
@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
   }
 
   for (auto preset : real_presets) {
-    map<pair<string, vector<string>>, bool> events = checkPresets(preset);
+    map<pair<string, vector<string>>, bool> events = check_presets(preset);
     printf("Preset: %s\n", preset.c_str());
     printf("%-30s %-35s %s \n", "Options", "Events", "Status");
     for (auto event : events) {

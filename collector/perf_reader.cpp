@@ -788,7 +788,7 @@ void write_errors(vector<pair<int, base_record>> errors) {
       if (SAMPLE_ID_ALL) {
         write_sample_id(throttle.sample_id);
       } else {
-        fprintf(result_file, R"(, 
+        fprintf(result_file, R"(,
        "id": %lu,
        "stream_id": %lu)",
                 id, stream_id);
@@ -809,7 +809,7 @@ void write_errors(vector<pair<int, base_record>> errors) {
       if (SAMPLE_ID_ALL) {
         write_sample_id(throttle.sample_id);
       } else {
-        fprintf(result_file, R"(, 
+        fprintf(result_file, R"(,
        "id": %lu,
        "stream_id": %lu)",
                 id, stream_id);
@@ -848,7 +848,7 @@ void write_errors(vector<pair<int, base_record>> errors) {
     }
   }
 
-  fprintf(result_file, R"(       
+  fprintf(result_file, R"(
     ]
   }
 )");
@@ -878,11 +878,26 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
           R"(
             {
               "header": {
-                "programVersion": "%s"
-              ,
-              )",
+                "programVersion": "%s",
+                "events": [
+          )",
           VERSION);
-  printPresetEvents(global->presets, result_file);
+
+  for (int i = 0; i < global->events.size(); i++) {
+    if (i != 0) {
+      fprintf(result_file, ",");
+    }
+
+    fprintf(result_file, "\"%s\"", global->events[i].c_str());
+  }
+
+  fprintf(result_file,
+          R"(
+                ],
+          )");
+
+  print_preset_events(global->presets, result_file);
+
   fprintf(result_file,
           R"(
             },
