@@ -65,7 +65,7 @@ function render(root) {
           d3.select(this)
             .select(".table-select__radio")
             .property("checked", selectedTable === table)
-            .on("change", () => {
+            .on("change", function() {
               // only need to update from the checked radio button
               if (this.checked) {
                 selectedTableStore.dispatch(() => table);
