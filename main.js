@@ -201,6 +201,7 @@ function collect({
       console.error(`Check ${errFile || "error logs"} for details`);
     } else {
       const { size: resultFileSize } = await promisify(fs.stat)(rawResultFile);
+      console.log(resultFileSize);
 
       const progressBar = new ProgressBar(
         "Processing Results [:bar] :percent",

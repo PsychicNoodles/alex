@@ -1,7 +1,7 @@
 const d3 = require("d3");
 
 function processData(data) {
-  return data
+  data
     .filter(
       timeslice =>
         timeslice.cpuTime &&
@@ -17,16 +17,21 @@ function processData(data) {
       )
     }))
     .filter(timeslice => timeslice.stackFrames.length)
-    .reduce((newData, currentNode) => {
-      newData.push(currentNode);
-      if (newData.length < 2) {
-        newData[newData.length - 1].events.power = 0;
+    .map((d, i, arr) => {
+      if (i > 0) {
+        const a = arr[i - 1].events.core;
+        d.events.periodCpu = d.events.core - a;
+        const b = arr[i - 1].events.dram;
+        d.events.periodMemory = d.events.dram - b;
+        const c = arr[i - 1].events["package-0"];
+        d.events.periodOverall = d.events["package-0"] - c;
       } else {
-        newData[newData.length - 1].events.power =
-          currentNode.events.core - newData[newData.length - 2].events.core;
+        d.events.periodCpu = 0;
+        d.events.periodMemory = 0;
+        d.events.periodOverall = 0;
       }
-      return newData;
-    }, new Array());
+    });
+  return data;
 }
 
 function getEventCount(timeslice, lowLevelNames) {
