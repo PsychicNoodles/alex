@@ -5,6 +5,7 @@
 
 #include "debug.hpp"
 #include "find_events.hpp"
+#include "rapl.hpp"
 
 using std::map;
 using std::pair;
@@ -49,9 +50,7 @@ map<string, vector<string>> build_preset(const string& preset) {
         pair<string, vector<string>>("branchMisses", {"branch-misses"}));
     events.insert(pair<string, vector<string>>("branches", {"branches"}));
   } else if (preset == "rapl") {
-    events.insert(pair<string, vector<string>>("cpu", {"core"}));
-    events.insert(pair<string, vector<string>>("memory", {"dram"}));
-    events.insert(pair<string, vector<string>>("overall", {"package-0"}));
+    find_rapl_events(events);
   } else if (preset == "wattsup") {
     events.insert(pair<string, vector<string>>("wattsup", {"wattsup"}));
   }
