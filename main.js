@@ -18,6 +18,36 @@ process.on("unhandledRejection", err => {
 });
 
 yargs
+  .command("list", "List available presets.", {}, async () => {
+    const presets = await getAllPresetInfo();
+    const maxNameLength = Math.max(
+      ...presets.map(preset => preset.name.length)
+    );
+    const presetToString = preset =>
+      `  ${preset.name.padEnd(maxNameLength)}  ${preset.description || ""}`;
+
+    console.info("Available Presets:");
+    console.info(
+      presetToString({
+        name: "all",
+        description: "Shortcut for all available presets."
+      })
+    );
+    console.info(
+      presets
+        .filter(preset => preset.isAvailable)
+        .map(presetToString)
+        .join("\n")
+    );
+    console.info("");
+    console.info("Unavailable Presets:");
+    console.info(
+      presets
+        .filter(preset => !preset.isAvailable)
+        .map(presetToString)
+        .join("\n")
+    );
+  })
   .command(
     "collect <executable> [args..]",
     "Collect performance data on an executable.",
@@ -33,7 +63,8 @@ yargs
         })
         .option("presets", {
           alias: "p",
-          description: "Sensible performance metrics.",
+          description:
+            "Sensible performance metrics.  Use `list` command to see available presets.",
           type: "array",
           default: ["all"]
         })
@@ -98,7 +129,28 @@ yargs
   .demandCommand()
   .help().argv;
 
-function collect({
+function getAllPresetInfo() {
+  return new Promise((resolve, reject) => {
+    let output = "";
+    spawn(path.join(__dirname, "./collector/build/list-presets"))
+      .on("error", reject)
+      .stdout.on("data", chunk => {
+        output += chunk;
+      })
+      .on("end", () => {
+        try {
+          resolve(
+            JSON.parse(output).sort((a, b) => a.name.localeCompare(b.name))
+          );
+        } catch (err) {
+          reject(err);
+        }
+      })
+      .on("error", reject);
+  });
+}
+
+async function collect({
   presets,
   events,
   resultOption,
@@ -114,18 +166,39 @@ function collect({
   const rawResultFile = tempFile(".json");
   const resultFile = resultOption || tempFile(".json");
 
+  const allPresetInfo = await getAllPresetInfo();
+  const presetsSet = new Set([
+    ...presets.filter(preset => preset !== "all"),
+    ...(presets.includes("all")
+      ? allPresetInfo.filter(info => info.isAvailable).map(info => info.name)
+      : [])
+  ]);
+
+  for (const preset of presetsSet) {
+    const presetInfo = allPresetInfo.find(info => info.name === preset);
+    if (!presetInfo) {
+      console.error(`Invalid preset: ${preset}`);
+      console.error("Try `alex list` to see a list of available presets.");
+      process.exit(1);
+    } else if (!presetInfo.isAvailable) {
+      console.error(`Preset unavailable: ${preset}`);
+      console.error("This is most likely due to a lack of hardware support.");
+      console.error("Try `alex list` to see a list of available presets.");
+      process.exit(1);
+    }
+  }
+
   console.info("Collecting performance data...");
 
   const MS_PER_SEC = 1000;
   const startTime = Date.now();
   const progressInterval = setInterval(() => {
-    const numSeconds = Math.round((Date.now() - startTime) / MS_PER_SEC);
-    const s = numSeconds === 1 ? "" : "s";
-
     // Clear previous progress message
     process.stdout.clearLine();
     process.stdout.cursorTo(0);
 
+    const numSeconds = Math.round((Date.now() - startTime) / MS_PER_SEC);
+    const s = numSeconds === 1 ? "" : "s";
     process.stdout.write(`It's been ${numSeconds} second${s}. Still going...`);
   }, 1 * MS_PER_SEC);
 
@@ -133,11 +206,11 @@ function collect({
     env: {
       ...process.env,
       COLLECTOR_PERIOD: period,
-      COLLECTOR_PRESETS: presets.join(","),
+      COLLECTOR_PRESETS: [...presetsSet].join(","),
       COLLECTOR_EVENTS: events.join(","),
       COLLECTOR_RESULT_FILE: rawResultFile,
       COLLECTOR_WATTSUP_DEVICE: wattsupDevice,
-      LD_PRELOAD: path.join(__dirname, "./collector/collector.so")
+      LD_PRELOAD: path.join(__dirname, "./collector/build/collector.so")
     }
   });
 
@@ -200,20 +273,25 @@ function collect({
       console.error(errorCodes[code]);
       console.error(`Check ${errFile || "error logs"} for details`);
     } else {
-      const { size: resultFileSize } = await promisify(fs.stat)(rawResultFile);
-      console.log(resultFileSize);
-
-      const progressBar = new ProgressBar(
-        "Processing Results [:bar] :percent",
-        {
-          complete: "#",
-          width: 20,
-          total: resultFileSize
-        }
-      );
-
       let resultsProcessed = false;
       try {
+        const { size: resultFileSize } = await promisify(fs.stat)(
+          rawResultFile
+        );
+
+        if (!resultFileSize) {
+          throw new Error("Result file empty");
+        }
+
+        const progressBar = new ProgressBar(
+          "Processing Results [:bar] :percent",
+          {
+            complete: "#",
+            width: 20,
+            total: resultFileSize
+          }
+        );
+
         await new Promise((resolve, reject) => {
           const tokenStream = fs
             .createReadStream(rawResultFile)
@@ -285,6 +363,8 @@ function collect({
             }
           );
         }
+      } else {
+        process.exit(1);
       }
     }
   });

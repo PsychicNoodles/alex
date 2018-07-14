@@ -1,4 +1,4 @@
-all: node_modules collector examples available-events
+all: node_modules collector examples
 
 node_modules: package.json
 	npm install
@@ -17,4 +17,4 @@ clean:
 run-example: node_modules collector examples
 	npm run example
 
-.PHONY: all collector examples clean run-example available-events
+.PHONY: all collector examples clean run-example
