@@ -100,11 +100,11 @@ function render(root, { errorCounts, errorRecords }) {
             .length
       );
       const highlightedAllErrors = errorCounts.map(
-        ([_, totalCount], i) => highlightedErrorsCounts[i] === totalCount
+        ([, totalCount], i) => highlightedErrorsCounts[i] === totalCount
       );
       const highlightedAllAllErrors = highlightedAllErrors.every(all => all);
       const highlightedSomeErrors = errorCounts.map(
-        ([_], i) => highlightedErrorsCounts[i] > 0
+        (_, i) => highlightedErrorsCounts[i] > 0
       );
       const highlightedSomeAllErrors = highlightedSomeErrors.some(some => some);
       root
