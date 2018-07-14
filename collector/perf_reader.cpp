@@ -44,14 +44,14 @@
 #include "util.hpp"
 #include "wattsup.hpp"
 
-using std::map;
-using std::string;
-using std::vector;
-using std::pair;
 using std::make_pair;
-using std::tuple;
 using std::make_tuple;
+using std::map;
+using std::pair;
+using std::string;
 using std::tie;
+using std::tuple;
+using std::vector;
 
 /// the following record structs all have the perf_event_header shaved off,
 /// since it's removed by the get_next_record function

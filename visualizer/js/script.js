@@ -96,6 +96,30 @@ ipcRenderer.on("result", async (event, resultFile) => {
       getDependentVariable: d =>
         getEventCount(d, presets.cpu.instructions) /
           getEventCount(d, presets.cpu.cpuCycles) || 0
+    },
+    {
+      presetsRequired: ["rapl"],
+      yAxisLabel: "CPU Power",
+      yFormat: d3.format(".2s"),
+      getDependentVariable: d => d.events["periodCpu"] || 0
+    },
+    {
+      presetsRequired: ["rapl"],
+      yAxisLabel: "Memory Power",
+      yFormat: d3.format(".2s"),
+      getDependentVariable: d => d.events["periodMemory"] || 0
+    },
+    {
+      presetsRequired: ["rapl"],
+      yAxisLabel: "Overall Power",
+      yFormat: d3.format(".2s"),
+      getDependentVariable: d => d.events["periodOverall"] || 0
+    },
+    {
+      presetsRequired: ["wattsup"],
+      yAxisLabel: "Wattsup Power",
+      yFormat: d3.format(".2s"),
+      getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup)
     }
   ].filter(({ presetsRequired }) =>
     presetsRequired.every(presetName => presetName in presets)
@@ -146,7 +170,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     0
   );
 
-  const spectrum = d3.interpolateGreens;
+  const spectrum = d3.interpolateWarm;
 
   const errorCountsMap = new Map();
   errorRecords.forEach(error => {
