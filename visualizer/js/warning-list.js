@@ -1,8 +1,8 @@
 const d3 = require("d3");
 
 const { Store } = require("./store");
-const { highlightedErrorsStore } = require("./errors");
-const highlightedErrorsSubscription = d3.local();
+const { highlightedWarningsStore } = require("./warnings");
+const highlightedWarningsSubscription = d3.local();
 
 const timestampDivisorSubscription = d3.local();
 const timestampDivisorStore = new Store(1);
@@ -15,13 +15,13 @@ const ERROR_DESCRIPTIONS = {
     "Some events were lost, possibly due to the period being too low"
 };
 
-function render(root, { errors, cpuTimeOffset }) {
-  root.classed("error-list", true);
+function render(root, { warnings, cpuTimeOffset }) {
+  root.classed("warning-list", true);
 
-  root.select(".error-list__header-row").remove();
+  root.select(".warning-list__header-row").remove();
   const headerRowSelection = root
     .insert("tr", "tr")
-    .attr("class", "error-list__header-row");
+    .attr("class", "warning-list__header-row");
   headerRowSelection.append("th").text("Show");
   headerRowSelection.append("th").text("Type");
 
@@ -41,13 +41,13 @@ function render(root, { errors, cpuTimeOffset }) {
   headerRowSelection.append("th").text("Value");
 
   const tableDataSelection = root
-    .selectAll(".error-list__data-row")
-    .data(errors);
+    .selectAll(".warning-list__data-row")
+    .data(warnings);
 
   const tableDataSelectionEnter = tableDataSelection
     .enter()
     .append("tr")
-    .attr("class", "error-list__data-row")
+    .attr("class", "warning-list__data-row")
     .merge(tableDataSelection);
 
   const tableDataShow = tableDataSelectionEnter
@@ -55,23 +55,23 @@ function render(root, { errors, cpuTimeOffset }) {
     .append("input")
     .attr("type", "checkbox");
 
-  highlightedErrorsStore.subscribeUnique(
+  highlightedWarningsStore.subscribeUnique(
     root,
-    highlightedErrorsSubscription,
-    highlightedErrors => {
+    highlightedWarningsSubscription,
+    highlightedWarnings => {
       tableDataShow
-        .property("checked", error => highlightedErrors.includes(error))
-        .each(function(error) {
+        .property("checked", warning => highlightedWarnings.includes(warning))
+        .each(function(warning) {
           d3.select(this).on("change", function() {
             if (this.checked) {
-              highlightedErrorsStore.dispatch(highlightedErrors => [
-                ...highlightedErrors,
-                error
+              highlightedWarningsStore.dispatch(highlightedWarnings => [
+                ...highlightedWarnings,
+                warning
               ]);
             } else {
-              highlightedErrorsStore.dispatch(highlightedErrors =>
-                highlightedErrors.filter(
-                  highlightedError => highlightedError !== error
+              highlightedWarningsStore.dispatch(highlightedWarnings =>
+                highlightedWarnings.filter(
+                  highlightedWarning => highlightedWarning !== warning
                 )
               );
             }
@@ -83,17 +83,17 @@ function render(root, { errors, cpuTimeOffset }) {
   tableDataSelectionEnter
     .append("td")
     .append("abbr")
-    .attr("class", "error-list__data-row-type")
+    .attr("class", "warning-list__data-row-type")
     .attr("title", e => ERROR_DESCRIPTIONS[e.type])
     .text(e => e.type);
 
   const tableDataTimestamp = tableDataSelectionEnter
     .append("td")
-    .attr("class", "error-list__data-row-timestamp");
+    .attr("class", "warning-list__data-row-timestamp");
 
   tableDataSelectionEnter
     .append("td")
-    .attr("class", "error-list__data-row-value")
+    .attr("class", "warning-list__data-row-value")
     .text(e => {
       if (
         e.type === "PERF_RECORD_THROTTLE" ||

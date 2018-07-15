@@ -2,7 +2,7 @@ const d3 = require("d3");
 
 const plot = require("./plot");
 const brushes = require("./brushes");
-const errors = require("./errors");
+const errors = require("./warnings");
 
 const WIDTH = 500;
 const HEIGHT = 250;

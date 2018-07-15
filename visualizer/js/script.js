@@ -14,12 +14,12 @@ const {
 const { analyze } = require("./analysis");
 const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
-const errorList = require("./error-list");
+const warningList = require("./warning-list");
 const legend = require("./legend");
 const brushes = require("./brushes");
 const sourceSelect = require("./source-select");
 const tableSelect = require("./table-select");
-const errors = require("./errors");
+const warnings = require("./warnings");
 const stream = require("./stream");
 const progressBar = require("./progress-bar");
 const { Store } = require("./store");
@@ -59,10 +59,11 @@ ipcRenderer.on("result", async (event, resultFile) => {
       )
       .pipe(streamJSON.parser());
 
+    //question??????????
     const assembler = await new Promise((resolve, reject) =>
-      JSONAssembler.connectTo(jsonTokenStream.on("error", reject))
+      JSONAssembler.connectTo(jsonTokenStream.on("warning", reject))
         .on("done", resolve)
-        .on("error", reject)
+        .on("warning", reject)
     );
 
     result = assembler.current;
@@ -70,8 +71,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
     throw new Error(`Couldn't load result file: ${err.message}`);
   }
 
+  alert("Error Message");
+
   const processedData = processData(result.timeslices, result.header);
-  const errorRecords = result.error;
+  const warningRecords = result.warning;
 
   loadingProgressStore.dispatch(state => ({
     ...state,
@@ -172,16 +175,19 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
   const spectrum = d3.interpolateWarm;
 
-  const errorCountsMap = new Map();
-  errorRecords.forEach(error => {
-    if (errorCountsMap.has(error.type)) {
-      errorCountsMap.set(error.type, errorCountsMap.get(error.type) + 1);
+  const warningCountsMap = new Map();
+  warningRecords.forEach(warning => {
+    if (warningCountsMap.has(warning.type)) {
+      warningCountsMap.set(
+        warning.type,
+        warningCountsMap.get(warning.type) + 1
+      );
     } else {
-      errorCountsMap.set(error.type, 1);
+      warningCountsMap.set(warning.type, 1);
     }
   });
-  const errorCounts = [...errorCountsMap];
-  const errorsDistinct = [...errorCountsMap.keys()];
+  const warningCounts = [...warningCountsMap];
+  const warningsDistinct = [...warningCountsMap.keys()];
 
   for (const chartParams of charts) {
     const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
@@ -203,8 +209,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
             ? d3.interpolateRgb("#3A72F2", "#3A72F2")
             : spectrum,
         cpuTimeOffset,
-        errorRecords,
-        errorsDistinct
+        warningRecords,
+        warningsDistinct
       });
   }
 
@@ -223,13 +229,13 @@ ipcRenderer.on("result", async (event, resultFile) => {
     sources: [...sourcesSet]
   });
 
-  d3.select("#errors").call(errors.render, {
-    errorCounts,
-    errorRecords
+  d3.select("#warnings").call(warnings.render, {
+    warningCounts,
+    warningRecords
   });
 
-  d3.select("#error-list").call(errorList.render, {
-    errors: errorRecords,
+  d3.select("#warning-list").call(warningList.render, {
+    warnings: warningRecords,
     cpuTimeOffset
   });
 
@@ -293,7 +299,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
   const tableIds = {
     "Function Runtimes": "#function-runtimes",
-    Errors: "#error-list"
+    Warnings: "#warning-list"
   };
 
   stream

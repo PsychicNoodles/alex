@@ -459,12 +459,13 @@ void copy_record_to_stack(base_record *record, base_record *local,
   }
 }
 
-void process_throttle_record(const throttle_record &throttle, int record_type,
-                             vector<tuple<int, base_record, int64_t>> *errors) {
+void process_throttle_record(
+    const throttle_record &throttle, int record_type,
+    vector<tuple<int, base_record, int64_t>> *warnings) {
   if (adjust_period(record_type) == -1) {
     parent_shutdown(INTERNAL_ERROR);
   }
-  errors->emplace_back(make_tuple(
+  warnings->emplace_back(make_tuple(
       record_type, base_record{.throttle = throttle}, global->period));
 }
 
@@ -695,14 +696,14 @@ bool process_sample_record(const sample_record &sample,
 }
 
 void process_lost_record(const lost_record &lost,
-                         vector<tuple<int, base_record, int64_t>> *errors) {
-  errors->emplace_back(
+                         vector<tuple<int, base_record, int64_t>> *warnings) {
+  warnings->emplace_back(
       make_tuple(PERF_RECORD_LOST, base_record{.lost = lost}, 0));
 }
 
 /*
  * Writes the information from the sample_id struct to the result file.
- * Error entries may end up having duplicate key-values, particularly time and
+ * Warning entries may end up having duplicate key-values, particularly time and
  * stream_id, since the sample_id struct simply tries to provide the same
  * information across all supported record types.
  */
@@ -717,13 +718,13 @@ void write_sample_id(const record_sample_id &sample_id) {
           sample_id.id);
 }
 
-void write_errors(vector<tuple<int, base_record, int64_t>> errors) {
+void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
   fprintf(result_file, R"(
     ],
-    "error": [
+    "warning": [
                 )");
   bool is_first_element = true;
-  for (auto &t : errors) {
+  for (auto &t : warnings) {
     int record_type;
     base_record record;
     int64_t extra;
@@ -801,7 +802,7 @@ void write_errors(vector<tuple<int, base_record, int64_t>> errors) {
       }
         )");
     } else {
-      DEBUG("couldn't determine type of error for " << record_type << "!");
+      DEBUG("couldn't determine type of warning for " << record_type << "!");
       fprintf(result_file, R"|(
       {
        "type": "(null)"
@@ -906,7 +907,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
   bool is_first_timeslice = true;
   bool done = false;
   int sample_period_skips = 0;
-  vector<tuple<int, base_record, int64_t>> errors;
+  vector<tuple<int, base_record, int64_t>> warnings;
 
   size_t last_ts = time_ms(), finish_ts = last_ts, curr_ts = 0;
 
@@ -999,7 +1000,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                   copy_record_to_stack(perf_result, &local_result, record_type,
                                        record_size, data_start, data_end);
                   process_throttle_record(local_result.throttle, record_type,
-                                          &errors);
+                                          &warnings);
                 } else if (record_type == PERF_RECORD_SAMPLE) {
                   if (is_first_sample) {
                     copy_record_to_stack(perf_result, &local_result,
@@ -1016,7 +1017,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                 } else if (record_type == PERF_RECORD_LOST) {
                   copy_record_to_stack(perf_result, &local_result, record_type,
                                        record_size, data_start, data_end);
-                  process_lost_record(local_result.lost, &errors);
+                  process_lost_record(local_result.lost, &warnings);
                 } else {
                   DEBUG("cpd: record type was not recognized ("
                         << record_type_str(record_type) << " " << record_type
@@ -1046,8 +1047,8 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
   DEBUG("cpd: stopping wattsup reading thread");
   stop_reading(wattsup_reading);
 
-  DEBUG("cpd: writing errors");
-  write_errors(errors);
+  DEBUG("cpd: writing warnings");
+  write_warnings(warnings);
 
   return 0;
 }
