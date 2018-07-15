@@ -7,64 +7,64 @@ require("bootstrap-colorpicker");
 // necessary evil of also requiring jquery to set handlers for its events
 const $ = require("jquery");
 
-const highlightedErrorsSubscription = d3.local();
-const highlightedErrorsStore = new Store([]);
+const highlightedWarningsSubscription = d3.local();
+const highlightedWarningsStore = new Store([]);
 
 const dropdownIsOpen = d3.local();
 
-const DEFAULT_ERROR_COLOR = "rgba(255, 0, 0, 0.8)";
+const DEFAULT_WARNING_COLOR = "rgba(255, 0, 0, 0.8)";
 
-function render(root, { errorCounts, errorRecords }) {
+function render(root, { warningCounts, warningRecords }) {
   //set up dom
-  root.classed("errors", true);
+  root.classed("warnings", true);
 
   if (root.property(dropdownIsOpen) === undefined) {
     root.property(dropdownIsOpen, false);
   }
 
-  if (root.select(".errors__button").empty()) {
-    root.append("button").attr("class", "errors__button");
+  if (root.select(".warnings__button").empty()) {
+    root.append("button").attr("class", "warnings__button");
   }
 
-  if (root.select(".errors__dropdown").empty()) {
-    root.append("div").attr("class", "errors__dropdown");
+  if (root.select(".warnings__dropdown").empty()) {
+    root.append("div").attr("class", "warnings__dropdown");
   }
 
-  //class "open" if the errors button is clicked
-  root.classed("errors--dropdown-open", root.property(dropdownIsOpen));
+  //class "open" if the warnings button is clicked
+  root.classed("warnings--dropdown-open", root.property(dropdownIsOpen));
 
-  root.select(".errors__button").on("click", () => {
+  root.select(".warnings__button").on("click", () => {
     root
       .property(dropdownIsOpen, !root.property(dropdownIsOpen))
-      .classed("errors--dropdown-open", root.property(dropdownIsOpen));
+      .classed("warnings--dropdown-open", root.property(dropdownIsOpen));
   });
 
   const dropdownItemsSelection = root
-    .select(".errors__dropdown")
-    .selectAll(".errors__dropdown-item")
-    .data(["All Error Types", ...errorCounts.map(pair => pair[0])]);
+    .select(".warnings__dropdown")
+    .selectAll(".warnings__dropdown-item")
+    .data(["All Warning Types", ...warningCounts.map(pair => pair[0])]);
 
   const dropdownItemsEnterSelection = dropdownItemsSelection
     .enter()
     .append("div")
-    .attr("class", "errors__dropdown-item input-group colorpicker-component");
+    .attr("class", "warnings__dropdown-item input-group colorpicker-component");
 
   dropdownItemsEnterSelection
     .append("input")
-    .attr("class", "errors__checkbox")
+    .attr("class", "warnings__checkbox")
     .attr("type", "checkbox")
-    .attr("id", (d, i) => `error__checkbox-${i}`);
+    .attr("id", (d, i) => `warning__checkbox-${i}`);
 
   dropdownItemsEnterSelection
     .append("label")
-    .attr("class", "errors__type")
-    .attr("for", (d, i) => `error__checkbox-${i}`)
-    .text(error => error);
+    .attr("class", "warnings__type")
+    .attr("for", (d, i) => `warning__checkbox-${i}`)
+    .text(warning => warning);
 
   // color picker input
   dropdownItemsEnterSelection
     .append("input")
-    .attr("class", "errors__color-picker")
+    .attr("class", "warnings__color-picker")
     .attr("type", "hidden");
 
   // color picker image/popover
@@ -75,94 +75,98 @@ function render(root, { errorCounts, errorRecords }) {
 
   dropdownItemsEnterSelection.each((d, i, g) => {
     if (i > 0) {
-      // skip the "All Error Types" item
+      // skip the "All Warning Types" item
       $(g[i])
         .colorpicker({
-          color: DEFAULT_ERROR_COLOR,
-          input: ".errors__color-picker"
+          color: DEFAULT_WARNING_COLOR,
+          input: ".warnings__color-picker"
         })
         .on("changeColor", e => {
-          d3.selectAll(`.error-lines__type-${i}`).style("stroke", e.color);
+          d3.selectAll(`.warning-lines__type-${i}`).style("stroke", e.color);
         });
     }
   });
 
-  //set up store subscription to update the error list so that other parts can be notified and update as well
+  //set up store subscription to update the warning list so that other parts can be notified and update as well
 
-  highlightedErrorsStore.subscribeUnique(
+  highlightedWarningsStore.subscribeUnique(
     root,
-    highlightedErrorsSubscription,
-    highlightedErrors => {
-      const hasErrors = errorRecords.length > 0;
-      const highlightedErrorsCounts = errorCounts.map(
+    highlightedWarningsSubscription,
+    highlightedWarnings => {
+      const hasWarnings = warningRecords.length > 0;
+      const highlightedWarningsCounts = warningCounts.map(
         ([type]) =>
-          highlightedErrors.filter(highlighted => highlighted.type === type)
+          highlightedWarnings.filter(highlighted => highlighted.type === type)
             .length
       );
-      const highlightedAllErrors = errorCounts.map(
-        ([, totalCount], i) => highlightedErrorsCounts[i] === totalCount
+      const highlightedAllWarnings = warningCounts.map(
+        ([, totalCount], i) => highlightedWarningsCounts[i] === totalCount
       );
-      const highlightedAllAllErrors = highlightedAllErrors.every(all => all);
-      const highlightedSomeErrors = errorCounts.map(
-        (_, i) => highlightedErrorsCounts[i] > 0
+      const highlightedAllAllWarnings = highlightedAllWarnings.every(
+        all => all
       );
-      const highlightedSomeAllErrors = highlightedSomeErrors.some(some => some);
+      const highlightedSomeWarnings = warningCounts.map(
+        (_, i) => highlightedWarningsCounts[i] > 0
+      );
+      const highlightedSomeAllWarnings = highlightedSomeWarnings.some(
+        some => some
+      );
       root
-        .select(".errors__button")
-        .property("disabled", !hasErrors)
+        .select(".warnings__button")
+        .property("disabled", !hasWarnings)
         .text(
-          hasErrors
+          hasWarnings
             ? `Highlighting ${
-                highlightedAllAllErrors
+                highlightedAllAllWarnings
                   ? "All"
-                  : highlightedSomeAllErrors
+                  : highlightedSomeAllWarnings
                     ? "Some"
                     : "No"
-              } Error Types`
-            : "No Errors"
+              } Warning Types`
+            : "No Warnings"
         );
 
       dropdownItemsSelection
         .merge(dropdownItemsEnterSelection)
-        .each(function(error, i) {
+        .each(function(warning, i) {
           if (i === 0) {
             // We are on the All checkbox
             d3.select(this)
-              .select(".errors__checkbox")
-              .property("checked", highlightedAllAllErrors)
+              .select(".warnings__checkbox")
+              .property("checked", highlightedAllAllWarnings)
               .property(
                 "indeterminate",
-                highlightedSomeAllErrors && !highlightedAllAllErrors
+                highlightedSomeAllWarnings && !highlightedAllAllWarnings
               )
               .on("change", function() {
                 if (this.checked) {
-                  highlightedErrorsStore.dispatch(() => errorRecords);
+                  highlightedWarningsStore.dispatch(() => warningRecords);
                 } else {
-                  highlightedErrorsStore.dispatch(() => []);
+                  highlightedWarningsStore.dispatch(() => []);
                 }
               });
           } else {
             d3.select(this)
-              .select(".errors__checkbox")
-              .property("checked", highlightedAllErrors[i - 1])
+              .select(".warnings__checkbox")
+              .property("checked", highlightedAllWarnings[i - 1])
               .property(
                 "indeterminate",
-                highlightedSomeErrors[i - 1] && !highlightedAllErrors[i - 1]
+                highlightedSomeWarnings[i - 1] && !highlightedAllWarnings[i - 1]
               )
               .on("change", function() {
                 if (this.checked) {
-                  highlightedErrorsStore.dispatch(highlightedErrors => [
-                    ...highlightedErrors,
-                    ...errorRecords.filter(
+                  highlightedWarningsStore.dispatch(highlightedWarnings => [
+                    ...highlightedWarnings,
+                    ...warningRecords.filter(
                       record =>
-                        error === record.type &&
-                        !highlightedErrors.includes(record)
+                        warning === record.type &&
+                        !highlightedWarnings.includes(record)
                     )
                   ]);
                 } else {
-                  highlightedErrorsStore.dispatch(highlightedErrors =>
-                    highlightedErrors.filter(
-                      highlightedError => highlightedError.type !== error
+                  highlightedWarningsStore.dispatch(highlightedWarnings =>
+                    highlightedWarnings.filter(
+                      highlightedWarning => highlightedWarning.type !== warning
                     )
                   );
                 }
@@ -175,13 +179,13 @@ function render(root, { errorCounts, errorRecords }) {
 
 function renderLines(
   root,
-  { xScale, errorRecords, errorsDistinct, cpuTimeOffset }
+  { xScale, warningRecords, warningsDistinct, cpuTimeOffset }
 ) {
-  root.classed("error-lines", true);
+  root.classed("warning-lines", true);
 
   const linesSelection = root
-    .selectAll(".error-lines__line")
-    .data(errorRecords);
+    .selectAll(".warning-lines__line")
+    .data(warningRecords);
 
   const linesUpdateSelection = linesSelection
     .enter()
@@ -189,25 +193,26 @@ function renderLines(
     .attr(
       "class",
       d =>
-        `error-lines__line error-lines__type-${errorsDistinct.indexOf(d.type) +
-          1}`
+        `warning-lines__line warning-lines__type-${warningsDistinct.indexOf(
+          d.type
+        ) + 1}`
     )
     .attr("y1", -20)
     .attr("y2", 0)
     .attr("position", "absolute")
     .style("stroke-width", 0.5)
-    .style("stroke", DEFAULT_ERROR_COLOR)
+    .style("stroke", DEFAULT_WARNING_COLOR)
     .merge(linesSelection)
     .attr("x1", d => xScale(d.time - cpuTimeOffset))
     .attr("x2", d => xScale(d.time - cpuTimeOffset));
 
-  highlightedErrorsStore.subscribeUnique(
+  highlightedWarningsStore.subscribeUnique(
     root,
-    highlightedErrorsSubscription,
-    highlightedErrors => {
+    highlightedWarningsSubscription,
+    highlightedWarnings => {
       linesUpdateSelection.style(
         "stroke-opacity",
-        d => (highlightedErrors.includes(d) ? 1 : 0)
+        d => (highlightedWarnings.includes(d) ? 1 : 0)
       );
     }
   );
@@ -215,6 +220,6 @@ function renderLines(
 
 module.exports = {
   render,
-  highlightedErrorsStore,
+  highlightedWarningsStore,
   renderLines
 };

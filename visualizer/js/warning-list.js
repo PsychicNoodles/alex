@@ -7,7 +7,7 @@ const highlightedWarningsSubscription = d3.local();
 const timestampDivisorSubscription = d3.local();
 const timestampDivisorStore = new Store(1);
 
-const ERROR_DESCRIPTIONS = {
+const WARNING_DESCRIPTIONS = {
   PERF_RECORD_THROTTLE:
     "Too many samples due to the period being too low, try increasing the period",
   PERF_RECORD_UNTHROTTLE: "Period was high enough and decreased back down",
@@ -84,7 +84,7 @@ function render(root, { warnings, cpuTimeOffset }) {
     .append("td")
     .append("abbr")
     .attr("class", "warning-list__data-row-type")
-    .attr("title", e => ERROR_DESCRIPTIONS[e.type])
+    .attr("title", e => WARNING_DESCRIPTIONS[e.type])
     .text(e => e.type);
 
   const tableDataTimestamp = tableDataSelectionEnter

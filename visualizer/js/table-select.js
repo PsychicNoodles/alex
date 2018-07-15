@@ -2,7 +2,7 @@ const d3 = require("d3");
 
 const { Store } = require("./store");
 
-const TABLES = ["Function Runtimes", "Errors"];
+const TABLES = ["Function Runtimes", "Warnings"];
 
 const selectedTableSubscription = d3.local();
 const selectedTableStore = new Store(TABLES[0]);
