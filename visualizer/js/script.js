@@ -202,10 +202,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         yFormat,
         plotData: plotDataByChart.get(chartParams),
         densityMax,
-        spectrum:
-          d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) <= 2
-            ? d3.interpolateRgb("#3A72F2", "#3A72F2")
-            : spectrum,
+        spectrum,
         cpuTimeOffset,
         errorRecords,
         errorsDistinct
