@@ -74,6 +74,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     }
 
     const processedData = processData(result.timeslices, result.header);
+    processedData.filter(timeslice => timeslice.events.periodCpu < 100);
     const errorRecords = result.error;
 
     loadingProgressStore.dispatch(state => ({
