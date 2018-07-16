@@ -150,7 +150,8 @@ class memory_map {
   /// match the provided scope patterns, adding only source files matching the
   /// source scope patterns.
   void build(const std::unordered_set<std::string>& binary_scope,
-             const std::unordered_set<std::string>& source_scope);
+             const std::unordered_set<std::string>& source_scope,
+             std::map<interval, string>& sym_table);
 
   std::shared_ptr<line> find_line(const std::string& name);
   std::shared_ptr<line> find_line(uintptr_t addr);
@@ -180,12 +181,14 @@ class memory_map {
   /// Find a debug version of provided file and add all of its in-scope lines to
   /// the map
   bool process_file(const std::string& name, uintptr_t load_address,
-                    const std::unordered_set<std::string>& source_scope);
+                    const std::unordered_set<std::string>& source_scope,
+                    std::map<interval, string>& sym_table);
 
   /// Add entries for all inlined calls
   void process_inlines(const dwarf::die& d, const dwarf::line_table& table,
                        const std::unordered_set<std::string>& source_scope,
-                       uintptr_t load_address);
+                       uintptr_t load_address,
+                       std::map<interval, string>& sym_table);
 
   std::map<std::string, std::shared_ptr<file>> _files;
   std::map<interval, std::shared_ptr<line>> _ranges;

@@ -202,6 +202,32 @@ void delete_fd_from_epoll(int fd) {
   sample_fd_count--;
 }
 
+// unordered_map<pair<uint64_t, uint64_t>, char*> dump_sym (const dwarf::die
+// &node, int depth) {
+//   unordered_map<pair<uint64_t, uint64_t>, char*> addr_sym;
+//   char * name;
+//   uint64_t low_pc;
+//   uint64_t high_pc;
+//   if (to_string(node.tag).compare("DW_TAG_subprogram") == 0) {
+//     char * name;
+//     uint64_t low_pc;
+//     uint64_t high_pc;
+//     for (auto &attr : node.attributes()) {
+//       if (to_string(attr.first).compare("DW_AT_low_pc") == 0) {
+//         DEBUG("added in low pc " << to_string(attr.second));
+//         low_pc = stoul(attr.second);
+//       }
+//       if (to_string(attr.first).compare("DW_AT_high_pc") == 0) {
+//         DEBUG("added in high pc " << to_string(attr.second));
+//         low_pc = attr.second;
+//       }
+//       printf("%*.s      %s %s\n", depth, "", to_string(attr.first).c_str(),
+//              to_string(attr.second).c_str());
+//     }
+//   }
+//   for (auto &child : node) dump_sym(child, depth + 1);
+// }
+
 /*
  * Sets up all the perf events for the target process/thread
  * The current list of perf events is:
@@ -497,7 +523,9 @@ bool process_sample_record(const sample_record &sample,
                            const perf_fd_info &info, bool is_first_timeslice,
                            bool is_first_sample, bg_reading *rapl_reading,
                            bg_reading *wattsup_reading,
-                           const map<uint64_t, kernel_sym> &kernel_syms) {
+                           const map<uint64_t, kernel_sym> &kernel_syms,
+                           const map<interval, std::shared_ptr<line>> &ranges,
+                           const map<interval, string> &sym_map) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
@@ -682,51 +710,50 @@ bool process_sample_record(const sample_record &sample,
             function_name, file_name, file_base, sym_addr, sym_name);
     free(demangled_name);  // NOLINT
     char *fullLocation = nullptr;
+    auto line = -1;
 
     // Need to subtract one. PC is the return address, but we're
     // looking for the callsite.
     dwarf::taddr pc = inst_ptr - 1;
-    auto ranges = memory_map::get_instance().ranges();
-    auto it = ranges.begin();
-    for (; it != ranges.end(); it++) {
-      // DEBUG("line before loop is " << it->second);
-      if (it->first.contains(pc)) {
-        DEBUG("line is " << it->second);
+
+    for (auto &entry : sym_map) {
+      DEBUG("name is " << entry.second);
+      // DEBUG("add is " << entry.first.first << entry.first.second);
+      if (entry.first.contains(pc)) {
+        DEBUG("pc is " << pc);
+        const char *name = entry.second.c_str();
+        DEBUG("GET A NAME AND NAME IS " << name);
+        // break;
+      }
+    }
+
+    size_t start_loop = time_ms();
+
+    for (auto &it : ranges) {
+      if (it.first.contains(pc)) {
+        DEBUG("line is " << it.second);
+        line = it.second.get()->get_line();
+        fullLocation = (char *)it.second.get()->get_file()->get_name().c_str();
         break;
       }
     }
-    if (it == ranges.end()) {
-      DEBUG("cannot find line\n");
-    }
 
-    auto line = -1, column = -1;
+    if (fullLocation == NULL) DEBUG("cannot find location for " << pc);
 
-    static dwarf::dwarf dw = read_dwarf();
+    // static dwarf::dwarf dw = read_dwarf();
 
-    for (auto &cu : dw.compilation_units()) {
-      // printf("--- <%" PRIx64 ">\n", cu.get_section_offset());
-      DEBUG("section offset is " << cu.get_section_offset());
-      dump_tree(cu.root());
-      if (die_pc_range(cu.root()).contains(pc)) {
-        // Map PC to a line
-        auto &lt = cu.get_line_table();
-        auto it = lt.find_address(pc);
-        if (it != lt.end()) {
-          line = it->line;
-          column = it->column;
-          fullLocation = const_cast<char *>(it->file->path.c_str());
-        }
-        break;
-      }
-      break;
-    }
+    // for (auto &cu : dw.compilation_units()) {
+    //   // printf("--- <%" PRIx64 ">\n", cu.get_section_offset());
+    //   DEBUG("section offset is " << cu.get_section_offset());
+    //   dump_tree(cu.root());
+    //   break;
+    // }
 
     fprintf(result_file,
             R"(,
                     "line": %d,
-                    "col": %d,
                     "fullLocation": "%s" })",
-            line, column, fullLocation);
+            line, fullLocation);
   }
   fprintf(result_file, R"(
                   ]
@@ -969,7 +996,16 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
     DEBUG("Including MAIN, which is " << main_name);
   }
 
-  memory_map::get_instance().build(binary_scope, source_scope);
+  map<interval, string> sym_map;
+
+  memory_map::get_instance().build(binary_scope, source_scope, sym_map);
+  auto ranges = memory_map::get_instance().ranges();
+
+  for (auto &entry : sym_map) {
+    DEBUG("have inserted " << entry.first.get_base());
+    DEBUG("have inserted " << entry.first.get_limit());
+    DEBUG("have inserted " << entry.second);
+  }
 
   restart_reading(rapl_reading);
   restart_reading(wattsup_reading);
@@ -1070,7 +1106,8 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                     is_first_sample = process_sample_record(
                         local_result.sample, info, is_first_timeslice,
                         is_first_sample, rapl_reading, wattsup_reading,
-                        kernel_syms);
+                        kernel_syms, ranges, sym_map);
+
                   } else {
                     DEBUG("cpd: not first sample, skipping");
                   }
