@@ -10,6 +10,7 @@ function render(root, { densityMax, spectrum }) {
   const sequentialScale = d3.scaleSequential(spectrum).domain([0, densityMax]);
 
   root
+    .append("svg")
     .append("g")
     .attr("class", "legendSequential")
     .attr("transform", "translate(0,30)");

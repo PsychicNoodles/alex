@@ -11,13 +11,13 @@ function render(root, { processedData }) {
     .append("ul")
     .selectAll("p")
     .data([
-      ["Timeslices", numTimeslices],
-      ["CPU Time Elapsed", endTime - startTime, "time"],
-      [
-        "Average Timeslice Duration",
-        (endTime - startTime) / numTimeslices,
-        "time"
-      ]
+      { name: "Timeslices", number: numTimeslices, isTime: false },
+      { name: "CPU Time Elapsed", number: endTime - startTime, isTime: true },
+      {
+        name: "Average Timeslice Duration",
+        number: (endTime - startTime) / numTimeslices,
+        isTime: true
+      }
     ])
     .enter()
     .append("li");
@@ -25,24 +25,26 @@ function render(root, { processedData }) {
   statsSelectionEnter
     .append("span")
     .attr("class", "title")
-    .text(d => d[0] + ":")
+    .text(({ name }) => name + ":")
     .append("br");
 
   statsSelectionEnter
-    .filter(d => d[2] !== "time")
+    .filter(({ isTime }) => !isTime)
     .append("span")
     .attr("class", "value")
-    .text(d => d[1]);
+    .text(({ number }) => number);
 
   const statsTime = statsSelectionEnter
-    .filter(d => d[2] === "time")
+    .filter(({ isTime }) => isTime)
     .append("abbr")
     .attr("class", "value");
+
   statsTime
     .append("span")
-    .text(d => d[1] / 1000000000)
-    .attr("title", d => `${d[1]} Nanoseconds`)
+    .text(({ number }) => d3.format(".4s")(number / 1000000000))
+    .attr("title", ({ number }) => `${number} Nanoseconds`)
     .append("br");
+
   statsTime.append("span").text("Seconds");
 }
 

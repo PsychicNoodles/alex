@@ -2,10 +2,13 @@ const d3 = require("d3");
 
 const { Store } = require("./store");
 
-const TABLES = ["Function Runtimes", "Errors"];
+const tables = [
+  { name: "Function Runtimes", id: "#function-runtimes" },
+  { name: "Errors", id: "#error-list" }
+];
 
 const selectedTableSubscription = d3.local();
-const selectedTableStore = new Store(TABLES[0]);
+const selectedTableStore = new Store(tables[0]);
 
 const dropdownIsOpen = d3.local();
 
@@ -39,7 +42,7 @@ function render(root) {
   const dropdownItemsSelection = root
     .select(".select__dropdown")
     .selectAll(".select__dropdown-item")
-    .data(TABLES);
+    .data(tables);
 
   const dropdownItemsEnterSelection = dropdownItemsSelection
     .enter()
@@ -55,20 +58,20 @@ function render(root) {
   dropdownItemsEnterSelection
     .append("span")
     .attr("class", "select__name")
-    .text(name => name);
+    .text(table => table.name);
 
   selectedTableStore.subscribeUnique(
     root,
     selectedTableSubscription,
     selectedTable => {
-      root.select(".select__button").text(selectedTable);
+      root.select(".select__button").text(selectedTable.name);
 
       dropdownItemsSelection
         .merge(dropdownItemsEnterSelection)
         .each(function(table) {
           d3.select(this)
             .select(".select__radio")
-            .property("checked", selectedTable === table)
+            .property("checked", selectedTable.id === table.id)
             .on("change", function() {
               // only need to update from the checked radio button
               if (this.checked) {

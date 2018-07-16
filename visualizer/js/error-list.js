@@ -38,28 +38,33 @@ function render(root, { errors, cpuTimeOffset }) {
     .attr("value", d => d[1])
     .text(d => d[0]);
 
-  headerRowSelection.append("th").text("Value");
+  headerRowSelection.append("th").text("Message");
 
   const tableDataSelection = root
     .selectAll(".error-list__data-row")
     .data(errors);
 
-  const tableDataSelectionEnter = tableDataSelection
+  const tableDataEnterSelection = tableDataSelection
     .enter()
     .append("tr")
-    .attr("class", "error-list__data-row")
-    .merge(tableDataSelection);
+    .attr("class", "error-list__data-row");
 
-  const tableDataShow = tableDataSelectionEnter
+  const tableDataMergeSelection = tableDataEnterSelection.merge(
+    tableDataSelection
+  );
+
+  tableDataEnterSelection
     .append("td")
     .append("input")
+    .attr("class", "error-list__data-row-show")
     .attr("type", "checkbox");
 
   highlightedErrorsStore.subscribeUnique(
     root,
     highlightedErrorsSubscription,
     highlightedErrors => {
-      tableDataShow
+      tableDataMergeSelection
+        .select(".error-list__data-row-show")
         .property("checked", error => highlightedErrors.includes(error))
         .each(function(error) {
           d3.select(this).on("change", function() {
@@ -80,42 +85,46 @@ function render(root, { errors, cpuTimeOffset }) {
     }
   );
 
-  tableDataSelectionEnter
+  tableDataEnterSelection
     .append("td")
     .append("abbr")
-    .attr("class", "error-list__data-row-type")
+    .attr("class", "error-list__data-row-type");
+
+  tableDataMergeSelection
+    .select(".error-list__data-row-type")
     .attr("title", e => ERROR_DESCRIPTIONS[e.type])
     .text(e => e.type);
 
-  const tableDataTimestamp = tableDataSelectionEnter
+  const tableDataTimestamp = tableDataEnterSelection
     .append("td")
     .attr("class", "error-list__data-row-timestamp");
 
-  tableDataSelectionEnter
+  tableDataEnterSelection
     .append("td")
-    .attr("class", "error-list__data-row-value")
-    .text(e => {
-      if (
-        e.type === "PERF_RECORD_THROTTLE" ||
-        e.type === "PERF_RECORD_UNTHROTTLE"
-      ) {
-        return `period changed to ${e.period}`;
-      } else if (e.type === "PERF_RECORD_LOST") {
-        return `lost ${e.lost} events`;
-      }
-    });
+    .attr("class", "error-list__data-row-value");
+
+  tableDataMergeSelection.select(".error-list__data-row-value").text(e => {
+    if (
+      e.type === "PERF_RECORD_THROTTLE" ||
+      e.type === "PERF_RECORD_UNTHROTTLE"
+    ) {
+      return `Period changed to ${e.period}`;
+    } else if (e.type === "PERF_RECORD_LOST") {
+      return `Post ${e.lost} events`;
+    }
+  });
+
+  // option elements don't actually get the change event, their parent select does
+  timestampUnitsSelect.on("change", function() {
+    const opt = this.selectedOptions[0];
+    timestampDivisorStore.dispatch(() => opt.value);
+  });
 
   timestampDivisorStore.subscribeUnique(
     root,
     timestampDivisorSubscription,
     timestampDivisor => {
       tableDataTimestamp.text(e => (e.time - cpuTimeOffset) / timestampDivisor);
-
-      // option elements don't actually get the change event, their parent select does
-      timestampUnitsSelect.on("change", function() {
-        const opt = this.selectedOptions[0];
-        timestampDivisorStore.dispatch(() => opt.value);
-      });
     }
   );
 

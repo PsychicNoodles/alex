@@ -187,7 +187,13 @@ ipcRenderer.on("result", async (event, resultFile) => {
   const errorCounts = [...errorCountsMap];
   const errorsDistinct = [...errorCountsMap.keys()];
 
+  let someHighDensity = false;
   for (const chartParams of charts) {
+    const isLowDensity =
+      d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) <= 2;
+    if (!isLowDensity) {
+      someHighDensity = true;
+    }
     const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
     d3.select("#charts")
       .append("div")
@@ -209,10 +215,14 @@ ipcRenderer.on("result", async (event, resultFile) => {
       });
   }
 
-  d3.select("#legend").call(legend.render, {
-    densityMax,
-    spectrum
-  });
+  if (someHighDensity) {
+    d3.select("#legend").call(legend.render, {
+      densityMax,
+      spectrum
+    });
+  } else {
+    d3.select("#legend").remove();
+  }
 
   d3.select("#stats").call(stats.render, {
     processedData
@@ -247,8 +257,15 @@ ipcRenderer.on("result", async (event, resultFile) => {
   stream
     .fromStreamables([
       sourceSelect.hiddenSourcesStore.stream,
-      brushes.selectionStore.stream
+      brushes.selectionStore.stream,
+      tableSelect.selectedTableStore.stream
     ])
+    .pipe(
+      // Only update the function runtimes table if it is selected.
+      stream.filter(
+        ([, , selectedTable]) => selectedTable.id === "#function-runtimes"
+      )
+    )
     .pipe(
       stream.debounce(
         () =>
@@ -299,14 +316,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
       })
     );
 
-  const tableIds = {
-    "Function Runtimes": "#function-runtimes",
-    Errors: "#error-list"
-  };
-
-  stream
-    .fromStreamable(tableSelect.selectedTableStore.stream)
-    .pipe(stream.map(name => tableIds[name]))
+  tableSelect.selectedTableStore.stream
+    .pipe(stream.map(table => table.id))
     .pipe(
       stream.subscribe(id => {
         d3.select(id).style("display", "table");
