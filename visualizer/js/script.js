@@ -16,6 +16,7 @@ const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
 const errorList = require("./error-list");
 const legend = require("./legend");
+const stats = require("./stats");
 const brushes = require("./brushes");
 const sourceSelect = require("./source-select");
 const tableSelect = require("./table-select");
@@ -214,6 +215,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
   d3.select("#legend").call(legend.render, {
     densityMax,
     spectrum
+  });
+
+  d3.select("#stats").call(stats.render, {
+    processedData
   });
 
   const sourcesSet = new Set();
