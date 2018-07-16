@@ -146,7 +146,7 @@ int setup_sigterm_handler() {
 static int collector_main(int argc, char **argv, char **env) {
   DEBUG("Version: " << VERSION);
 
-  enable_segfault_trace();
+  enable_segfault_trace();  // has exit
 
   setup_global_vars();
 
@@ -212,6 +212,8 @@ static int collector_main(int argc, char **argv, char **env) {
       perror("couldn't open result file");
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
+
+    Util::result_file = result_file;
 
     int sigterm_fd = setup_sigterm_handler();
 

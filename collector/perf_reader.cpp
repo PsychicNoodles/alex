@@ -465,6 +465,7 @@ void process_throttle_record(
   if (adjust_period(record_type) == -1) {
     parent_shutdown(INTERNAL_ERROR);
   }
+  parent_shutdown(INTERNAL_ERROR);
   warnings->emplace_back(make_tuple(
       record_type, base_record{.throttle = throttle}, global->period));
 }
@@ -477,6 +478,11 @@ bool process_sample_record(const sample_record &sample,
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
+
+  // pls delete
+  // parent_shutdown(INTERNAL_ERROR);
+  //
+
   int64_t num_timer_ticks = 0;
   DEBUG("cpd: reading from fd " << info.cpu_clock_fd);
   read(info.cpu_clock_fd, &num_timer_ticks, sizeof(num_timer_ticks));
@@ -501,6 +507,7 @@ bool process_sample_record(const sample_record &sample,
                         "events": {
                     )",
           sample.time, num_timer_ticks, sample.pid, sample.tid);
+  Util::add_brackets("}}");
 
   DEBUG("cpd: reading from each fd");
 
@@ -564,6 +571,8 @@ bool process_sample_record(const sample_record &sample,
                   },
                   "stackFrames": [
                     )");
+  Util::delete_brackets(1);
+  Util::add_brackets("]");
 
   bool is_first_stack = true;
   uint64_t callchain_section = 0;
@@ -590,6 +599,7 @@ bool process_sample_record(const sample_record &sample,
                     "section": "%s",)",
             reinterpret_cast<void *>(inst_ptr),
             callchain_str(callchain_section));
+    Util::add_brackets("}");
 
     string sym_name_str;
     const char *sym_name = nullptr, *file_name = nullptr,
@@ -688,10 +698,13 @@ bool process_sample_record(const sample_record &sample,
                     "fullLocation": "%s" })",
             line, column, fullLocation);
   }
+
+  Util::delete_brackets(1);
   fprintf(result_file, R"(
                   ]
                   }
                   )");
+  Util::delete_brackets(2);
   return false;
 }
 
@@ -723,6 +736,8 @@ void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
     ],
     "warning": [
                 )");
+  Util::delete_brackets(1);
+  Util::add_brackets("]");
   bool is_first_element = true;
   for (auto &t : warnings) {
     int record_type;
@@ -815,6 +830,7 @@ void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
     ]
   }
 )");
+  Util::delete_brackets(1);
 }
 
 void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
@@ -866,6 +882,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
             },
               "timeslices": [
           )");
+  Util::add_brackets("]");
 
   // setting up RAPL energy reading
   if (preset_enabled("rapl")) {

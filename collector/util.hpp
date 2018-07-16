@@ -22,4 +22,16 @@ bool preset_enabled(const char* name);
 
 string getenv_safe(const char* var, const char* fallback = "");
 
+class Util {
+ public:
+  static string brackets;
+  static FILE* result_file;
+
+  static void our_exit(int error_code, string error_message);
+
+  static void add_brackets(string new_brackets);
+
+  static void delete_brackets(int num_brackets);
+};
+
 #endif

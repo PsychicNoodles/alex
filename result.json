@@ -1,0 +1,33 @@
+{
+  "header": {
+    "programVersion": "v0.2-296-g0f2e",
+    "events": [
+      "cpu-cycles",
+      "instructions",
+      "MEM_LOAD_RETIRED.L3_HIT",
+      "MEM_LOAD_RETIRED.L3_MISS",
+      "branch-misses",
+      "branches"
+    ],
+    "presets": {
+      "branches": {
+        "branchMisses": ["branch-misses"],
+        "branches": ["branches"]
+      },
+      "cache": {
+        "hits": ["MEM_LOAD_RETIRED.L3_HIT"],
+        "misses": ["MEM_LOAD_RETIRED.L3_MISS"]
+      },
+      "cpu": {
+        "cpuCycles": ["cpu-cycles"],
+        "instructions": ["instructions"]
+      },
+      "rapl": {},
+      "wattsup": {
+        "wattsup": ["wattsup"]
+      }
+    }
+  },
+  "timeslices": [],
+  "warning": []
+}
