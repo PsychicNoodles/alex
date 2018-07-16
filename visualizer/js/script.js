@@ -309,9 +309,9 @@ ipcRenderer.on("result", async (event, resultFile) => {
       })
     )
     .pipe(
-      stream.subscribe(({ functionList }) => {
+      stream.subscribe(({ functions }) => {
         d3.select("#function-runtimes").call(functionRuntimes.render, {
-          functionList
+          functions
         });
       })
     );
