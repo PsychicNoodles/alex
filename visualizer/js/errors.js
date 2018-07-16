@@ -15,56 +15,55 @@ const dropdownIsOpen = d3.local();
 const DEFAULT_ERROR_COLOR = "rgba(255, 0, 0, 0.8)";
 
 function render(root, { errorCounts, errorRecords }) {
-  //set up dom
-  root.classed("errors", true);
+  root.classed("errors-select select", true);
 
   if (root.property(dropdownIsOpen) === undefined) {
     root.property(dropdownIsOpen, false);
   }
 
-  if (root.select(".errors__button").empty()) {
-    root.append("button").attr("class", "errors__button");
+  if (root.select(".select__button").empty()) {
+    root.append("button").attr("class", "select__button");
   }
 
-  if (root.select(".errors__dropdown").empty()) {
-    root.append("div").attr("class", "errors__dropdown");
+  if (root.select(".select__dropdown").empty()) {
+    root.append("div").attr("class", "select__dropdown");
   }
 
-  //class "open" if the errors button is clicked
-  root.classed("errors--dropdown-open", root.property(dropdownIsOpen));
+  // Class "open" if the errors button is clicked
+  root.classed("select--dropdown-open", root.property(dropdownIsOpen));
 
-  root.select(".errors__button").on("click", () => {
+  root.select(".select__button").on("click", () => {
     root
       .property(dropdownIsOpen, !root.property(dropdownIsOpen))
-      .classed("errors--dropdown-open", root.property(dropdownIsOpen));
+      .classed("select--dropdown-open", root.property(dropdownIsOpen));
   });
 
   const dropdownItemsSelection = root
-    .select(".errors__dropdown")
-    .selectAll(".errors__dropdown-item")
+    .select(".select__dropdown")
+    .selectAll(".select__dropdown-item")
     .data(["All Error Types", ...errorCounts.map(pair => pair[0])]);
 
   const dropdownItemsEnterSelection = dropdownItemsSelection
     .enter()
     .append("div")
-    .attr("class", "errors__dropdown-item input-group colorpicker-component");
+    .attr("class", "select__dropdown-item input-group colorpicker-component");
 
   dropdownItemsEnterSelection
     .append("input")
-    .attr("class", "errors__checkbox")
+    .attr("class", "select__checkbox")
     .attr("type", "checkbox")
     .attr("id", (d, i) => `error__checkbox-${i}`);
 
   dropdownItemsEnterSelection
     .append("label")
-    .attr("class", "errors__type")
+    .attr("class", "select__type")
     .attr("for", (d, i) => `error__checkbox-${i}`)
     .text(error => error);
 
   // color picker input
   dropdownItemsEnterSelection
     .append("input")
-    .attr("class", "errors__color-picker")
+    .attr("class", "select__color-picker")
     .attr("type", "hidden");
 
   // color picker image/popover
@@ -73,16 +72,16 @@ function render(root, { errorCounts, errorRecords }) {
     .attr("class", "input-group-addon")
     .append("i");
 
-  dropdownItemsEnterSelection.each((d, i, g) => {
+  dropdownItemsEnterSelection.each((error, i, groups) => {
     if (i > 0) {
       // skip the "All Error Types" item
-      $(g[i])
+      $(groups[i])
         .colorpicker({
           color: DEFAULT_ERROR_COLOR,
-          input: ".errors__color-picker"
+          input: ".select__color-picker"
         })
-        .on("changeColor", e => {
-          d3.selectAll(`.error-lines__type-${i}`).style("stroke", e.color);
+        .on("changeColor", event => {
+          d3.selectAll(`.error-lines__type-${i}`).style("stroke", event.color);
         });
     }
   });
@@ -108,7 +107,7 @@ function render(root, { errorCounts, errorRecords }) {
       );
       const highlightedSomeAllErrors = highlightedSomeErrors.some(some => some);
       root
-        .select(".errors__button")
+        .select(".select__button")
         .property("disabled", !hasErrors)
         .text(
           hasErrors
@@ -128,7 +127,7 @@ function render(root, { errorCounts, errorRecords }) {
           if (i === 0) {
             // We are on the All checkbox
             d3.select(this)
-              .select(".errors__checkbox")
+              .select(".select__checkbox")
               .property("checked", highlightedAllAllErrors)
               .property(
                 "indeterminate",
@@ -143,7 +142,7 @@ function render(root, { errorCounts, errorRecords }) {
               });
           } else {
             d3.select(this)
-              .select(".errors__checkbox")
+              .select(".select__checkbox")
               .property("checked", highlightedAllErrors[i - 1])
               .property(
                 "indeterminate",

@@ -1,8 +1,12 @@
-.table-select {
+.select {
   position: relative;
 }
 
-.table-select__dropdown {
+.select--dropdown-open .select__button {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) inset;
+}
+
+.select__dropdown {
   position: absolute;
   top: 100%;
   background: #fff;
@@ -16,19 +20,15 @@
   transition: opacity 200ms, transform 200ms;
 }
 
-.table-select--dropdown-open .table-select__dropdown {
+.select--dropdown-open .select__dropdown {
   opacity: 1;
   transform: none;
   pointer-events: all;
 }
 
-.table-select__dropdown-item {
+.select__dropdown-item {
   display: block;
   white-space: nowrap;
   max-width: 400px;
   overflow: hidden;
-}
-
-.table-select__checkbox:not(:checked) ~ .table-select__table-name {
-  text-decoration: line-through;
 }
