@@ -77,7 +77,7 @@ button:disabled {
   margin: 5px;
 }
 
-#function-runtimes-wrapper {
+#tables-wrapper {
   overflow: auto;
   flex: 1;
 }

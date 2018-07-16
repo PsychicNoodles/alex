@@ -12,9 +12,9 @@ const highlightedErrorsStore = new Store([]);
 
 const dropdownIsOpen = d3.local();
 
-const DEFAULT_ERROR_COLOR = "rgba(255, 0, 0, 0.2)";
+const DEFAULT_ERROR_COLOR = "rgba(255, 0, 0, 0.8)";
 
-function render(root, { errors }) {
+function render(root, { errorCounts, errorRecords }) {
   //set up dom
   root.classed("errors", true);
 
@@ -42,7 +42,7 @@ function render(root, { errors }) {
   const dropdownItemsSelection = root
     .select(".errors__dropdown")
     .selectAll(".errors__dropdown-item")
-    .data(["All Error Types", ...errors]);
+    .data(["All Error Types", ...errorCounts.map(pair => pair[0])]);
 
   const dropdownItemsEnterSelection = dropdownItemsSelection
     .enter()
@@ -93,24 +93,32 @@ function render(root, { errors }) {
     root,
     highlightedErrorsSubscription,
     highlightedErrors => {
-      const hasErrors = errors.length > 0;
-      const highlightingAllErrors = errors.every(error =>
-        highlightedErrors.includes(error)
+      const hasErrors = errorRecords.length > 0;
+      const highlightedErrorsCounts = errorCounts.map(
+        ([type]) =>
+          highlightedErrors.filter(highlighted => highlighted.type === type)
+            .length
       );
-      const highlightingSomeErrors = highlightedErrors.length > 0;
-
+      const highlightedAllErrors = errorCounts.map(
+        ([, totalCount], i) => highlightedErrorsCounts[i] === totalCount
+      );
+      const highlightedAllAllErrors = highlightedAllErrors.every(all => all);
+      const highlightedSomeErrors = errorCounts.map(
+        (_, i) => highlightedErrorsCounts[i] > 0
+      );
+      const highlightedSomeAllErrors = highlightedSomeErrors.some(some => some);
       root
         .select(".errors__button")
         .property("disabled", !hasErrors)
         .text(
           hasErrors
             ? `Highlighting ${
-                highlightingAllErrors
+                highlightedAllAllErrors
                   ? "All"
-                  : highlightingSomeErrors
+                  : highlightedSomeAllErrors
                     ? "Some"
                     : "No"
-              } Errors`
+              } Error Types`
             : "No Errors"
         );
 
@@ -121,14 +129,14 @@ function render(root, { errors }) {
             // We are on the All checkbox
             d3.select(this)
               .select(".errors__checkbox")
-              .property("checked", highlightingAllErrors)
+              .property("checked", highlightedAllAllErrors)
               .property(
                 "indeterminate",
-                highlightingSomeErrors && !highlightingAllErrors
+                highlightedSomeAllErrors && !highlightedAllAllErrors
               )
               .on("change", function() {
                 if (this.checked) {
-                  highlightedErrorsStore.dispatch(() => errors);
+                  highlightedErrorsStore.dispatch(() => errorRecords);
                 } else {
                   highlightedErrorsStore.dispatch(() => []);
                 }
@@ -136,17 +144,25 @@ function render(root, { errors }) {
           } else {
             d3.select(this)
               .select(".errors__checkbox")
-              .property("checked", highlightedErrors.includes(error))
+              .property("checked", highlightedAllErrors[i - 1])
+              .property(
+                "indeterminate",
+                highlightedSomeErrors[i - 1] && !highlightedAllErrors[i - 1]
+              )
               .on("change", function() {
                 if (this.checked) {
                   highlightedErrorsStore.dispatch(highlightedErrors => [
                     ...highlightedErrors,
-                    error
+                    ...errorRecords.filter(
+                      record =>
+                        error === record.type &&
+                        !highlightedErrors.includes(record)
+                    )
                   ]);
                 } else {
                   highlightedErrorsStore.dispatch(highlightedErrors =>
                     highlightedErrors.filter(
-                      highlightedSource => highlightedSource !== error
+                      highlightedError => highlightedError.type !== error
                     )
                   );
                 }
@@ -176,8 +192,8 @@ function renderLines(
         `error-lines__line error-lines__type-${errorsDistinct.indexOf(d.type) +
           1}`
     )
-    .attr("y1", 0)
-    .attr("y2", 250)
+    .attr("y1", -20)
+    .attr("y2", 0)
     .attr("position", "absolute")
     .style("stroke-width", 0.5)
     .style("stroke", DEFAULT_ERROR_COLOR)
@@ -191,7 +207,7 @@ function renderLines(
     highlightedErrors => {
       linesUpdateSelection.style(
         "stroke-opacity",
-        d => (highlightedErrors.includes(d.type) ? 1 : 0)
+        d => (highlightedErrors.includes(d) ? 1 : 0)
       );
     }
   );

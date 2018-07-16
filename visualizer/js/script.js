@@ -14,9 +14,11 @@ const {
 const { analyze } = require("./analysis");
 const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
+const errorList = require("./error-list");
 const legend = require("./legend");
 const brushes = require("./brushes");
 const sourceSelect = require("./source-select");
+const tableSelect = require("./table-select");
 const errors = require("./errors");
 const stream = require("./stream");
 const progressBar = require("./progress-bar");
@@ -46,7 +48,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
         .createReadStream(resultFile)
         .pipe(
           progressStream(
-            { length: resultFileSize, time: 100 },
+            {
+              length: resultFileSize,
+              time: 100
+            },
             ({ percentage }) => {
               loadingProgressStore.dispatch(state => ({
                 ...state,
@@ -94,6 +99,30 @@ ipcRenderer.on("result", async (event, resultFile) => {
         getDependentVariable: d =>
           getEventCount(d, presets.cpu.instructions) /
             getEventCount(d, presets.cpu.cpuCycles) || 0
+      },
+      {
+        presetsRequired: ["rapl"],
+        yAxisLabel: "CPU Power",
+        yFormat: d3.format(".2s"),
+        getDependentVariable: d => d.events["periodCpu"] || 0
+      },
+      {
+        presetsRequired: ["rapl"],
+        yAxisLabel: "Memory Power",
+        yFormat: d3.format(".2s"),
+        getDependentVariable: d => d.events["periodMemory"] || 0
+      },
+      {
+        presetsRequired: ["rapl"],
+        yAxisLabel: "Overall Power",
+        yFormat: d3.format(".2s"),
+        getDependentVariable: d => d.events["periodOverall"] || 0
+      },
+      {
+        presetsRequired: ["wattsup"],
+        yAxisLabel: "Wattsup Power",
+        yFormat: d3.format(".2s"),
+        getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup)
       }
     ].filter(({ presetsRequired }) =>
       presetsRequired.every(presetName => presetName in presets)
@@ -144,13 +173,18 @@ ipcRenderer.on("result", async (event, resultFile) => {
       0
     );
 
-    const spectrum = d3.interpolateGreens;
+    const spectrum = d3.interpolateWarm;
 
-    const errorsSet = new Set();
+    const errorCountsMap = new Map();
     errorRecords.forEach(error => {
-      errorsSet.add(error.type);
+      if (errorCountsMap.has(error.type)) {
+        errorCountsMap.set(error.type, errorCountsMap.get(error.type) + 1);
+      } else {
+        errorCountsMap.set(error.type, 1);
+      }
     });
-    const errorsDistinct = [...errorsSet];
+    const errorCounts = [...errorCountsMap];
+    const errorsDistinct = [...errorCountsMap.keys()];
 
     for (const chartParams of charts) {
       const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
@@ -177,7 +211,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
         });
     }
 
-    d3.select("#legend").call(legend.render, { densityMax, spectrum });
+    d3.select("#legend").call(legend.render, {
+      densityMax,
+      spectrum
+    });
 
     const sourcesSet = new Set();
     processedData.forEach(timeslice => {
@@ -186,12 +223,20 @@ ipcRenderer.on("result", async (event, resultFile) => {
       });
     });
 
+    d3.select("#table-select").call(tableSelect.render);
+
     d3.select("#source-select").call(sourceSelect.render, {
       sources: [...sourcesSet]
     });
 
     d3.select("#errors").call(errors.render, {
-      errors: errorsDistinct
+      errorCounts,
+      errorRecords
+    });
+
+    d3.select("#error-list").call(errorList.render, {
+      errors: errorRecords,
+      cpuTimeOffset
     });
 
     let averageProcessingTime = 0;
@@ -249,6 +294,23 @@ ipcRenderer.on("result", async (event, resultFile) => {
           d3.select("#function-runtimes").call(functionRuntimes.render, {
             functionList
           });
+        })
+      );
+
+    const tableIds = {
+      "Function Runtimes": "#function-runtimes",
+      Errors: "#error-list"
+    };
+
+    stream
+      .fromStreamable(tableSelect.selectedTableStore.stream)
+      .pipe(stream.map(name => tableIds[name]))
+      .pipe(
+        stream.subscribe(id => {
+          d3.select(id).style("display", "table");
+          d3.selectAll("#tables-wrapper table")
+            .filter(`:not(${id})`)
+            .style("display", "none");
         })
       );
   } catch (err) {
