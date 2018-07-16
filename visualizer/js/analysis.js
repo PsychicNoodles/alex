@@ -58,7 +58,7 @@ function analyze(timeSlices) {
    * Unselected | func.unselectedCount | notFuncUnselected | .unselectedTotal
    * Total      | funcTotal            | notFuncTotal      | .timeSliceTotal
    */
-  for (const func in outputData.functions) {
+  outputData.functions.forEach(func => {
     const funcTotal = func.observed + func.unselectedCount;
     const notFuncSelected = outputData.selectedTotal - func.observed;
     const notFuncUnselected = (outputData.unselectedTotal =
@@ -98,7 +98,7 @@ function analyze(timeSlices) {
     );
 
     func.probability = chi.cdf(chiSquared, degreesOfFreedom);
-  }
+  });
 
   outputData.functions.sort((a, b) => b.probability - a.probability);
   return outputData;
