@@ -117,7 +117,7 @@ button:disabled {
   body {
     grid-template-rows: 1fr;
     grid-template-columns: 700px auto 1fr;
-    grid-template-areas: "charts legend side-bar";
+    grid-template-areas: "charts info side-bar";
   }
 
   #side-bar {
