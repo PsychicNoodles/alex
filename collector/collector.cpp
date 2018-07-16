@@ -169,6 +169,8 @@ static int collector_main(int argc, char **argv, char **env) {
 
   enable_segfault_trace();
 
+  print_self_maps();
+
   setup_global_vars();
 
   int result = 0;

@@ -426,6 +426,9 @@ void copy_record_to_stack(base_record *record, base_record *local,
                              (sizeof(uint64_t) * SAMPLE_MAX_STACK),
              inst_ptrs_dst = local_ptr + record_size -
                              (sizeof(uint64_t) * SAMPLE_MAX_STACK);
+    DEBUG("cpd: copying " << local->sample.num_instruction_pointers
+                          << " inst ptrs from " << ptr_fmt(inst_ptrs_src)
+                          << " to " << ptr_fmt(inst_ptrs_dst));
     if (local->sample.num_instruction_pointers > SAMPLE_MAX_STACK) {
       DEBUG("cpd: number of inst ptrs "
             << local->sample.num_instruction_pointers
@@ -434,9 +437,6 @@ void copy_record_to_stack(base_record *record, base_record *local,
                "wrong copying! (period might be too low)");
       parent_shutdown(INTERNAL_ERROR);
     }
-    DEBUG("cpd: copying " << local->sample.num_instruction_pointers
-                          << " inst ptrs from " << ptr_fmt(inst_ptrs_src)
-                          << " to " << ptr_fmt(inst_ptrs_dst));
     memcpy(reinterpret_cast<void *>(inst_ptrs_dst),
            reinterpret_cast<void *>(inst_ptrs_src),
            sizeof(uint64_t) * local->sample.num_instruction_pointers);
@@ -814,8 +814,8 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
 
   DEBUG("cpd: setting up perf events for main thread in subject");
   perf_fd_info subject_info;
-
   setup_perf_events(global->subject_pid, HANDLE_EVENTS, &subject_info);
+  DEBUG("cpd: main thread registered with fd " << subject_info.cpu_clock_fd);
   setup_buffer(&subject_info);
   handle_perf_register(&subject_info);
 
