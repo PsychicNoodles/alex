@@ -7,6 +7,9 @@
 #include <set>
 #include <vector>
 
+#include <libelfin/dwarf/dwarf++.hh>
+#include <libelfin/elf/elf++.hh>
+
 #include "bg_readings.hpp"
 #include "perf_sampler.hpp"
 
@@ -24,7 +27,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int& wu_fd,
                              bg_reading* wattsup_reading);
 int collect_perf_data(const map<uint64_t, kernel_sym>& kernel_syms, int sigt_fd,
                       int socket, bg_reading* rapl_reading,
-                      bg_reading* wattsup_reading);
+                      bg_reading* wattsup_reading, dwarf::dwarf dw);
 
 bool register_perf_fds(int socket, perf_fd_info* info);
 bool unregister_perf_fds(int socket);

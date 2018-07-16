@@ -30,9 +30,6 @@
 #include <string>
 #include <unordered_map>
 
-#include <libelfin/dwarf/dwarf++.hh>
-#include <libelfin/elf/elf++.hh>
-
 #include "ancillary.hpp"
 #include "const.hpp"
 #include "debug.hpp"
@@ -367,21 +364,6 @@ uint64_t lookup_kernel_addr(map<uint64_t, kernel_sym> kernel_syms,
 }
 
 /*
- * Reads the dwarf data stored in the given executable file
- */
-dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
-  // closed by mmap_loader constructor
-  int fd = open(const_cast<char *>(file), O_RDONLY);
-  if (fd < 0) {
-    perror("cannot open executable (/proc/self/exe)");
-    parent_shutdown(EXECUTABLE_FILE_ERROR);
-  }
-
-  elf::elf ef(elf::create_mmap_loader(fd));
-  return dwarf::dwarf(dwarf::elf::create_loader(ef));
-}
-
-/*
  * reset the period of sampling to handle throttle/unthrottle events
  */
 int adjust_period(int record_type) {
@@ -472,7 +454,8 @@ bool process_sample_record(const sample_record &sample,
                            const perf_fd_info &info, bool is_first_timeslice,
                            bool is_first_sample, bg_reading *rapl_reading,
                            bg_reading *wattsup_reading,
-                           const map<uint64_t, kernel_sym> &kernel_syms) {
+                           const map<uint64_t, kernel_sym> &kernel_syms,
+                           dwarf::dwarf dw) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
@@ -623,6 +606,7 @@ bool process_sample_record(const sample_record &sample,
     }
     // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
     if (sym_name != nullptr) {
+      DEBUG("cpd: demangling symbol name");
       int demangle_status;
       demangled_name =
           abi::__cxa_demangle(sym_name, nullptr, nullptr, &demangle_status);
@@ -665,8 +649,7 @@ bool process_sample_record(const sample_record &sample,
     auto line = -1, column = -1;
     char *fullLocation = nullptr;
 
-    static dwarf::dwarf dw = read_dwarf();
-
+    DEBUG("cpd: looking up line and column number");
     for (auto &cu : dw.compilation_units()) {
       if (die_pc_range(cu.root()).contains(pc)) {
         // Map PC to a line
@@ -902,7 +885,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
  */
 int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                       int socket, bg_reading *rapl_reading,
-                      bg_reading *wattsup_reading) {
+                      bg_reading *wattsup_reading, dwarf::dwarf dw) {
   bool is_first_timeslice = true;
   bool done = false;
   int sample_period_skips = 0;
@@ -1009,7 +992,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                     is_first_sample = process_sample_record(
                         local_result.sample, info, is_first_timeslice,
                         is_first_sample, rapl_reading, wattsup_reading,
-                        kernel_syms);
+                        kernel_syms, dw);
                   } else {
                     DEBUG("cpd: not first sample, skipping");
                   }
