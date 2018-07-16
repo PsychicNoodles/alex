@@ -19,6 +19,7 @@ const legend = require("./legend");
 const stats = require("./stats");
 const brushes = require("./brushes");
 const sourceSelect = require("./source-select");
+const threadSelect = require("./thread-select");
 const tableSelect = require("./table-select");
 const errors = require("./errors");
 const stream = require("./stream");
@@ -231,16 +232,22 @@ ipcRenderer.on("result", async (event, resultFile) => {
   });
 
   const sourcesSet = new Set();
+  const threadsSet = new Set();
   processedData.forEach(timeslice => {
     timeslice.stackFrames.forEach(frame => {
       sourcesSet.add(frame.fileName);
     });
+    threadsSet.add(timeslice.tid);
   });
 
   d3.select("#table-select").call(tableSelect.render);
 
   d3.select("#source-select").call(sourceSelect.render, {
     sources: [...sourcesSet]
+  });
+
+  d3.select("#thread-select").call(threadSelect.render, {
+    threads: [...threadsSet]
   });
 
   d3.select("#errors").call(errors.render, {
@@ -259,6 +266,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
   stream
     .fromStreamables([
       sourceSelect.hiddenSourcesStore.stream,
+      threadSelect.hiddenThreadsStore.stream,
       brushes.selectionStore.stream
     ])
     .pipe(
@@ -269,7 +277,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       )
     )
     .pipe(
-      stream.map(([hiddenSources, { selections }]) => {
+      stream.map(([hiddenSources, hiddenThreads, { selections }]) => {
         const startTime = performance.now();
         const result = analyze(
           processedData
