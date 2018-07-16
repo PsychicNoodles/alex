@@ -24,12 +24,16 @@ function render(root) {
     root.append("fieldset").attr("class", "select__dropdown");
   }
 
-  root.classed("select--dropdown-open", root.property(dropdownIsOpen));
+  const setDropdownIsOpen = isOpen => {
+    root
+      .property(dropdownIsOpen, isOpen)
+      .classed("select--dropdown-open", isOpen);
+  };
+
+  setDropdownIsOpen(root.property(dropdownIsOpen));
 
   root.select(".select__button").on("click", () => {
-    root
-      .property(dropdownIsOpen, !root.property(dropdownIsOpen))
-      .classed("select--dropdown-open", root.property(dropdownIsOpen));
+    setDropdownIsOpen(!root.property(dropdownIsOpen));
   });
 
   const dropdownItemsSelection = root
@@ -70,6 +74,8 @@ function render(root) {
               if (this.checked) {
                 selectedTableStore.dispatch(() => table);
               }
+
+              setDropdownIsOpen(false);
             });
         });
     }
