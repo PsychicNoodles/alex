@@ -156,7 +156,8 @@ void add_fd_to_epoll(int fd) {
   if (epoll_ctl(sample_epfd, EPOLL_CTL_ADD, fd, &evt) == -1) {
     char buf[128];
     snprintf(buf, 128, "error adding perf fd %d", fd);
-    perror(buf);
+    Util::error_message = buf;
+    Util::error_message.append(strerror(errno));
     parent_shutdown(INTERNAL_ERROR);
   }
   sample_fd_count++;
@@ -171,7 +172,8 @@ void delete_fd_from_epoll(int fd) {
   if (epoll_ctl(sample_epfd, EPOLL_CTL_DEL, fd, &evt) == -1) {
     char buf[128];
     snprintf(buf, 128, "error removing perf fd %d", fd);
-    perror(buf);
+    Util::error_message = buf;
+    Util::error_message.append(strerror(errno));
     parent_shutdown(INTERNAL_ERROR);
   }
   sample_fd_count--;
@@ -209,6 +211,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   perf_buffer cpu_clock_perf{};
   if (setup_monitoring(&cpu_clock_perf, &cpu_clock_attr, target) !=
       SAMPLER_MONITOR_SUCCESS) {
+    Util::error_message = "error setting up the monitoring";
     parent_shutdown(INTERNAL_ERROR);
   }
   info->cpu_clock_fd = cpu_clock_perf.fd;
@@ -230,7 +233,9 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
       int pfm_result =
           setup_pfm_os_event(&attr, const_cast<char *>(event.c_str()));
       if (pfm_result != PFM_SUCCESS) {
-        DEBUG("pfm encoding error: " << pfm_strerror(pfm_result));
+        Util::error_message = "pfm encoding error: ";
+        Util::error_message.append(pfm_strerror(pfm_result));
+        DEBUG(Util::error_message);
         parent_shutdown(EVENT_ERROR);
       }
       attr.disabled = false;
@@ -239,7 +244,8 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
       // use cpu cycles event as group leader again
       auto event_fd = perf_event_open(&attr, target, -1, cpu_clock_perf.fd, 0);
       if (event_fd == -1) {
-        perror("couldn't perf_event_open for event");
+        Util::error_message = "couldn't perf_event_open for event";
+        Util::error_message.append(strerror(errno));
         parent_shutdown(INTERNAL_ERROR);
       }
 
@@ -250,6 +256,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   // all related events are ready, so time to start monitoring
   DEBUG("starting monitoring");
   if (start_monitoring(info->cpu_clock_fd) != SAMPLER_MONITOR_SUCCESS) {
+    Util::error_message = "error: fail to start monitoring";
     parent_shutdown(INTERNAL_ERROR);
   }
 }
@@ -325,6 +332,7 @@ bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
         if (cmd == SOCKET_CMD_REGISTER) {
           DEBUG("cpd: setting up buffer for fd " << info->cpu_clock_fd);
           if (setup_buffer(info) != SAMPLER_MONITOR_SUCCESS) {
+            Util::error_message = "error: cannot set up buffer for fd";
             parent_shutdown(INTERNAL_ERROR);
           }
           handle_perf_register(info);
@@ -332,6 +340,7 @@ bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
           handle_perf_unregister(info);
         } else {
           DEBUG("cpd: unknown command, shutting down");
+          Util::error_message = "cpd: unknown command, shutting down";
           parent_shutdown(INTERNAL_ERROR);
         }
       }
@@ -340,6 +349,7 @@ bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
         delete_fd_from_epoll(socket);
       } else if (cmd != -1) {
         DEBUG("cpd: unknown command, shutting down");
+        Util::error_message = "cpd: unknown command, shutting down";
         parent_shutdown(INTERNAL_ERROR);
       }
       DEBUG("cpd: exhausted requests");
@@ -373,7 +383,8 @@ dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
   // closed by mmap_loader constructor
   int fd = open(const_cast<char *>(file), O_RDONLY);
   if (fd < 0) {
-    perror("cannot open executable (/proc/self/exe)");
+    Util::error_message = "cannot open executable (/proc/self/exe)";
+    Util::error_message.append(strerror(errno));
     parent_shutdown(EXECUTABLE_FILE_ERROR);
   }
 
@@ -405,7 +416,8 @@ int adjust_period(int record_type) {
   for (auto &p : perf_info_mappings) {
     DEBUG("adjusting period for fd " << p.first);
     if (ioctl(p.first, PERF_EVENT_IOC_PERIOD, &global->period) == -1) {
-      perror("failed to adjust period");
+      Util::error_message = ("failed to adjust period");
+      Util::error_message.append(strerror(errno));
       return -1;
     }
   }
@@ -448,6 +460,8 @@ void copy_record_to_stack(base_record *record, base_record *local,
       DEBUG(
           "cpd: number of inst ptrs exceeds the max stack size, something went "
           "wrong copying! (period might be too low)");
+      Util::error_message =
+          "cpd: number of inst ptrs exceeds the max stack size";
       parent_shutdown(INTERNAL_ERROR);
     }
     DEBUG("cpd: copying " << local->sample.num_instruction_pointers
@@ -465,7 +479,6 @@ void process_throttle_record(
   if (adjust_period(record_type) == -1) {
     parent_shutdown(INTERNAL_ERROR);
   }
-  parent_shutdown(INTERNAL_ERROR);
   warnings->emplace_back(make_tuple(
       record_type, base_record{.throttle = throttle}, global->period));
 }
@@ -479,10 +492,6 @@ bool process_sample_record(const sample_record &sample,
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
 
-  // pls delete
-  // parent_shutdown(INTERNAL_ERROR);
-  //
-
   int64_t num_timer_ticks = 0;
   DEBUG("cpd: reading from fd " << info.cpu_clock_fd);
   read(info.cpu_clock_fd, &num_timer_ticks, sizeof(num_timer_ticks));
@@ -490,6 +499,7 @@ bool process_sample_record(const sample_record &sample,
                                 << " num of cycles: " << num_timer_ticks);
   if (reset_monitoring(info.cpu_clock_fd) != SAMPLER_MONITOR_SUCCESS) {
     DEBUG("Couldn't reset monitoring for fd: " << info.cpu_clock_fd);
+    Util::error_message = "Couldn't reset monitoring for fd";
     parent_shutdown(INTERNAL_ERROR);
   }
 
@@ -526,6 +536,7 @@ bool process_sample_record(const sample_record &sample,
     DEBUG("cpd: read in from fd " << info.event_fds.at(event) << " count "
                                   << count);
     if (reset_monitoring(info.event_fds.at(event)) != SAMPLER_MONITOR_SUCCESS) {
+      Util::error_message = "Couldn't reset the monitoring";
       parent_shutdown(INTERNAL_ERROR);
     }
 
@@ -646,11 +657,15 @@ bool process_sample_record(const sample_record &sample,
           DEBUG(
               "cpd: demangling errored due to memory allocation "
               "failure");
+          Util::error_message =
+              "cpd: demangling errored due to memory allocation ";
           parent_shutdown(INTERNAL_ERROR);
         } else if (demangle_status == -2) {
           DEBUG("cpd: could not demangle name " << sym_name);
         } else if (demangle_status == -3) {
           DEBUG("cpd: demangling errored due to invalid arguments");
+          Util::error_message =
+              "cpd: demangling errored due to invalid arguments";
           parent_shutdown(INTERNAL_ERROR);
         }
       }
@@ -947,7 +962,8 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
     last_ts = curr_ts;
 
     if (ready_fds == -1) {
-      perror("sample epoll wait was unsuccessful");
+      Util::error_message = "sample epoll wait was unsuccessful";
+      Util::error_message.append(strerror(errno));
       parent_shutdown(INTERNAL_ERROR);
     } else if (ready_fds == 0) {
       DEBUG("cpd: no sample fds were ready within the timeout ("
@@ -966,6 +982,8 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
           } catch (out_of_range &e) {
             DEBUG("cpd: tried looking up a perf fd that has no info (" << fd
                                                                        << ")");
+            Util::error_message =
+                "cpd: tried looking up a perf fd that has no info";
             parent_shutdown(INTERNAL_ERROR);
           }
 
@@ -977,6 +995,8 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
               DEBUG(
                   "cpd: reached max number of consecutive sample period skips, "
                   "exitting");
+              Util::error_message =
+                  "cpd: reached max number of consecutive sample period skips";
               parent_shutdown(INTERNAL_ERROR);
             }
           } else {

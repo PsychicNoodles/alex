@@ -78,7 +78,7 @@ void shutdown(pid_t pid, FILE* writef, int code) {
   // if (writef != nullptr) {
   //   fclose(writef);
   // }
-  Util::our_exit(code, "");
+  Util::our_exit(code);
 }
 
 pid_t gettid() { return syscall(SYS_gettid); }
@@ -97,12 +97,16 @@ string getenv_safe(const char* var, const char* fallback) {
 
 string Util::brackets = "";
 FILE* Util::result_file = NULL;
+string Util::error_message = "";
 
-void Util::our_exit(int error_code, string error_message) {
+void Util::our_exit(int error_code) {
+  if (Util::brackets == "") {
+    brackets = "{";
+  }
   fprintf(Util::result_file, R"( %s, 
   "error": "%s"
   })",
-          Util::brackets.c_str(), error_message.c_str());
+          Util::brackets.c_str(), Util::error_message.c_str());
   fclose(result_file);
   exit(0);
 }

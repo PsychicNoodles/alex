@@ -26,8 +26,9 @@ class Util {
  public:
   static string brackets;
   static FILE* result_file;
+  static string error_message;
 
-  static void our_exit(int error_code, string error_message);
+  static void our_exit(int error_code);
 
   static void add_brackets(string new_brackets);
 
