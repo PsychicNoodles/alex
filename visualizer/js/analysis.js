@@ -23,7 +23,8 @@ function analyze(timeSlices) {
       element => element.name === functionName
     );
     if (functionIndex === -1) {
-      functionIndex = outputData.functions.push({ name: functionName }) - 1;
+      functionIndex =
+        outputData.functions.push({ name: functionName, expected: 0 }) - 1;
     }
     if (timeSlice.selected) {
       outputData.selectedTotal++;
