@@ -171,6 +171,26 @@ function map(transformData) {
 }
 
 /**
+ * Like Array.filter but operates on a stream.
+ * @param {function(any): boolean} shouldKeep
+ *    A function that accepts an element of the stream and returns whether it
+ *    should be emitted in the result stream.
+ * @returns {StreamTransform}
+ */
+function filter(shouldKeep) {
+  return streamable =>
+    fromStreamable(onData =>
+      streamable(data => {
+        if (data === done) {
+          onData(done);
+        } else if (shouldKeep(data)) {
+          onData(data);
+        }
+      })
+    );
+}
+
+/**
  * Don't emit a value if another value is emitted before the timer stream ends.
  * @param {function(any): Streamable} durationSelector
  *    Will be called with each value and should return a stream that will be
@@ -269,6 +289,7 @@ module.exports = {
   empty,
   never,
   map,
+  filter,
   debounce,
   debounceTime,
   take,

@@ -259,8 +259,15 @@ ipcRenderer.on("result", async (event, resultFile) => {
   stream
     .fromStreamables([
       sourceSelect.hiddenSourcesStore.stream,
-      brushes.selectionStore.stream
+      brushes.selectionStore.stream,
+      tableSelect.selectedTableStore.stream
     ])
+    .pipe(
+      // Only update the function runtimes table if it is selected.
+      stream.filter(
+        ([, , selectedTable]) => selectedTable.id === "#function-runtimes"
+      )
+    )
     .pipe(
       stream.debounce(
         () =>
@@ -311,14 +318,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
       })
     );
 
-  const tableIds = {
-    "Function Runtimes": "#function-runtimes",
-    Errors: "#error-list"
-  };
-
-  stream
-    .fromStreamable(tableSelect.selectedTableStore.stream)
-    .pipe(stream.map(name => tableIds[name]))
+  tableSelect.selectedTableStore.stream
+    .pipe(stream.map(table => table.id))
     .pipe(
       stream.subscribe(id => {
         d3.select(id).style("display", "table");
