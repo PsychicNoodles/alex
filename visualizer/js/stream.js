@@ -1,11 +1,30 @@
 /**
  * A callback that will receive data.
- * @typedef {function(any): void} DataListener
+ * @typedef {{(data: any): void}} DataListener
  */
 
 /**
  * An abstract representation of data over time that may or may not end.
- * @typedef {function(DataListener): any} Streamable
+ *
+ * Returns an unsubscribe function.
+ *
+ * @typedef {{(onData: DataListener): function(): void}} Streamable
+ */
+
+/**
+ * An immutable transformation over a stream.
+ * @typedef {{(streamable: Streamable): Stream}} StreamTransform
+ */
+
+/**
+ * A streamable with some helper methods and extra guarantees.
+ *
+ * Guarantees:
+ *  - Once `done` is emitted, nothing will ever be emitted again.
+ *  - Once `done` is emitted, the stream will be unsubscribed eventually.
+ *  - Once the stream is unsubscribed, it will emit `done` if it hasn't already.
+ *
+ * @typedef {{(onData: DataListener): function(): void, pipe: (transform: StreamTransform) => Stream}} Stream
  */
 
 /**
@@ -14,64 +33,68 @@
 const done = Symbol("stream.done");
 
 /**
- * A stream that emits done immediately without emitting anything else.
+ * Emits done immediately when subscribed to without emitting anything else.
+ * @type {Stream}
  */
 const empty = fromStreamable(onData => {
   onData(done);
+  return () => {};
 });
 
 /**
- * A stream that emits anything.
+ * Never emits anything.
+ * @type {Stream}
  */
-const never = fromStreamable(() => {});
+const never = fromStreamable(() => () => {});
 
 /**
- * Create a new stream from a callback attacher.
- * @param {Streamable} streamable A function that accepts a callback for data.
+ * Create a new stream from a streamable.
+ * @param {Streamable} streamable To be wrapped.
+ * @returns {Stream}
  */
 function fromStreamable(streamable) {
-  let isDone = false;
-  const stream = onData =>
-    streamable(data => {
+  const stream = onData => {
+    let isDone = false;
+
+    const offData = streamable(data => {
       if (!isDone) {
         onData(data);
       }
 
       if (data === done) {
         isDone = true;
+        requestIdleCallback(() => {
+          offData();
+        });
       }
     });
 
-  stream.pipe = transform => transform(stream);
-
-  stream.then = resolve => {
-    const values = [];
-    if (isDone) {
-      resolve(values);
-    } else {
-      stream(data => {
-        if (data === done) {
-          resolve(values);
-        } else {
-          values.push(data);
-        }
-      });
-    }
+    return () => {
+      offData();
+      if (!isDone) {
+        onData(done);
+        isDone = true;
+      }
+    };
   };
+
+  stream.pipe = transform => transform(stream);
 
   return stream;
 }
 
 /**
  * Creates a stream that waits a given duration and then emits done.
- *
- * Subscribing to the stream returns timeout ID that can be passed to
- * clearTimeout to cancel the timeout so the stream becomes never-ending.
- *
  * @param {number} duration Time in milliseconds before ending.
+ * @returns {Stream}
  */
 function fromTimeout(duration) {
-  return fromStreamable(onData => setTimeout(() => onData(done), duration));
+  return fromStreamable(onData => {
+    const timeout = setTimeout(() => onData(done), duration);
+    return () => {
+      clearTimeout(timeout);
+    };
+  });
 }
 
 /**
@@ -79,11 +102,15 @@ function fromTimeout(duration) {
  * @param {HTMLElement} element To be listened to.
  * @param {string} eventType DOM event type used in addEventListener.
  * @param {*} options Passed to addEventListener.
+ * @returns {Stream}
  */
 function fromDOMEvent(element, eventType, options = undefined) {
-  return fromStreamable(onData =>
-    element.addEventListener(eventType, onData, options)
-  );
+  return fromStreamable(onData => {
+    element.addEventListener(eventType, onData, options);
+    return () => {
+      element.removeEventListener(eventType, onData, options);
+    };
+  });
 }
 
 /**
@@ -94,13 +121,14 @@ function fromDOMEvent(element, eventType, options = undefined) {
  * will contain stale values for the streams that didn't immediately emit.
  *
  * @param {Streamable[]} streamables Tuple of streamables to be combined.
+ * @returns {Stream}
  */
 function fromStreamables(streamables) {
   const unset = Symbol("unset");
 
   return fromStreamable(onData => {
     const lastValues = streamables.map(() => unset);
-    return streamables.map((streamable, i) =>
+    const offDataFunctions = streamables.map((streamable, i) =>
       streamable(data => {
         lastValues[i] = data;
 
@@ -113,6 +141,12 @@ function fromStreamables(streamables) {
         }
       })
     );
+
+    return () => {
+      for (const offData of offDataFunctions) {
+        offData();
+      }
+    };
   });
 }
 
@@ -121,6 +155,7 @@ function fromStreamables(streamables) {
  * @param {function(any): any} transformData
  *    A function that accepts an element of the stream and returns the
  *    corresponding element of the new stream.
+ * @returns {StreamTransform}
  */
 function map(transformData) {
   return streamable =>
@@ -140,32 +175,39 @@ function map(transformData) {
  * @param {function(any): Streamable} durationSelector
  *    Will be called with each value and should return a stream that will be
  *    subscribed to whenever a value is received.
+ * @returns {StreamTransform}
  */
 function debounce(durationSelector) {
   return streamable =>
     fromStreamable(onData => {
       let cancel = () => {};
-
-      return streamable(data => {
-        cancel();
-
+      const offData = streamable(data => {
         let wasCanceled = false;
-        cancel = () => {
-          wasCanceled = true;
-        };
 
-        durationSelector(data)(timerData => {
+        const offDuration = durationSelector(data)(timerData => {
           if (timerData === done && !wasCanceled) {
             onData(data);
           }
         });
+
+        cancel();
+        cancel = () => {
+          wasCanceled = true;
+          offDuration();
+        };
       });
+
+      return () => {
+        cancel();
+        offData();
+      };
     });
 }
 
 /**
  * Don't emit a value if another value is emitted within the duration.
  * @param {number} duration Time in milliseconds to wait before emitting.
+ * @returns {StreamTransform}
  */
 function debounceTime(duration) {
   return debounce(() => fromTimeout(duration));
@@ -174,6 +216,7 @@ function debounceTime(duration) {
 /**
  * Create a stream of the first `amount` events from the input stream.
  * @param {number} amount Number of events to take from the start of the stream.
+ * @returns {StreamTransform}
  */
 function take(amount) {
   return streamable =>
@@ -193,7 +236,8 @@ function take(amount) {
 
 /**
  * Add a callback for each value emitted once the stream is subscribed.
- * @param {DataListener} onData Called for each datum.
+ * @param {DataListener} onData Called for each value emitted, but not `done`.
+ * @returns {StreamTransform}
  */
 function tap(onData) {
   return streamable =>
@@ -211,6 +255,7 @@ function tap(onData) {
 /**
  * Attach a callback to a stream and return the stream's return value.
  * @param {DataListener} onData A callback for data.
+ * @returns {function(Streamable): function(): void}
  */
 function subscribe(onData) {
   return streamable => streamable(onData);

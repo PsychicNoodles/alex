@@ -8,6 +8,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <iostream>
 
 #include "const.hpp"
 #include "debug.hpp"
@@ -118,6 +120,17 @@ bool enable_segfault_trace() {
 void disable_segfault_trace() {
   DEBUG("disabling segfault trace");
   signal(SIGSEGV, SIG_DFL);
+}
+
+bool print_self_maps() {
+  std::ifstream f("/proc/self/maps");
+  if (f.is_open()) {
+    DEBUG("/proc/self/maps:");
+    DEBUG(f.rdbuf());
+  } else {
+    DEBUG("could not read from /proc/self/maps !");
+  }
+  return f.is_open();
 }
 
 void dump_die(const dwarf::die &node) {

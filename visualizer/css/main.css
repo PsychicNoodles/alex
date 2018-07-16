@@ -57,6 +57,15 @@ button:disabled {
   grid-area: legend;
   width: 100px;
   padding: 20px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+#stats {
+  grid-area: stats;
+  width: 135px;
+  padding: 10px;
+  overflow: auto;
 }
 
 #side-bar {
@@ -90,10 +99,11 @@ button:disabled {
 
 @media (max-width: 1500px) {
   body {
-    grid-template-rows: 2fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
     grid-template-columns: 1fr auto;
     grid-template-areas:
-      "charts   legend"
+      "charts legend"
+      "charts stats"
       "side-bar side-bar";
   }
 

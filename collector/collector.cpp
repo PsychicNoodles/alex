@@ -11,6 +11,9 @@
 #include <sstream>
 #include <string>
 
+#include <libelfin/dwarf/dwarf++.hh>
+#include <libelfin/elf/elf++.hh>
+
 #include "bg_readings.hpp"
 #include "clone.hpp"
 #include "const.hpp"
@@ -143,10 +146,30 @@ int setup_sigterm_handler() {
   return sigterm_fd;
 }
 
+/*
+ * Reads the dwarf data stored in the given executable file
+ */
+dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
+  DEBUG("cpd: reading dwarf file from " << file);
+  // closed by mmap_loader constructor
+  int fd = open(const_cast<char *>(file), O_RDONLY);
+  if (fd < 0) {
+    char buf[256];
+    snprintf(buf, 256, "cannot open executable (%s)", file);
+    perror(buf);
+    shutdown(global->subject_pid, NULL, DEBUG_SYMBOLS_FILE_ERROR);
+  }
+
+  elf::elf ef(elf::create_mmap_loader(fd));
+  return dwarf::dwarf(dwarf::elf::create_loader(ef));
+}
+
 static int collector_main(int argc, char **argv, char **env) {
   DEBUG("Version: " << VERSION);
 
   enable_segfault_trace();
+
+  print_self_maps();
 
   setup_global_vars();
 
@@ -197,11 +220,23 @@ static int collector_main(int argc, char **argv, char **env) {
     }
     close(sockets[1]);
   } else if (subject_pid > 0) {
-    DEBUG(
-        "collector_main: in parent process, opening result file for writing "
-        "(pid: "
-        << global->collector_pid << ")");
+    DEBUG("collector_main: in parent process, gathering executable info (pid: "
+          << global->collector_pid << ")");
     set_subject_pid(subject_pid);
+
+    DEBUG("collector_main: checking for debug symbols");
+    dwarf::dwarf dw;
+    try {
+      dw = read_dwarf();
+    } catch (dwarf::format_error &e) {
+      if (strcmp(e.what(), "required .debug_info section missing") == 0) {
+        DEBUG("could not find debug symbols, did you compile with `-g`?");
+      } else {
+        DEBUG("error in reading dwarf file for executable: " << e.what());
+      }
+      shutdown(subject_pid, NULL, DEBUG_SYMBOLS_FILE_ERROR);
+    }
+
     string env_res = getenv_safe("COLLECTOR_RESULT_FILE", "result.txt");
     DEBUG("collector_main: result file " << env_res);
     auto result_file = fopen(env_res.c_str(), "w");
@@ -242,7 +277,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
     DEBUG("collector_main: received child ready signal, starting collector");
     result = collect_perf_data(kernel_syms, sigterm_fd, sockets[0],
-                               &rapl_reading, &wattsup_reading);
+                               &rapl_reading, &wattsup_reading, dw);
 
     DEBUG("collector_main: finished collector, closing file");
 

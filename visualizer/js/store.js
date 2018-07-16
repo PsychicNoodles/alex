@@ -10,9 +10,10 @@ class Store {
     this._state = initialState;
     this._listeners = new Set();
 
-    this.stream = stream.fromStreamable(onStateChange =>
-      this.subscribe(onStateChange)
-    );
+    this.stream = stream.fromStreamable(onStateChange => {
+      const subscription = this.subscribe(onStateChange);
+      return subscription.unsubscribe;
+    });
   }
 
   /**

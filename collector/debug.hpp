@@ -29,6 +29,8 @@
 bool enable_segfault_trace();
 void disable_segfault_trace();
 
+bool print_self_maps();
+
 void dump_die(const dwarf::die& node);
 void dump_line_table(const dwarf::line_table& lt);
 int dump_table_and_symbol(char* path);
