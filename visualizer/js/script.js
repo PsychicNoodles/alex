@@ -187,7 +187,13 @@ ipcRenderer.on("result", async (event, resultFile) => {
   const errorCounts = [...errorCountsMap];
   const errorsDistinct = [...errorCountsMap.keys()];
 
+  let someHighDensity = false;
   for (const chartParams of charts) {
+    const isLowDensity =
+      d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) <= 2;
+    if (!isLowDensity) {
+      someHighDensity = true;
+    }
     const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
     d3.select("#charts")
       .append("div")
@@ -202,20 +208,23 @@ ipcRenderer.on("result", async (event, resultFile) => {
         yFormat,
         plotData: plotDataByChart.get(chartParams),
         densityMax,
-        spectrum:
-          d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) <= 2
-            ? d3.interpolateRgb("#3A72F2", "#3A72F2")
-            : spectrum,
+        spectrum: isLowDensity
+          ? d3.interpolateRgb("#3A72F2", "#3A72F2")
+          : spectrum,
         cpuTimeOffset,
         errorRecords,
         errorsDistinct
       });
   }
 
-  d3.select("#legend").call(legend.render, {
-    densityMax,
-    spectrum
-  });
+  if (someHighDensity) {
+    d3.select("#legend").call(legend.render, {
+      densityMax,
+      spectrum
+    });
+  } else {
+    d3.select("#legend").remove();
+  }
 
   d3.select("#stats").call(stats.render, {
     processedData
