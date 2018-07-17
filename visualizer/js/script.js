@@ -13,6 +13,7 @@ const {
 } = require("./process-data");
 const { analyze } = require("./analysis");
 const chart = require("./chart");
+const plot = require("./plot");
 const functionRuntimes = require("./function-runtimes");
 const errorList = require("./error-list");
 const legend = require("./legend");
@@ -311,9 +312,16 @@ ipcRenderer.on("result", async (event, resultFile) => {
         numProcessingTimeSamples++;
         console.log(averageProcessingTime);
 
-        return [
-          functionAnalysis,
-          processedData
+        return [functionAnalysis, hiddenSources, hiddenThreads];
+      })
+    )
+    .pipe(
+      stream.subscribe(([{ functionList }, hiddenSources, hiddenThreads]) => {
+        d3.select("#function-runtimes").call(functionRuntimes.render, {
+          functionList
+        });
+        const filterData = data =>
+          data
             .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
             .filter(timeslice =>
               timeslice.stackFrames.some(
@@ -325,17 +333,15 @@ ipcRenderer.on("result", async (event, resultFile) => {
               stackFrames: timeslice.stackFrames.filter(
                 frame => !hiddenSources.includes(frame.fileName)
               )
-            }))
-        ];
-      })
-    )
-    .pipe(
-      stream.subscribe(([{ functionList }, filteredData]) => {
-        d3.select("#function-runtimes").call(functionRuntimes.render, {
-          functionList
-        });
+            }));
+
         d3.select("#stats").call(stats.render, {
-          processedData: filteredData
+          processedData: filterData(processedData)
+        });
+        d3.selectAll("#charts .plot").each(function(_, i) {
+          d3.select(this).call(plot.toggleCircles, {
+            data: filterData(plotDataByChart.get(charts[i]))
+          });
         });
       })
     );
