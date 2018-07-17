@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <csignal>
 #include <cstdlib>
+#include <cstring>
 #include <set>
 
 #include "const.hpp"
@@ -75,16 +76,21 @@ set<string> str_split_set(const string& str, const string& delim) {
 
 void shutdown(pid_t pid, FILE* writef, int code) {
   kill(pid, SIGKILL);
-  if (writef != nullptr) {
-    fclose(writef);
-  }
-  exit(code);
+  // if (writef != nullptr) {
+  //   fclose(writef);
+  // }
+  Util::our_exit(code);
 }
 
 pid_t gettid() { return syscall(SYS_gettid); }
 
 bool preset_enabled(const char* name) {
-  return global->presets.find(name) != global->presets.end();
+  for (int i = 0; i < global->presets_size; i++) {
+    if (strcmp(name, global->presets[i]) == 0) {
+      return true;
+    }
+  }
+  return false;
 }
 
 string getenv_safe(const char* var, const char* fallback) {
@@ -93,4 +99,28 @@ string getenv_safe(const char* var, const char* fallback) {
     value = fallback;
   }
   return string(value);
+}
+
+string Util::brackets = "";
+FILE* Util::result_file = NULL;
+string Util::error_message = "";
+
+void Util::our_exit(int error_code) {
+  if (Util::brackets == "") {
+    brackets = "{";
+  }
+  fprintf(Util::result_file, R"( %s, 
+  "error": "%s"
+  })",
+          Util::brackets.c_str(), Util::error_message.c_str());
+  fclose(result_file);
+  exit(0);
+}
+
+void Util::add_brackets(string new_brackets) {
+  Util::brackets.insert(0, new_brackets);
+}
+
+void Util::delete_brackets(int num_brackets) {
+  Util::brackets.substr((size_t)num_brackets);
 }

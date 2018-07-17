@@ -1,0 +1,24 @@
+.warning-list {
+  width: 100%;
+}
+
+.warning-list th,
+.warning-list td {
+  padding: 0 5px;
+}
+
+.warning-list__header-row {
+  background-color: #c0c0c0;
+}
+
+.warning-list__header-row select {
+  margin-left: 3px;
+}
+
+.warning-list__data-row:nth-child(odd) {
+  background-color: #d9d9d9;
+}
+
+.warning-list__data-row-desc {
+  white-space: nowrap;
+}

@@ -153,7 +153,8 @@ void add_fd_to_epoll(int fd) {
   if (epoll_ctl(sample_epfd, EPOLL_CTL_ADD, fd, &evt) == -1) {
     char buf[128];
     snprintf(buf, 128, "error adding perf fd %d", fd);
-    perror(buf);
+    Util::error_message = buf;
+    Util::error_message.append(strerror(errno));
     parent_shutdown(INTERNAL_ERROR);
   }
   sample_fd_count++;
@@ -168,7 +169,8 @@ void delete_fd_from_epoll(int fd) {
   if (epoll_ctl(sample_epfd, EPOLL_CTL_DEL, fd, &evt) == -1) {
     char buf[128];
     snprintf(buf, 128, "error removing perf fd %d", fd);
-    perror(buf);
+    Util::error_message = buf;
+    Util::error_message.append(strerror(errno));
     parent_shutdown(INTERNAL_ERROR);
   }
   sample_fd_count--;
@@ -206,28 +208,31 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   perf_buffer cpu_clock_perf{};
   if (setup_monitoring(&cpu_clock_perf, &cpu_clock_attr, target) !=
       SAMPLER_MONITOR_SUCCESS) {
+    Util::error_message = "error setting up the monitoring";
     parent_shutdown(INTERNAL_ERROR);
   }
   info->cpu_clock_fd = cpu_clock_perf.fd;
   info->sample_buf = cpu_clock_perf;
   info->tid = target;
 
-  if (setup_events && !global->events.empty()) {
+  if (setup_events && global->events_size != 0) {
     DEBUG("setting up events");
-    for (auto &e : global->events) {
-      DEBUG("event: " << e);
+    for (int i = 0; i < global->events_size; i++) {
+      DEBUG("event: " << global->events[i]);
     }
-    for (const auto &event : global->events) {
+    for (int i = 0; i < global->events_size; i++) {
+      char *event = global->events[i];
       DEBUG("setting up event: " << event);
       perf_event_attr attr{};
       memset(&attr, 0, sizeof(perf_event_attr));
 
       // Parse out event name with PFM.  Must be done first.
       DEBUG("parsing pfm event name");
-      int pfm_result =
-          setup_pfm_os_event(&attr, const_cast<char *>(event.c_str()));
+      int pfm_result = setup_pfm_os_event(&attr, const_cast<char *>(event));
       if (pfm_result != PFM_SUCCESS) {
-        DEBUG("pfm encoding error: " << pfm_strerror(pfm_result));
+        Util::error_message = "pfm encoding error: ";
+        Util::error_message.append(pfm_strerror(pfm_result));
+        DEBUG(Util::error_message);
         parent_shutdown(EVENT_ERROR);
       }
       attr.disabled = false;
@@ -236,7 +241,8 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
       // use cpu cycles event as group leader again
       auto event_fd = perf_event_open(&attr, target, -1, cpu_clock_perf.fd, 0);
       if (event_fd == -1) {
-        perror("couldn't perf_event_open for event");
+        Util::error_message = "couldn't perf_event_open for event";
+        Util::error_message.append(strerror(errno));
         parent_shutdown(INTERNAL_ERROR);
       }
 
@@ -247,6 +253,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   // all related events are ready, so time to start monitoring
   DEBUG("starting monitoring");
   if (start_monitoring(info->cpu_clock_fd) != SAMPLER_MONITOR_SUCCESS) {
+    Util::error_message = "error: fail to start monitoring";
     parent_shutdown(INTERNAL_ERROR);
   }
 }
@@ -260,8 +267,8 @@ void handle_perf_register(perf_fd_info *info) {
         << info->tid << ", adding to epoll");
   add_fd_to_epoll(info->cpu_clock_fd);
   DEBUG("cpd: inserting mapping for fd " << info->cpu_clock_fd);
-  for (int i = 0; i < global->events.size(); i++) {
-    DEBUG("event[" << i << "]: " << info->event_fds[global->events.at(i)]);
+  for (int i = 0; i < global->events_size; i++) {
+    DEBUG("event[" << i << "]: " << info->event_fds[global->events[i]]);
   }
   perf_info_mappings.emplace(make_pair(info->cpu_clock_fd, *info));
   DEBUG("cpd: successfully added fd " << info->cpu_clock_fd
@@ -322,6 +329,7 @@ bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
         if (cmd == SOCKET_CMD_REGISTER) {
           DEBUG("cpd: setting up buffer for fd " << info->cpu_clock_fd);
           if (setup_buffer(info) != SAMPLER_MONITOR_SUCCESS) {
+            Util::error_message = "error: cannot set up buffer for fd";
             parent_shutdown(INTERNAL_ERROR);
           }
           handle_perf_register(info);
@@ -329,6 +337,7 @@ bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
           handle_perf_unregister(info);
         } else {
           DEBUG("cpd: unknown command, shutting down");
+          Util::error_message = "cpd: unknown command, shutting down";
           parent_shutdown(INTERNAL_ERROR);
         }
       }
@@ -337,6 +346,7 @@ bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
         delete_fd_from_epoll(socket);
       } else if (cmd != -1) {
         DEBUG("cpd: unknown command, shutting down");
+        Util::error_message = "cpd: unknown command, shutting down";
         parent_shutdown(INTERNAL_ERROR);
       }
       DEBUG("cpd: exhausted requests");
@@ -387,7 +397,8 @@ int adjust_period(int record_type) {
   for (auto &p : perf_info_mappings) {
     DEBUG("adjusting period for fd " << p.first);
     if (ioctl(p.first, PERF_EVENT_IOC_PERIOD, &global->period) == -1) {
-      perror("failed to adjust period");
+      Util::error_message = ("failed to adjust period");
+      Util::error_message.append(strerror(errno));
       return -1;
     }
   }
@@ -443,12 +454,13 @@ void copy_record_to_stack(base_record *record, base_record *local,
   }
 }
 
-void process_throttle_record(const throttle_record &throttle, int record_type,
-                             vector<tuple<int, base_record, int64_t>> *errors) {
+void process_throttle_record(
+    const throttle_record &throttle, int record_type,
+    vector<tuple<int, base_record, int64_t>> *warnings) {
   if (adjust_period(record_type) == -1) {
     parent_shutdown(INTERNAL_ERROR);
   }
-  errors->emplace_back(make_tuple(
+  warnings->emplace_back(make_tuple(
       record_type, base_record{.throttle = throttle}, global->period));
 }
 
@@ -461,6 +473,7 @@ bool process_sample_record(const sample_record &sample,
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
+
   int64_t num_timer_ticks = 0;
   DEBUG("cpd: reading from fd " << info.cpu_clock_fd);
   read(info.cpu_clock_fd, &num_timer_ticks, sizeof(num_timer_ticks));
@@ -468,6 +481,7 @@ bool process_sample_record(const sample_record &sample,
                                 << " num of cycles: " << num_timer_ticks);
   if (reset_monitoring(info.cpu_clock_fd) != SAMPLER_MONITOR_SUCCESS) {
     DEBUG("Couldn't reset monitoring for fd: " << info.cpu_clock_fd);
+    Util::error_message = "Couldn't reset monitoring for fd";
     parent_shutdown(INTERNAL_ERROR);
   }
 
@@ -485,11 +499,13 @@ bool process_sample_record(const sample_record &sample,
                         "events": {
                     )",
           sample.time, num_timer_ticks, sample.pid, sample.tid);
+  Util::add_brackets("}}");
 
   DEBUG("cpd: reading from each fd");
 
   bool is_first_event = true;
-  for (const auto &event : global->events) {
+  for (int i = 0; i < global->events_size; i++) {
+    char *event = global->events[i];
     // fprintf(result_file, "%s", event.c_str());
     if (is_first_event) {
       is_first_event = false;
@@ -503,10 +519,11 @@ bool process_sample_record(const sample_record &sample,
     DEBUG("cpd: read in from fd " << info.event_fds.at(event) << " count "
                                   << count);
     if (reset_monitoring(info.event_fds.at(event)) != SAMPLER_MONITOR_SUCCESS) {
+      Util::error_message = "Couldn't reset the monitoring";
       parent_shutdown(INTERNAL_ERROR);
     }
 
-    fprintf(result_file, R"("%s": %ld)", event.c_str(), count);
+    fprintf(result_file, R"("%s": %ld)", event, count);
   }
 
   // rapl
@@ -514,15 +531,20 @@ bool process_sample_record(const sample_record &sample,
     DEBUG("cpd: checking for RAPL energy results");
     if (has_result(rapl_reading)) {
       DEBUG("cpd: RAPL result found, writing out");
-      map<string, uint64_t> *nrg =
-          (static_cast<map<string, uint64_t> *>(get_result(rapl_reading)));
-      for (auto &p : *nrg) {
-        fprintf(result_file, ",");
-        fprintf(result_file, R"("%s": %lu)", p.first.c_str(), p.second);
+      void *raw_result = get_result(rapl_reading);
+      if (raw_result == nullptr) {
+        DEBUG("cpd: RAPL result was null");
+      } else {
+        map<string, uint64_t> *nrg =
+            (static_cast<map<string, uint64_t> *>(raw_result));
+        for (auto &p : *nrg) {
+          fprintf(result_file, ",");
+          fprintf(result_file, R"("%s": %lu)", p.first.c_str(), p.second);
+        }
+        delete nrg;
+        DEBUG("cpd: restarting RAPL energy readings");
+        restart_reading(rapl_reading);
       }
-      delete nrg;
-      DEBUG("cpd: restarting RAPL energy readings");
-      restart_reading(rapl_reading);
     } else {
       DEBUG("cpd: no RAPL result available");
     }
@@ -533,12 +555,17 @@ bool process_sample_record(const sample_record &sample,
     DEBUG("cpd: checking for wattsup energy results");
     if (has_result(wattsup_reading)) {
       DEBUG("cpd: wattsup result found, writing out");
-      double *ret = (static_cast<double *>(get_result(wattsup_reading)));
-      fprintf(result_file, ",");
-      fprintf(result_file, R"("wattsup": %1lf)", *ret);
-      delete ret;
-      DEBUG("cpd: restarting wattsup energy readings");
-      restart_reading(wattsup_reading);
+      void *raw_result = get_result(wattsup_reading);
+      if (raw_result == nullptr) {
+        DEBUG("cpd: wattsup result was null");
+      } else {
+        double *ret = (static_cast<double *>(raw_result));
+        fprintf(result_file, ",");
+        fprintf(result_file, R"("wattsup": %1lf)", *ret);
+        delete ret;
+        DEBUG("cpd: restarting wattsup energy readings");
+        restart_reading(wattsup_reading);
+      }
     } else {
       DEBUG("cpd: no wattsup result available");
     }
@@ -548,6 +575,8 @@ bool process_sample_record(const sample_record &sample,
                   },
                   "stackFrames": [
                     )");
+  Util::delete_brackets(1);
+  Util::add_brackets("]");
 
   bool is_first_stack = true;
   uint64_t callchain_section = 0;
@@ -574,6 +603,7 @@ bool process_sample_record(const sample_record &sample,
                     "section": "%s",)",
             reinterpret_cast<void *>(inst_ptr),
             callchain_str(callchain_section));
+    Util::add_brackets("}");
 
     string sym_name_str;
     const char *sym_name = nullptr, *file_name = nullptr,
@@ -621,11 +651,15 @@ bool process_sample_record(const sample_record &sample,
           DEBUG(
               "cpd: demangling errored due to memory allocation "
               "failure");
+          Util::error_message =
+              "cpd: demangling errored due to memory allocation ";
           parent_shutdown(INTERNAL_ERROR);
         } else if (demangle_status == -2) {
           DEBUG("cpd: could not demangle name " << sym_name);
         } else if (demangle_status == -3) {
           DEBUG("cpd: demangling errored due to invalid arguments");
+          Util::error_message =
+              "cpd: demangling errored due to invalid arguments";
           parent_shutdown(INTERNAL_ERROR);
         }
       }
@@ -672,22 +706,25 @@ bool process_sample_record(const sample_record &sample,
                     "fullLocation": "%s" })",
             line, column, fullLocation);
   }
+
+  Util::delete_brackets(1);
   fprintf(result_file, R"(
                   ]
                   }
                   )");
+  Util::delete_brackets(2);
   return false;
 }
 
 void process_lost_record(const lost_record &lost,
-                         vector<tuple<int, base_record, int64_t>> *errors) {
-  errors->emplace_back(
+                         vector<tuple<int, base_record, int64_t>> *warnings) {
+  warnings->emplace_back(
       make_tuple(PERF_RECORD_LOST, base_record{.lost = lost}, 0));
 }
 
 /*
  * Writes the information from the sample_id struct to the result file.
- * Error entries may end up having duplicate key-values, particularly time and
+ * Warning entries may end up having duplicate key-values, particularly time and
  * stream_id, since the sample_id struct simply tries to provide the same
  * information across all supported record types.
  */
@@ -702,13 +739,15 @@ void write_sample_id(const record_sample_id &sample_id) {
           sample_id.id);
 }
 
-void write_errors(vector<tuple<int, base_record, int64_t>> errors) {
+void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
   fprintf(result_file, R"(
     ],
-    "error": [
+    "warning": [
                 )");
+  Util::delete_brackets(1);
+  Util::add_brackets("]");
   bool is_first_element = true;
-  for (auto &t : errors) {
+  for (auto &t : warnings) {
     int record_type;
     base_record record;
     int64_t extra;
@@ -786,7 +825,7 @@ void write_errors(vector<tuple<int, base_record, int64_t>> errors) {
       }
         )");
     } else {
-      DEBUG("couldn't determine type of error for " << record_type << "!");
+      DEBUG("couldn't determine type of warning for " << record_type << "!");
       fprintf(result_file, R"|(
       {
        "type": "(null)"
@@ -799,10 +838,12 @@ void write_errors(vector<tuple<int, base_record, int64_t>> errors) {
     ]
   }
 )");
+  Util::delete_brackets(1);
 }
 
 void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
-                             FILE *res_file, bg_reading *rapl_reading,
+                             FILE *res_file, char *program_name,
+                             bg_reading *rapl_reading,
                              bg_reading *wattsup_reading) {
   result_file = res_file;
 
@@ -825,17 +866,18 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
           R"(
             {
               "header": {
+                "programName": "%s",
                 "programVersion": "%s",
                 "events": [
           )",
-          VERSION);
+          program_name, VERSION);
 
-  for (int i = 0; i < global->events.size(); i++) {
+  for (int i = 0; i < global->events_size; i++) {
     if (i != 0) {
       fprintf(result_file, ",");
     }
 
-    fprintf(result_file, "\"%s\"", global->events[i].c_str());
+    fprintf(result_file, "\"%s\"", global->events[i]);
   }
 
   fprintf(result_file,
@@ -843,13 +885,14 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
                 ],
           )");
 
-  print_preset_events(global->presets, result_file);
+  print_preset_events(result_file);
 
   fprintf(result_file,
           R"(
             },
               "timeslices": [
           )");
+  Util::add_brackets("]");
 
   // setting up RAPL energy reading
   if (preset_enabled("rapl")) {
@@ -861,6 +904,8 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
                   },
                   nullptr);
     DEBUG("cpd: rapl reading in tid " << rapl_reading->thread);
+  } else {
+    DEBUG("RAPL preset not enabled");
   }
 
   // setting up wattsup energy reading
@@ -877,7 +922,11 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
     DEBUG("cpd: wattsup reading in tid " << wattsup_reading->thread);
     DEBUG("wattsup fd is " << wu_fd);
   } else {
-    DEBUG("cpd: wattsup couldn't open device, skipping setup");
+    if (preset_enabled("wattsup")) {
+      DEBUG("wattsup preset not enabled");
+    } else {
+      DEBUG("cpd: wattsup couldn't open device, skipping setup");
+    }
   }
 }
 
@@ -891,7 +940,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
   bool is_first_timeslice = true;
   bool done = false;
   int sample_period_skips = 0;
-  vector<tuple<int, base_record, int64_t>> errors;
+  vector<tuple<int, base_record, int64_t>> warnings;
 
   size_t last_ts = time_ms(), finish_ts = last_ts, curr_ts = 0;
 
@@ -914,7 +963,8 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
     last_ts = curr_ts;
 
     if (ready_fds == -1) {
-      perror("sample epoll wait was unsuccessful");
+      Util::error_message = "sample epoll wait was unsuccessful";
+      Util::error_message.append(strerror(errno));
       parent_shutdown(INTERNAL_ERROR);
     } else if (ready_fds == 0) {
       DEBUG("cpd: no sample fds were ready within the timeout ("
@@ -933,6 +983,8 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
           } catch (out_of_range &e) {
             DEBUG("cpd: tried looking up a perf fd that has no info (" << fd
                                                                        << ")");
+            Util::error_message =
+                "cpd: tried looking up a perf fd that has no info";
             parent_shutdown(INTERNAL_ERROR);
           }
 
@@ -944,6 +996,8 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
               DEBUG(
                   "cpd: reached max number of consecutive sample period skips, "
                   "exitting");
+              Util::error_message =
+                  "cpd: reached max number of consecutive sample period skips";
               parent_shutdown(INTERNAL_ERROR);
             }
           } else {
@@ -984,7 +1038,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                   copy_record_to_stack(perf_result, &local_result, record_type,
                                        record_size, data_start, data_end);
                   process_throttle_record(local_result.throttle, record_type,
-                                          &errors);
+                                          &warnings);
                 } else if (record_type == PERF_RECORD_SAMPLE) {
                   if (is_first_sample) {
                     copy_record_to_stack(perf_result, &local_result,
@@ -1001,7 +1055,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                 } else if (record_type == PERF_RECORD_LOST) {
                   copy_record_to_stack(perf_result, &local_result, record_type,
                                        record_size, data_start, data_end);
-                  process_lost_record(local_result.lost, &errors);
+                  process_lost_record(local_result.lost, &warnings);
                 } else {
                   DEBUG("cpd: record type was not recognized ("
                         << record_type_str(record_type) << " " << record_type
@@ -1031,8 +1085,8 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
   DEBUG("cpd: stopping wattsup reading thread");
   stop_reading(wattsup_reading);
 
-  DEBUG("cpd: writing errors");
-  write_errors(errors);
+  DEBUG("cpd: writing warnings");
+  write_warnings(warnings);
 
   return 0;
 }

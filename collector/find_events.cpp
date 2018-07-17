@@ -6,6 +6,7 @@
 #include "debug.hpp"
 #include "find_events.hpp"
 #include "rapl.hpp"
+#include "shared.hpp"
 
 using std::map;
 using std::pair;
@@ -57,12 +58,13 @@ map<string, vector<string>> build_preset(const string& preset) {
   return events;
 }
 
-void print_preset_events(const set<string>& presets, FILE* result_file) {
+void print_preset_events(FILE* result_file) {
   fprintf(result_file, R"(
       "presets": {
         )");
   bool is_first_preset = true;
-  for (const auto& preset : presets) {
+  for (int i = 0; i < global->presets_size; i++) {
+    char* preset = global->presets[i];
     if (is_first_preset) {
       is_first_preset = false;
     } else {
@@ -73,7 +75,7 @@ void print_preset_events(const set<string>& presets, FILE* result_file) {
     fprintf(result_file, R"(
                  "%s": {
                    )",
-            preset.c_str());
+            preset);
     for (auto event : events) {
       if (is_first) {
         fprintf(result_file, R"(

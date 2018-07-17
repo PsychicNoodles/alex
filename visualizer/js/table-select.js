@@ -4,7 +4,7 @@ const { Store } = require("./store");
 
 const tables = [
   { name: "Function Runtimes", id: "#function-runtimes" },
-  { name: "Errors", id: "#error-list" }
+  { name: "Warnings", id: "#warning-list" }
 ];
 
 const selectedTableSubscription = d3.local();
