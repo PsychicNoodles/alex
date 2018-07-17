@@ -12,7 +12,7 @@ function render(root, { processedData }) {
     .selectAll("p")
     .data([
       { name: "Timeslices", number: numTimeslices, isTime: false },
-      { name: "Elapsed CPU Time", number: endTime - startTime, isTime: true },
+      { name: "CPU Time Elapsed", number: endTime - startTime, isTime: true },
       {
         name: "Average Timeslice Duration",
         number: (endTime - startTime) / numTimeslices,
