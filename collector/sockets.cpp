@@ -43,8 +43,8 @@ int recv_perf_fds(int socket, perf_fd_info *info,
       }
       // copy perf fd info
       info->cpu_clock_fd = ancil_fds[0];
-      for (int i = 0; i < global->events.size(); i++) {
-        info->event_fds[global->events.at(i)] = ancil_fds[i + 1];
+      for (int i = 0; i < global->events_size; i++) {
+        info->event_fds[global->events[i]] = ancil_fds[i + 1];
       }
       info->tid = tid;
       return cmd;
@@ -79,8 +79,8 @@ bool register_perf_fds(int socket, perf_fd_info *info) {
   int ancil_fds[n_fds];
   // copy the locally used file descriptors
   ancil_fds[0] = info->cpu_clock_fd;
-  for (int i = 0; i < global->events.size(); i++) {
-    ancil_fds[i + 1] = info->event_fds[global->events.at(i)];
+  for (int i = 0; i < global->events_size; i++) {
+    ancil_fds[i + 1] = info->event_fds[global->events[i]];
   }
   pid_t tid = gettid();
   int cmd = SOCKET_CMD_REGISTER;

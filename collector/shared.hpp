@@ -13,15 +13,18 @@ using std::vector;
 struct global_vars {
   uint64_t period;
   // a list of the events enumerated in COLLECTOR_EVENTS env var
-  vector<string> events;
-  set<string> presets;
+  char **events;
+  size_t events_size;
+  char **presets;
+  size_t presets_size;
   pid_t subject_pid;
   pid_t collector_pid;
 };
 
 extern global_vars *global;
 
-void init_global_vars(global_vars vars);
+void init_global_vars(uint64_t period, pid_t collector_pid,
+                      const vector<string> &events, const set<string> &presets);
 
 /*
  * Not known until after the fork.

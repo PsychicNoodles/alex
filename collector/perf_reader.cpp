@@ -215,20 +215,20 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   info->sample_buf = cpu_clock_perf;
   info->tid = target;
 
-  if (setup_events && !global->events.empty()) {
+  if (setup_events && global->events_size != 0) {
     DEBUG("setting up events");
-    for (auto &e : global->events) {
-      DEBUG("event: " << e);
+    for (int i = 0; i < global->events_size; i++) {
+      DEBUG("event: " << global->events[i]);
     }
-    for (const auto &event : global->events) {
+    for (int i = 0; i < global->events_size; i++) {
+      char *event = global->events[i];
       DEBUG("setting up event: " << event);
       perf_event_attr attr{};
       memset(&attr, 0, sizeof(perf_event_attr));
 
       // Parse out event name with PFM.  Must be done first.
       DEBUG("parsing pfm event name");
-      int pfm_result =
-          setup_pfm_os_event(&attr, const_cast<char *>(event.c_str()));
+      int pfm_result = setup_pfm_os_event(&attr, const_cast<char *>(event));
       if (pfm_result != PFM_SUCCESS) {
         Util::error_message = "pfm encoding error: ";
         Util::error_message.append(pfm_strerror(pfm_result));
@@ -267,8 +267,8 @@ void handle_perf_register(perf_fd_info *info) {
         << info->tid << ", adding to epoll");
   add_fd_to_epoll(info->cpu_clock_fd);
   DEBUG("cpd: inserting mapping for fd " << info->cpu_clock_fd);
-  for (int i = 0; i < global->events.size(); i++) {
-    DEBUG("event[" << i << "]: " << info->event_fds[global->events.at(i)]);
+  for (int i = 0; i < global->events_size; i++) {
+    DEBUG("event[" << i << "]: " << info->event_fds[global->events[i]]);
   }
   perf_info_mappings.emplace(make_pair(info->cpu_clock_fd, *info));
   DEBUG("cpd: successfully added fd " << info->cpu_clock_fd
@@ -504,7 +504,8 @@ bool process_sample_record(const sample_record &sample,
   DEBUG("cpd: reading from each fd");
 
   bool is_first_event = true;
-  for (const auto &event : global->events) {
+  for (int i = 0; i < global->events_size; i++) {
+    char *event = global->events[i];
     // fprintf(result_file, "%s", event.c_str());
     if (is_first_event) {
       is_first_event = false;
@@ -522,7 +523,7 @@ bool process_sample_record(const sample_record &sample,
       parent_shutdown(INTERNAL_ERROR);
     }
 
-    fprintf(result_file, R"("%s": %ld)", event.c_str(), count);
+    fprintf(result_file, R"("%s": %ld)", event, count);
   }
 
   // rapl
@@ -869,12 +870,12 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
           )",
           VERSION);
 
-  for (int i = 0; i < global->events.size(); i++) {
+  for (int i = 0; i < global->events_size; i++) {
     if (i != 0) {
       fprintf(result_file, ",");
     }
 
-    fprintf(result_file, "\"%s\"", global->events[i].c_str());
+    fprintf(result_file, "\"%s\"", global->events[i]);
   }
 
   fprintf(result_file,
@@ -882,7 +883,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
                 ],
           )");
 
-  print_preset_events(global->presets, result_file);
+  print_preset_events(result_file);
 
   fprintf(result_file,
           R"(
@@ -901,6 +902,8 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
                   },
                   nullptr);
     DEBUG("cpd: rapl reading in tid " << rapl_reading->thread);
+  } else {
+    DEBUG("RAPL preset not enabled");
   }
 
   // setting up wattsup energy reading
@@ -917,7 +920,11 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
     DEBUG("cpd: wattsup reading in tid " << wattsup_reading->thread);
     DEBUG("wattsup fd is " << wu_fd);
   } else {
-    DEBUG("cpd: wattsup couldn't open device, skipping setup");
+    if (preset_enabled("wattsup")) {
+      DEBUG("wattsup preset not enabled");
+    } else {
+      DEBUG("cpd: wattsup couldn't open device, skipping setup");
+    }
   }
 }
 
