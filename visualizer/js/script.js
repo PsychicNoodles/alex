@@ -194,6 +194,9 @@ ipcRenderer.on("result", async (event, resultFile) => {
       }
     });
 
+    const warningCounts = [...warningCountsMap];
+    const warningDistinct = [...warningCountsMap.keys()];
+
     let someHighDensity = false;
     for (const chartParams of charts) {
       const isLowDensity =
@@ -233,9 +236,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
     d3.select("#stats").call(stats.render, {
       processedData
     });
-
-    const warningCounts = [...warningCountsMap];
-    const warningDistinct = [...warningCountsMap.keys()];
 
     const sourcesSet = new Set();
     processedData.forEach(timeslice => {
