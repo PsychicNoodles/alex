@@ -98,9 +98,7 @@ void setup_global_vars() {
 
   auto collector_pid = getpid();
 
-  init_global_vars({period, events, presets, -1, collector_pid});
-
-  debug_global_var();
+  init_global_vars(period, collector_pid, events, presets);
 }
 
 map<uint64_t, kernel_sym> read_kernel_syms(

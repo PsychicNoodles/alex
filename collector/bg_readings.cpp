@@ -71,7 +71,7 @@ bool setup_reading(bg_reading *reading, void *(reading_fn)(void *),
 }
 
 void restart_reading(bg_reading *reading) {
-  if (reading->running) {
+  if (reading->ready) {
     DEBUG("background tid " << reading->thread << " was already running");
     return;
   }
