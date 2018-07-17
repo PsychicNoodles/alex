@@ -7,10 +7,7 @@ const d3 = require("d3");
 function render(root, { functions }) {
   root.classed("function-runtimes", true);
 
-  console.log(functions);
-
-  //const newArray = [...new Set([...functionRuntimesArray, ...(chiSquaredData.functions)])];
-  //console.log(newArray);
+  // console.log(functions);
 
   root.select(".function-runtimes__header-row").remove();
   const headerRowSelection = root
