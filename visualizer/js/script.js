@@ -181,6 +181,19 @@ ipcRenderer.on("result", async (event, resultFile) => {
       0
     );
 
+    const warningRecords = result.warning;
+    const warningCountsMap = new Map();
+    warningRecords.forEach(warning => {
+      if (warningCountsMap.has(warning.type)) {
+        warningCountsMap.set(
+          warning.type,
+          warningCountsMap.get(warning.type) + 1
+        );
+      } else {
+        warningCountsMap.set(warning.type, 1);
+      }
+    });
+
     let someHighDensity = false;
     for (const chartParams of charts) {
       const isLowDensity =
@@ -221,18 +234,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
       processedData
     });
 
-    const warningRecords = result.warnings;
-    const warningCountsMap = new Map();
-    warningRecords.forEach(warning => {
-      if (warningCountsMap.has(warning.type)) {
-        warningCountsMap.set(
-          warning.type,
-          warningCountsMap.get(warning.type) + 1
-        );
-      } else {
-        warningCountsMap.set(warning.type, 1);
-      }
-    });
     const warningCounts = [...warningCountsMap];
     const warningDistinct = [...warningCountsMap.keys()];
 
