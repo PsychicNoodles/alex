@@ -15,55 +15,55 @@ const dropdownIsOpen = d3.local();
 const DEFAULT_WARNING_COLOR = "rgba(255, 0, 0, 0.8)";
 
 function render(root, { warningCounts, warningRecords }) {
-  root.classed("warnings", true);
+  root.classed("warnings-select select", true);
 
   if (root.property(dropdownIsOpen) === undefined) {
     root.property(dropdownIsOpen, false);
   }
 
-  if (root.select(".warnings__button").empty()) {
-    root.append("button").attr("class", "warnings__button");
+  if (root.select(".select__button").empty()) {
+    root.append("button").attr("class", "select__button");
   }
 
-  if (root.select(".warnings__dropdown").empty()) {
-    root.append("div").attr("class", "warnings__dropdown");
+  if (root.select(".select__dropdown").empty()) {
+    root.append("div").attr("class", "select__dropdown");
   }
 
   //class "open" if the warnings button is clicked
-  root.classed("warnings--dropdown-open", root.property(dropdownIsOpen));
+  root.classed("select--dropdown-open", root.property(dropdownIsOpen));
 
-  root.select(".warnings__button").on("click", () => {
+  root.select(".select__button").on("click", () => {
     root
       .property(dropdownIsOpen, !root.property(dropdownIsOpen))
-      .classed("warnings--dropdown-open", root.property(dropdownIsOpen));
+      .classed("select--dropdown-open", root.property(dropdownIsOpen));
   });
 
   const dropdownItemsSelection = root
-    .select(".warnings__dropdown")
-    .selectAll(".warnings__dropdown-item")
+    .select(".select__dropdown")
+    .selectAll(".select__dropdown-item")
     .data(["All Warning Types", ...warningCounts.map(pair => pair[0])]);
 
   const dropdownItemsEnterSelection = dropdownItemsSelection
     .enter()
     .append("div")
-    .attr("class", "warnings__dropdown-item input-group colorpicker-component");
+    .attr("class", "select__dropdown-item input-group colorpicker-component");
 
   dropdownItemsEnterSelection
     .append("input")
-    .attr("class", "warnings__checkbox")
+    .attr("class", "select__checkbox")
     .attr("type", "checkbox")
     .attr("id", (d, i) => `warning__checkbox-${i}`);
 
   dropdownItemsEnterSelection
     .append("label")
-    .attr("class", "warnings__type")
+    .attr("class", "select__type")
     .attr("for", (d, i) => `warning__checkbox-${i}`)
     .text(warning => warning);
 
   // color picker input
   dropdownItemsEnterSelection
     .append("input")
-    .attr("class", "warnings__color-picker")
+    .attr("class", "select__color-picker")
     .attr("type", "hidden");
 
   // color picker image/popover
@@ -78,7 +78,7 @@ function render(root, { warningCounts, warningRecords }) {
       $(g[i])
         .colorpicker({
           color: DEFAULT_WARNING_COLOR,
-          input: ".warnings__color-picker"
+          input: ".select__color-picker"
         })
         .on("changeColor", e => {
           d3.selectAll(`.warning-lines__type-${i}`).style("stroke", e.color);
@@ -111,7 +111,7 @@ function render(root, { warningCounts, warningRecords }) {
         some => some
       );
       root
-        .select(".warnings__button")
+        .select(".select__button")
         .property("disabled", !hasWarnings)
         .text(
           hasWarnings
@@ -131,7 +131,7 @@ function render(root, { warningCounts, warningRecords }) {
           if (i === 0) {
             // We are on the All checkbox
             d3.select(this)
-              .select(".warnings__checkbox")
+              .select(".select__checkbox")
               .property("checked", highlightedAllAllWarnings)
               .property(
                 "indeterminate",
@@ -146,7 +146,7 @@ function render(root, { warningCounts, warningRecords }) {
               });
           } else {
             d3.select(this)
-              .select(".warnings__checkbox")
+              .select(".select__checkbox")
               .property("checked", highlightedAllWarnings[i - 1])
               .property(
                 "indeterminate",
