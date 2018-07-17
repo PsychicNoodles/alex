@@ -301,6 +301,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
               };
             })
             .filter(timeslice => timeslice.stackFrames.length)
+            .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
         );
 
         // Compute a cumulative moving average for processing time so we can
