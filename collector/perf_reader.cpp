@@ -128,6 +128,24 @@ int sample_epfd = epoll_create1(0);
 // a count of the number of fds added to the epoll
 size_t sample_fd_count = 0;
 
+void parent_shutdown(int code) {
+  shutdown(global->subject_pid, result_file, code);
+}
+
+int get_record_size(int record_type) {
+  switch (record_type) {
+    case PERF_RECORD_SAMPLE:
+      return sizeof(sample_record);
+    case PERF_RECORD_THROTTLE:
+    case PERF_RECORD_UNTHROTTLE:
+      return sizeof(throttle_record);
+    case PERF_RECORD_LOST:
+      return sizeof(lost_record);
+    default:
+      return -1;
+  }
+}
+
 /**
  * Read a link's contents and return it as a string
  */
@@ -147,24 +165,6 @@ static string readlink_str(const char *path) {
     }
 
     exe_size += 1024;
-  }
-}
-
-void parent_shutdown(int code) {
-  shutdown(global->subject_pid, result_file, code);
-}
-
-int get_record_size(int record_type) {
-  switch (record_type) {
-    case PERF_RECORD_SAMPLE:
-      return sizeof(sample_record);
-    case PERF_RECORD_THROTTLE:
-    case PERF_RECORD_UNTHROTTLE:
-      return sizeof(throttle_record);
-    case PERF_RECORD_LOST:
-      return sizeof(lost_record);
-    default:
-      return -1;
   }
 }
 
@@ -201,31 +201,13 @@ void delete_fd_from_epoll(int fd) {
   sample_fd_count--;
 }
 
-// unordered_map<pair<uint64_t, uint64_t>, char*> dump_sym (const dwarf::die
-// &node, int depth) {
-//   unordered_map<pair<uint64_t, uint64_t>, char*> addr_sym;
-//   char * name;
-//   uint64_t low_pc;
-//   uint64_t high_pc;
-//   if (to_string(node.tag).compare("DW_TAG_subprogram") == 0) {
-//     char * name;
-//     uint64_t low_pc;
-//     uint64_t high_pc;
-//     for (auto &attr : node.attributes()) {
-//       if (to_string(attr.first).compare("DW_AT_low_pc") == 0) {
-//         DEBUG("added in low pc " << to_string(attr.second));
-//         low_pc = stoul(attr.second);
-//       }
-//       if (to_string(attr.first).compare("DW_AT_high_pc") == 0) {
-//         DEBUG("added in high pc " << to_string(attr.second));
-//         low_pc = attr.second;
-//       }
-//       printf("%*.s      %s %s\n", depth, "", to_string(attr.first).c_str(),
-//              to_string(attr.second).c_str());
-//     }
-//   }
-//   for (auto &child : node) dump_sym(child, depth + 1);
-// }
+/**
+ * erase all the unnecessary entry in a map
+ */
+void map_delete(
+    std::map<interval, std::shared_ptr<line>, cmpByInterval> ranges) {
+  return;
+}
 
 /*
  * Sets up all the perf events for the target process/thread
@@ -721,15 +703,15 @@ bool process_sample_record(
     dwarf::taddr pc = inst_ptr - 1;
     char *name = nullptr;
 
-    // for (auto &entry : sym_map) {
-    //   // DEBUG("name is " << entry.second);
-    //   // DEBUG("add is " << entry.first.first << entry.first.second);
-    //   if (entry.second.contains(pc)) {
-    //     name = (char *)entry.first.c_str();
-    //     DEBUG("dwarf function name obtained is " << name);
-    //     break;
-    //   }
-    // }
+    for (auto &entry : sym_map) {
+      // DEBUG("name is " << entry.second);
+      // DEBUG("add is " << entry.first.first << entry.first.second);
+      if (entry.second.contains(pc)) {
+        name = (char *)entry.first.c_str();
+        DEBUG("dwarf function name obtained is " << name);
+        break;
+      }
+    }
 
     fprintf(result_file,
             R"(
@@ -749,8 +731,8 @@ bool process_sample_record(
     // for (auto &it : ranges) {
     //   if (it.first.contains(pc)) {
     //     line = it.second.get()->get_line();
-    //     fullLocation = (char
-    //     *)(it.second.get()->get_file()->get_name().c_str()); break;
+    //     fullLocation =
+    //     (char*)(it.second.get()->get_file()->get_name().c_str()); break;
     //   }
     // }
 
@@ -988,9 +970,11 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
  * Sets up the required events and records performance of subject process into
  * result file.
  */
-int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
-                      int socket, bg_reading *rapl_reading,
-                      bg_reading *wattsup_reading, dwarf::dwarf dw) {
+int collect_perf_data(
+    const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd, int socket,
+    bg_reading *rapl_reading, bg_reading *wattsup_reading, dwarf::dwarf dw,
+    multimap<string, interval> sym_map,
+    std::map<interval, std::shared_ptr<line>, cmpByInterval> ranges) {
   bool is_first_timeslice = true;
   bool done = false;
   int sample_period_skips = 0;
@@ -998,29 +982,28 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
 
   size_t last_ts = time_ms(), finish_ts = last_ts, curr_ts = 0;
 
-  vector<string> binary_scope_v = {"MAIN"};
-  unordered_set<string> binary_scope(binary_scope_v.begin(),
-                                     binary_scope_v.end());
+  // vector<string> binary_scope_v = {"MAIN"};
+  // unordered_set<string> binary_scope(binary_scope_v.begin(),
+  //                                    binary_scope_v.end());
 
-  vector<string> source_scope_v = {"%%"};
-  unordered_set<string> source_scope(source_scope_v.begin(),
-                                     source_scope_v.end());
+  // vector<string> source_scope_v = {"%%"};
+  // unordered_set<string> source_scope(source_scope_v.begin(),
+  //                                    source_scope_v.end());
 
   // Replace 'MAIN' in the binary_scope with the real path of the main
   // executable
-  if (binary_scope.find("MAIN") != binary_scope.end()) {
-    binary_scope.erase("MAIN");
-    string main_name = readlink_str("/proc/self/exe");
-    binary_scope.insert(main_name);
-    DEBUG("Including MAIN, which is " << main_name);
-  }
+  // if (binary_scope.find("MAIN") != binary_scope.end()) {
+  //   binary_scope.erase("MAIN");
+  //   string main_name = readlink_str("/proc/self/exe");
+  //   binary_scope.insert(main_name);
+  //   DEBUG("Including MAIN, which is " << main_name);
+  // }
 
-  multimap<string, interval> sym_map;
+  // // multimap<string, interval> sym_map;
 
-  memory_map::get_instance().build(binary_scope, source_scope, sym_map);
+  // memory_map::get_instance().build(binary_scope, source_scope, sym_map);
 
-  std::map<interval, std::shared_ptr<line>, cmpByInterval> ranges =
-      memory_map::get_instance().ranges();
+  // ranges = memory_map::get_instance().ranges();
 
   restart_reading(rapl_reading);
   restart_reading(wattsup_reading);

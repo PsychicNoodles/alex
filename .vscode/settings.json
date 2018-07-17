@@ -64,6 +64,9 @@
     "thread": "cpp",
     "condition_variable": "cpp",
     "stdio.h": "c",
-    "ratio": "cpp"
+    "ratio": "cpp",
+    "atomic": "cpp",
+    "ctime": "cpp",
+    "unordered_set": "cpp"
   }
 }

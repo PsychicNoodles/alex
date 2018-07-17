@@ -332,9 +332,8 @@ void memory_map::build(const unordered_set<string>& binary_scope,
     } catch (const system_error& e) {
       DEBUG("Processing file \"" << f.first << "\" failed: " << e.what());
     }
-    // }
+    //}
   }
-
   REQUIRE(in_scope_count > 0) << "Debug information was not found for any "
                                  "in-scope executables or libraries";
 }

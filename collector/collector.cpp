@@ -42,6 +42,28 @@ void ready_handler(int signum) {
   }
 }
 
+/**
+ * Read a link's contents and return it as a string
+ */
+static string readlink_str(const char *path) {
+  size_t exe_size = 1024;
+  ssize_t exe_used;
+
+  while (true) {
+    char exe_path[exe_size];
+
+    exe_used = readlink(path, exe_path, exe_size - 1);
+    // REQUIRE(exe_used > 0) << "Unable to read link " << path;
+
+    if (exe_used < exe_size - 1) {
+      exe_path[exe_used] = '\0';
+      return string(exe_path);
+    }
+
+    exe_size += 1024;
+  }
+}
+
 void setup_global_vars() {
   DEBUG("collector_main: setting up globals");
   // set up period
@@ -187,6 +209,30 @@ static int collector_main(int argc, char **argv, char **env) {
     exit(INTERNAL_ERROR);
   }
 
+  vector<string> binary_scope_v = {"MAIN"};
+  unordered_set<string> binary_scope(binary_scope_v.begin(),
+                                     binary_scope_v.end());
+
+  vector<string> source_scope_v = {"%%"};
+  unordered_set<string> source_scope(source_scope_v.begin(),
+                                     source_scope_v.end());
+
+  // Replace 'MAIN' in the binary_scope with the real path of the main
+  // executable
+  if (binary_scope.find("MAIN") != binary_scope.end()) {
+    binary_scope.erase("MAIN");
+    string main_name = readlink_str("/proc/self/exe");
+    binary_scope.insert(main_name);
+    DEBUG("Including MAIN, which is " << main_name);
+  }
+
+  multimap<string, interval> sym_map;
+
+  memory_map::get_instance().build(binary_scope, source_scope, sym_map);
+
+  std::map<interval, std::shared_ptr<line>, cmpByInterval> ranges =
+      memory_map::get_instance().ranges();
+
   DEBUG("collector_main: initializing pfm");
   pfm_initialize();
 
@@ -278,8 +324,9 @@ static int collector_main(int argc, char **argv, char **env) {
     }
 
     DEBUG("collector_main: received child ready signal, starting collector");
-    result = collect_perf_data(kernel_syms, sigterm_fd, sockets[0],
-                               &rapl_reading, &wattsup_reading, dw);
+    result =
+        collect_perf_data(kernel_syms, sigterm_fd, sockets[0], &rapl_reading,
+                          &wattsup_reading, dw, sym_map, ranges);
 
     DEBUG("collector_main: finished collector, closing file");
 
