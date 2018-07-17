@@ -720,17 +720,15 @@ bool process_sample_record(
     dwarf::taddr pc = inst_ptr - 1;
     char *name = nullptr;
 
-    for (auto &entry : sym_map) {
-      // DEBUG("name is " << entry.second);
-      // DEBUG("add is " << entry.first.first << entry.first.second);
-      if (entry.second.contains(pc)) {
-        name = (char *)entry.first.c_str();
-        DEBUG("GET A NAME AND NAME IS " << name);
-        break;
-      }
-    }
-
-    DEBUG("end one finding");
+    // for (auto &entry : sym_map) {
+    //   // DEBUG("name is " << entry.second);
+    //   // DEBUG("add is " << entry.first.first << entry.first.second);
+    //   if (entry.second.contains(pc)) {
+    //     name = (char *)entry.first.c_str();
+    //     DEBUG("dwarf function name obtained is " << name);
+    //     break;
+    //   }
+    // }
 
     fprintf(result_file,
             R"(
@@ -745,20 +743,15 @@ bool process_sample_record(
     free(demangled_name);  // NOLINT
     char *fullLocation = nullptr;
     auto line = -1;
-
-    DEBUG("pc is " << pc);
-    DEBUG("and actual name is " << function_name);
-
     size_t start_loop = time_ms();
 
-    for (auto &it : ranges) {
-      if (it.first.contains(pc)) {
-        DEBUG("line is " << it.second);
-        line = it.second.get()->get_line();
-        fullLocation = (char *)it.second.get()->get_file()->get_name().c_str();
-        break;
-      }
-    }
+    // for (auto &it : ranges) {
+    //   if (it.first.contains(pc)) {
+    //     line = it.second.get()->get_line();
+    //     fullLocation = (char
+    //     *)(it.second.get()->get_file()->get_name().c_str()); break;
+    //   }
+    // }
 
     if (fullLocation == NULL) DEBUG("cannot find location for " << pc);
 

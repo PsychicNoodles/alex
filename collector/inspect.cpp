@@ -472,12 +472,6 @@ void dump_tree(const dwarf::die& d, int depth,
   if (!d.valid()) return;
   try {
     if (d.tag == dwarf::DW_TAG::subprogram) {
-      printf("%*.s<%" PRIx64 "> %s\n", depth, "", d.get_section_offset(),
-             to_string(d.tag).c_str());
-      for (auto& attr : d.attributes()) {
-        printf("%*.s      %s %s\n", depth, "", to_string(attr.first).c_str(),
-               to_string(attr.second).c_str());
-      }
       string name;
       dwarf::value name_val = find_attribute(d, dwarf::DW_AT::name);
 
@@ -485,16 +479,10 @@ void dump_tree(const dwarf::die& d, int depth,
         name = name_val.as_string();
       }
 
-      if (name.compare("math") == 0) {
-        dwarf::value high_pc_val = find_attribute(d, dwarf::DW_AT::high_pc);
-        DEBUG("high pc val ISSSS" << high_pc_val.as_uconstant());
-      }
-
       string decl_file;
       dwarf::value decl_file_val = find_attribute(d, dwarf::DW_AT::decl_file);
       if (decl_file_val.valid() && table.valid()) {
         decl_file = table.get_file(decl_file_val.as_uconstant())->path;
-        DEBUG("have valid file");
       }
 
       size_t decl_line = 0;
@@ -506,11 +494,6 @@ void dump_tree(const dwarf::die& d, int depth,
           if (d.has(dwarf::DW_AT::low_pc) && d.has(dwarf::DW_AT::high_pc)) {
             dwarf::value low_pc_val = find_attribute(d, dwarf::DW_AT::low_pc);
             dwarf::value high_pc_val = find_attribute(d, dwarf::DW_AT::high_pc);
-            if (name.compare("math") == 0) {
-              dwarf::value high_pc_val =
-                  find_attribute(d, dwarf::DW_AT::high_pc);
-              DEBUG("high pc val ISSSS" << high_pc_val.as_sconstant());
-            }
 
             if (low_pc_val.valid() && high_pc_val.valid()) {
               uint64_t low_pc = 0;
