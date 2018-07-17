@@ -15,6 +15,10 @@ const WARNING_DESCRIPTIONS = {
     "Some events were lost, possibly due to the period being too low"
 };
 
+/**
+ * @param {d3.Selection} root
+ * @param {{warnings: Array, cpuTimeOffset: number}} props
+ */
 function render(root, { warnings, cpuTimeOffset }) {
   root.classed("warning-list", true);
 
@@ -30,11 +34,14 @@ function render(root, { warnings, cpuTimeOffset }) {
     .text("Timestamp")
     .append("select");
 
-  timestampUnitsSelect
+  const timestampOptionsSelection = timestampUnitsSelect
     .selectAll("option")
-    .data([["Nanoseconds", 1], ["Seconds", 1000000000]])
+    .data([["Nanoseconds", 1], ["Seconds", 1000000000]]);
+
+  timestampOptionsSelection
     .enter()
     .append("option")
+    .merge(timestampOptionsSelection)
     .attr("value", d => d[1])
     .text(d => d[0]);
 
