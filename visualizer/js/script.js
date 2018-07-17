@@ -378,34 +378,51 @@ ipcRenderer.on("result", async (event, resultFile) => {
         )
       )
       .pipe(
-        stream.subscribe(({ functions, hiddenSources, hiddenThreads }) => {
-          d3.select("#function-runtimes").call(functionRuntimes.render, {
-            functions
-          });
-          const filterData = data =>
-            data
-              .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
-              .filter(timeslice =>
-                timeslice.stackFrames.some(
-                  frame => !hiddenSources.includes(frame.fileName)
-                )
+        stream.subscribe(
+          ({ functions, selectedFunction, hiddenSources, hiddenThreads }) => {
+            d3.select("#function-runtimes-back-button")
+              .classed(
+                "function-runtimes-back-button--visible",
+                !!selectedFunction
               )
-              .map(timeslice => ({
-                ...timeslice,
-                stackFrames: timeslice.stackFrames.filter(
-                  frame => !hiddenSources.includes(frame.fileName)
-                )
-              }));
+              .on("click", () => {
+                currentSelectedFunctionStore.dispatch(() => null);
+              });
 
-          d3.select("#stats").call(stats.render, {
-            processedData: filterData(processedData)
-          });
-          d3.selectAll("#charts .plot").each(function(_, i) {
-            d3.select(this).call(plot.toggleCircles, {
-              data: filterData(plotDataByChart.get(charts[i]))
+            d3.select("#function-runtimes").call(functionRuntimes.render, {
+              functions,
+              functionsAreSelectable: !selectedFunction,
+              onFunctionSelect: name => {
+                currentSelectedFunctionStore.dispatch(() => name);
+              }
             });
-          });
-        })
+
+            const filterData = data =>
+              data
+                .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
+                .filter(timeslice =>
+                  timeslice.stackFrames.some(
+                    frame => !hiddenSources.includes(frame.fileName)
+                  )
+                )
+                .map(timeslice => ({
+                  ...timeslice,
+                  stackFrames: timeslice.stackFrames.filter(
+                    frame => !hiddenSources.includes(frame.fileName)
+                  )
+                }));
+
+            d3.select("#stats").call(stats.render, {
+              processedData: filterData(processedData)
+            });
+
+            d3.selectAll("#charts .plot").each(function(_, i) {
+              d3.select(this).call(plot.toggleCircles, {
+                data: filterData(plotDataByChart.get(charts[i]))
+              });
+            });
+          }
+        )
       );
 
     tableSelect.selectedTableStore.stream

@@ -14,3 +14,8 @@
 .function-runtimes__data-row:nth-child(odd) {
   background-color: #d9d9d9;
 }
+
+.function-runtimes__data-column--clickable:hover {
+  text-decoration: underline;
+  cursor: pointer;
+}
