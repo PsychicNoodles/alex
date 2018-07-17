@@ -514,15 +514,20 @@ bool process_sample_record(const sample_record &sample,
     DEBUG("cpd: checking for RAPL energy results");
     if (has_result(rapl_reading)) {
       DEBUG("cpd: RAPL result found, writing out");
-      map<string, uint64_t> *nrg =
-          (static_cast<map<string, uint64_t> *>(get_result(rapl_reading)));
-      for (auto &p : *nrg) {
-        fprintf(result_file, ",");
-        fprintf(result_file, R"("%s": %lu)", p.first.c_str(), p.second);
+      void *raw_result = get_result(rapl_reading);
+      if (raw_result == nullptr) {
+        DEBUG("cpd: RAPL result was null");
+      } else {
+        map<string, uint64_t> *nrg =
+            (static_cast<map<string, uint64_t> *>(raw_result));
+        for (auto &p : *nrg) {
+          fprintf(result_file, ",");
+          fprintf(result_file, R"("%s": %lu)", p.first.c_str(), p.second);
+        }
+        delete nrg;
+        DEBUG("cpd: restarting RAPL energy readings");
+        restart_reading(rapl_reading);
       }
-      delete nrg;
-      DEBUG("cpd: restarting RAPL energy readings");
-      restart_reading(rapl_reading);
     } else {
       DEBUG("cpd: no RAPL result available");
     }
@@ -533,12 +538,17 @@ bool process_sample_record(const sample_record &sample,
     DEBUG("cpd: checking for wattsup energy results");
     if (has_result(wattsup_reading)) {
       DEBUG("cpd: wattsup result found, writing out");
-      double *ret = (static_cast<double *>(get_result(wattsup_reading)));
-      fprintf(result_file, ",");
-      fprintf(result_file, R"("wattsup": %1lf)", *ret);
-      delete ret;
-      DEBUG("cpd: restarting wattsup energy readings");
-      restart_reading(wattsup_reading);
+      void *raw_result = get_result(wattsup_reading);
+      if (raw_result == nullptr) {
+        DEBUG("cpd: wattsup result was null");
+      } else {
+        double *ret = (static_cast<double *>(get_result(wattsup_reading)));
+        fprintf(result_file, ",");
+        fprintf(result_file, R"("wattsup": %1lf)", *ret);
+        delete ret;
+        DEBUG("cpd: restarting wattsup energy readings");
+        restart_reading(wattsup_reading);
+      }
     } else {
       DEBUG("cpd: no wattsup result available");
     }
