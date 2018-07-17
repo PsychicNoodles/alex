@@ -227,7 +227,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
   }
 
   d3.select("#stats").call(stats.render, {
-    processedData
+    processedData,
+    hiddenThreadsStore: threadSelect.hiddenThreadsStore
   });
 
   const sourcesSet = new Set();
