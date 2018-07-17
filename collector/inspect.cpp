@@ -15,6 +15,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <fcntl.h>
+#include <inttypes.h>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -316,7 +318,7 @@ bool in_scope(const string& name, const unordered_set<string>& scope) {
 
 void memory_map::build(const unordered_set<string>& binary_scope,
                        const unordered_set<string>& source_scope,
-                       std::map<interval, string>& sym_table) {
+                       std::map<string, interval>& sym_table) {
   size_t in_scope_count = 0;
   for (const auto& f : get_loaded_files()) {
     // if (in_scope(f.first, binary_scope)) {
@@ -375,7 +377,7 @@ void memory_map::process_inlines(const dwarf::die& d,
                                  const dwarf::line_table& table,
                                  const unordered_set<string>& source_scope,
                                  uintptr_t load_address,
-                                 std::map<interval, string>& sym_table) {
+                                 std::map<string, interval>& sym_table) {
   if (!d.valid()) return;
 
   try {
@@ -463,58 +465,128 @@ void memory_map::process_inlines(const dwarf::die& d,
   }
 }
 
-void dump_tree(const dwarf::die& node, int depth,
-               std::map<interval, string>& sym_table, uintptr_t load_address) {
-  if (!node.valid()) return;
-
-  if (to_string(node.tag).compare("DW_TAG_subprogram") == 0) {
-    string name;
-    uint64_t low_pc = -1;
-    uint64_t high_pc = -1;
-    dwarf::value high_pc_val;
-    dwarf::value low_pc_val;
-    for (auto& attr : node.attributes()) {
-      if (to_string(attr.first).compare("DW_AT_name") == 0) {
-        name = to_string(attr.second);
-        DEBUG("name is " << name);
+void dump_tree(const dwarf::die& d, int depth,
+               std::map<string, interval>& sym_table, uintptr_t load_address) {
+  if (!d.valid()) return;
+  try {
+    if (d.tag == dwarf::DW_TAG::subprogram) {
+      printf("%*.s<%" PRIx64 "> %s\n", depth, "", d.get_section_offset(),
+             to_string(d.tag).c_str());
+      for (auto& attr : d.attributes()) {
+        printf("%*.s      %s %s\n", depth, "", to_string(attr.first).c_str(),
+               to_string(attr.second).c_str());
       }
-      if (to_string(attr.first).compare("DW_AT_high_pc") == 0) {
-        high_pc_val = attr.second;
+      string name;
+      dwarf::value name_val = find_attribute(d, dwarf::DW_AT::name);
+
+      if (name_val.valid()) {
+        name = name_val.as_string();
       }
-      if (to_string(attr.first).compare("DW_AT_low_pc") == 0) {
-        low_pc_val = attr.second;
+
+      // string decl_file;
+      // dwarf::value decl_file_val = find_attribute(d,
+      // dwarf::DW_AT::decl_file); if (decl_file_val.valid() && table.valid()) {
+      //   decl_file = table.get_file(decl_file_val.as_uconstant())->path;
+      // }
+
+      // size_t decl_line = 0;
+      // dwarf::value decl_line_val = find_attribute(d,
+      // dwarf::DW_AT::decl_line); if (decl_line_val.valid()) decl_line =
+      // decl_line_val.as_uconstant();
+
+      // Must just be one range. Add it
+      if (d.has(dwarf::DW_AT::low_pc) && d.has(dwarf::DW_AT::high_pc)) {
+        dwarf::value low_pc_val = find_attribute(d, dwarf::DW_AT::low_pc);
+        dwarf::value high_pc_val = find_attribute(d, dwarf::DW_AT::high_pc);
+
+        uint64_t low_pc;
+        uint64_t high_pc;
+
+        if (low_pc_val.get_type() == dwarf::value::type::address)
+          low_pc = low_pc_val.as_address();
+        else if (low_pc_val.get_type() == dwarf::value::type::uconstant)
+          low_pc = low_pc_val.as_uconstant();
+        else if (low_pc_val.get_type() == dwarf::value::type::sconstant)
+          low_pc = low_pc_val.as_sconstant();
+
+        if (high_pc_val.get_type() == dwarf::value::type::address)
+          high_pc = high_pc_val.as_address();
+        else if (high_pc_val.get_type() == dwarf::value::type::uconstant)
+          high_pc = high_pc_val.as_uconstant();
+        else if (high_pc_val.get_type() == dwarf::value::type::sconstant)
+          high_pc = high_pc_val.as_sconstant();
+
+        DEBUG("NAME IS " << name);
+        if (name.compare("math") == 0) {
+          DEBUG("WHY NOT ADD IN " << low_pc + high_pc + load_address);
+          DEBUG("WHY NOT ADD IN " << low_pc + load_address);
+        }
+
+        sym_table.insert(pair<string, interval>(
+            name, (interval(low_pc, low_pc + high_pc) + load_address)));
       }
-      printf("%*.s      %s %s\n", depth, "", to_string(attr.first).c_str(),
-             to_string(attr.second).c_str());
-
-      uint64_t low_pc;
-      uint64_t high_pc;
-
-      if (low_pc_val.get_type() == dwarf::value::type::address)
-        low_pc = low_pc_val.as_address();
-      else if (low_pc_val.get_type() == dwarf::value::type::uconstant)
-        low_pc = low_pc_val.as_uconstant();
-      else if (low_pc_val.get_type() == dwarf::value::type::sconstant)
-        low_pc = low_pc_val.as_sconstant();
-
-      if (high_pc_val.get_type() == dwarf::value::type::address)
-        high_pc = high_pc_val.as_address();
-      else if (high_pc_val.get_type() == dwarf::value::type::uconstant)
-        high_pc = high_pc_val.as_uconstant();
-      else if (high_pc_val.get_type() == dwarf::value::type::sconstant)
-        high_pc = high_pc_val.as_sconstant();
-      if (low_pc != -1 && high_pc != -1)
-        sym_table.insert(pair<interval, string>(
-            interval(low_pc, high_pc) + load_address, name));
     }
+  } catch (dwarf::format_error e) {
+    DEBUG("Ignoring DWARF format error " << e.what());
   }
 
-  for (auto& child : node) dump_tree(child, depth + 1, sym_table, load_address);
+  for (const auto& child : d) {
+    dump_tree(child, depth + 1, sym_table, load_address);
+  }
+
+  // //if (to_string(node.tag).compare("DW_TAG_subprogram") == 0) {
+  // if (node.tag == dwarf::DW_TAG::subprogram) {
+  //   printf("%*.s<%" PRIx64 "> %s\n", depth, "",
+  //              node.get_section_offset(),
+  //              to_string(node.tag).c_str());
+  //   string name;
+  //   uint64_t low_pc = -1;
+  //   uint64_t high_pc = -1;
+  //   dwarf::value high_pc_val;
+  //   dwarf::value low_pc_val;
+  //   for (auto& attr : node.attributes()) {
+  //     if (to_string(attr.first).compare("DW_AT_name") == 0) {
+  //       name = to_string(attr.second);
+  //       DEBUG("name is " << name);
+  //     }
+  //     if (to_string(attr.first).compare("DW_AT_high_pc") == 0) {
+  //       high_pc_val = attr.second;
+  //     }
+  //     if (to_string(attr.first).compare("DW_AT_low_pc") == 0) {
+  //       low_pc_val = attr.second;
+  //     }
+  // printf("%*.s      %s %s\n", depth, "", to_string(attr.first).c_str(),
+  //        to_string(attr.second).c_str());
+
+  //     uint64_t low_pc;
+  //     uint64_t high_pc;
+
+  //     if (low_pc_val.get_type() == dwarf::value::type::address)
+  //       low_pc = low_pc_val.as_address();
+  //     else if (low_pc_val.get_type() == dwarf::value::type::uconstant)
+  //       low_pc = low_pc_val.as_uconstant();
+  //     else if (low_pc_val.get_type() == dwarf::value::type::sconstant)
+  //       low_pc = low_pc_val.as_sconstant();
+
+  //     if (high_pc_val.get_type() == dwarf::value::type::address)
+  //       high_pc = high_pc_val.as_address();
+  //     else if (high_pc_val.get_type() == dwarf::value::type::uconstant)
+  //       high_pc = high_pc_val.as_uconstant();
+  //     else if (high_pc_val.get_type() == dwarf::value::type::sconstant)
+  //       high_pc = high_pc_val.as_sconstant();
+  //     if (low_pc != -1 && high_pc != -1)
+  //       sym_table.insert(pair<interval, string>(
+  //           interval(low_pc, high_pc) + load_address, name));
+  //   }
+  // }
+
+  // for (auto& child : node) dump_tree(child, depth + 1, sym_table,
+  // load_address);
 }
 
 bool memory_map::process_file(const string& name, uintptr_t load_address,
                               const unordered_set<string>& source_scope,
-                              std::map<interval, string>& sym_table) {
+                              std::map<string, interval>& sym_table) {
   elf::elf f = locate_debug_executable(name);
   // If a debug version of the file could not be located, return false
   if (!f.valid()) {

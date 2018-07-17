@@ -27,8 +27,7 @@ endif
 
 .PHONY: all pedantic nolog minlog clean tidy tidy-fix
 
-all: build/collector.$(SHLIB_SUFFIX) build/list-presets
-
+all: build/collector.$(SHLIB_SUFFIX) 
 pedantic: WARN = -Werror
 pedantic: all
 
@@ -58,5 +57,3 @@ build:
 build/collector.$(SHLIB_SUFFIX): $(SOURCES) | build
 	$(CXXLIB) $(CFLAGS) $(PERF_SAMPLE_MAX_STACK_MACRO) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -ldl -lpfm -pthread -rdynamic
 
-build/list-presets: $(EVENT_SOURCES) | build
-	$(CXX) $(CFLAGS) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -lpfm -rdynamic

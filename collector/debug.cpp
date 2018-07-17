@@ -146,8 +146,8 @@ void dump_line_table(const dwarf::line_table &lt) {
 
 void dump_tree(const dwarf::die &node, int depth) {
   if (to_string(node.tag).compare("DW_TAG_subprogram") == 0) {
-    // printf("%*.s<%" PRIx64 "> %s\n", depth, "", node.get_section_offset(),
-    //        to_string(node.tag).c_str());
+    printf("%*.s<%" PRIx64 "> %s\n", depth, "", node.get_section_offset(),
+           to_string(node.tag).c_str());
     for (auto &attr : node.attributes()) {
       if (to_string(attr.first).compare("DW_AT_name") == 0) {
         string name = to_string(attr.second);

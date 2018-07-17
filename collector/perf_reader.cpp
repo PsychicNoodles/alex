@@ -525,7 +525,7 @@ bool process_sample_record(const sample_record &sample,
                            bg_reading *wattsup_reading,
                            const map<uint64_t, kernel_sym> &kernel_syms,
                            const map<interval, std::shared_ptr<line>> &ranges,
-                           const map<interval, string> &sym_map) {
+                           const map<string, interval> &sym_map) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
@@ -715,17 +715,20 @@ bool process_sample_record(const sample_record &sample,
     // Need to subtract one. PC is the return address, but we're
     // looking for the callsite.
     dwarf::taddr pc = inst_ptr - 1;
+    DEBUG("pc is " << pc);
+    DEBUG("and actual name is " << function_name);
 
     for (auto &entry : sym_map) {
-      DEBUG("name is " << entry.second);
+      // DEBUG("name is " << entry.second);
       // DEBUG("add is " << entry.first.first << entry.first.second);
-      if (entry.first.contains(pc)) {
-        DEBUG("pc is " << pc);
-        const char *name = entry.second.c_str();
+      if (entry.second.contains(pc)) {
+        const char *name = entry.first.c_str();
         DEBUG("GET A NAME AND NAME IS " << name);
-        // break;
+        break;
       }
     }
+
+    DEBUG("end one finding");
 
     size_t start_loop = time_ms();
 
@@ -996,15 +999,15 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
     DEBUG("Including MAIN, which is " << main_name);
   }
 
-  map<interval, string> sym_map;
+  map<string, interval> sym_map;
 
   memory_map::get_instance().build(binary_scope, source_scope, sym_map);
   auto ranges = memory_map::get_instance().ranges();
 
   for (auto &entry : sym_map) {
-    DEBUG("have inserted " << entry.first.get_base());
-    DEBUG("have inserted " << entry.first.get_limit());
-    DEBUG("have inserted " << entry.second);
+    DEBUG("have inserted " << entry.second.get_base());
+    DEBUG("have inserted " << entry.second.get_limit());
+    DEBUG("have inserted " << entry.first);
   }
 
   restart_reading(rapl_reading);
