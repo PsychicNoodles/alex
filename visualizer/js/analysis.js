@@ -101,13 +101,13 @@ function analyze(timeSlices) {
     squaredDeviance = Math.pow(observed - expected, 2) / expected;
     chiSquared += squaredDeviance;
 
+    func.probability = chi.cdf(chiSquared, degreesOfFreedom);
+
     console.log(
       `Saw ${func.observed} of ${func.name}, expected ~${Math.round(
         func.expected
-      )}`
+      )}, probability ${func.probability}`
     );
-
-    func.probability = chi.cdf(chiSquared, degreesOfFreedom);
   });
 
   outputData.functions.sort((a, b) => b.probability - a.probability);
