@@ -1,5 +1,4 @@
-const chi = require("chi-squared");
-
+const fisher = require("fishertest");
 /**
  * Run analyses of data.
  * @param timeSlices All the data.
@@ -11,7 +10,6 @@ function analyze(timeSlices) {
   const outputData = {
     selectedTotal: 0,
     unselectedTotal: 0,
-    timeSliceTotal: 0,
     functions: []
   };
 
@@ -42,63 +40,33 @@ function analyze(timeSlices) {
       outputData.functions[functionIndex].unselectedCount++;
     }
   });
-  outputData.timeSliceTotal = timeSlices.length;
 
-  if (
-    outputData.selectedTotal === 0 ||
-    outputData.unselectedTotal === 0 ||
-    outputData.timeSliceTotal === 1
-  ) {
+  if (outputData.selectedTotal === 0 || outputData.unselectedTotal === 0) {
     return outputData;
   }
 
-  // We have a 2x2 chi-squared table. (rows - 1) * (columns - 1) = 1.
-  const degreesOfFreedom = 1;
-
   /* Chi-Squared Table variable names
-   *            | Current Function     | Other Functions   | Total (outputData)
-   * Selected   | func.observed        | notFuncSelected   | .selectedTotal
-   * Unselected | func.unselectedCount | notFuncUnselected | .unselectedTotal
-   * Total      | funcTotal            | notFuncTotal      | .timeSliceTotal
+   *            | Current Function     | Other Functions
+   * ---------------------------------------------------
+   * Selected   | func.observed        | notFuncSelected
+   * ---------------------------------------------------
+   * Unselected | func.unselectedCount | notFuncUnselected
    */
   outputData.functions.forEach(func => {
-    const funcTotal = func.observed + func.unselectedCount;
     const notFuncSelected = outputData.selectedTotal - func.observed;
-    const notFuncUnselected = (outputData.unselectedTotal =
-      func.unselectedCount);
-    const notFuncTotal = outputData.timeSliceTotal - funcTotal;
-
-    // Square one: selected data containing this function
-    func.expected =
-      (funcTotal * outputData.selectedTotal) / outputData.timeSliceTotal;
-    let squaredDeviance =
-      Math.pow(func.observed - func.expected, 2) / func.expected;
-    let chiSquared = squaredDeviance;
-
-    // Square two: selected data NOT containing this function
-    let observed = notFuncSelected;
-    let expected =
-      (notFuncTotal * outputData.selectedTotal) / outputData.timeSliceTotal;
-    squaredDeviance = Math.pow(observed - expected, 2) / expected;
-    chiSquared += squaredDeviance;
-
-    // Square three: unselected data containing this function
-    observed = func.unselectedCount;
-    expected =
-      (funcTotal * outputData.unselectedTotal) / outputData.timeSliceTotal;
-    squaredDeviance = Math.pow(observed - expected, 2) / expected;
-    chiSquared += squaredDeviance;
-
-    // Square four: unselected data NOT containing this function
-    observed = notFuncUnselected;
-    expected =
-      (notFuncTotal * outputData.unselectedTotal) / outputData.timeSliceTotal;
-    squaredDeviance = Math.pow(observed - expected, 2) / expected;
-    chiSquared += squaredDeviance;
-
-    /* console.log(`1A ${func.observed}, 1B: ${notFuncSelected}`);
-    console.log(`2A ${func.unselectedCount}, 2B: ${notFuncUnselected}`); */
-    func.probability = chi.cdf(chiSquared, degreesOfFreedom);
+    const notFuncUnselected = outputData.unselectedTotal - func.unselectedCount;
+    func.probability =
+      1 -
+      fisher(
+        func.observed,
+        notFuncSelected,
+        func.unselectedCount,
+        notFuncUnselected
+      );
+    /* console.log(`1A: ${func.observed}, 1B: ${notFuncSelected}`);
+    console.log(`2A: ${func.unselectedCount}, 2B: ${notFuncUnselected}`); */
+    const funcTotal = func.observed + func.unselectedCount;
+    func.expected = (funcTotal * outputData.selectedTotal) / timeSlices.length;
 
     /* console.log(
       `Saw ${func.observed} of ${func.name}, expected ~${Math.round(
