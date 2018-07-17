@@ -15,22 +15,26 @@ void *malloc_shared(size_t size) {
 void init_global_vars(uint64_t period, pid_t collector_pid,
                       const vector<string> &events,
                       const set<string> &presets) {
-  global = reinterpret_cast<global_vars *>(malloc_shared);
+  global = static_cast<global_vars *>(malloc_shared(sizeof(global_vars)));
   memcpy(&global->period, &period, sizeof(uint64_t));
   global->subject_pid = 0;
   memcpy(&global->collector_pid, &collector_pid, sizeof(pid_t));
   global->events =
-      static_cast<char **>(malloc_shared(sizeof(char) * events.size()));
+      static_cast<char **>(malloc_shared(sizeof(char *) * events.size()));
   global->events_size = events.size();
   for (int i = 0; i < global->events_size; i++) {
+    global->events[i] =
+        static_cast<char *>(malloc_shared(sizeof(char) * events.at(i).size()));
     memcpy((void *)global->events[i], events.at(i).c_str(),
            events.at(i).size());
   }
   global->presets =
-      static_cast<char **>(malloc_shared(sizeof(char) * presets.size()));
+      static_cast<char **>(malloc_shared(sizeof(char *) * presets.size()));
   global->presets_size = presets.size();
   size_t i = 0;
   for (auto p : presets) {
+    global->presets[i] =
+        static_cast<char *>(malloc_shared(sizeof(char) * p.size()));
     memcpy((void *)global->presets[i], p.c_str(), p.size());
     i++;
   }
