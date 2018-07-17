@@ -167,7 +167,7 @@ dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
 static int collector_main(int argc, char **argv, char **env) {
   DEBUG("Version: " << VERSION);
 
-  enable_segfault_trace();
+  enable_segfault_trace();  // has exit
 
   print_self_maps();
 
@@ -248,6 +248,8 @@ static int collector_main(int argc, char **argv, char **env) {
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
 
+    Util::result_file = result_file;
+
     int sigterm_fd = setup_sigterm_handler();
 
     map<uint64_t, kernel_sym> kernel_syms = read_kernel_syms();
@@ -261,7 +263,7 @@ static int collector_main(int argc, char **argv, char **env) {
     }
 
     DEBUG("collector_main: setting up collector");
-    bg_reading rapl_reading, wattsup_reading;
+    bg_reading rapl_reading{0}, wattsup_reading{0};
     setup_collect_perf_data(sigterm_fd, sockets[0], wu_fd, result_file,
                             &rapl_reading, &wattsup_reading);
 
