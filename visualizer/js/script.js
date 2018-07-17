@@ -226,11 +226,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
     d3.select("#legend").remove();
   }
 
-  d3.select("#stats").call(stats.render, {
-    processedData,
-    hiddenThreadsStore: threadSelect.hiddenThreadsStore
-  });
-
   const sourcesSet = new Set();
   const threadsSet = new Set();
   processedData.forEach(timeslice => {
@@ -286,7 +281,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     .pipe(
       stream.map(([hiddenSources, hiddenThreads, { selections }]) => {
         const startTime = performance.now();
-        const result = analyze(
+        const functionAnalysis = analyze(
           processedData
             .map(timeslice => {
               const x = xScale(getIndependentVariable(timeslice));
@@ -316,13 +311,31 @@ ipcRenderer.on("result", async (event, resultFile) => {
         numProcessingTimeSamples++;
         console.log(averageProcessingTime);
 
-        return result;
+        return [
+          functionAnalysis,
+          processedData
+            .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
+            .filter(timeslice =>
+              timeslice.stackFrames.some(
+                frame => !hiddenSources.includes(frame.fileName)
+              )
+            )
+            .map(timeslice => ({
+              ...timeslice,
+              stackFrames: timeslice.stackFrames.filter(
+                frame => !hiddenSources.includes(frame.fileName)
+              )
+            }))
+        ];
       })
     )
     .pipe(
-      stream.subscribe(({ functionList }) => {
+      stream.subscribe(([{ functionList }, filteredData]) => {
         d3.select("#function-runtimes").call(functionRuntimes.render, {
           functionList
+        });
+        d3.select("#stats").call(stats.render, {
+          processedData: filteredData
         });
       })
     );

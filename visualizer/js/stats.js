@@ -1,7 +1,5 @@
 const d3 = require("d3");
 
-const hiddenThreadsSubscription = d3.local();
-
 function calculateData(processedData) {
   const numTimeslices = processedData.length,
     startTime = numTimeslices > 0 ? processedData[0].cpuTime : 0,
@@ -18,25 +16,29 @@ function calculateData(processedData) {
   ];
 }
 
-function render(root, { processedData, hiddenThreadsStore }) {
-  root.append("h3").text("Stats");
+function render(root, { processedData }) {
+  if (root.select("h3").empty()) {
+    root.append("h3").text("Stats");
+  }
 
-  const statsSelection = root.append("ul");
+  const statsSelection = root.select("ul").empty()
+    ? root.append("ul")
+    : root.select("ul");
 
-  const statsSelectionData = statsSelection
+  const statsDataSelection = statsSelection
     .selectAll("li")
     .data(calculateData(processedData));
 
-  const statsSelectionEnter = statsSelectionData.enter().append("li");
+  const statsEnterSelection = statsDataSelection.enter().append("li");
 
-  statsSelectionEnter.append("span").attr("class", "title");
+  statsEnterSelection.append("span").attr("class", "title");
 
-  statsSelectionEnter
+  statsEnterSelection
     .filter(({ isTime }) => !isTime)
     .append("span")
     .attr("class", "value");
 
-  const statsTime = statsSelectionEnter
+  const statsTime = statsEnterSelection
     .filter(({ isTime }) => isTime)
     .append("abbr")
     .attr("class", "value");
@@ -45,38 +47,56 @@ function render(root, { processedData, hiddenThreadsStore }) {
 
   statsTime.append("span").text("Seconds");
 
-  hiddenThreadsStore.subscribeUnique(
-    root,
-    hiddenThreadsSubscription,
-    hiddenThreads => {
-      const statsSelectionData = statsSelection
-        .selectAll("li")
-        .data(
-          calculateData(
-            processedData.filter(
-              timeslice => !hiddenThreads.includes(timeslice.tid)
-            )
-          )
-        );
+  const statsMergeSelection = statsEnterSelection.merge(statsDataSelection);
 
-      const statsSelectionMerge = statsSelectionData
-        .enter()
-        .merge(statsSelectionData);
+  console.log(statsMergeSelection.nodes());
+  statsMergeSelection
+    .select(".title")
+    .text(({ name }) => name + ":")
+    .append("br");
 
-      statsSelectionMerge
-        .select(".title")
-        .text(({ name }) => name + ":")
-        .append("br");
+  statsMergeSelection.select("span.value").text(({ number }) => number);
 
-      statsSelectionMerge.select("span.value").text(({ number }) => number);
+  statsMergeSelection
+    .select("abbr.value span")
+    .text(({ number }) => d3.format(".4s")(number / 1000000000))
+    .attr("title", ({ number }) => `${number} Nanoseconds`)
+    .append("br");
 
-      statsSelectionMerge
-        .select("abbr.value span")
-        .text(({ number }) => d3.format(".4s")(number / 1000000000))
-        .attr("title", ({ number }) => `${number} Nanoseconds`)
-        .append("br");
-    }
-  );
+  statsDataSelection.exit().remove();
+
+  // hiddenThreadsStore.subscribeUnique(
+  //   root,
+  //   hiddenThreadsSubscription,
+  //   hiddenThreads => {
+  //     const statsDataSelection = statsSelection
+  //       .selectAll("li")
+  //       .data(
+  //         calculateData(
+  //           processedData.filter(
+  //             timeslice => !hiddenThreads.includes(timeslice.tid)
+  //           )
+  //         )
+  //       );
+
+  //     const statsSelectionMerge = statsDataSelection
+  //       .enter()
+  //       .merge(statsDataSelection);
+
+  //     statsSelectionMerge
+  //       .select(".title")
+  //       .text(({ name }) => name + ":")
+  //       .append("br");
+
+  //     statsSelectionMerge.select("span.value").text(({ number }) => number);
+
+  //     statsSelectionMerge
+  //       .select("abbr.value span")
+  //       .text(({ number }) => d3.format(".4s")(number / 1000000000))
+  //       .attr("title", ({ number }) => `${number} Nanoseconds`)
+  //       .append("br");
+  //   }
+  // );
 }
 
 module.exports = {
