@@ -14,6 +14,10 @@ const dropdownIsOpen = d3.local();
 
 const DEFAULT_WARNING_COLOR = "rgba(255, 0, 0, 0.8)";
 
+/**
+ * @param {d3.Selection} root
+ * @param {{warningCounts: Array, warningRecords: Array}} props
+ */
 function render(root, { warningCounts, warningRecords }) {
   root.classed("warnings-select select", true);
 
@@ -48,17 +52,22 @@ function render(root, { warningCounts, warningRecords }) {
     .append("div")
     .attr("class", "select__dropdown-item input-group colorpicker-component");
 
-  dropdownItemsEnterSelection
+  const dropdownItemsMergeSelection = dropdownItemsEnterSelection.merge(
+    dropdownItemsSelection
+  );
+
+  const checkboxLabelEnterSelection = dropdownItemsEnterSelection.append(
+    "label"
+  );
+
+  checkboxLabelEnterSelection
     .append("input")
     .attr("class", "select__checkbox")
-    .attr("type", "checkbox")
-    .attr("id", (d, i) => `warning__checkbox-${i}`);
+    .attr("type", "checkbox");
 
-  dropdownItemsEnterSelection
-    .append("label")
-    .attr("class", "select__type")
-    .attr("for", (d, i) => `warning__checkbox-${i}`)
-    .text(warning => warning);
+  checkboxLabelEnterSelection.append("span").attr("class", "select__type");
+
+  dropdownItemsMergeSelection.select(".select__type").text(warning => warning);
 
   // color picker input
   dropdownItemsEnterSelection
@@ -125,53 +134,51 @@ function render(root, { warningCounts, warningRecords }) {
             : "No Warnings"
         );
 
-      dropdownItemsSelection
-        .merge(dropdownItemsEnterSelection)
-        .each(function(warning, i) {
-          if (i === 0) {
-            // We are on the All checkbox
-            d3.select(this)
-              .select(".select__checkbox")
-              .property("checked", highlightedAllAllWarnings)
-              .property(
-                "indeterminate",
-                highlightedSomeAllWarnings && !highlightedAllAllWarnings
-              )
-              .on("change", function() {
-                if (this.checked) {
-                  highlightedWarningsStore.dispatch(() => warningRecords);
-                } else {
-                  highlightedWarningsStore.dispatch(() => []);
-                }
-              });
-          } else {
-            d3.select(this)
-              .select(".select__checkbox")
-              .property("checked", highlightedAllWarnings[i - 1])
-              .property(
-                "indeterminate",
-                highlightedSomeWarnings[i - 1] && !highlightedAllWarnings[i - 1]
-              )
-              .on("change", function() {
-                if (this.checked) {
-                  highlightedWarningsStore.dispatch(highlightedWarnings => [
-                    ...highlightedWarnings,
-                    ...warningRecords.filter(
-                      record =>
-                        warning === record.type &&
-                        !highlightedWarnings.includes(record)
-                    )
-                  ]);
-                } else {
-                  highlightedWarningsStore.dispatch(highlightedWarnings =>
-                    highlightedWarnings.filter(
-                      highlightedWarning => highlightedWarning.type !== warning
-                    )
-                  );
-                }
-              });
-          }
-        });
+      dropdownItemsMergeSelection.each(function(warning, i) {
+        if (i === 0) {
+          // We are on the All checkbox
+          d3.select(this)
+            .select(".select__checkbox")
+            .property("checked", highlightedAllAllWarnings)
+            .property(
+              "indeterminate",
+              highlightedSomeAllWarnings && !highlightedAllAllWarnings
+            )
+            .on("change", function() {
+              if (this.checked) {
+                highlightedWarningsStore.dispatch(() => warningRecords);
+              } else {
+                highlightedWarningsStore.dispatch(() => []);
+              }
+            });
+        } else {
+          d3.select(this)
+            .select(".select__checkbox")
+            .property("checked", highlightedAllWarnings[i - 1])
+            .property(
+              "indeterminate",
+              highlightedSomeWarnings[i - 1] && !highlightedAllWarnings[i - 1]
+            )
+            .on("change", function() {
+              if (this.checked) {
+                highlightedWarningsStore.dispatch(highlightedWarnings => [
+                  ...highlightedWarnings,
+                  ...warningRecords.filter(
+                    record =>
+                      warning === record.type &&
+                      !highlightedWarnings.includes(record)
+                  )
+                ]);
+              } else {
+                highlightedWarningsStore.dispatch(highlightedWarnings =>
+                  highlightedWarnings.filter(
+                    highlightedWarning => highlightedWarning.type !== warning
+                  )
+                );
+              }
+            });
+        }
+      });
     }
   );
 }
