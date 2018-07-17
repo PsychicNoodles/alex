@@ -841,7 +841,8 @@ void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
 }
 
 void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
-                             FILE *res_file, bg_reading *rapl_reading,
+                             FILE *res_file, char *program_name,
+                             bg_reading *rapl_reading,
                              bg_reading *wattsup_reading) {
   result_file = res_file;
 
@@ -864,10 +865,11 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
           R"(
             {
               "header": {
+                "programName": "%s",
                 "programVersion": "%s",
                 "events": [
           )",
-          VERSION);
+          program_name, VERSION);
 
   for (int i = 0; i < global->events.size(); i++) {
     if (i != 0) {

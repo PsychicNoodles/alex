@@ -264,7 +264,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
     DEBUG("collector_main: setting up collector");
     bg_reading rapl_reading{0}, wattsup_reading{0};
-    setup_collect_perf_data(sigterm_fd, sockets[0], wu_fd, result_file,
+    setup_collect_perf_data(sigterm_fd, sockets[0], wu_fd, result_file, argv[0],
                             &rapl_reading, &wattsup_reading);
 
     DEBUG(
