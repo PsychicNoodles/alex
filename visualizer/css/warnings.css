@@ -1,40 +1,5 @@
-.warnings {
-  position: relative;
-}
-
-.warnings__dropdown {
-  position: absolute;
-  top: 100%;
-  background: #fff;
-  border: 1px solid #999;
-  padding: 10px;
-  border-radius: 2px;
-  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.1);
-  opacity: 0;
-  transform: translateY(-10px);
-  pointer-events: none;
-  transition: opacity 200ms, transform 200ms;
-}
-
-.warnings--dropdown-open .warnings__dropdown {
-  opacity: 1;
-  transform: none;
-  pointer-events: all;
-}
-
-.warnings__dropdown-item {
-  display: block;
-  white-space: nowrap;
-  max-width: 400px;
-  overflow: hidden;
-}
-
-.warnings__dropdown-item:first-child {
+.warnings-select .select__dropdown-item:first-child {
   font-weight: bold;
-}
-
-.warnings__checkbox:not(:checked) ~ .warnings__file-name {
-  text-decoration: line-through;
 }
 
 /* css styles that are supposed to be inherited from bootstrap */

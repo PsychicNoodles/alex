@@ -1,0 +1,16 @@
+#stats ul {
+  list-style: none;
+  padding: 0;
+}
+
+#stats li {
+  margin-bottom: 10px;
+}
+
+#stats .title {
+  font-weight: bold;
+}
+
+#stats .value {
+  word-wrap: break-word;
+}

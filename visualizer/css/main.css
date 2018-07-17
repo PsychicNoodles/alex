@@ -11,6 +11,7 @@ body {
 
   min-width: 600px;
   display: grid;
+  overflow: hidden;
 
   font-family: "Trebuchet MS", "Lucida Sans Unicode", "Lucida Grande",
     "Lucida Sans", Arial, sans-serif;
@@ -53,10 +54,21 @@ button:disabled {
   padding: 20px;
 }
 
+#info {
+  grid-area: info;
+}
+
 #legend {
-  grid-area: legend;
   width: 100px;
   padding: 20px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+#stats {
+  width: 135px;
+  padding: 10px;
+  overflow: auto;
 }
 
 #side-bar {
@@ -93,7 +105,7 @@ button:disabled {
     grid-template-rows: 2fr 1fr;
     grid-template-columns: 1fr auto;
     grid-template-areas:
-      "charts   legend"
+      "charts info"
       "side-bar side-bar";
   }
 
@@ -106,7 +118,7 @@ button:disabled {
   body {
     grid-template-rows: 1fr;
     grid-template-columns: 700px auto 1fr;
-    grid-template-areas: "charts legend side-bar";
+    grid-template-areas: "charts info side-bar";
   }
 
   #side-bar {

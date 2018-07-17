@@ -15,7 +15,6 @@ const dropdownIsOpen = d3.local();
 const DEFAULT_WARNING_COLOR = "rgba(255, 0, 0, 0.8)";
 
 function render(root, { warningCounts, warningRecords }) {
-  //set up dom
   root.classed("warnings", true);
 
   if (root.property(dropdownIsOpen) === undefined) {

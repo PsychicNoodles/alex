@@ -42,7 +42,7 @@ const char* callchain_str(uint64_t callchain);
 #endif
 
 #define SAMPLE_EPOLL_TIMEOUT -1  // wait "forever"
-#define MAX_SAMPLE_PERIOD_SKIPS 3
+#define MAX_SAMPLE_PERIOD_SKIPS 30
 #define MAX_MONITORING_SETUP_ATTEMPTS 10
 #define HANDLE_EVENTS true  // an easy way to globally enable/disable events
 #define EPOLL_TIME_DIFF_MAX \

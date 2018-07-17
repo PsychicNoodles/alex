@@ -16,6 +16,7 @@ const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
 const warningList = require("./warning-list");
 const legend = require("./legend");
+const stats = require("./stats");
 const brushes = require("./brushes");
 const sourceSelect = require("./source-select");
 const tableSelect = require("./table-select");
@@ -39,7 +40,6 @@ loadingProgressStore.subscribe(({ percentage, progressBarIsVisible }) => {
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", async (event, resultFile) => {
-  // try {
   let result;
   try {
     const { size: resultFileSize } = await promisify(fs.stat)(resultFile);
@@ -48,7 +48,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
       .createReadStream(resultFile)
       .pipe(
         progressStream(
-          { length: resultFileSize, time: 100 },
+          {
+            length: resultFileSize,
+            time: 100
+          },
           ({ percentage }) => {
             loadingProgressStore.dispatch(state => ({
               ...state,
@@ -67,7 +70,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
     result = assembler.current;
   } catch (err) {
-    throw new Error(`Couldn't load result file: ${err.message}`);
+    alert(`Couldn't load result file: ${err.message}`);
+    window.close();
   }
 
   if (result.error) {
@@ -79,6 +83,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     window.close();
   } else {
     const processedData = processData(result.timeslices, result.header);
+    const spectrum = d3.interpolateWarm;
 
     loadingProgressStore.dispatch(state => ({
       ...state,
@@ -163,7 +168,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
         getIndependentVariable,
         getDependentVariable
       });
-
       yScalesByChart.set(chartParams, yScale);
       plotDataByChart.set(chartParams, plotData);
     }
@@ -177,24 +181,13 @@ ipcRenderer.on("result", async (event, resultFile) => {
       0
     );
 
-    const spectrum = d3.interpolateWarm;
-
-    const warningRecords = result.warning ? result.warning : [];
-    const warningCountsMap = new Map();
-    warningRecords.forEach(warning => {
-      if (warningCountsMap.has(warning.type)) {
-        warningCountsMap.set(
-          warning.type,
-          warningCountsMap.get(warning.type) + 1
-        );
-      } else {
-        warningCountsMap.set(warning.type, 1);
-      }
-    });
-    const warningCounts = [...warningCountsMap];
-    const warningsDistinct = [...warningCountsMap.keys()];
-
+    let someHighDensity = false;
     for (const chartParams of charts) {
+      const isLowDensity =
+        d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) <= 2;
+      if (!isLowDensity) {
+        someHighDensity = true;
+      }
       const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
       d3.select("#charts")
         .append("div")
@@ -209,17 +202,39 @@ ipcRenderer.on("result", async (event, resultFile) => {
           yFormat,
           plotData: plotDataByChart.get(chartParams),
           densityMax,
-          spectrum:
-            d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) <= 2
-              ? d3.interpolateRgb("#3A72F2", "#3A72F2")
-              : spectrum,
+          spectrum,
           cpuTimeOffset,
           warningRecords,
-          warningsDistinct
+          warningDistinct
         });
     }
+    if (someHighDensity) {
+      d3.select("#legend").call(legend.render, {
+        densityMax,
+        spectrum
+      });
+    } else {
+      d3.select("#legend").remove();
+    }
 
-    d3.select("#legend").call(legend.render, { densityMax, spectrum });
+    d3.select("#stats").call(stats.render, {
+      processedData
+    });
+
+    const warningRecords = result.warnings;
+    const warningCountsMap = new Map();
+    warningRecords.forEach(warning => {
+      if (warningCountsMap.has(warning.type)) {
+        warningCountsMap.set(
+          warning.type,
+          warningCountsMap.get(warning.type) + 1
+        );
+      } else {
+        warningCountsMap.set(warning.type, 1);
+      }
+    });
+    const warningCounts = [...warningCountsMap];
+    const warningDistinct = [...warningCountsMap.keys()];
 
     const sourcesSet = new Set();
     processedData.forEach(timeslice => {
@@ -243,15 +258,21 @@ ipcRenderer.on("result", async (event, resultFile) => {
       warnings: warningRecords,
       cpuTimeOffset
     });
-
     let averageProcessingTime = 0;
     let numProcessingTimeSamples = 0;
 
     stream
       .fromStreamables([
         sourceSelect.hiddenSourcesStore.stream,
-        brushes.selectionStore.stream
+        brushes.selectionStore.stream,
+        tableSelect.selectedTableStore.stream
       ])
+      .pipe(
+        // Only update the function runtimes table if it is selected.
+        stream.filter(
+          ([, , selectedTable]) => selectedTable.id === "#function-runtimes"
+        )
+      )
       .pipe(
         stream.debounce(
           () =>
@@ -295,21 +316,15 @@ ipcRenderer.on("result", async (event, resultFile) => {
         })
       )
       .pipe(
-        stream.subscribe(({ functionList }) => {
+        stream.subscribe(({ functions }) => {
           d3.select("#function-runtimes").call(functionRuntimes.render, {
-            functionList
+            functions
           });
         })
       );
 
-    const tableIds = {
-      "Function Runtimes": "#function-runtimes",
-      Warnings: "#warning-list"
-    };
-
-    stream
-      .fromStreamable(tableSelect.selectedTableStore.stream)
-      .pipe(stream.map(name => tableIds[name]))
+    tableSelect.selectedTableStore.stream
+      .pipe(stream.map(table => table.id))
       .pipe(
         stream.subscribe(id => {
           d3.select(id).style("display", "table");

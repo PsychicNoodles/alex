@@ -3,48 +3,29 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-void multiply_ints() {
-  int num = 1;
-  for (int i = 0; i < 1000000; i++) {
-    num = num * 3;
+int fib_int(int n) {
+  if (n <= 1) {
+    return n;
+  } else {
+    return fib_int(n - 1) + fib_int(n - 2);
   }
 }
 
-void fibonacci_ints() {
-  uint64_t n = 0;
-  uint64_t m = 1;
-  for (int i = 0; i < 10000; i++) {
-    // printf("%lu\n", n);
-    uint64_t temp = n;
-    n = m;
-    m = m + temp;
-  }
-}
-
-void multiply_floats() {
-  float num = 1.234235245;
-  for (int i = 0; i < 1000000; i++) {
-    num = num * 3.1231412321;
-  }
-}
-
-void fibonacci_floats() {
-  float n = 0.0;
-  float m = 1.0;
-  for (int i = 0; i < 10000; i++) {
-    // printf("%f\n", n);
-    float temp = n;
-    n = m;
-    m = m + temp;
+float fib_float(float n) {
+  if (n <= 1.1111111111) {
+    return n;
+  } else {
+    return fib_float(n - 1.0000000000) + fib_float(n - 2.0000000000);
   }
 }
 
 int main() {
   for (int i = 0; i < 1000000; i++) {
-    fibonacci_ints();
+    fib_int(20);
   }
 
   for (int i = 0; i < 1000000; i++) {
-    fibonacci_floats();
+    float n = 20.1111111111;
+    fib_float(n);
   }
 }
