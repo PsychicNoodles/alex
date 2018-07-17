@@ -59,7 +59,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
       )
       .pipe(streamJSON.parser());
 
-    //question??????????
     const assembler = await new Promise((resolve, reject) =>
       JSONAssembler.connectTo(jsonTokenStream.on("warning", reject))
         .on("done", resolve)
@@ -71,250 +70,253 @@ ipcRenderer.on("result", async (event, resultFile) => {
     throw new Error(`Couldn't load result file: ${err.message}`);
   }
 
-  alert("Error Message");
+  if (result.error) {
+    alert(result.error);
+  }
 
-  const processedData = processData(result.timeslices, result.header);
-  const warningRecords = result.warning;
+  if (result.timeslices.length === 0) {
+    alert("timeslices array is empty");
+    window.close();
+  } else {
+    const processedData = processData(result.timeslices, result.header);
 
-  loadingProgressStore.dispatch(state => ({
-    ...state,
-    progressBarIsVisible: false
-  }));
+    loadingProgressStore.dispatch(state => ({
+      ...state,
+      progressBarIsVisible: false
+    }));
 
-  const { presets } = result.header;
-  const charts = [
-    {
-      presetsRequired: ["cache"],
-      yAxisLabel: "Cache Miss Rate",
-      yFormat: d3.format(".0%"),
-      getDependentVariable: d =>
-        getEventCount(d, presets.cache.misses) /
-          (getEventCount(d, presets.cache.hits) +
-            getEventCount(d, presets.cache.misses)) || 0
-    },
-    {
-      presetsRequired: ["cpu"],
-      yAxisLabel: "Instructions Per Cycle",
-      yFormat: d3.format(".2"),
-      getDependentVariable: d =>
-        getEventCount(d, presets.cpu.instructions) /
-          getEventCount(d, presets.cpu.cpuCycles) || 0
-    },
-    {
-      presetsRequired: ["rapl"],
-      yAxisLabel: "CPU Power",
-      yFormat: d3.format(".2s"),
-      getDependentVariable: d => d.events["periodCpu"] || 0
-    },
-    {
-      presetsRequired: ["rapl"],
-      yAxisLabel: "Memory Power",
-      yFormat: d3.format(".2s"),
-      getDependentVariable: d => d.events["periodMemory"] || 0
-    },
-    {
-      presetsRequired: ["rapl"],
-      yAxisLabel: "Overall Power",
-      yFormat: d3.format(".2s"),
-      getDependentVariable: d => d.events["periodOverall"] || 0
-    },
-    {
-      presetsRequired: ["wattsup"],
-      yAxisLabel: "Wattsup Power",
-      yFormat: d3.format(".2s"),
-      getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup)
-    }
-  ].filter(({ presetsRequired }) =>
-    presetsRequired.every(presetName => presetName in presets)
-  );
+    const { presets } = result.header;
+    const charts = [
+      {
+        presetsRequired: ["cache"],
+        yAxisLabel: "Cache Miss Rate",
+        yFormat: d3.format(".0%"),
+        getDependentVariable: d =>
+          getEventCount(d, presets.cache.misses) /
+            (getEventCount(d, presets.cache.hits) +
+              getEventCount(d, presets.cache.misses)) || 0
+      },
+      {
+        presetsRequired: ["cpu"],
+        yAxisLabel: "Instructions Per Cycle",
+        yFormat: d3.format(".2"),
+        getDependentVariable: d =>
+          getEventCount(d, presets.cpu.instructions) /
+            getEventCount(d, presets.cpu.cpuCycles) || 0
+      },
+      {
+        presetsRequired: ["rapl"],
+        yAxisLabel: "CPU Power",
+        yFormat: d3.format(".2s"),
+        getDependentVariable: d => d.events["periodCpu"] || 0
+      },
+      {
+        presetsRequired: ["rapl"],
+        yAxisLabel: "Memory Power",
+        yFormat: d3.format(".2s"),
+        getDependentVariable: d => d.events["periodMemory"] || 0
+      },
+      {
+        presetsRequired: ["rapl"],
+        yAxisLabel: "Overall Power",
+        yFormat: d3.format(".2s"),
+        getDependentVariable: d => d.events["periodOverall"] || 0
+      },
+      {
+        presetsRequired: ["wattsup"],
+        yAxisLabel: "Wattsup Power",
+        yFormat: d3.format(".2s"),
+        getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup)
+      }
+    ].filter(({ presetsRequired }) =>
+      presetsRequired.every(presetName => presetName in presets)
+    );
 
-  const xAxisLabel = "CPU Time Elapsed";
-  const cpuTimeOffset = processedData[0].cpuTime;
-  const getIndependentVariable = d => d.cpuTime - cpuTimeOffset;
+    const xAxisLabel = "CPU Time Elapsed";
+    const cpuTimeOffset = processedData[0].cpuTime;
+    const getIndependentVariable = d => d.cpuTime - cpuTimeOffset;
 
-  const xScaleMin = getIndependentVariable(processedData[0]);
-  const xScaleMax = getIndependentVariable(
-    processedData[processedData.length - 1]
-  );
-  const xScale = d3
-    .scaleLinear()
-    .domain([xScaleMin, xScaleMax])
-    .range([0, chart.WIDTH]);
-
-  const yScalesByChart = new WeakMap();
-  const plotDataByChart = new WeakMap();
-
-  for (const chartParams of charts) {
-    const { getDependentVariable } = chartParams;
-    const yScaleMax = d3.max(processedData, getDependentVariable);
-    const yScale = d3
+    const xScaleMin = getIndependentVariable(processedData[0]);
+    const xScaleMax = getIndependentVariable(
+      processedData[processedData.length - 1]
+    );
+    const xScale = d3
       .scaleLinear()
-      .domain([yScaleMax, 0])
-      .range([0, chart.HEIGHT]);
+      .domain([xScaleMin, xScaleMax])
+      .range([0, chart.WIDTH]);
 
-    const plotData = computeRenderableData({
-      data: processedData,
-      xScale,
-      yScale,
-      getIndependentVariable,
-      getDependentVariable
-    });
+    const yScalesByChart = new WeakMap();
+    const plotDataByChart = new WeakMap();
 
-    yScalesByChart.set(chartParams, yScale);
-    plotDataByChart.set(chartParams, plotData);
-  }
+    for (const chartParams of charts) {
+      const { getDependentVariable } = chartParams;
+      const yScaleMax = d3.max(processedData, getDependentVariable);
+      const yScale = d3
+        .scaleLinear()
+        .domain([yScaleMax, 0])
+        .range([0, chart.HEIGHT]);
 
-  const densityMax = charts.reduce(
-    (currentMax, chartParams) =>
-      Math.max(
-        currentMax,
-        d3.max(plotDataByChart.get(chartParams), d => d.densityAvg)
-      ),
-    0
-  );
-
-  const spectrum = d3.interpolateWarm;
-
-  const warningCountsMap = new Map();
-  warningRecords.forEach(warning => {
-    if (warningCountsMap.has(warning.type)) {
-      warningCountsMap.set(
-        warning.type,
-        warningCountsMap.get(warning.type) + 1
-      );
-    } else {
-      warningCountsMap.set(warning.type, 1);
-    }
-  });
-  const warningCounts = [...warningCountsMap];
-  const warningsDistinct = [...warningCountsMap.keys()];
-
-  for (const chartParams of charts) {
-    const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
-    d3.select("#charts")
-      .append("div")
-      .call(chart.render, {
-        timeslices: processedData,
-        getIndependentVariable,
-        getDependentVariable,
-        xAxisLabel,
-        yAxisLabel,
+      const plotData = computeRenderableData({
+        data: processedData,
         xScale,
-        yScale: yScalesByChart.get(chartParams),
-        yFormat,
-        plotData: plotDataByChart.get(chartParams),
-        densityMax,
-        spectrum:
-          d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) <= 2
-            ? d3.interpolateRgb("#3A72F2", "#3A72F2")
-            : spectrum,
-        cpuTimeOffset,
-        warningRecords,
-        warningsDistinct
+        yScale,
+        getIndependentVariable,
+        getDependentVariable
       });
-  }
 
-  d3.select("#legend").call(legend.render, { densityMax, spectrum });
+      yScalesByChart.set(chartParams, yScale);
+      plotDataByChart.set(chartParams, plotData);
+    }
 
-  const sourcesSet = new Set();
-  processedData.forEach(timeslice => {
-    timeslice.stackFrames.forEach(frame => {
-      sourcesSet.add(frame.fileName);
-    });
-  });
+    const densityMax = charts.reduce(
+      (currentMax, chartParams) =>
+        Math.max(
+          currentMax,
+          d3.max(plotDataByChart.get(chartParams), d => d.densityAvg)
+        ),
+      0
+    );
 
-  d3.select("#table-select").call(tableSelect.render);
+    const spectrum = d3.interpolateWarm;
 
-  d3.select("#source-select").call(sourceSelect.render, {
-    sources: [...sourcesSet]
-  });
-
-  d3.select("#warnings").call(warnings.render, {
-    warningCounts,
-    warningRecords
-  });
-
-  d3.select("#warning-list").call(warningList.render, {
-    warnings: warningRecords,
-    cpuTimeOffset
-  });
-
-  let averageProcessingTime = 0;
-  let numProcessingTimeSamples = 0;
-
-  stream
-    .fromStreamables([
-      sourceSelect.hiddenSourcesStore.stream,
-      brushes.selectionStore.stream
-    ])
-    .pipe(
-      stream.debounce(
-        () =>
-          // If it takes longer a few frames to process, then debounce.
-          averageProcessingTime < 40 ? stream.empty : stream.fromTimeout(100)
-      )
-    )
-    .pipe(
-      stream.map(([hiddenSources, { selections }]) => {
-        const startTime = performance.now();
-        const result = analyze(
-          processedData
-            .map(timeslice => {
-              const x = xScale(getIndependentVariable(timeslice));
-              return {
-                ...timeslice,
-                selected:
-                  selections.length === 0 ||
-                  selections.some(
-                    ({ range }) => range[0] <= x && x <= range[1]
-                  ),
-                stackFrames: timeslice.stackFrames.filter(
-                  frame => !hiddenSources.includes(frame.fileName)
-                )
-              };
-            })
-            .filter(timeslice => timeslice.stackFrames.length)
+    const warningRecords = result.warning ? result.warning : [];
+    const warningCountsMap = new Map();
+    warningRecords.forEach(warning => {
+      if (warningCountsMap.has(warning.type)) {
+        warningCountsMap.set(
+          warning.type,
+          warningCountsMap.get(warning.type) + 1
         );
+      } else {
+        warningCountsMap.set(warning.type, 1);
+      }
+    });
+    const warningCounts = [...warningCountsMap];
+    const warningsDistinct = [...warningCountsMap.keys()];
 
-        // Compute a cumulative moving average for processing time so we can
-        // debounce processing if it is slow
-        // https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
-        const timeTaken = performance.now() - startTime;
-        averageProcessingTime =
-          (timeTaken + numProcessingTimeSamples * averageProcessingTime) /
-          (numProcessingTimeSamples + 1);
-        numProcessingTimeSamples++;
-        console.log(averageProcessingTime);
-
-        return result;
-      })
-    )
-    .pipe(
-      stream.subscribe(({ functionList }) => {
-        d3.select("#function-runtimes").call(functionRuntimes.render, {
-          functionList
+    for (const chartParams of charts) {
+      const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
+      d3.select("#charts")
+        .append("div")
+        .call(chart.render, {
+          timeslices: processedData,
+          getIndependentVariable,
+          getDependentVariable,
+          xAxisLabel,
+          yAxisLabel,
+          xScale,
+          yScale: yScalesByChart.get(chartParams),
+          yFormat,
+          plotData: plotDataByChart.get(chartParams),
+          densityMax,
+          spectrum:
+            d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) <= 2
+              ? d3.interpolateRgb("#3A72F2", "#3A72F2")
+              : spectrum,
+          cpuTimeOffset,
+          warningRecords,
+          warningsDistinct
         });
-      })
-    );
+    }
 
-  const tableIds = {
-    "Function Runtimes": "#function-runtimes",
-    Warnings: "#warning-list"
-  };
+    d3.select("#legend").call(legend.render, { densityMax, spectrum });
 
-  stream
-    .fromStreamable(tableSelect.selectedTableStore.stream)
-    .pipe(stream.map(name => tableIds[name]))
-    .pipe(
-      stream.subscribe(id => {
-        d3.select(id).style("display", "table");
-        d3.selectAll("#tables-wrapper table")
-          .filter(`:not(${id})`)
-          .style("display", "none");
-      })
-    );
-  // } catch (err) {
-  //   alert(err);
-  //   window.close();
-  // }
+    const sourcesSet = new Set();
+    processedData.forEach(timeslice => {
+      timeslice.stackFrames.forEach(frame => {
+        sourcesSet.add(frame.fileName);
+      });
+    });
+
+    d3.select("#table-select").call(tableSelect.render);
+
+    d3.select("#source-select").call(sourceSelect.render, {
+      sources: [...sourcesSet]
+    });
+
+    d3.select("#warnings").call(warnings.render, {
+      warningCounts,
+      warningRecords
+    });
+
+    d3.select("#warning-list").call(warningList.render, {
+      warnings: warningRecords,
+      cpuTimeOffset
+    });
+
+    let averageProcessingTime = 0;
+    let numProcessingTimeSamples = 0;
+
+    stream
+      .fromStreamables([
+        sourceSelect.hiddenSourcesStore.stream,
+        brushes.selectionStore.stream
+      ])
+      .pipe(
+        stream.debounce(
+          () =>
+            // If it takes longer a few frames to process, then debounce.
+            averageProcessingTime < 40 ? stream.empty : stream.fromTimeout(100)
+        )
+      )
+      .pipe(
+        stream.map(([hiddenSources, { selections }]) => {
+          const startTime = performance.now();
+          const result = analyze(
+            processedData
+              .map(timeslice => {
+                const x = xScale(getIndependentVariable(timeslice));
+                return {
+                  ...timeslice,
+                  selected:
+                    selections.length === 0 ||
+                    selections.some(
+                      ({ range }) => range[0] <= x && x <= range[1]
+                    ),
+                  stackFrames: timeslice.stackFrames.filter(
+                    frame => !hiddenSources.includes(frame.fileName)
+                  )
+                };
+              })
+              .filter(timeslice => timeslice.stackFrames.length)
+          );
+
+          // Compute a cumulative moving average for processing time so we can
+          // debounce processing if it is slow
+          // https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
+          const timeTaken = performance.now() - startTime;
+          averageProcessingTime =
+            (timeTaken + numProcessingTimeSamples * averageProcessingTime) /
+            (numProcessingTimeSamples + 1);
+          numProcessingTimeSamples++;
+          console.log(averageProcessingTime);
+
+          return result;
+        })
+      )
+      .pipe(
+        stream.subscribe(({ functionList }) => {
+          d3.select("#function-runtimes").call(functionRuntimes.render, {
+            functionList
+          });
+        })
+      );
+
+    const tableIds = {
+      "Function Runtimes": "#function-runtimes",
+      Warnings: "#warning-list"
+    };
+
+    stream
+      .fromStreamable(tableSelect.selectedTableStore.stream)
+      .pipe(stream.map(name => tableIds[name]))
+      .pipe(
+        stream.subscribe(id => {
+          d3.select(id).style("display", "table");
+          d3.selectAll("#tables-wrapper table")
+            .filter(`:not(${id})`)
+            .style("display", "none");
+        })
+      );
+  }
 });
