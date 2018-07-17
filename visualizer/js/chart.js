@@ -12,6 +12,7 @@ function render(
   {
     spectrum,
     plotData,
+    hiddenThreadsStore,
     densityMax,
     getIndependentVariable,
     getDependentVariable,
@@ -43,6 +44,7 @@ function render(
 
   svg.append("g").call(plot.render, {
     data: plotData,
+    hiddenThreadsStore,
     xScale,
     yScale,
     getIndependentVariable,

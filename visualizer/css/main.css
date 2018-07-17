@@ -56,6 +56,8 @@ button:disabled {
 
 #info {
   grid-area: info;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 #legend {
@@ -92,6 +94,11 @@ button:disabled {
 #tables-wrapper {
   overflow: auto;
   flex: 1;
+}
+
+#title {
+  position: absolute;
+  top: 0px;
 }
 
 @media (max-width: 750px) {

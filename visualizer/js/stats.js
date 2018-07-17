@@ -1,51 +1,68 @@
 const d3 = require("d3");
 
-function render(root, { processedData }) {
+function calculateData(processedData) {
   const numTimeslices = processedData.length,
-    startTime = processedData[0].cpuTime,
-    endTime = processedData[numTimeslices - 1].cpuTime;
+    startTime = numTimeslices > 0 ? processedData[0].cpuTime : 0,
+    endTime = numTimeslices > 0 ? processedData[numTimeslices - 1].cpuTime : 0;
 
-  root.append("h3").text("Stats");
+  return [
+    { name: "Timeslices", number: numTimeslices, isTime: false },
+    { name: "CPU Time Elapsed", number: endTime - startTime, isTime: true },
+    {
+      name: "Average Timeslice Duration",
+      number: (endTime - startTime) / numTimeslices || 0,
+      isTime: true
+    }
+  ];
+}
 
-  const statsSelectionEnter = root
-    .append("ul")
-    .selectAll("p")
-    .data([
-      { name: "Timeslices", number: numTimeslices, isTime: false },
-      { name: "CPU Time Elapsed", number: endTime - startTime, isTime: true },
-      {
-        name: "Average Timeslice Duration",
-        number: (endTime - startTime) / numTimeslices,
-        isTime: true
-      }
-    ])
-    .enter()
-    .append("li");
+function render(root, { processedData }) {
+  if (root.select("h3").empty()) {
+    root.append("h3").text("Stats");
+  }
 
-  statsSelectionEnter
-    .append("span")
-    .attr("class", "title")
-    .text(({ name }) => name + ":")
-    .append("br");
+  const statsSelection = root.select("ul").empty()
+    ? root.append("ul")
+    : root.select("ul");
 
-  statsSelectionEnter
+  const statsDataSelection = statsSelection
+    .selectAll("li")
+    .data(calculateData(processedData));
+
+  const statsEnterSelection = statsDataSelection.enter().append("li");
+
+  statsEnterSelection.append("span").attr("class", "title");
+
+  statsEnterSelection
     .filter(({ isTime }) => !isTime)
     .append("span")
-    .attr("class", "value")
-    .text(({ number }) => number);
+    .attr("class", "value");
 
-  const statsTime = statsSelectionEnter
+  const statsTime = statsEnterSelection
     .filter(({ isTime }) => isTime)
     .append("abbr")
     .attr("class", "value");
 
-  statsTime
-    .append("span")
+  statsTime.append("span");
+
+  statsTime.append("span").text("Seconds");
+
+  const statsMergeSelection = statsEnterSelection.merge(statsDataSelection);
+
+  statsMergeSelection
+    .select(".title")
+    .text(({ name }) => name + ":")
+    .append("br");
+
+  statsMergeSelection.select("span.value").text(({ number }) => number);
+
+  statsMergeSelection
+    .select("abbr.value span")
     .text(({ number }) => d3.format(".4s")(number / 1000000000))
     .attr("title", ({ number }) => `${number} Nanoseconds`)
     .append("br");
 
-  statsTime.append("span").text("Seconds");
+  statsDataSelection.exit().remove();
 }
 
 module.exports = {

@@ -13,12 +13,14 @@ const {
 } = require("./process-data");
 const { analyze } = require("./analysis");
 const chart = require("./chart");
+const plot = require("./plot");
 const functionRuntimes = require("./function-runtimes");
 const warningList = require("./warning-list");
 const legend = require("./legend");
 const stats = require("./stats");
 const brushes = require("./brushes");
 const sourceSelect = require("./source-select");
+const threadSelect = require("./thread-select");
 const tableSelect = require("./table-select");
 const warnings = require("./warnings");
 const stream = require("./stream");
@@ -82,6 +84,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     alert("timeslices array is empty");
     window.close();
   } else {
+    d3.select("#title").attr(result.programName);
     const processedData = processData(result.timeslices, result.header);
     const spectrum = d3.interpolateWarm;
 
@@ -244,17 +247,23 @@ ipcRenderer.on("result", async (event, resultFile) => {
       processedData
     });
 
-    const sourcesSet = new Set();
+    const sourcesSet = new Set(),
+      threadsSet = new Set();
     processedData.forEach(timeslice => {
       timeslice.stackFrames.forEach(frame => {
         sourcesSet.add(frame.fileName);
       });
+      threadsSet.add(timeslice.tid);
     });
 
     d3.select("#table-select").call(tableSelect.render);
 
     d3.select("#source-select").call(sourceSelect.render, {
       sources: [...sourcesSet]
+    });
+
+    d3.select("#thread-select").call(threadSelect.render, {
+      threads: [...threadsSet]
     });
 
     d3.select("#warnings").call(warnings.render, {
@@ -272,13 +281,14 @@ ipcRenderer.on("result", async (event, resultFile) => {
     stream
       .fromStreamables([
         sourceSelect.hiddenSourcesStore.stream,
+        threadSelect.hiddenThreadsStore.stream,
         brushes.selectionStore.stream,
         tableSelect.selectedTableStore.stream
       ])
       .pipe(
         // Only update the function runtimes table if it is selected.
         stream.filter(
-          ([, , selectedTable]) => selectedTable.id === "#function-runtimes"
+          ([, , , selectedTable]) => selectedTable.id === "#function-runtimes"
         )
       )
       .pipe(
@@ -289,9 +299,9 @@ ipcRenderer.on("result", async (event, resultFile) => {
         )
       )
       .pipe(
-        stream.map(([hiddenSources, { selections }]) => {
+        stream.map(([hiddenSources, hiddenThreads, { selections }]) => {
           const startTime = performance.now();
-          const result = analyze(
+          const functionAnalysis = analyze(
             processedData
               .map(timeslice => {
                 const x = xScale(getIndependentVariable(timeslice));
@@ -308,6 +318,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 };
               })
               .filter(timeslice => timeslice.stackFrames.length)
+              .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
           );
 
           // Compute a cumulative moving average for processing time so we can
@@ -320,13 +331,36 @@ ipcRenderer.on("result", async (event, resultFile) => {
           numProcessingTimeSamples++;
           console.log(averageProcessingTime);
 
-          return result;
+          return [functionAnalysis, hiddenSources, hiddenThreads];
         })
       )
       .pipe(
-        stream.subscribe(({ functions }) => {
+        stream.subscribe(([{ functions }, hiddenSources, hiddenThreads]) => {
           d3.select("#function-runtimes").call(functionRuntimes.render, {
             functions
+          });
+          const filterData = data =>
+            data
+              .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
+              .filter(timeslice =>
+                timeslice.stackFrames.some(
+                  frame => !hiddenSources.includes(frame.fileName)
+                )
+              )
+              .map(timeslice => ({
+                ...timeslice,
+                stackFrames: timeslice.stackFrames.filter(
+                  frame => !hiddenSources.includes(frame.fileName)
+                )
+              }));
+
+          d3.select("#stats").call(stats.render, {
+            processedData: filterData(processedData)
+          });
+          d3.selectAll("#charts .plot").each(function(_, i) {
+            d3.select(this).call(plot.toggleCircles, {
+              data: filterData(plotDataByChart.get(charts[i]))
+            });
           });
         })
       );

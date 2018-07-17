@@ -26,4 +26,17 @@ function render(root, { data, densityMax, spectrum }) {
     );
 }
 
-module.exports = { render };
+function toggleCircles(root, { data }) {
+  const circlesData = root.selectAll("circle").data(data);
+
+  // note: there's no handling for new elements as they need to be rendered above first
+
+  circlesData
+    .enter()
+    .merge(circlesData)
+    .style("opacity", 1);
+
+  circlesData.exit().style("opacity", 0);
+}
+
+module.exports = { render, toggleCircles };
