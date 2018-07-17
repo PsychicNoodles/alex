@@ -200,6 +200,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       .append("div")
       .call(chart.render, {
         timeslices: processedData,
+        hiddenThreadsStore: threadSelect.hiddenThreadsStore,
         getIndependentVariable,
         getDependentVariable,
         xAxisLabel,
