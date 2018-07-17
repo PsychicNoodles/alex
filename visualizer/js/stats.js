@@ -21,49 +21,60 @@ function calculateData(processedData) {
 function render(root, { processedData, hiddenThreadsStore }) {
   root.append("h3").text("Stats");
 
-  const statsSelection = root.append("ul").selectAll("li");
+  const statsSelection = root.append("ul");
+
+  const statsSelectionData = statsSelection
+    .selectAll("li")
+    .data(calculateData(processedData));
+
+  const statsSelectionEnter = statsSelectionData.enter().append("li");
+
+  statsSelectionEnter.append("span").attr("class", "title");
+
+  statsSelectionEnter
+    .filter(({ isTime }) => !isTime)
+    .append("span")
+    .attr("class", "value");
+
+  const statsTime = statsSelectionEnter
+    .filter(({ isTime }) => isTime)
+    .append("abbr")
+    .attr("class", "value");
+
+  statsTime.append("span");
+
+  statsTime.append("span").text("Seconds");
 
   hiddenThreadsStore.subscribeUnique(
     root,
     hiddenThreadsSubscription,
     hiddenThreads => {
-      root.selectAll("li").remove();
-
-      const statsSelectionEnter = statsSelection
+      const statsSelectionData = statsSelection
+        .selectAll("li")
         .data(
           calculateData(
             processedData.filter(
               timeslice => !hiddenThreads.includes(timeslice.tid)
             )
           )
-        )
-        .enter()
-        .append("li");
+        );
 
-      statsSelectionEnter
-        .append("span")
-        .attr("class", "title")
+      const statsSelectionMerge = statsSelectionData
+        .enter()
+        .merge(statsSelectionData);
+
+      statsSelectionMerge
+        .select(".title")
         .text(({ name }) => name + ":")
         .append("br");
 
-      statsSelectionEnter
-        .filter(({ isTime }) => !isTime)
-        .append("span")
-        .attr("class", "value")
-        .text(({ number }) => number);
+      statsSelectionMerge.select("span.value").text(({ number }) => number);
 
-      const statsTime = statsSelectionEnter
-        .filter(({ isTime }) => isTime)
-        .append("abbr")
-        .attr("class", "value");
-
-      statsTime
-        .append("span")
+      statsSelectionMerge
+        .select("abbr.value span")
         .text(({ number }) => d3.format(".4s")(number / 1000000000))
         .attr("title", ({ number }) => `${number} Nanoseconds`)
         .append("br");
-
-      statsTime.append("span").text("Seconds");
     }
   );
 }
