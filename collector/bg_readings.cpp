@@ -71,6 +71,10 @@ bool setup_reading(bg_reading *reading, void *(reading_fn)(void *),
 }
 
 void restart_reading(bg_reading *reading) {
+  if (reading->running) {
+    DEBUG("background tid " << reading->thread << " was already running");
+    return;
+  }
   DEBUG("restarting reading for tid " << reading->thread);
   unique_lock<mutex> lock(reading->mtx);
   reading->ready = true;
@@ -79,6 +83,10 @@ void restart_reading(bg_reading *reading) {
 }
 
 void stop_reading(bg_reading *reading) {
+  if (!reading->running) {
+    DEBUG("background tid " << reading->thread << " was already stopped!");
+    return;
+  }
   DEBUG("stopping reading for tid " << reading->thread);
   unique_lock<mutex> lock(reading->mtx);
   reading->running = false;
@@ -92,6 +100,11 @@ bool has_result(bg_reading *reading) {
 }
 
 void *get_result(bg_reading *reading) {
+  if (!reading->running) {
+    DEBUG("background tid " << reading->thread
+                            << " was not running, cannot get result!");
+    return NULL;
+  }
   void *ret = reading->result;
   DEBUG("result for tid " << reading->thread << " is " << ptr_fmt(ret));
   reading->result = nullptr;
