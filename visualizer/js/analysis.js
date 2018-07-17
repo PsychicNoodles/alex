@@ -116,19 +116,4 @@ function getCallStackName(stackFrames) {
     .join(" > ");
 }
 
-/**
- * Conducts a chi-squared test on the given data, intended to determine whether
- * the functions found in the selected region are independent of their selected
- * state (i.e. selected data ISN'T special) or dependent on their selected state
- * (i.e. selected data IS special). Intended null hypothesis: Each datapoint's
- * associated function is independent of the datapoint's selected state.
- *
- * @param timeSlices All data collected by the collector
- * @param outputData Mutable reference to the output data.
- * @todo Consider changes for performance: conversion of forEach loops,
- * different ways of accessing the "associative arrays" or converting them into
- * true arrays of pair-ish objects, using one loop to initialize
- * selected/unselected instead of "checking === undefined" every "loop"
- */
-
 module.exports = { analyze };
