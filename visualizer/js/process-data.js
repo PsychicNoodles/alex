@@ -19,7 +19,6 @@ function processData(data) {
     .filter(timeslice => timeslice.stackFrames.length)
     .map((d, i, arr) => {
       if (i > 0) {
-        console.log("sfhsdf");
         const a = arr[i - 1].events.core;
         d.events.periodCpu = d.events.core - a;
         const b = arr[i - 1].events.dram;
@@ -32,20 +31,6 @@ function processData(data) {
         d.events.periodOverall = 0;
       }
     });
-  //.filter(timeslice => timeslice.events.periodCpu < 1000000);
-  console.log("after: ", data.length);
-  return data;
-}
-
-function filterData(data) {
-  data.filter(timeslice => {
-    if (timeslice.events.periodCpu > 1000000) {
-      return false;
-    } else {
-      return true;
-    }
-  });
-
   return data;
 }
 
