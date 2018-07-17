@@ -79,6 +79,10 @@ void restart_reading(bg_reading *reading) {
 }
 
 void stop_reading(bg_reading *reading) {
+  if (reading->running == false) {
+    DEBUG("tid " << reading->thread << " was not running");
+    return;
+  }
   DEBUG("stopping reading for tid " << reading->thread);
   unique_lock<mutex> lock(reading->mtx);
   reading->running = false;

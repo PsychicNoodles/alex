@@ -509,7 +509,7 @@ bool process_sample_record(const sample_record &sample,
                            bg_reading *wattsup_reading,
                            const map<uint64_t, kernel_sym> &kernel_syms,
                            const map<interval, std::shared_ptr<line>> &ranges,
-                           const map<string, interval> &sym_map,
+                           const multimap<string, interval> &sym_map,
                            dwarf::dwarf dw) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
@@ -684,37 +684,39 @@ bool process_sample_record(const sample_record &sample,
         }
       }
     }
-
-    fprintf(result_file,
-            R"(
-                        "symName": "%s",
-                        "fileName": "%s",
-                        "fileBase": "%p",
-                        "symAddr": "%p",
-                        "mangledName": "%s"
-                      )",
-            function_name, file_name, file_base, sym_addr, sym_name);
-    free(demangled_name);  // NOLINT
-    char *fullLocation = nullptr;
-    auto line = -1;
-
     // Need to subtract one. PC is the return address, but we're
     // looking for the callsite.
     dwarf::taddr pc = inst_ptr - 1;
-    DEBUG("pc is " << pc);
-    DEBUG("and actual name is " << function_name);
+    char *name = nullptr;
 
     for (auto &entry : sym_map) {
       // DEBUG("name is " << entry.second);
       // DEBUG("add is " << entry.first.first << entry.first.second);
       if (entry.second.contains(pc)) {
-        const char *name = entry.first.c_str();
+        name = (char *)entry.first.c_str();
         DEBUG("GET A NAME AND NAME IS " << name);
         break;
       }
     }
 
     DEBUG("end one finding");
+
+    fprintf(result_file,
+            R"(
+                        "symName": "%s",
+                        "dwarfName": "%s",
+                        "fileName": "%s",
+                        "fileBase": "%p",
+                        "symAddr": "%p",
+                        "mangledName": "%s"
+                      )",
+            function_name, name, file_name, file_base, sym_addr, sym_name);
+    free(demangled_name);  // NOLINT
+    char *fullLocation = nullptr;
+    auto line = -1;
+
+    DEBUG("pc is " << pc);
+    DEBUG("and actual name is " << function_name);
 
     size_t start_loop = time_ms();
 
@@ -984,7 +986,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
     DEBUG("Including MAIN, which is " << main_name);
   }
 
-  map<string, interval> sym_map;
+  multimap<string, interval> sym_map;
 
   memory_map::get_instance().build(binary_scope, source_scope, sym_map);
   auto ranges = memory_map::get_instance().ranges();

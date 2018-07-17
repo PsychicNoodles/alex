@@ -318,7 +318,7 @@ bool in_scope(const string& name, const unordered_set<string>& scope) {
 
 void memory_map::build(const unordered_set<string>& binary_scope,
                        const unordered_set<string>& source_scope,
-                       std::map<string, interval>& sym_table) {
+                       std::multimap<string, interval>& sym_table) {
   size_t in_scope_count = 0;
   for (const auto& f : get_loaded_files()) {
     // if (in_scope(f.first, binary_scope)) {
@@ -377,7 +377,7 @@ void memory_map::process_inlines(const dwarf::die& d,
                                  const dwarf::line_table& table,
                                  const unordered_set<string>& source_scope,
                                  uintptr_t load_address,
-                                 std::map<string, interval>& sym_table) {
+                                 std::multimap<string, interval>& sym_table) {
   if (!d.valid()) return;
 
   try {
@@ -466,7 +466,9 @@ void memory_map::process_inlines(const dwarf::die& d,
 }
 
 void dump_tree(const dwarf::die& d, int depth,
-               std::map<string, interval>& sym_table, uintptr_t load_address) {
+               std::multimap<string, interval>& sym_table,
+               uintptr_t load_address, const dwarf::line_table& table,
+               const unordered_set<string>& source_scope) {
   if (!d.valid()) return;
   try {
     if (d.tag == dwarf::DW_TAG::subprogram) {
@@ -483,47 +485,77 @@ void dump_tree(const dwarf::die& d, int depth,
         name = name_val.as_string();
       }
 
-      // string decl_file;
-      // dwarf::value decl_file_val = find_attribute(d,
-      // dwarf::DW_AT::decl_file); if (decl_file_val.valid() && table.valid()) {
-      //   decl_file = table.get_file(decl_file_val.as_uconstant())->path;
-      // }
-
-      // size_t decl_line = 0;
-      // dwarf::value decl_line_val = find_attribute(d,
-      // dwarf::DW_AT::decl_line); if (decl_line_val.valid()) decl_line =
-      // decl_line_val.as_uconstant();
-
-      // Must just be one range. Add it
-      if (d.has(dwarf::DW_AT::low_pc) && d.has(dwarf::DW_AT::high_pc)) {
-        dwarf::value low_pc_val = find_attribute(d, dwarf::DW_AT::low_pc);
+      if (name.compare("math") == 0) {
         dwarf::value high_pc_val = find_attribute(d, dwarf::DW_AT::high_pc);
+        DEBUG("high pc val ISSSS" << high_pc_val.as_uconstant());
+      }
 
-        uint64_t low_pc;
-        uint64_t high_pc;
+      string decl_file;
+      dwarf::value decl_file_val = find_attribute(d, dwarf::DW_AT::decl_file);
+      if (decl_file_val.valid() && table.valid()) {
+        decl_file = table.get_file(decl_file_val.as_uconstant())->path;
+        DEBUG("have valid file");
+      }
 
-        if (low_pc_val.get_type() == dwarf::value::type::address)
-          low_pc = low_pc_val.as_address();
-        else if (low_pc_val.get_type() == dwarf::value::type::uconstant)
-          low_pc = low_pc_val.as_uconstant();
-        else if (low_pc_val.get_type() == dwarf::value::type::sconstant)
-          low_pc = low_pc_val.as_sconstant();
+      size_t decl_line = 0;
+      dwarf::value decl_line_val = find_attribute(d, dwarf::DW_AT::decl_line);
+      if (decl_line_val.valid()) decl_line = decl_line_val.as_uconstant();
 
-        if (high_pc_val.get_type() == dwarf::value::type::address)
-          high_pc = high_pc_val.as_address();
-        else if (high_pc_val.get_type() == dwarf::value::type::uconstant)
-          high_pc = high_pc_val.as_uconstant();
-        else if (high_pc_val.get_type() == dwarf::value::type::sconstant)
-          high_pc = high_pc_val.as_sconstant();
+      if (decl_file.size() > 0) {
+        if (in_scope(decl_file, source_scope)) {
+          if (d.has(dwarf::DW_AT::low_pc) && d.has(dwarf::DW_AT::high_pc)) {
+            dwarf::value low_pc_val = find_attribute(d, dwarf::DW_AT::low_pc);
+            dwarf::value high_pc_val = find_attribute(d, dwarf::DW_AT::high_pc);
+            if (name.compare("math") == 0) {
+              dwarf::value high_pc_val =
+                  find_attribute(d, dwarf::DW_AT::high_pc);
+              DEBUG("high pc val ISSSS" << high_pc_val.as_sconstant());
+            }
 
-        DEBUG("NAME IS " << name);
-        if (name.compare("math") == 0) {
-          DEBUG("WHY NOT ADD IN " << low_pc + high_pc + load_address);
-          DEBUG("WHY NOT ADD IN " << low_pc + load_address);
+            if (low_pc_val.valid() && high_pc_val.valid()) {
+              uint64_t low_pc = 0;
+              uint64_t high_pc = 0;
+
+              if (low_pc_val.get_type() == dwarf::value::type::address)
+                low_pc = low_pc_val.as_address();
+              else if (low_pc_val.get_type() == dwarf::value::type::uconstant)
+                low_pc = low_pc_val.as_uconstant();
+              else if (low_pc_val.get_type() == dwarf::value::type::sconstant)
+                low_pc = low_pc_val.as_sconstant();
+
+              // if (high_pc_val.get_type() == dwarf::value::type::address) {
+              //   high_pc = high_pc_val.as_address();
+              //   if (name.compare("math") == 0) {
+              //     DEBUG("IT'S A ADDRESS");
+              //   }
+              // } else if (high_pc_val.get_type() ==
+              // dwarf::value::type::uconstant) {
+              //   high_pc = high_pc_val.as_uconstant();
+              //   if (name.compare("math") == 0) {
+              //     DEBUG("IT'S AN UCONSTANT");
+              //   }
+              // } else if (high_pc_val.get_type() ==
+              // dwarf::value::type::sconstant) {
+              //   high_pc = high_pc_val.as_sconstant();
+              //   if (name.compare("math") == 0) {
+              //     DEBUG("IT'S AN SCONSTANT");
+              //   }
+              // }
+
+              high_pc = high_pc_val.as_sconstant();
+
+              // DEBUG("NAME IS " << name);
+              // DEBUG("HIGH PC IS " << high_pc);
+              // DEBUG("LOW PC IS " << low_pc);
+              // DEBUG("WHY NOT ADD IN " << low_pc + high_pc + load_address);
+              // DEBUG("WHY NOT ADD IN " << low_pc + load_address);
+              if (high_pc != 0 && low_pc != 0) {
+                sym_table.insert(pair<string, interval>(
+                    name, (interval(low_pc, low_pc + high_pc) + load_address)));
+              }
+            }
+          }
         }
-
-        sym_table.insert(pair<string, interval>(
-            name, (interval(low_pc, low_pc + high_pc) + load_address)));
       }
     }
   } catch (dwarf::format_error e) {
@@ -531,7 +563,7 @@ void dump_tree(const dwarf::die& d, int depth,
   }
 
   for (const auto& child : d) {
-    dump_tree(child, depth + 1, sym_table, load_address);
+    dump_tree(child, depth + 1, sym_table, load_address, table, source_scope);
   }
 
   // //if (to_string(node.tag).compare("DW_TAG_subprogram") == 0) {
@@ -586,7 +618,7 @@ void dump_tree(const dwarf::die& d, int depth,
 
 bool memory_map::process_file(const string& name, uintptr_t load_address,
                               const unordered_set<string>& source_scope,
-                              std::map<string, interval>& sym_table) {
+                              std::multimap<string, interval>& sym_table) {
   elf::elf f = locate_debug_executable(name);
   // If a debug version of the file could not be located, return false
   if (!f.valid()) {
@@ -612,8 +644,8 @@ bool memory_map::process_file(const string& name, uintptr_t load_address,
 
   // Walk through the compilation units (source files) in the executable
   for (auto unit : d.compilation_units()) {
-    dump_tree(unit.root(), 0, sym_table, load_address);
     auto& lineTable = unit.get_line_table();
+    dump_tree(unit.root(), 0, sym_table, load_address, lineTable, source_scope);
     int fileIndex = 0;
     bool needProcess = false;
     // check if files using by lineTable are in source_scope
