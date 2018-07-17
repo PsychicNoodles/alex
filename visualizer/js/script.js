@@ -176,13 +176,16 @@ ipcRenderer.on("result", async (event, resultFile) => {
       chart => plotDataByChart.get(chart).length > 0
     );
 
-    const densityMax = chartsWithPlotData.reduce(
-      (currentMax, chartParams) =>
-        Math.max(
-          currentMax,
-          d3.max(plotDataByChart.get(chartParams), d => d.densityAvg)
-        ),
-      0
+    const densityMax = Math.max(
+      chartsWithPlotData.reduce(
+        (currentMax, chartParams) =>
+          Math.max(
+            currentMax,
+            d3.max(plotDataByChart.get(chartParams), d => d.densityAvg)
+          ),
+        0
+      ),
+      5
     );
 
     const warningRecords = result.warning;
@@ -204,7 +207,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     let someHighDensity = false;
     for (const chartParams of chartsWithPlotData) {
       const isLowDensity =
-        d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) <= 2;
+        d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) < 2;
       if (!isLowDensity) {
         someHighDensity = true;
       }
