@@ -559,7 +559,7 @@ bool process_sample_record(const sample_record &sample,
       if (raw_result == nullptr) {
         DEBUG("cpd: wattsup result was null");
       } else {
-        double *ret = (static_cast<double *>(get_result(wattsup_reading)));
+        double *ret = (static_cast<double *>(raw_result));
         fprintf(result_file, ",");
         fprintf(result_file, R"("wattsup": %1lf)", *ret);
         delete ret;
