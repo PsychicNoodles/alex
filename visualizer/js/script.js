@@ -82,6 +82,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     alert("timeslices array is empty");
     window.close();
   } else {
+    d3.select("#title").attr(result.programName);
     const processedData = processData(result.timeslices, result.header);
     const spectrum = d3.interpolateWarm;
 
