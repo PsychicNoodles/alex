@@ -32,6 +32,8 @@
  */
 const done = Symbol("stream.done");
 
+const isStream = Symbol("isStream");
+
 /**
  * Emits done immediately when subscribed to without emitting anything else.
  * @type {Stream}
@@ -53,34 +55,40 @@ const never = fromStreamable(() => () => {});
  * @returns {Stream}
  */
 function fromStreamable(streamable) {
-  const stream = onData => {
-    let isDone = false;
+  if (streamable[isStream]) {
+    return streamable;
+  } else {
+    const stream = onData => {
+      let isDone = false;
 
-    const offData = streamable(data => {
-      if (!isDone) {
-        onData(data);
-      }
+      const offData = streamable(data => {
+        if (!isDone) {
+          onData(data);
+        }
 
-      if (data === done) {
-        isDone = true;
-        requestIdleCallback(() => {
-          offData();
-        });
-      }
-    });
+        if (data === done) {
+          isDone = true;
+          requestIdleCallback(() => {
+            offData();
+          });
+        }
+      });
 
-    return () => {
-      offData();
-      if (!isDone) {
-        onData(done);
-        isDone = true;
-      }
+      return () => {
+        offData();
+        if (!isDone) {
+          onData(done);
+          isDone = true;
+        }
+      };
     };
-  };
 
-  stream.pipe = transform => transform(stream);
+    stream.pipe = transform => transform(stream);
 
-  return stream;
+    stream[isStream] = true;
+
+    return stream;
+  }
 }
 
 /**
@@ -275,10 +283,44 @@ function tap(onData) {
 /**
  * Attach a callback to a stream and return the stream's return value.
  * @param {DataListener} onData A callback for data.
- * @returns {function(Streamable): function(): void}
+ * @param {() => void} onDone A callback for stream completion.
+ * @returns {(Streamable) => () => void}
  */
-function subscribe(onData) {
-  return streamable => streamable(onData);
+function subscribe(onData, onDone = () => {}) {
+  return streamable =>
+    fromStreamable(streamable)(data => {
+      if (data === done) {
+        onDone();
+      } else {
+        onData(data);
+      }
+    });
+}
+
+/**
+ * Attach a subscription to a d3 selection.
+ *
+ * If subscribeUnique is called multiple times on the same element using the
+ * same propertyName, the old subscription will be unsubscribed so that only
+ * the latest subscription is ever present.
+ *
+ * @param {d3.Selection} selection A d3 selection of a single element where the subscription will be attached.
+ * @param {string|{toString(): string}} propertyName A string or object with toString where the subscription will be stored.
+ * @param {DataListener} onData The data callback to be passed to stream.subscribe.
+ * @param {() => void} onDone The done callback to be passed to stream.subscribe.
+ * @returns {(streamable: Streamable) => void}
+ */
+function subscribeUnique(selection, propertyName, onData, onDone = undefined) {
+  return streamable => {
+    const oldSubscription = selection.property(propertyName);
+    if (oldSubscription) {
+      oldSubscription.unsubscribe();
+    }
+
+    selection.property(propertyName, {
+      unsubscribe: fromStreamable(streamable).pipe(subscribe(onData, onDone))
+    });
+  };
 }
 
 module.exports = {
@@ -295,5 +337,6 @@ module.exports = {
   take,
   tap,
   subscribe,
+  subscribeUnique,
   done
 };

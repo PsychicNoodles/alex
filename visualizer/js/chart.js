@@ -2,7 +2,7 @@ const d3 = require("d3");
 
 const plot = require("./plot");
 const brushes = require("./brushes");
-const errors = require("./errors");
+const warnings = require("./warnings");
 
 const WIDTH = 500;
 const HEIGHT = 250;
@@ -21,8 +21,8 @@ function render(
     yScale,
     yFormat,
     cpuTimeOffset,
-    errorRecords,
-    errorsDistinct
+    warningRecords,
+    warningsDistinct
   }
 ) {
   root.classed("chart", true);
@@ -34,10 +34,10 @@ function render(
     .attr("class", "chart__svg")
     .attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`);
 
-  svg.append("g").call(errors.renderLines, {
+  svg.append("g").call(warnings.renderLines, {
     xScale,
-    errorRecords,
-    errorsDistinct,
+    warningRecords,
+    warningsDistinct,
     cpuTimeOffset
   });
 

@@ -169,7 +169,7 @@ dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
 static int collector_main(int argc, char **argv, char **env) {
   DEBUG("Version: " << VERSION);
 
-  enable_segfault_trace();
+  enable_segfault_trace();  // has exit
 
   print_self_maps();
 
@@ -249,6 +249,8 @@ static int collector_main(int argc, char **argv, char **env) {
       perror("couldn't open result file");
       shutdown(subject_pid, result_file, INTERNAL_ERROR);
     }
+
+    Util::result_file = result_file;
 
     int sigterm_fd = setup_sigterm_handler();
 
