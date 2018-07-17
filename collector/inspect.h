@@ -96,6 +96,12 @@ class interval {
   uintptr_t _limit;
 };
 
+struct cmpByInterval {
+  bool operator()(const interval& a, const interval& b) const {
+    return a.get_base() < b.get_base();
+  }
+};
+
 /**
  * Handle for a file in the program's memory map
  */
@@ -142,7 +148,8 @@ class memory_map {
   inline const std::map<std::string, std::shared_ptr<file>>& files() const {
     return _files;
   }
-  inline const std::map<interval, std::shared_ptr<line>>& ranges() const {
+  inline const std::map<interval, std::shared_ptr<line>, cmpByInterval>&
+  ranges() const {
     return _ranges;
   }
 
@@ -161,7 +168,7 @@ class memory_map {
  private:
   memory_map()
       : _files(std::map<std::string, std::shared_ptr<file>>()),
-        _ranges(std::map<interval, std::shared_ptr<line>>()) {}
+        _ranges(std::map<interval, std::shared_ptr<line>, cmpByInterval>()) {}
   memory_map(const memory_map&) = delete;
   memory_map& operator=(const memory_map&) = delete;
 
@@ -191,7 +198,7 @@ class memory_map {
                        std::multimap<string, interval>& sym_table);
 
   std::map<std::string, std::shared_ptr<file>> _files;
-  std::map<interval, std::shared_ptr<line>> _ranges;
+  std::map<interval, std::shared_ptr<line>, cmpByInterval> _ranges;
 };
 
 static std::ostream& operator<<(std::ostream& os, const interval& i) {

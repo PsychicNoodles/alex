@@ -503,14 +503,12 @@ void process_throttle_record(const throttle_record &throttle, int record_type,
       record_type, base_record{.throttle = throttle}, global->period));
 }
 
-bool process_sample_record(const sample_record &sample,
-                           const perf_fd_info &info, bool is_first_timeslice,
-                           bool is_first_sample, bg_reading *rapl_reading,
-                           bg_reading *wattsup_reading,
-                           const map<uint64_t, kernel_sym> &kernel_syms,
-                           const map<interval, std::shared_ptr<line>> &ranges,
-                           const multimap<string, interval> &sym_map,
-                           dwarf::dwarf dw) {
+bool process_sample_record(
+    const sample_record &sample, const perf_fd_info &info,
+    bool is_first_timeslice, bool is_first_sample, bg_reading *rapl_reading,
+    bg_reading *wattsup_reading, const map<uint64_t, kernel_sym> &kernel_syms,
+    const map<interval, std::shared_ptr<line>, cmpByInterval> &ranges,
+    const multimap<string, interval> &sym_map, dwarf::dwarf dw) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
@@ -730,15 +728,6 @@ bool process_sample_record(const sample_record &sample,
     }
 
     if (fullLocation == NULL) DEBUG("cannot find location for " << pc);
-
-    // static dwarf::dwarf dw = read_dwarf();
-
-    // for (auto &cu : dw.compilation_units()) {
-    //   // printf("--- <%" PRIx64 ">\n", cu.get_section_offset());
-    //   DEBUG("section offset is " << cu.get_section_offset());
-    //   dump_tree(cu.root());
-    //   break;
-    // }
 
     fprintf(result_file,
             R"(,
@@ -989,13 +978,9 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
   multimap<string, interval> sym_map;
 
   memory_map::get_instance().build(binary_scope, source_scope, sym_map);
-  auto ranges = memory_map::get_instance().ranges();
 
-  for (auto &entry : sym_map) {
-    DEBUG("have inserted " << entry.second.get_base());
-    DEBUG("have inserted " << entry.second.get_limit());
-    DEBUG("have inserted " << entry.first);
-  }
+  std::map<interval, std::shared_ptr<line>, cmpByInterval> ranges =
+      memory_map::get_instance().ranges();
 
   restart_reading(rapl_reading);
   restart_reading(wattsup_reading);

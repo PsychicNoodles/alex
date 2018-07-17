@@ -523,32 +523,7 @@ void dump_tree(const dwarf::die& d, int depth,
               else if (low_pc_val.get_type() == dwarf::value::type::sconstant)
                 low_pc = low_pc_val.as_sconstant();
 
-              // if (high_pc_val.get_type() == dwarf::value::type::address) {
-              //   high_pc = high_pc_val.as_address();
-              //   if (name.compare("math") == 0) {
-              //     DEBUG("IT'S A ADDRESS");
-              //   }
-              // } else if (high_pc_val.get_type() ==
-              // dwarf::value::type::uconstant) {
-              //   high_pc = high_pc_val.as_uconstant();
-              //   if (name.compare("math") == 0) {
-              //     DEBUG("IT'S AN UCONSTANT");
-              //   }
-              // } else if (high_pc_val.get_type() ==
-              // dwarf::value::type::sconstant) {
-              //   high_pc = high_pc_val.as_sconstant();
-              //   if (name.compare("math") == 0) {
-              //     DEBUG("IT'S AN SCONSTANT");
-              //   }
-              // }
-
               high_pc = high_pc_val.as_sconstant();
-
-              // DEBUG("NAME IS " << name);
-              // DEBUG("HIGH PC IS " << high_pc);
-              // DEBUG("LOW PC IS " << low_pc);
-              // DEBUG("WHY NOT ADD IN " << low_pc + high_pc + load_address);
-              // DEBUG("WHY NOT ADD IN " << low_pc + load_address);
               if (high_pc != 0 && low_pc != 0) {
                 sym_table.insert(pair<string, interval>(
                     name, (interval(low_pc, low_pc + high_pc) + load_address)));
@@ -565,55 +540,6 @@ void dump_tree(const dwarf::die& d, int depth,
   for (const auto& child : d) {
     dump_tree(child, depth + 1, sym_table, load_address, table, source_scope);
   }
-
-  // //if (to_string(node.tag).compare("DW_TAG_subprogram") == 0) {
-  // if (node.tag == dwarf::DW_TAG::subprogram) {
-  //   printf("%*.s<%" PRIx64 "> %s\n", depth, "",
-  //              node.get_section_offset(),
-  //              to_string(node.tag).c_str());
-  //   string name;
-  //   uint64_t low_pc = -1;
-  //   uint64_t high_pc = -1;
-  //   dwarf::value high_pc_val;
-  //   dwarf::value low_pc_val;
-  //   for (auto& attr : node.attributes()) {
-  //     if (to_string(attr.first).compare("DW_AT_name") == 0) {
-  //       name = to_string(attr.second);
-  //       DEBUG("name is " << name);
-  //     }
-  //     if (to_string(attr.first).compare("DW_AT_high_pc") == 0) {
-  //       high_pc_val = attr.second;
-  //     }
-  //     if (to_string(attr.first).compare("DW_AT_low_pc") == 0) {
-  //       low_pc_val = attr.second;
-  //     }
-  // printf("%*.s      %s %s\n", depth, "", to_string(attr.first).c_str(),
-  //        to_string(attr.second).c_str());
-
-  //     uint64_t low_pc;
-  //     uint64_t high_pc;
-
-  //     if (low_pc_val.get_type() == dwarf::value::type::address)
-  //       low_pc = low_pc_val.as_address();
-  //     else if (low_pc_val.get_type() == dwarf::value::type::uconstant)
-  //       low_pc = low_pc_val.as_uconstant();
-  //     else if (low_pc_val.get_type() == dwarf::value::type::sconstant)
-  //       low_pc = low_pc_val.as_sconstant();
-
-  //     if (high_pc_val.get_type() == dwarf::value::type::address)
-  //       high_pc = high_pc_val.as_address();
-  //     else if (high_pc_val.get_type() == dwarf::value::type::uconstant)
-  //       high_pc = high_pc_val.as_uconstant();
-  //     else if (high_pc_val.get_type() == dwarf::value::type::sconstant)
-  //       high_pc = high_pc_val.as_sconstant();
-  //     if (low_pc != -1 && high_pc != -1)
-  //       sym_table.insert(pair<interval, string>(
-  //           interval(low_pc, high_pc) + load_address, name));
-  //   }
-  // }
-
-  // for (auto& child : node) dump_tree(child, depth + 1, sym_table,
-  // load_address);
 }
 
 bool memory_map::process_file(const string& name, uintptr_t load_address,
