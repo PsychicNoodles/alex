@@ -202,7 +202,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     });
 
     const warningCounts = [...warningCountsMap];
-    const warningDistinct = [...warningCountsMap.keys()];
+    const warningsDistinct = [...warningCountsMap.keys()];
 
     let someHighDensity = false;
     for (const chartParams of chartsWithPlotData) {
@@ -228,7 +228,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
           spectrum,
           cpuTimeOffset,
           warningRecords,
-          warningDistinct
+          warningsDistinct
         });
     }
     if (someHighDensity) {
