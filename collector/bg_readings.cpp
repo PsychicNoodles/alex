@@ -90,6 +90,7 @@ void stop_reading(bg_reading *reading) {
   DEBUG("stopping reading for tid " << reading->thread);
   unique_lock<mutex> lock(reading->mtx);
   reading->running = false;
+  reading->ready = true;
   lock.unlock();
   reading->cv.notify_one();
   pthread_join(reading->thread, nullptr);
