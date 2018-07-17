@@ -63,11 +63,6 @@ function analyze(timeSlices) {
    */
   outputData.functions.forEach(func => {
     const funcTotal = func.observed + func.unselectedCount;
-    console.log(
-      `func.observed: ${func.observed}, func.unselectedCount: ${
-        func.unselectedCount
-      }`
-    );
     const notFuncSelected = outputData.selectedTotal - func.observed;
     const notFuncUnselected = (outputData.unselectedTotal =
       func.unselectedCount);
