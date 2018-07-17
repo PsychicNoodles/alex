@@ -11,8 +11,12 @@ class Store {
     this._listeners = new Set();
 
     this.stream = stream.fromStreamable(onStateChange => {
-      const subscription = this.subscribe(onStateChange);
-      return subscription.unsubscribe;
+      this._listeners.add(onStateChange);
+      onStateChange(this._state);
+
+      return () => {
+        this._listeners.delete(onStateChange);
+      };
     });
   }
 
@@ -26,13 +30,8 @@ class Store {
    * @return A subscription object with an unsubscribe method to remove the listener.
    */
   subscribe(onStateChange) {
-    this._listeners.add(onStateChange);
-    onStateChange(this._state);
-
     return {
-      unsubscribe: () => {
-        this._listeners.delete(onStateChange);
-      }
+      unsubscribe: this.stream.pipe(stream.subscribe(onStateChange))
     };
   }
 
@@ -48,12 +47,9 @@ class Store {
    * @param onStateChange The callback to be passed to Store.subscribe.
    */
   subscribeUnique(selection, propertyName, onStateChange) {
-    const oldSubscription = selection.property(propertyName);
-    if (oldSubscription) {
-      oldSubscription.unsubscribe();
-    }
-
-    selection.property(propertyName, this.subscribe(onStateChange));
+    this.stream.pipe(
+      stream.subscribeUnique(selection, propertyName, onStateChange)
+    );
   }
 
   /**
