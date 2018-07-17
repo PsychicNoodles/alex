@@ -24,19 +24,22 @@ function analyze(timeSlices) {
     );
     if (functionIndex === -1) {
       functionIndex =
-        outputData.functions.push({ name: functionName, expected: 0 }) - 1;
+        outputData.functions.push({
+          name: functionName,
+          time: 0,
+          observed: 0,
+          unselectedCount: 0,
+          expected: 0,
+          probability: 0
+        }) - 1;
     }
     if (timeSlice.selected) {
       outputData.selectedTotal++;
-      outputData.functions[functionIndex].time =
-        (outputData.functions[functionIndex].time || 0) +
-        timeSlice.numCPUTimerTicks;
-      outputData.functions[functionIndex].observed =
-        (outputData.functions[functionIndex].observed || 0) + 1;
+      outputData.functions[functionIndex].time += timeSlice.numCPUTimerTicks;
+      outputData.functions[functionIndex].observed++;
     } else {
       outputData.unselectedTotal++;
-      outputData.functions[functionIndex].unselectedCount =
-        (outputData.functions[functionIndex].unselectedCount || 0) + 1;
+      outputData.functions[functionIndex].unselectedCount++;
     }
   });
   outputData.timeSliceTotal = timeSlices.length;
@@ -60,6 +63,11 @@ function analyze(timeSlices) {
    */
   outputData.functions.forEach(func => {
     const funcTotal = func.observed + func.unselectedCount;
+    console.log(
+      `func.observed: ${func.observed}, func.unselectedCount: ${
+        func.unselectedCount
+      }`
+    );
     const notFuncSelected = outputData.selectedTotal - func.observed;
     const notFuncUnselected = (outputData.unselectedTotal =
       func.unselectedCount);
@@ -94,7 +102,9 @@ function analyze(timeSlices) {
     chiSquared += squaredDeviance;
 
     console.log(
-      `Saw ${func.observed} of ${func.name}, expected ~${Math.round(expected)}`
+      `Saw ${func.observed} of ${func.name}, expected ~${Math.round(
+        func.expected
+      )}`
     );
 
     func.probability = chi.cdf(chiSquared, degreesOfFreedom);
