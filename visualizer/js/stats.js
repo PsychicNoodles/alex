@@ -49,7 +49,6 @@ function render(root, { processedData }) {
 
   const statsMergeSelection = statsEnterSelection.merge(statsDataSelection);
 
-  console.log(statsMergeSelection.nodes());
   statsMergeSelection
     .select(".title")
     .text(({ name }) => name + ":")
@@ -64,39 +63,6 @@ function render(root, { processedData }) {
     .append("br");
 
   statsDataSelection.exit().remove();
-
-  // hiddenThreadsStore.subscribeUnique(
-  //   root,
-  //   hiddenThreadsSubscription,
-  //   hiddenThreads => {
-  //     const statsDataSelection = statsSelection
-  //       .selectAll("li")
-  //       .data(
-  //         calculateData(
-  //           processedData.filter(
-  //             timeslice => !hiddenThreads.includes(timeslice.tid)
-  //           )
-  //         )
-  //       );
-
-  //     const statsSelectionMerge = statsDataSelection
-  //       .enter()
-  //       .merge(statsDataSelection);
-
-  //     statsSelectionMerge
-  //       .select(".title")
-  //       .text(({ name }) => name + ":")
-  //       .append("br");
-
-  //     statsSelectionMerge.select("span.value").text(({ number }) => number);
-
-  //     statsSelectionMerge
-  //       .select("abbr.value span")
-  //       .text(({ number }) => d3.format(".4s")(number / 1000000000))
-  //       .attr("title", ({ number }) => `${number} Nanoseconds`)
-  //       .append("br");
-  //   }
-  // );
 }
 
 module.exports = {
