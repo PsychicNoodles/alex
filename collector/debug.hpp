@@ -32,6 +32,8 @@ using namespace std;
 bool enable_segfault_trace();
 void disable_segfault_trace();
 
+bool print_self_maps();
+
 void dump_die(const dwarf::die& node);
 void dump_line_table(const dwarf::line_table& lt);
 void dump_tree(const dwarf::die& node, int depth = 0);

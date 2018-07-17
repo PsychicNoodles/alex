@@ -9,8 +9,10 @@ collector:
 examples:
 	$(MAKE) -C examples
 
-clean:
+clean: cclean
 	$(RM) -rf node_modules
+
+cclean:
 	$(MAKE) -C collector clean
 	$(MAKE) -C examples clean
 
