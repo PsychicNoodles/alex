@@ -210,7 +210,7 @@ async function collect({
   }
 
   let progressInterval,
-    startTime = 0;
+    startTime = Date.now();
   process.on(
     "SIGUSR2",
     () => ({ progressInterval, startTime } = startCounting())
