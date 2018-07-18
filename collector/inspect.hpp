@@ -160,7 +160,7 @@ class memory_map {
   /// source scope patterns.
   void build(const std::unordered_set<std::string>& binary_scope,
              const std::unordered_set<std::string>& source_scope,
-             std::multimap<interval, string, cmpByInterval>& sym_table);
+             std::map<interval, string, cmpByInterval>& sym_table);
 
   std::shared_ptr<line> find_line(const std::string& name);
   std::shared_ptr<line> find_line(uintptr_t addr);
@@ -191,14 +191,13 @@ class memory_map {
   /// the map
   bool process_file(const std::string& name, uintptr_t load_address,
                     const std::unordered_set<std::string>& source_scope,
-                    std::multimap<interval, string, cmpByInterval>& sym_table);
+                    std::map<interval, string, cmpByInterval>& sym_table);
 
   /// Add entries for all inlined calls
-  void process_inlines(
-      const dwarf::die& d, const dwarf::line_table& table,
-      const std::unordered_set<std::string>& source_scope,
-      uintptr_t load_address,
-      std::multimap<interval, string, cmpByInterval>& sym_table);
+  void process_inlines(const dwarf::die& d, const dwarf::line_table& table,
+                       const std::unordered_set<std::string>& source_scope,
+                       uintptr_t load_address,
+                       std::map<interval, string, cmpByInterval>& sym_table);
 
   std::map<std::string, std::shared_ptr<file>> _files;
   std::map<interval, std::shared_ptr<line>, cmpByInterval> _ranges;
@@ -228,9 +227,5 @@ static std::ostream& operator<<(std::ostream& os, const line* l) {
   os << *l;
   return os;
 }
-
-extern unordered_map<string, uintptr_t> get_loaded_files();
-extern dwarf::value find_attribute(const dwarf::die& d, dwarf::DW_AT attr);
-extern elf::elf locate_debug_executable(const string filename);
 
 #endif

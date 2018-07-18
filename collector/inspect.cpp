@@ -317,10 +317,9 @@ bool in_scope(const string& name, const unordered_set<string>& scope) {
   return false;
 }
 
-void memory_map::build(
-    const unordered_set<string>& binary_scope,
-    const unordered_set<string>& source_scope,
-    std::multimap<interval, string, cmpByInterval>& sym_table) {
+void memory_map::build(const unordered_set<string>& binary_scope,
+                       const unordered_set<string>& source_scope,
+                       std::map<interval, string, cmpByInterval>& sym_table) {
   size_t in_scope_count = 0;
   for (const auto& f : get_loaded_files()) {
     // if (in_scope(f.first, binary_scope)) {
@@ -377,7 +376,7 @@ void memory_map::add_range(std::string filename, size_t line_no,
 void memory_map::process_inlines(
     const dwarf::die& d, const dwarf::line_table& table,
     const unordered_set<string>& source_scope, uintptr_t load_address,
-    std::multimap<interval, string, cmpByInterval>& sym_table) {
+    std::map<interval, string, cmpByInterval>& sym_table) {
   if (!d.valid()) return;
 
   try {
@@ -466,7 +465,7 @@ void memory_map::process_inlines(
 }
 
 void dump_tree(const dwarf::die& d, int depth,
-               std::multimap<interval, string, cmpByInterval>& sym_table,
+               std::map<interval, string, cmpByInterval>& sym_table,
                uintptr_t load_address, const dwarf::line_table& table,
                const unordered_set<string>& source_scope) {
   if (!d.valid()) return;
@@ -528,7 +527,7 @@ void dump_tree(const dwarf::die& d, int depth,
 bool memory_map::process_file(
     const string& name, uintptr_t load_address,
     const unordered_set<string>& source_scope,
-    std::multimap<interval, string, cmpByInterval>& sym_table) {
+    std::map<interval, string, cmpByInterval>& sym_table) {
   elf::elf f = locate_debug_executable(name);
   // If a debug version of the file could not be located, return false
   if (!f.valid()) {

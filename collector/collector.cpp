@@ -277,7 +277,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
     // Get all the dwarf files for debug symbols
 
-    multimap<interval, string, cmpByInterval> sym_map;
+    map<interval, string, cmpByInterval> sym_map;
 
     memory_map::get_instance().build(binary_scope, source_scope, sym_map);
 

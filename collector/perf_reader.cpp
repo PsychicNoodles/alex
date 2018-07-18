@@ -502,7 +502,7 @@ bool process_sample_record(
     bool is_first_timeslice, bool is_first_sample, bg_reading *rapl_reading,
     bg_reading *wattsup_reading, const map<uint64_t, kernel_sym> &kernel_syms,
     const map<interval, std::shared_ptr<line>, cmpByInterval> &ranges,
-    const multimap<interval, string, cmpByInterval> &sym_map, dwarf::dwarf dw) {
+    const map<interval, string, cmpByInterval> &sym_map, dwarf::dwarf dw) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
@@ -661,8 +661,6 @@ bool process_sample_record(
       uint64_t addr = lookup_kernel_addr(kernel_syms, inst_ptr);
       if (addr != -1) {
         auto ks = kernel_syms.at(addr);
-        sym_name_str = ks.sym;
-        sym_name = sym_name_str.c_str();
         file_name = "(kernel)";
         file_base = nullptr;
         sym_addr = reinterpret_cast<void *>(addr);
@@ -672,15 +670,17 @@ bool process_sample_record(
     // Need to subtract one. PC is the return address, but we're
     // looking for the callsite.
     dwarf::taddr pc = inst_ptr - 1;
-    char *name = nullptr;
 
     // Get the sym name
-    auto iter_sym = sym_map.upper_bound(interval(pc, pc));
-    if (iter_sym != sym_map.begin()) {
-      --iter_sym;
-      if (iter_sym->first.contains(pc)) {
-        sym_name = (char *)iter_sym->second.c_str();
-        DEBUG("name is " << iter_sym->second);
+    DEBUG("cpd: looking up function symbol");
+    auto upper_sym = sym_map.upper_bound(interval(pc, pc));
+    if (upper_sym != sym_map.begin()) {
+      --upper_sym;
+      if (upper_sym->first.contains(pc)) {
+        sym_name = (char *)upper_sym->second.c_str();
+      } else {
+        DEBUG("cpd: cannot find function symbol");
+        sym_name = nullptr;
       }
     }
 
@@ -690,18 +690,21 @@ bool process_sample_record(
     size_t start_loop = time_ms();
 
     // Get the line full location
-
-    auto iter = ranges.upper_bound(interval(pc, pc));
-    if (iter != ranges.begin()) {
-      --iter;
-      if (iter->first.contains(pc)) {
-        DEBUG("line is " << iter->second);
-        line = iter->second.get()->get_line();
-        sprintf(fullLocation, "%s:%d",
-                (char *)(iter->second.get()->get_file()->get_name().c_str()),
-                line);
-      } else
+    DEBUG("cpd: looking up line location");
+    auto upper_range = ranges.upper_bound(interval(pc, pc));
+    if (upper_range != ranges.begin()) {
+      --upper_range;
+      if (upper_range->first.contains(pc)) {
+        DEBUG("line is " << upper_range->second);
+        line = upper_range->second.get()->get_line();
+        sprintf(
+            fullLocation, "%s:%d",
+            (char *)(upper_range->second.get()->get_file()->get_name().c_str()),
+            line);
+      } else {
+        DEBUG("cpd: cannot find line location");
         fullLocation = nullptr;
+      }
     }
 
     // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
@@ -982,7 +985,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
 int collect_perf_data(
     const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd, int socket,
     bg_reading *rapl_reading, bg_reading *wattsup_reading, dwarf::dwarf dw,
-    multimap<interval, string, cmpByInterval> sym_map,
+    std::map<interval, string, cmpByInterval> sym_map,
     std::map<interval, std::shared_ptr<line>, cmpByInterval> ranges) {
   bool is_first_timeslice = true;
   bool done = false;
