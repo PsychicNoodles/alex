@@ -18,6 +18,7 @@
   transform: translateY(-10px);
   pointer-events: none;
   transition: opacity 200ms, transform 200ms;
+  z-index: 1000;
 }
 
 .select--dropdown-open .select__dropdown {

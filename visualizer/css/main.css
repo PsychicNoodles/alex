@@ -59,6 +59,7 @@ button:disabled {
   grid-area: info;
   overflow-y: auto;
   overflow-x: hidden;
+  border-left: 1px solid #999;
 }
 
 #legend {
@@ -104,7 +105,6 @@ button:disabled {
 #title {
   font-size: 1.25em;
   font-weight: bold;
-  text-align: center;
 }
 @media (max-width: 750px) {
   #charts {

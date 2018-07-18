@@ -154,46 +154,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
       .domain([xScaleMin, xScaleMax])
       .range([0, chart.WIDTH]);
 
-    const yScalesByChart = new WeakMap();
-    const plotDataByChart = new WeakMap();
-
-    for (const chartParams of charts) {
-      const { getDependentVariable } = chartParams;
-      const normalData = SDFilter(processedData, getDependentVariable, SDrange);
-      const yScaleMax = d3.max(normalData, getDependentVariable);
-      const yScaleMin = d3.min(normalData, getDependentVariable);
-      const yScale = d3
-        .scaleLinear()
-        .domain([yScaleMax, yScaleMin])
-        .range([0, chart.HEIGHT]);
-
-      const plotData = computeRenderableData({
-        data: normalData,
-        xScale,
-        yScale,
-        getIndependentVariable,
-        getDependentVariable
-      });
-      yScalesByChart.set(chartParams, yScale);
-      plotDataByChart.set(chartParams, plotData);
-    }
-
-    const chartsWithPlotData = charts.filter(
-      chart => plotDataByChart.get(chart).length > 0
-    );
-
-    const densityMax = Math.max(
-      chartsWithPlotData.reduce(
-        (currentMax, chartParams) =>
-          Math.max(
-            currentMax,
-            d3.max(plotDataByChart.get(chartParams), d => d.densityAvg)
-          ),
-        0
-      ),
-      5
-    );
-
     const warningRecords = result.warning;
     const warningCountsMap = new Map();
     warningRecords.forEach(warning => {
@@ -210,41 +170,111 @@ ipcRenderer.on("result", async (event, resultFile) => {
     const warningCounts = [...warningCountsMap];
     const warningsDistinct = [...warningCountsMap.keys()];
 
-    let someHighDensity = false;
-    for (const chartParams of chartsWithPlotData) {
-      const isLowDensity =
-        d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) < 2;
-      if (!isLowDensity) {
-        someHighDensity = true;
-      }
-      const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
-      d3.select("#charts")
-        .append("div")
-        .call(chart.render, {
-          timeslices: processedData,
-          getIndependentVariable,
-          getDependentVariable,
-          xAxisLabel,
-          yAxisLabel,
+    const renderCharts = data => {
+      const yScalesByChart = new WeakMap();
+      const plotDataByChart = new WeakMap();
+
+      for (const chartParams of charts) {
+        const { getDependentVariable } = chartParams;
+        const normalData = SDFilter(data, getDependentVariable, SDrange);
+        const yScaleMax = d3.max(normalData, getDependentVariable);
+        const yScaleMin = d3.min(normalData, getDependentVariable);
+        const yScale = d3
+          .scaleLinear()
+          .domain([yScaleMax, yScaleMin])
+          .range([0, chart.HEIGHT]);
+
+        const plotData = computeRenderableData({
+          data: normalData,
           xScale,
-          yScale: yScalesByChart.get(chartParams),
-          yFormat,
-          plotData: plotDataByChart.get(chartParams),
-          densityMax,
-          spectrum,
-          cpuTimeOffset,
-          warningRecords,
-          warningsDistinct
+          yScale,
+          getIndependentVariable,
+          getDependentVariable
         });
-    }
-    if (someHighDensity) {
-      d3.select("#legend").call(legend.render, {
-        densityMax,
-        spectrum
-      });
-    } else {
-      d3.select("#legend").remove();
-    }
+        yScalesByChart.set(chartParams, yScale);
+        plotDataByChart.set(chartParams, plotData);
+      }
+
+      const chartsWithPlotData = charts.filter(
+        chart => plotDataByChart.get(chart).length > 0
+      );
+
+      const densityMax = Math.max(
+        chartsWithPlotData.reduce(
+          (currentMax, chartParams) =>
+            Math.max(
+              currentMax,
+              d3.max(plotDataByChart.get(chartParams), d => d.densityAvg)
+            ),
+          0
+        ),
+        5
+      );
+
+      const chartsDataSelection = d3
+        .select("#charts")
+        .selectAll("div")
+        .data(charts);
+
+      let someHighDensity = false;
+
+      chartsDataSelection
+        .enter()
+        .append("div")
+        .each(function(chartParams) {
+          const isLowDensity =
+            d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) < 2;
+          if (!isLowDensity) {
+            someHighDensity = true;
+          }
+          const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
+          d3.select(this).call(chart.create, {
+            getIndependentVariable,
+            getDependentVariable,
+            xAxisLabel,
+            yAxisLabel,
+            xScale,
+            yScale: yScalesByChart.get(chartParams),
+            yFormat,
+            plotData: plotDataByChart.get(chartParams),
+            densityMax,
+            spectrum,
+            cpuTimeOffset,
+            warningRecords,
+            warningsDistinct
+          });
+        })
+        .merge(chartsDataSelection)
+        .each(function(chartParams) {
+          const isLowDensity =
+            d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) < 2;
+          if (!isLowDensity) {
+            someHighDensity = true;
+          }
+          const { getDependentVariable, yFormat } = chartParams;
+          d3.select(this).call(chart.updateData, {
+            getIndependentVariable,
+            getDependentVariable,
+            xScale,
+            yScale: yScalesByChart.get(chartParams),
+            yFormat,
+            plotData: plotDataByChart.get(chartParams),
+            densityMax,
+            spectrum
+          });
+        });
+
+      chartsDataSelection.exit().remove();
+
+      if (someHighDensity) {
+        d3.select("#legend").call(legend.render, {
+          densityMax,
+          spectrum
+        });
+      } else {
+        d3.select("#legend").remove();
+      }
+    };
 
     d3.select("#stats").call(stats.render, {
       processedData
@@ -325,6 +355,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
       .pipe(
         stream.map(
           ({ hiddenSources, hiddenThreads, selections, selectedFunction }) => {
+            const FUNCTION_NAME_SEPARATOR = " ";
+
             const startTime = performance.now();
             const { functions } = analyze(
               processedData
@@ -347,9 +379,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 .filter(
                   timeslice =>
                     selectedFunction
-                      ? timeslice.stackFrames.some(
-                          frame => frame.symName === selectedFunction
-                        )
+                      ? timeslice.stackFrames[0].symName === selectedFunction
                       : true
                 ),
               stackFrames =>
@@ -357,7 +387,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                   ? stackFrames
                       .map(frame => frame.symName)
                       .reverse()
-                      .join(" › ")
+                      .join(FUNCTION_NAME_SEPARATOR)
                   : stackFrames[0].symName
             );
 
@@ -369,10 +399,12 @@ ipcRenderer.on("result", async (event, resultFile) => {
               (timeTaken + numProcessingTimeSamples * averageProcessingTime) /
               (numProcessingTimeSamples + 1);
             numProcessingTimeSamples++;
-            console.log(averageProcessingTime);
 
             return {
-              functions,
+              functions: functions.map(func => ({
+                ...func,
+                displayNames: func.name.split(FUNCTION_NAME_SEPARATOR)
+              })),
               selectedFunction,
               hiddenSources,
               hiddenThreads
@@ -400,30 +432,25 @@ ipcRenderer.on("result", async (event, resultFile) => {
               }
             });
 
-            const filterData = data =>
-              data
-                .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
-                .filter(timeslice =>
-                  timeslice.stackFrames.some(
-                    frame => !hiddenSources.includes(frame.fileName)
-                  )
+            const filteredData = processedData
+              .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
+              .filter(timeslice =>
+                timeslice.stackFrames.some(
+                  frame => !hiddenSources.includes(frame.fileName)
                 )
-                .map(timeslice => ({
-                  ...timeslice,
-                  stackFrames: timeslice.stackFrames.filter(
-                    frame => !hiddenSources.includes(frame.fileName)
-                  )
-                }));
+              )
+              .map(timeslice => ({
+                ...timeslice,
+                stackFrames: timeslice.stackFrames.filter(
+                  frame => !hiddenSources.includes(frame.fileName)
+                )
+              }));
 
             d3.select("#stats").call(stats.render, {
-              processedData: filterData(processedData)
+              processedData: filteredData
             });
 
-            d3.selectAll("#charts .plot").each(function(_, i) {
-              d3.select(this).call(plot.toggleCircles, {
-                data: filterData(plotDataByChart.get(charts[i]))
-              });
-            });
+            renderCharts(filteredData);
           }
         )
       );
