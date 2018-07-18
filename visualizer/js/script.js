@@ -202,6 +202,19 @@ ipcRenderer.on("result", async (event, resultFile) => {
       cpuTimeOffset
     });
 
+    const yScalesByChart = new WeakMap();
+    for (const chartParams of charts) {
+      const { getDependentVariable } = chartParams;
+      const normalData = SDFilter(processedData, getDependentVariable, SDrange);
+      const yScaleMax = d3.max(normalData, getDependentVariable);
+      const yScaleMin = d3.min(normalData, getDependentVariable);
+      const yScale = d3
+        .scaleLinear()
+        .domain([yScaleMax, yScaleMin])
+        .range([0, chart.HEIGHT]);
+      yScalesByChart.set(chartParams, yScale);
+    }
+
     stream
       .fromStreamables([
         sourceSelect.hiddenSourcesStore.stream,
@@ -227,31 +240,25 @@ ipcRenderer.on("result", async (event, resultFile) => {
             processedData: filteredData
           });
 
-          const yScalesByChart = new WeakMap();
           const plotDataByChart = new WeakMap();
 
           for (const chartParams of charts) {
             const { getDependentVariable } = chartParams;
+
             const normalData = SDFilter(
               filteredData,
               getDependentVariable,
               SDrange
             );
-            const yScaleMax = d3.max(normalData, getDependentVariable);
-            const yScaleMin = d3.min(normalData, getDependentVariable);
-            const yScale = d3
-              .scaleLinear()
-              .domain([yScaleMax, yScaleMin])
-              .range([0, chart.HEIGHT]);
 
             const plotData = computeRenderableData({
               data: normalData,
               xScale,
-              yScale,
+              yScale: yScalesByChart.get(chartParams),
               getIndependentVariable,
               getDependentVariable
             });
-            yScalesByChart.set(chartParams, yScale);
+
             plotDataByChart.set(chartParams, plotData);
           }
 
@@ -327,12 +334,14 @@ ipcRenderer.on("result", async (event, resultFile) => {
           chartsDataSelection.exit().remove();
 
           if (someHighDensity) {
-            d3.select("#legend").call(legend.render, {
-              densityMax,
-              spectrum
-            });
+            d3.select("#legend")
+              .style("display", "block")
+              .call(legend.render, {
+                densityMax,
+                spectrum
+              });
           } else {
-            d3.select("#legend").remove();
+            d3.select("#legend").style("display", "none");
           }
         })
       );
