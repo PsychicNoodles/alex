@@ -356,6 +356,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
       .pipe(
         stream.map(
           ({ hiddenSources, hiddenThreads, selections, selectedFunction }) => {
+            const FUNCTION_NAME_SEPARATOR = " ";
+
             const startTime = performance.now();
             const { functions } = analyze(
               processedData
@@ -378,9 +380,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 .filter(
                   timeslice =>
                     selectedFunction
-                      ? timeslice.stackFrames.some(
-                          frame => frame.symName === selectedFunction
-                        )
+                      ? timeslice.stackFrames[0].symName === selectedFunction
                       : true
                 ),
               stackFrames =>
@@ -388,7 +388,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                   ? stackFrames
                       .map(frame => frame.symName)
                       .reverse()
-                      .join(" › ")
+                      .join(FUNCTION_NAME_SEPARATOR)
                   : stackFrames[0].symName
             );
 
@@ -400,10 +400,12 @@ ipcRenderer.on("result", async (event, resultFile) => {
               (timeTaken + numProcessingTimeSamples * averageProcessingTime) /
               (numProcessingTimeSamples + 1);
             numProcessingTimeSamples++;
-            console.log(averageProcessingTime);
 
             return {
-              functions,
+              functions: functions.map(func => ({
+                ...func,
+                displayNames: func.name.split(FUNCTION_NAME_SEPARATOR)
+              })),
               selectedFunction,
               hiddenSources,
               hiddenThreads

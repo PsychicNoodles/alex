@@ -10,8 +10,6 @@ const d3 = require("d3");
 function render(root, { functions, functionsAreSelectable, onFunctionSelect }) {
   root.classed("function-runtimes", true);
 
-  console.log(functionsAreSelectable);
-
   root.select(".function-runtimes__header-row").remove();
   const headerRowSelection = root
     .insert("tr", "tr")
@@ -22,21 +20,29 @@ function render(root, { functions, functionsAreSelectable, onFunctionSelect }) {
   headerRowSelection.append("th").text("Observed Count");
   headerRowSelection.append("th").text("Probability");
 
+  const MAX_NUM_FUNCTIONS = 100;
   const tableDataSelection = root
     .selectAll(".function-runtimes__data-row")
-    .data(functions.slice(0, 100));
+    .data(functions.slice(0, MAX_NUM_FUNCTIONS));
 
   tableDataSelection
     .enter()
     .append("tr")
     .attr("class", "function-runtimes__data-row")
     .merge(tableDataSelection)
-    .each(function({ name, time, expected, observed, probability }) {
+    .each(function({
+      name,
+      displayNames,
+      time,
+      expected,
+      observed,
+      probability
+    }) {
       const row = d3
         .select(this)
         .selectAll(".function-runtimes__data-column")
         .data([
-          name,
+          null,
           d3.format(".4s")(time),
           expected.toFixed(0),
           observed,
@@ -48,9 +54,22 @@ function render(root, { functions, functionsAreSelectable, onFunctionSelect }) {
         .append("td")
         .attr("class", "function-runtimes__data-column")
         .merge(row)
-        .text(text => text)
-        .each((d, i, groups) => {
+        .each((text, i, groups) => {
           if (i === 0) {
+            const namePartsSelection = d3
+              .select(groups[i])
+              .selectAll(".function-runtimes__name-part")
+              .data(displayNames);
+
+            namePartsSelection
+              .enter()
+              .append("span")
+              .attr("class", "function-runtimes__name-part")
+              .merge(namePartsSelection)
+              .text(namePart => namePart);
+
+            namePartsSelection.exit().remove();
+
             d3.select(groups[i])
               .classed(
                 "function-runtimes__data-column--clickable",
@@ -60,6 +79,8 @@ function render(root, { functions, functionsAreSelectable, onFunctionSelect }) {
                 "click",
                 functionsAreSelectable ? () => onFunctionSelect(name) : null
               );
+          } else {
+            d3.select(groups[i]).text(text);
           }
         });
 
