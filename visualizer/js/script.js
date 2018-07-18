@@ -10,7 +10,7 @@ const {
   processData,
   computeRenderableData,
   getEventCount,
-  SDFilter
+  sdFilter
 } = require("./process-data");
 const { analyze } = require("./analysis");
 const chart = require("./chart");
@@ -82,7 +82,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
   document.getElementById("title").textContent = result.header.programName;
   const processedData = processData(result.timeslices, result.header);
   const spectrum = d3.interpolateWarm;
-  const SDrange = 4;
+  const sdRange = 4;
 
   if (processedData.length === 0) {
     alert("timeslices array (maybe after processed) is empty");
@@ -211,7 +211,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     const yScalesByChart = new WeakMap();
     for (const chartParams of charts) {
       const { getDependentVariable } = chartParams;
-      const normalData = SDFilter(processedData, getDependentVariable, SDrange);
+      const normalData = sdFilter(processedData, getDependentVariable, sdRange);
       const yScaleMax = d3.max(normalData, getDependentVariable);
       const yScaleMin = d3.min(normalData, getDependentVariable);
       const yScale = d3
@@ -254,10 +254,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
           for (const chartParams of charts) {
             const { getDependentVariable, flattenThreads } = chartParams;
 
-            const normalData = SDFilter(
+            const normalData = sdFilter(
               flattenThreads ? sourceFilteredData : fullFilteredData,
               getDependentVariable,
-              SDrange
+              sdRange
             );
 
             const plotData = computeRenderableData({
