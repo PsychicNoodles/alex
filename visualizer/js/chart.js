@@ -94,6 +94,7 @@ function updateData(
     densityMax,
     getIndependentVariable,
     getDependentVariable,
+    yAxisLabel,
     xScale,
     yScale,
     yFormat
@@ -116,7 +117,16 @@ function updateData(
     .select("g.chart__axis--x")
     .call(d3.axisBottom(xScale).tickFormat(d3.format(".2s")));
 
-  svg.select("g.chart__axis--y").call(d3.axisLeft(yScale).tickFormat(yFormat));
+  svg
+    .select("g.chart__axis--y")
+    .call(d3.axisLeft(yScale).tickFormat(yFormat))
+    .select(".chart__axis-label--y")
+    .attr("class", "chart__axis-label chart__axis-label--y")
+    .attr("text-anchor", "middle")
+    .attr("y", -40)
+    .attr("x", -(HEIGHT / 2))
+    .attr("transform", "rotate(-90)")
+    .text(yAxisLabel);
 }
 
 module.exports = { create, updateData, WIDTH, HEIGHT };
