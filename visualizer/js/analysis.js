@@ -2,44 +2,46 @@ const fisher = require("fishertest");
 /**
  * Run analyses of data.
  * @param timeSlices All the data.
+ * @param {(stackFrames: Array) => string} getFunctionName
+ *    Get a unique name for a function. All timeslices that resolve to the same
+ *    function name will be grouped together.
  * @returns Results of the analysis.
  * @todo Move out the partitioning from subfunctions into this function.
  * @todo Let client choose sort?
  */
-function analyze(timeSlices) {
+function analyze(timeSlices, getFunctionName) {
   const outputData = {
     selectedTotal: 0,
     unselectedTotal: 0,
     functions: []
   };
 
-  let functionName = "";
-  let functionIndex = -1;
-  timeSlices.forEach(timeSlice => {
-    functionName = getCallStackName(timeSlice.stackFrames);
-    functionIndex = outputData.functions.findIndex(
-      element => element.name === functionName
-    );
-    if (functionIndex === -1) {
-      functionIndex =
-        outputData.functions.push({
-          name: functionName,
-          time: 0,
-          observed: 0,
-          unselectedCount: 0,
-          expected: 0,
-          probability: 0
-        }) - 1;
+  const functionsMap = new Map();
+  for (const timeSlice of timeSlices) {
+    const functionName = getFunctionName(timeSlice.stackFrames);
+    if (!functionsMap.has(functionName)) {
+      functionsMap.set(functionName, {
+        name: functionName,
+        time: 0,
+        observed: 0,
+        unselectedCount: 0,
+        expected: 0,
+        probability: 0
+      });
     }
+
+    const functionEntry = functionsMap.get(functionName);
     if (timeSlice.selected) {
       outputData.selectedTotal++;
-      outputData.functions[functionIndex].time += timeSlice.numCPUTimerTicks;
-      outputData.functions[functionIndex].observed++;
+      functionEntry.time += timeSlice.numCPUTimerTicks;
+      functionEntry.observed++;
     } else {
       outputData.unselectedTotal++;
-      outputData.functions[functionIndex].unselectedCount++;
+      functionEntry.unselectedCount++;
     }
-  });
+  }
+
+  outputData.functions = [...functionsMap.values()];
 
   if (outputData.selectedTotal === 0 || outputData.unselectedTotal === 0) {
     return outputData;
@@ -77,13 +79,6 @@ function analyze(timeSlices) {
 
   outputData.functions.sort((a, b) => b.probability - a.probability);
   return outputData;
-}
-
-function getCallStackName(stackFrames) {
-  return stackFrames
-    .map(frame => frame.symName)
-    .reverse()
-    .join(" > ");
 }
 
 module.exports = { analyze };

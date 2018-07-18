@@ -7,9 +7,10 @@ function render(root, { data, densityMax, spectrum }) {
   root.classed("plot", true);
 
   // Create the points and position them in the plot
-  const circles = root
-    .append("g")
-    .attr("class", "circles")
+  const circles = (root.select("g").empty()
+    ? root.append("g").attr("class", "circles")
+    : root.select("g")
+  )
     .selectAll("circle")
     .data(data);
 
@@ -24,19 +25,8 @@ function render(root, { data, densityMax, spectrum }) {
     .style("fill", d =>
       d3.scaleSequential(spectrum)(d.densityAvg / densityMax)
     );
+
+  circles.exit().remove();
 }
 
-function toggleCircles(root, { data }) {
-  const circlesData = root.selectAll("circle").data(data);
-
-  // note: there's no handling for new elements as they need to be rendered above first
-
-  circlesData
-    .enter()
-    .merge(circlesData)
-    .style("opacity", 1);
-
-  circlesData.exit().style("opacity", 0);
-}
-
-module.exports = { render, toggleCircles };
+module.exports = { render };

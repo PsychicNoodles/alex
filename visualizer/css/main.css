@@ -91,6 +91,10 @@ button:disabled {
   margin: 5px;
 }
 
+#function-runtimes-back-button:not(.function-runtimes-back-button--visible) {
+  display: none;
+}
+
 #tables-wrapper {
   overflow: auto;
   flex: 1;
