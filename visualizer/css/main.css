@@ -52,6 +52,7 @@ button:disabled {
   grid-area: charts;
   overflow: auto;
   padding: 20px;
+  text-align: center;
 }
 
 #info {
@@ -102,10 +103,9 @@ button:disabled {
 }
 
 #title {
-  position: absolute;
-  top: 0px;
+  font-size: 1.25em;
+  font-weight: bold;
 }
-
 @media (max-width: 750px) {
   #charts {
     padding: 0;
