@@ -58,6 +58,7 @@ button:disabled {
   grid-area: info;
   overflow-y: auto;
   overflow-x: hidden;
+  border-left: 1px solid #999;
 }
 
 #legend {
