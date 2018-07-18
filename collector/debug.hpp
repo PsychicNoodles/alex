@@ -3,7 +3,10 @@
 
 #include <iostream>
 #include <sstream>
+#include <string>
+#include <unordered_map>
 
+using namespace std;
 #include <libelfin/dwarf/dwarf++.hh>
 #include <libelfin/elf/elf++.hh>
 
@@ -33,6 +36,8 @@ bool print_self_maps();
 
 void dump_die(const dwarf::die& node);
 void dump_line_table(const dwarf::line_table& lt);
-int dump_table_and_symbol(char* path);
+void dump_tree(const dwarf::die& node, int depth = 0);
+int dump_table_and_symbol(unordered_map<string, uintptr_t> result,
+                          uint64_t inst_ptr);
 
 #endif

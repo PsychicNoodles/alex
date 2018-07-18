@@ -8,6 +8,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
+#include <unordered_map>
+
+using namespace std;
 #include <fstream>
 #include <iostream>
 
@@ -153,51 +157,73 @@ void dump_line_table(const dwarf::line_table &lt) {
   }
 }
 
-int dump_table_and_symbol(char *path) {
-  int fd = open(path, O_RDONLY);
-  if (fd < 0) {
-    perror(path);
-    return DEBUG_SYMBOLS_FILE_ERROR;
-  }
-
-  elf::elf ef(elf::create_mmap_loader(fd));
-  dwarf::dwarf dw(dwarf::elf::create_loader(ef));
-  DEBUG("dump_line_table");
-
-  for (auto const &cu : dw.compilation_units()) {
-    printf("--- <%x>\n", static_cast<unsigned int>(cu.get_section_offset()));
-    dump_line_table(cu.get_line_table());
-    printf("\n");
-  }
-  printf("loading symbols");
-  for (auto &sec : ef.sections()) {
-    if (sec.get_hdr().type != elf::sht::symtab &&
-        sec.get_hdr().type != elf::sht::dynsym) {
-      continue;
-    }
-
-    printf("Symbol table '%s':\n", sec.get_name().c_str());
-    printf("%6s: %-16s %-5s %-7s %-7s %-5s %s\n", "Num", "Value", "Size",
-           "Type", "Binding", "Index", "Name");
-    int i = 0;
-    for (auto sym : sec.as_symtab()) {
-      auto &d = sym.get_data();
-      printf("%6d: %016" PRIx64 " %5" PRId64 " %-7s %-7s %5s %s\n", i++,
-             d.value, d.size, to_string(d.type()).c_str(),
-             to_string(d.binding()).c_str(), to_string(d.shnxd).c_str(),
-             sym.get_name().c_str());
+void dump_tree(const dwarf::die &node, int depth) {
+  if (to_string(node.tag).compare("DW_TAG_subprogram") == 0) {
+    printf("%*.s<%" PRIx64 "> %s\n", depth, "", node.get_section_offset(),
+           to_string(node.tag).c_str());
+    for (auto &attr : node.attributes()) {
+      if (to_string(attr.first).compare("DW_AT_name") == 0) {
+        string name = to_string(attr.second);
+        DEBUG("name is " << name.c_str());
+      }
+      printf("%*.s      %s %s\n", depth, "", to_string(attr.first).c_str(),
+             to_string(attr.second).c_str());
     }
   }
-  printf("  %-16s  %-16s   %-16s   %s\n", "Type", "Offset", "VirtAddr",
-         "PhysAddr");
-  printf("  %-16s  %-16s   %-16s  %6s %5s\n", " ", "FileSiz", "MemSiz", "Flags",
-         "Align");
-  for (auto &seg : ef.segments()) {
-    auto &hdr = seg.get_hdr();
-    printf("   %-16s 0x%016" PRIx64 " 0x%016" PRIx64 " 0x%016" PRIx64 "\n",
-           to_string(hdr.type).c_str(), hdr.offset, hdr.vaddr, hdr.paddr);
-    printf("   %-16s 0x%016" PRIx64 " 0x%016" PRIx64 " %-5s %-5" PRIx64 "\n",
-           "", hdr.filesz, hdr.memsz, to_string(hdr.flags).c_str(), hdr.align);
+  for (auto &child : node) dump_tree(child, depth + 1);
+}
+
+int dump_table_and_symbol(unordered_map<string, uintptr_t> result,
+                          uint64_t inst_ptr) {
+  // std::cout << "inst prt is " << inst_ptr;
+  uint64_t diff = -1;
+  struct elf::Sym<> real_data;
+  int i = 0;
+  char *name;
+  for (auto &f : result) {
+    char *path = (char *)f.first.c_str();
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) {
+      perror(path);
+      return DEBUG_SYMBOLS_FILE_ERROR;
+    }
+
+    elf::elf ef(elf::create_mmap_loader(fd));
+    dwarf::dwarf dw(dwarf::elf::create_loader(ef));
+
+    // printf("loading symbols");
+    for (auto &sec : ef.sections()) {
+      if (sec.get_hdr().type != elf::sht::symtab &&
+          sec.get_hdr().type != elf::sht::dynsym) {
+        continue;
+      }
+
+      // printf("Symbol table '%s':\n", sec.get_name().c_str());
+      // printf("%6s: %-16s %-5s %-7s %-7s %-5s %s\n", "Num", "Value", "Size",
+      //        "Type", "Binding", "Index", "Name");
+      for (auto sym : sec.as_symtab()) {
+        auto &d = sym.get_data();
+        uint64_t new_diff = inst_ptr - d.value;
+        if (diff == -1) {
+          real_data = d;
+          diff = new_diff;
+          name = (char *)sym.get_name().c_str();
+          i++;
+        } else if (new_diff > 0 && new_diff < diff) {
+          real_data = d;
+          diff = new_diff;
+          name = (char *)sym.get_name().c_str();
+          i++;
+        }
+      }
+    }
   }
+  printf("%6d: %016" PRIx64 " %5" PRId64 " %-7s %-7s %5s %s\n", i++,
+         real_data.value, real_data.size, to_string(real_data.type()).c_str(),
+         to_string(real_data.binding()).c_str(),
+         to_string(real_data.shnxd).c_str(), name);
+  // printf("d value is %lu\n", real_data.value);
+  //}
+
   return 0;
 }
