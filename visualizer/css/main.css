@@ -51,8 +51,7 @@ button:disabled {
 #charts {
   grid-area: charts;
   overflow: auto;
-  padding: 20px;
-  text-align: center;
+  padding: 0.25em;
 }
 
 #info {
@@ -103,7 +102,13 @@ button:disabled {
 }
 
 #title {
+  border-bottom: 1px solid;
   font-size: 1.25em;
+  grid-area: header;
+  margin: 0;
+  padding-top: 0.75em;
+  padding-bottom: 0.5em;
+  text-align: center;
 }
 @media (max-width: 750px) {
   #charts {
@@ -113,9 +118,10 @@ button:disabled {
 
 @media (max-width: 1500px) {
   body {
-    grid-template-rows: 2fr 1fr;
+    grid-template-rows: auto 2fr 1fr;
     grid-template-columns: 1fr auto;
     grid-template-areas:
+      "header header"
       "charts info"
       "side-bar side-bar";
   }
@@ -127,9 +133,11 @@ button:disabled {
 
 @media (min-width: 1500px) {
   body {
-    grid-template-rows: 1fr;
+    grid-template-rows: 1fr auto;
     grid-template-columns: 700px auto 1fr;
-    grid-template-areas: "charts info side-bar";
+    grid-template-areas:
+      "header header header"
+      "charts info side-bar";
   }
 
   #side-bar {
