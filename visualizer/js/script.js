@@ -102,7 +102,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
         getDependentVariable: d =>
           getEventCount(d, presets.cache.misses) /
             (getEventCount(d, presets.cache.hits) +
-              getEventCount(d, presets.cache.misses)) || 0
+              getEventCount(d, presets.cache.misses)) || 0,
+        flattenThreads: false
       },
       {
         presetsRequired: ["cpu"],
@@ -110,31 +111,36 @@ ipcRenderer.on("result", async (event, resultFile) => {
         yFormat: d3.format(".2"),
         getDependentVariable: d =>
           getEventCount(d, presets.cpu.instructions) /
-            getEventCount(d, presets.cpu.cpuCycles) || 0
+            getEventCount(d, presets.cpu.cpuCycles) || 0,
+        flattenThreads: false
       },
       {
         presetsRequired: ["rapl"],
         yAxisLabel: "CPU Power",
         yFormat: d3.format(".2s"),
-        getDependentVariable: d => d.events["periodCpu"] || 0
+        getDependentVariable: d => d.events["periodCpu"] || 0,
+        flattenThreads: true
       },
       {
         presetsRequired: ["rapl"],
         yAxisLabel: "Memory Power",
         yFormat: d3.format(".2s"),
-        getDependentVariable: d => d.events["periodMemory"] || 0
+        getDependentVariable: d => d.events["periodMemory"] || 0,
+        flattenThreads: true
       },
       {
         presetsRequired: ["rapl"],
         yAxisLabel: "Overall Power",
         yFormat: d3.format(".2s"),
-        getDependentVariable: d => d.events["periodOverall"] || 0
+        getDependentVariable: d => d.events["periodOverall"] || 0,
+        flattenThreads: true
       },
       {
         presetsRequired: ["wattsup"],
         yAxisLabel: "Wattsup Power",
         yFormat: d3.format(".2s"),
-        getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup)
+        getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup),
+        flattenThreads: true
       }
     ].filter(({ presetsRequired }) =>
       presetsRequired.every(presetName => presetName in presets)
@@ -202,6 +208,19 @@ ipcRenderer.on("result", async (event, resultFile) => {
       cpuTimeOffset
     });
 
+    const yScalesByChart = new WeakMap();
+    for (const chartParams of charts) {
+      const { getDependentVariable } = chartParams;
+      const normalData = SDFilter(processedData, getDependentVariable, SDrange);
+      const yScaleMax = d3.max(normalData, getDependentVariable);
+      const yScaleMin = d3.min(normalData, getDependentVariable);
+      const yScale = d3
+        .scaleLinear()
+        .domain([yScaleMax, yScaleMin])
+        .range([0, chart.HEIGHT]);
+      yScalesByChart.set(chartParams, yScale);
+    }
+
     stream
       .fromStreamables([
         sourceSelect.hiddenSourcesStore.stream,
@@ -209,8 +228,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       ])
       .pipe(
         stream.subscribe(([hiddenSources, hiddenThreads]) => {
-          const filteredData = processedData
-            .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
+          const sourceFilteredData = processedData
             .filter(timeslice =>
               timeslice.stackFrames.some(
                 frame => !hiddenSources.includes(frame.fileName)
@@ -223,35 +241,33 @@ ipcRenderer.on("result", async (event, resultFile) => {
               )
             }));
 
+          const fullFilteredData = sourceFilteredData.filter(
+            timeslice => !hiddenThreads.includes(timeslice.tid)
+          );
+
           d3.select("#stats").call(stats.render, {
-            processedData: filteredData
+            processedData: fullFilteredData
           });
 
-          const yScalesByChart = new WeakMap();
           const plotDataByChart = new WeakMap();
 
           for (const chartParams of charts) {
-            const { getDependentVariable } = chartParams;
+            const { getDependentVariable, flattenThreads } = chartParams;
+
             const normalData = SDFilter(
-              filteredData,
+              flattenThreads ? sourceFilteredData : fullFilteredData,
               getDependentVariable,
               SDrange
             );
-            const yScaleMax = d3.max(normalData, getDependentVariable);
-            const yScaleMin = d3.min(normalData, getDependentVariable);
-            const yScale = d3
-              .scaleLinear()
-              .domain([yScaleMax, yScaleMin])
-              .range([0, chart.HEIGHT]);
 
             const plotData = computeRenderableData({
               data: normalData,
               xScale,
-              yScale,
+              yScale: yScalesByChart.get(chartParams),
               getIndependentVariable,
               getDependentVariable
             });
-            yScalesByChart.set(chartParams, yScale);
+
             plotDataByChart.set(chartParams, plotData);
           }
 
@@ -311,10 +327,11 @@ ipcRenderer.on("result", async (event, resultFile) => {
               if (!isLowDensity) {
                 someHighDensity = true;
               }
-              const { getDependentVariable, yFormat } = chartParams;
+              const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
               d3.select(this).call(chart.updateData, {
                 getIndependentVariable,
                 getDependentVariable,
+                yAxisLabel,
                 xScale,
                 yScale: yScalesByChart.get(chartParams),
                 yFormat,
@@ -327,12 +344,14 @@ ipcRenderer.on("result", async (event, resultFile) => {
           chartsDataSelection.exit().remove();
 
           if (someHighDensity) {
-            d3.select("#legend").call(legend.render, {
-              densityMax,
-              spectrum
-            });
+            d3.select("#legend")
+              .style("display", "block")
+              .call(legend.render, {
+                densityMax,
+                spectrum
+              });
           } else {
-            d3.select("#legend").remove();
+            d3.select("#legend").style("display", "none");
           }
         })
       );
