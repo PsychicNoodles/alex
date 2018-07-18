@@ -9,7 +9,8 @@ const { promisify } = require("util");
 const {
   processData,
   computeRenderableData,
-  getEventCount
+  getEventCount,
+  SDFilter
 } = require("./process-data");
 const { analyze } = require("./analysis");
 const chart = require("./chart");
@@ -80,14 +81,15 @@ ipcRenderer.on("result", async (event, resultFile) => {
     alert(result.error);
   }
 
-  if (result.timeslices.length === 0) {
-    alert("timeslices array is empty");
+  d3.select("#title").attr(result.programName);
+  const processedData = processData(result.timeslices, result.header);
+  const spectrum = d3.interpolateWarm;
+  const SDrange = 4;
+
+  if (processedData.length === 0) {
+    alert("timeslices array (maybe after processed) is empty");
     window.close();
   } else {
-    d3.select("#title").attr(result.programName);
-    const processedData = processData(result.timeslices, result.header);
-    const spectrum = d3.interpolateWarm;
-
     loadingProgressStore.dispatch(state => ({
       ...state,
       progressBarIsVisible: false
@@ -158,14 +160,16 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
     for (const chartParams of charts) {
       const { getDependentVariable } = chartParams;
-      const yScaleMax = d3.max(processedData, getDependentVariable);
+      const normalData = SDFilter(processedData, getDependentVariable, SDrange);
+      const yScaleMax = d3.max(normalData, getDependentVariable);
+      const yScaleMin = d3.min(normalData, getDependentVariable);
       const yScale = d3
         .scaleLinear()
-        .domain([yScaleMax, 0])
+        .domain([yScaleMax, yScaleMin])
         .range([0, chart.HEIGHT]);
 
       const plotData = computeRenderableData({
-        data: processedData,
+        data: normalData,
         xScale,
         yScale,
         getIndependentVariable,

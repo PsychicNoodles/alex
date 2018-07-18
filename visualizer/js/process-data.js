@@ -122,4 +122,18 @@ function computeRenderableData({
   return renderableData;
 }
 
-module.exports = { processData, computeRenderableData, getEventCount };
+//this function computes the standard deviation (SD) and uses it to filter out some edges data
+function SDFilter(data, getDependentVariable, SDrange) {
+  const mean = d3.mean(data, getDependentVariable);
+  const SD = d3.deviation(data, getDependentVariable);
+  return data.filter(
+    d => Math.abs(getDependentVariable(d) - mean) < SDrange * SD
+  );
+}
+
+module.exports = {
+  processData,
+  computeRenderableData,
+  getEventCount,
+  SDFilter
+};
