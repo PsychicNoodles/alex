@@ -325,6 +325,12 @@ static int collector_main(int argc, char **argv, char **env) {
     }
 
     DEBUG("collector_main: received child ready signal, starting collector");
+
+    if (getenv_safe("COLLECTOR_NOTIFY_START") == "yes") {
+      DEBUG("collector_main: notifying parent process of collector start");
+      kill(getppid(), SIGUSR2);
+    }
+
     result =
         collect_perf_data(kernel_syms, sigterm_fd, sockets[0], &rapl_reading,
                           &wattsup_reading, dw, sym_map, ranges);

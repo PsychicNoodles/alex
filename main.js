@@ -150,6 +150,28 @@ function getAllPresetInfo() {
   });
 }
 
+const MS_PER_SEC = 1000;
+
+function startCounting() {
+  console.info("Collecting performance data...");
+
+  const startTime = Date.now();
+  return {
+    startTime,
+    progressInterval: setInterval(() => {
+      // Clear previous progress message
+      process.stdout.clearLine();
+      process.stdout.cursorTo(0);
+
+      const numSeconds = Math.round((Date.now() - startTime) / MS_PER_SEC);
+      const s = numSeconds === 1 ? "" : "s";
+      process.stdout.write(
+        `It's been ${numSeconds} second${s}. Still going...`
+      );
+    }, 1 * MS_PER_SEC)
+  };
+}
+
 async function collect({
   presets,
   events,
@@ -188,19 +210,14 @@ async function collect({
     }
   }
 
-  console.info("Collecting performance data...");
+  let progressInterval,
+    startTime = 0;
+  process.on(
+    "SIGUSR2",
+    () => ({ progressInterval, startTime } = startCounting())
+  );
 
-  const MS_PER_SEC = 1000;
-  const startTime = Date.now();
-  const progressInterval = setInterval(() => {
-    // Clear previous progress message
-    process.stdout.clearLine();
-    process.stdout.cursorTo(0);
-
-    const numSeconds = Math.round((Date.now() - startTime) / MS_PER_SEC);
-    const s = numSeconds === 1 ? "" : "s";
-    process.stdout.write(`It's been ${numSeconds} second${s}. Still going...`);
-  }, 1 * MS_PER_SEC);
+  console.info("Waiting for collection to start...");
 
   const collector = spawn(executable, executableArgs, {
     env: {
@@ -210,6 +227,7 @@ async function collect({
       COLLECTOR_EVENTS: events.join(","),
       COLLECTOR_RESULT_FILE: rawResultFile,
       COLLECTOR_WATTSUP_DEVICE: wattsupDevice,
+      COLLECTOR_NOTIFY_START: "yes",
       LD_PRELOAD: path.join(__dirname, "./collector/build/collector.so")
     }
   });
