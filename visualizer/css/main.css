@@ -102,7 +102,7 @@ button:disabled {
 }
 
 #title {
-  border-bottom: 1px solid;
+  border-bottom: 1px solid #999;
   font-size: 1.25em;
   grid-area: header;
   margin: 0;
