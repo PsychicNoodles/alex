@@ -279,6 +279,9 @@ ipcRenderer.on("result", async (event, resultFile) => {
       warnings: warningRecords,
       cpuTimeOffset
     });
+
+    const currentSelectedFunctionStore = new Store(null);
+
     let averageProcessingTime = 0;
     let numProcessingTimeSamples = 0;
 
@@ -287,12 +290,30 @@ ipcRenderer.on("result", async (event, resultFile) => {
         sourceSelect.hiddenSourcesStore.stream,
         threadSelect.hiddenThreadsStore.stream,
         brushes.selectionStore.stream,
+        currentSelectedFunctionStore.stream,
         tableSelect.selectedTableStore.stream
       ])
       .pipe(
+        stream.map(
+          ([
+            hiddenSources,
+            hiddenThreads,
+            { selections },
+            selectedFunction,
+            selectedTable
+          ]) => ({
+            hiddenSources,
+            hiddenThreads,
+            selections,
+            selectedFunction,
+            selectedTable
+          })
+        )
+      )
+      .pipe(
         // Only update the function runtimes table if it is selected.
         stream.filter(
-          ([, , , selectedTable]) => selectedTable.id === "#function-runtimes"
+          ({ selectedTable }) => selectedTable.id === "#function-runtimes"
         )
       )
       .pipe(
@@ -303,70 +324,109 @@ ipcRenderer.on("result", async (event, resultFile) => {
         )
       )
       .pipe(
-        stream.map(([hiddenSources, hiddenThreads, { selections }]) => {
-          const startTime = performance.now();
-          const functionAnalysis = analyze(
-            processedData
-              .map(timeslice => {
-                const x = xScale(getIndependentVariable(timeslice));
-                return {
+        stream.map(
+          ({ hiddenSources, hiddenThreads, selections, selectedFunction }) => {
+            const startTime = performance.now();
+            const { functions } = analyze(
+              processedData
+                .map(timeslice => {
+                  const x = xScale(getIndependentVariable(timeslice));
+                  return {
+                    ...timeslice,
+                    selected:
+                      selections.length === 0 ||
+                      selections.some(
+                        ({ range }) => range[0] <= x && x <= range[1]
+                      ),
+                    stackFrames: timeslice.stackFrames.filter(
+                      frame => !hiddenSources.includes(frame.fileName)
+                    )
+                  };
+                })
+                .filter(timeslice => timeslice.stackFrames.length)
+                .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
+                .filter(
+                  timeslice =>
+                    selectedFunction
+                      ? timeslice.stackFrames.some(
+                          frame => frame.symName === selectedFunction
+                        )
+                      : true
+                ),
+              stackFrames =>
+                selectedFunction
+                  ? stackFrames
+                      .map(frame => frame.symName)
+                      .reverse()
+                      .join(" › ")
+                  : stackFrames[0].symName
+            );
+
+            // Compute a cumulative moving average for processing time so we can
+            // debounce processing if it is slow
+            // https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
+            const timeTaken = performance.now() - startTime;
+            averageProcessingTime =
+              (timeTaken + numProcessingTimeSamples * averageProcessingTime) /
+              (numProcessingTimeSamples + 1);
+            numProcessingTimeSamples++;
+            console.log(averageProcessingTime);
+
+            return {
+              functions,
+              selectedFunction,
+              hiddenSources,
+              hiddenThreads
+            };
+          }
+        )
+      )
+      .pipe(
+        stream.subscribe(
+          ({ functions, selectedFunction, hiddenSources, hiddenThreads }) => {
+            d3.select("#function-runtimes-back-button")
+              .classed(
+                "function-runtimes-back-button--visible",
+                !!selectedFunction
+              )
+              .on("click", () => {
+                currentSelectedFunctionStore.dispatch(() => null);
+              });
+
+            d3.select("#function-runtimes").call(functionRuntimes.render, {
+              functions,
+              functionsAreSelectable: !selectedFunction,
+              onFunctionSelect: name => {
+                currentSelectedFunctionStore.dispatch(() => name);
+              }
+            });
+
+            const filterData = data =>
+              data
+                .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
+                .filter(timeslice =>
+                  timeslice.stackFrames.some(
+                    frame => !hiddenSources.includes(frame.fileName)
+                  )
+                )
+                .map(timeslice => ({
                   ...timeslice,
-                  selected:
-                    selections.length === 0 ||
-                    selections.some(
-                      ({ range }) => range[0] <= x && x <= range[1]
-                    ),
                   stackFrames: timeslice.stackFrames.filter(
                     frame => !hiddenSources.includes(frame.fileName)
                   )
-                };
-              })
-              .filter(timeslice => timeslice.stackFrames.length)
-              .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
-          );
+                }));
 
-          // Compute a cumulative moving average for processing time so we can
-          // debounce processing if it is slow
-          // https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
-          const timeTaken = performance.now() - startTime;
-          averageProcessingTime =
-            (timeTaken + numProcessingTimeSamples * averageProcessingTime) /
-            (numProcessingTimeSamples + 1);
-          numProcessingTimeSamples++;
-          console.log(averageProcessingTime);
-
-          return [functionAnalysis, hiddenSources, hiddenThreads];
-        })
-      )
-      .pipe(
-        stream.subscribe(([{ functions }, hiddenSources, hiddenThreads]) => {
-          d3.select("#function-runtimes").call(functionRuntimes.render, {
-            functions
-          });
-          const filterData = data =>
-            data
-              .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
-              .filter(timeslice =>
-                timeslice.stackFrames.some(
-                  frame => !hiddenSources.includes(frame.fileName)
-                )
-              )
-              .map(timeslice => ({
-                ...timeslice,
-                stackFrames: timeslice.stackFrames.filter(
-                  frame => !hiddenSources.includes(frame.fileName)
-                )
-              }));
-
-          d3.select("#stats").call(stats.render, {
-            processedData: filterData(processedData)
-          });
-          d3.selectAll("#charts .plot").each(function(_, i) {
-            d3.select(this).call(plot.toggleCircles, {
-              data: filterData(plotDataByChart.get(charts[i]))
+            d3.select("#stats").call(stats.render, {
+              processedData: filterData(processedData)
             });
-          });
-        })
+
+            d3.selectAll("#charts .plot").each(function(_, i) {
+              d3.select(this).call(plot.toggleCircles, {
+                data: filterData(plotDataByChart.get(charts[i]))
+              });
+            });
+          }
+        )
       );
 
     tableSelect.selectedTableStore.stream
