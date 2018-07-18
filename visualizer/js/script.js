@@ -169,112 +169,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
     const warningCounts = [...warningCountsMap];
     const warningsDistinct = [...warningCountsMap.keys()];
 
-    const renderCharts = data => {
-      const yScalesByChart = new WeakMap();
-      const plotDataByChart = new WeakMap();
-
-      for (const chartParams of charts) {
-        const { getDependentVariable } = chartParams;
-        const normalData = SDFilter(data, getDependentVariable, SDrange);
-        const yScaleMax = d3.max(normalData, getDependentVariable);
-        const yScaleMin = d3.min(normalData, getDependentVariable);
-        const yScale = d3
-          .scaleLinear()
-          .domain([yScaleMax, yScaleMin])
-          .range([0, chart.HEIGHT]);
-
-        const plotData = computeRenderableData({
-          data: normalData,
-          xScale,
-          yScale,
-          getIndependentVariable,
-          getDependentVariable
-        });
-        yScalesByChart.set(chartParams, yScale);
-        plotDataByChart.set(chartParams, plotData);
-      }
-
-      const chartsWithPlotData = charts.filter(
-        chart => plotDataByChart.get(chart).length > 0
-      );
-
-      const densityMax = Math.max(
-        chartsWithPlotData.reduce(
-          (currentMax, chartParams) =>
-            Math.max(
-              currentMax,
-              d3.max(plotDataByChart.get(chartParams), d => d.densityAvg)
-            ),
-          0
-        ),
-        5
-      );
-
-      const chartsDataSelection = d3
-        .select("#charts")
-        .selectAll("div")
-        .data(charts);
-
-      let someHighDensity = false;
-
-      chartsDataSelection
-        .enter()
-        .append("div")
-        .each(function(chartParams) {
-          const isLowDensity =
-            d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) < 2;
-          if (!isLowDensity) {
-            someHighDensity = true;
-          }
-          const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
-          d3.select(this).call(chart.create, {
-            getIndependentVariable,
-            getDependentVariable,
-            xAxisLabel,
-            yAxisLabel,
-            xScale,
-            yScale: yScalesByChart.get(chartParams),
-            yFormat,
-            plotData: plotDataByChart.get(chartParams),
-            densityMax,
-            spectrum,
-            cpuTimeOffset,
-            warningRecords,
-            warningsDistinct
-          });
-        })
-        .merge(chartsDataSelection)
-        .each(function(chartParams) {
-          const isLowDensity =
-            d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) < 2;
-          if (!isLowDensity) {
-            someHighDensity = true;
-          }
-          const { getDependentVariable, yFormat } = chartParams;
-          d3.select(this).call(chart.updateData, {
-            getIndependentVariable,
-            getDependentVariable,
-            xScale,
-            yScale: yScalesByChart.get(chartParams),
-            yFormat,
-            plotData: plotDataByChart.get(chartParams),
-            densityMax,
-            spectrum
-          });
-        });
-
-      chartsDataSelection.exit().remove();
-
-      if (someHighDensity) {
-        d3.select("#legend").call(legend.render, {
-          densityMax,
-          spectrum
-        });
-      } else {
-        d3.select("#legend").remove();
-      }
-    };
-
     d3.select("#stats").call(stats.render, {
       processedData
     });
@@ -307,6 +201,141 @@ ipcRenderer.on("result", async (event, resultFile) => {
       warnings: warningRecords,
       cpuTimeOffset
     });
+
+    stream
+      .fromStreamables([
+        sourceSelect.hiddenSourcesStore.stream,
+        threadSelect.hiddenThreadsStore.stream
+      ])
+      .pipe(
+        stream.subscribe(([hiddenSources, hiddenThreads]) => {
+          const filteredData = processedData
+            .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
+            .filter(timeslice =>
+              timeslice.stackFrames.some(
+                frame => !hiddenSources.includes(frame.fileName)
+              )
+            )
+            .map(timeslice => ({
+              ...timeslice,
+              stackFrames: timeslice.stackFrames.filter(
+                frame => !hiddenSources.includes(frame.fileName)
+              )
+            }));
+
+          d3.select("#stats").call(stats.render, {
+            processedData: filteredData
+          });
+
+          const yScalesByChart = new WeakMap();
+          const plotDataByChart = new WeakMap();
+
+          for (const chartParams of charts) {
+            const { getDependentVariable } = chartParams;
+            const normalData = SDFilter(
+              filteredData,
+              getDependentVariable,
+              SDrange
+            );
+            const yScaleMax = d3.max(normalData, getDependentVariable);
+            const yScaleMin = d3.min(normalData, getDependentVariable);
+            const yScale = d3
+              .scaleLinear()
+              .domain([yScaleMax, yScaleMin])
+              .range([0, chart.HEIGHT]);
+
+            const plotData = computeRenderableData({
+              data: normalData,
+              xScale,
+              yScale,
+              getIndependentVariable,
+              getDependentVariable
+            });
+            yScalesByChart.set(chartParams, yScale);
+            plotDataByChart.set(chartParams, plotData);
+          }
+
+          const chartsWithPlotData = charts.filter(
+            chart => plotDataByChart.get(chart).length > 0
+          );
+
+          const densityMax = Math.max(
+            chartsWithPlotData.reduce(
+              (currentMax, chartParams) =>
+                Math.max(
+                  currentMax,
+                  d3.max(plotDataByChart.get(chartParams), d => d.densityAvg)
+                ),
+              0
+            ),
+            5
+          );
+
+          const chartsDataSelection = d3
+            .select("#charts")
+            .selectAll("div")
+            .data(chartsWithPlotData);
+
+          let someHighDensity = false;
+
+          chartsDataSelection
+            .enter()
+            .append("div")
+            .each(function(chartParams) {
+              const isLowDensity =
+                d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) < 2;
+              if (!isLowDensity) {
+                someHighDensity = true;
+              }
+              const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
+              d3.select(this).call(chart.create, {
+                getIndependentVariable,
+                getDependentVariable,
+                xAxisLabel,
+                yAxisLabel,
+                xScale,
+                yScale: yScalesByChart.get(chartParams),
+                yFormat,
+                plotData: plotDataByChart.get(chartParams),
+                densityMax,
+                spectrum,
+                cpuTimeOffset,
+                warningRecords,
+                warningsDistinct
+              });
+            })
+            .merge(chartsDataSelection)
+            .each(function(chartParams) {
+              const isLowDensity =
+                d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) < 2;
+              if (!isLowDensity) {
+                someHighDensity = true;
+              }
+              const { getDependentVariable, yFormat } = chartParams;
+              d3.select(this).call(chart.updateData, {
+                getIndependentVariable,
+                getDependentVariable,
+                xScale,
+                yScale: yScalesByChart.get(chartParams),
+                yFormat,
+                plotData: plotDataByChart.get(chartParams),
+                densityMax,
+                spectrum
+              });
+            });
+
+          chartsDataSelection.exit().remove();
+
+          if (someHighDensity) {
+            d3.select("#legend").call(legend.render, {
+              densityMax,
+              spectrum
+            });
+          } else {
+            d3.select("#legend").remove();
+          }
+        })
+      );
 
     const currentSelectedFunctionStore = new Store(null);
 
@@ -404,54 +433,30 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 ...func,
                 displayNames: func.name.split(FUNCTION_NAME_SEPARATOR)
               })),
-              selectedFunction,
-              hiddenSources,
-              hiddenThreads
+              selectedFunction
             };
           }
         )
       )
       .pipe(
-        stream.subscribe(
-          ({ functions, selectedFunction, hiddenSources, hiddenThreads }) => {
-            d3.select("#function-runtimes-back-button")
-              .classed(
-                "function-runtimes-back-button--visible",
-                !!selectedFunction
-              )
-              .on("click", () => {
-                currentSelectedFunctionStore.dispatch(() => null);
-              });
-
-            d3.select("#function-runtimes").call(functionRuntimes.render, {
-              functions,
-              functionsAreSelectable: !selectedFunction,
-              onFunctionSelect: name => {
-                currentSelectedFunctionStore.dispatch(() => name);
-              }
+        stream.subscribe(({ functions, selectedFunction }) => {
+          d3.select("#function-runtimes-back-button")
+            .classed(
+              "function-runtimes-back-button--visible",
+              !!selectedFunction
+            )
+            .on("click", () => {
+              currentSelectedFunctionStore.dispatch(() => null);
             });
 
-            const filteredData = processedData
-              .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
-              .filter(timeslice =>
-                timeslice.stackFrames.some(
-                  frame => !hiddenSources.includes(frame.fileName)
-                )
-              )
-              .map(timeslice => ({
-                ...timeslice,
-                stackFrames: timeslice.stackFrames.filter(
-                  frame => !hiddenSources.includes(frame.fileName)
-                )
-              }));
-
-            d3.select("#stats").call(stats.render, {
-              processedData: filteredData
-            });
-
-            renderCharts(filteredData);
-          }
-        )
+          d3.select("#function-runtimes").call(functionRuntimes.render, {
+            functions,
+            functionsAreSelectable: !selectedFunction,
+            onFunctionSelect: name => {
+              currentSelectedFunctionStore.dispatch(() => name);
+            }
+          });
+        })
       );
 
     tableSelect.selectedTableStore.stream
