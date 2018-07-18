@@ -1,3 +1,4 @@
+// Slightly modified from
 /*
  * Copyright (c) 2015, Charlie Curtsinger and Emery Berger,
  *                     University of Massachusetts Amherst
@@ -96,6 +97,7 @@ class interval {
   uintptr_t _limit;
 };
 
+// Comparator for map
 struct cmpByInterval {
   bool operator()(const interval& a, const interval& b) const {
     return a.get_base() < b.get_base();

@@ -34,7 +34,7 @@
 #include "const.hpp"
 #include "debug.hpp"
 #include "find_events.hpp"
-#include "inspect.h"
+#include "inspect.hpp"
 #include "perf_reader.hpp"
 #include "rapl.hpp"
 #include "shared.hpp"
@@ -674,6 +674,7 @@ bool process_sample_record(
     dwarf::taddr pc = inst_ptr - 1;
     char *name = nullptr;
 
+    // Get the sym name
     auto iter_sym = sym_map.upper_bound(interval(pc, pc));
     if (iter_sym != sym_map.begin()) {
       --iter_sym;
@@ -687,6 +688,8 @@ bool process_sample_record(
     auto line = -1;
     auto column = -1;
     size_t start_loop = time_ms();
+
+    // Get the line full location
 
     auto iter = ranges.upper_bound(interval(pc, pc));
     if (iter != ranges.begin()) {

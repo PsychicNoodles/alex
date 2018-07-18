@@ -1,3 +1,4 @@
+// Slightly Modified from
 /*
  * Copyright (c) 2015, Charlie Curtsinger and Emery Berger,
  *                     University of Massachusetts Amherst
@@ -5,7 +6,7 @@
  * directory of this distribution and at http://github.com/plasma-umass/coz.
  */
 
-#include "inspect.h"
+#include "inspect.hpp"
 #include "debug.hpp"
 
 #include <elf.h>

@@ -14,7 +14,7 @@
 #include <libelfin/elf/elf++.hh>
 
 #include "bg_readings.hpp"
-#include "inspect.h"
+#include "inspect.hpp"
 #include "perf_sampler.hpp"
 
 using namespace std;

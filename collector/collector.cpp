@@ -19,7 +19,7 @@
 #include "const.hpp"
 #include "debug.hpp"
 #include "find_events.hpp"
-#include "inspect.h"
+#include "inspect.hpp"
 #include "perf_reader.hpp"
 #include "shared.hpp"
 #include "util.hpp"
@@ -209,30 +209,6 @@ static int collector_main(int argc, char **argv, char **env) {
     exit(INTERNAL_ERROR);
   }
 
-  vector<string> binary_scope_v = {"MAIN"};
-  unordered_set<string> binary_scope(binary_scope_v.begin(),
-                                     binary_scope_v.end());
-
-  vector<string> source_scope_v = {"%%"};
-  unordered_set<string> source_scope(source_scope_v.begin(),
-                                     source_scope_v.end());
-
-  // Replace 'MAIN' in the binary_scope with the real path of the main
-  // executable
-  if (binary_scope.find("MAIN") != binary_scope.end()) {
-    binary_scope.erase("MAIN");
-    string main_name = readlink_str("/proc/self/exe");
-    binary_scope.insert(main_name);
-    DEBUG("Including MAIN, which is " << main_name);
-  }
-
-  multimap<interval, string, cmpByInterval> sym_map;
-
-  memory_map::get_instance().build(binary_scope, source_scope, sym_map);
-
-  std::map<interval, std::shared_ptr<line>, cmpByInterval> ranges =
-      memory_map::get_instance().ranges();
-
   DEBUG("collector_main: initializing pfm");
   pfm_initialize();
 
@@ -282,6 +258,31 @@ static int collector_main(int argc, char **argv, char **env) {
       }
       shutdown(subject_pid, NULL, DEBUG_SYMBOLS_FILE_ERROR);
     }
+
+    vector<string> binary_scope_v = {"MAIN"};
+    unordered_set<string> binary_scope(binary_scope_v.begin(),
+                                       binary_scope_v.end());
+
+    vector<string> source_scope_v = {"%%"};
+    unordered_set<string> source_scope(source_scope_v.begin(),
+                                       source_scope_v.end());
+
+    // include the path of the main executable
+    if (binary_scope.find("MAIN") != binary_scope.end()) {
+      binary_scope.erase("MAIN");
+      string main_name = readlink_str("/proc/self/exe");
+      binary_scope.insert(main_name);
+      DEBUG("Including MAIN, which is " << main_name);
+    }
+
+    // Get all the dwarf files for debug symbols
+
+    multimap<interval, string, cmpByInterval> sym_map;
+
+    memory_map::get_instance().build(binary_scope, source_scope, sym_map);
+
+    std::map<interval, std::shared_ptr<line>, cmpByInterval> ranges =
+        memory_map::get_instance().ranges();
 
     string env_res = getenv_safe("COLLECTOR_RESULT_FILE", "result.txt");
     DEBUG("collector_main: result file " << env_res);
