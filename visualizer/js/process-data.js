@@ -47,24 +47,23 @@ function computeRenderableData({
   getIndependentVariable,
   getDependentVariable
 }) {
-  const getX = d => xScale(getIndependentVariable(d));
-  const getY = d => yScale(getDependentVariable(d));
-
   // Group together points less than 1 pixel apart into renderableData
   const renderableData = [];
-  const overallQuadtree = d3.quadtree(data, getX, getY);
+  const overallQuadtree = d3.quadtree(
+    data,
+    d => xScale(getIndependentVariable(d)),
+    d => yScale(getDependentVariable(d))
+  );
   overallQuadtree.visit((node, x0, y0, x1, y1) => {
     const area = (x1 - x0) * (y1 - y0);
     if ((node.length && area <= 1) || !node.length) {
       const children = getLeafChildren(node);
       const representativeElement =
         children[Math.floor(Math.random() * children.length)];
-      const x = getX(representativeElement);
-      const y = getY(representativeElement);
       renderableData.push({
         ...representativeElement,
-        x,
-        y,
+        x: overallQuadtree.x()(representativeElement),
+        y: overallQuadtree.y()(representativeElement),
         density: children.length
       });
 
@@ -77,7 +76,7 @@ function computeRenderableData({
   // Build a smaller quadtree from the renderable data and average out the
   // densities
   const DENSITY_AVERAGE_RADIUS = 4;
-  const renderableQuadtree = d3.quadtree(renderableData, getX, getY);
+  const renderableQuadtree = d3.quadtree(renderableData, d => d.x, d => d.y);
   return renderableData.map(renderable => {
     const getDistanceToCenter = (x, y) =>
       Math.sqrt((renderable.x - x) ** 2 + (renderable.y - y) ** 2);
@@ -109,11 +108,9 @@ function computeRenderableData({
           nearestRadialY > y1
         );
       } else {
-        const getX = renderableQuadtree.x();
-        const getY = renderableQuadtree.y();
         const childrenInRadius = getLeafChildren(node).filter(
           leafNode =>
-            getDistanceToCenter(getX(leafNode), getY(leafNode)) <=
+            getDistanceToCenter(leafNode.x, leafNode.y) <=
             DENSITY_AVERAGE_RADIUS
         );
 
