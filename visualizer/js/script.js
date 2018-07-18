@@ -80,8 +80,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
   if (result.error) {
     alert(result.error);
   }
-
-  d3.select("#title").attr(result.programName);
+  document.getElementById("title").textContent = result.header.programName;
   const processedData = processData(result.timeslices, result.header);
   const spectrum = d3.interpolateWarm;
   const SDrange = 4;
