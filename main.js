@@ -193,9 +193,8 @@ async function collect({
   const MS_PER_SEC = 1000;
   const startTime = Date.now();
   const progressInterval = setInterval(() => {
-    // Clear previous progress message
-    // process.stdout.clearLine();
-    // process.stdout.cursorTo(0);
+    //Clear previous progress message
+    readline.cursorTo(process.stdout, 0);
 
     const numSeconds = Math.round((Date.now() - startTime) / MS_PER_SEC);
     const s = numSeconds === 1 ? "" : "s";
@@ -231,7 +230,6 @@ async function collect({
     process.stdin.pipe(collector.stdin);
   }
 
-  console.log("!!!!!!!!", outFile);
   if (outFile) {
     const fileStream = fs.createWriteStream(outFile);
     fileStream.on("open", () => {
@@ -256,8 +254,7 @@ async function collect({
     const numSeconds = (Date.now() - startTime) / MS_PER_SEC;
 
     // Clear out progress message
-    // process.stdout.clearLine();
-    // process.stdout.cursorTo(0);
+    readline.cursorTo(process.stdout, 0);
     console.info(`Finished after collecting for ${numSeconds} seconds.`);
 
     const errorCodes = {
