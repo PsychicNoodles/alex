@@ -226,7 +226,7 @@ static int collector_main(int argc, char **argv, char **env) {
     DEBUG("Including MAIN, which is " << main_name);
   }
 
-  multimap<string, interval> sym_map;
+  multimap<interval, string, cmpByInterval> sym_map;
 
   memory_map::get_instance().build(binary_scope, source_scope, sym_map);
 

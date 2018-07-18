@@ -502,7 +502,7 @@ bool process_sample_record(
     bool is_first_timeslice, bool is_first_sample, bg_reading *rapl_reading,
     bg_reading *wattsup_reading, const map<uint64_t, kernel_sym> &kernel_syms,
     const map<interval, std::shared_ptr<line>, cmpByInterval> &ranges,
-    const multimap<string, interval> &sym_map, dwarf::dwarf dw) {
+    const multimap<interval, string, cmpByInterval> &sym_map, dwarf::dwarf dw) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
@@ -650,7 +650,6 @@ bool process_sample_record(
       // Lookup the name of the function given the function
       // pointer
       if (dladdr(reinterpret_cast<void *>(inst_ptr), &info) != 0) {
-        sym_name = info.dli_sname;
         file_name = info.dli_fname;
         file_base = info.dli_fbase;
         sym_addr = info.dli_saddr;
@@ -668,6 +667,38 @@ bool process_sample_record(
         file_base = nullptr;
         sym_addr = reinterpret_cast<void *>(addr);
       }
+    }
+
+    // Need to subtract one. PC is the return address, but we're
+    // looking for the callsite.
+    dwarf::taddr pc = inst_ptr - 1;
+    char *name = nullptr;
+
+    auto iter_sym = sym_map.upper_bound(interval(pc, pc));
+    if (iter_sym != sym_map.begin()) {
+      --iter_sym;
+      if (iter_sym->first.contains(pc)) {
+        sym_name = (char *)iter_sym->second.c_str();
+        DEBUG("name is " << iter_sym->second);
+      }
+    }
+
+    char *fullLocation = (char *)malloc(sizeof(char) * 256);
+    auto line = -1;
+    auto column = -1;
+    size_t start_loop = time_ms();
+
+    auto iter = ranges.upper_bound(interval(pc, pc));
+    if (iter != ranges.begin()) {
+      --iter;
+      if (iter->first.contains(pc)) {
+        DEBUG("line is " << iter->second);
+        line = iter->second.get()->get_line();
+        sprintf(fullLocation, "%s:%d",
+                (char *)(iter->second.get()->get_file()->get_name().c_str()),
+                line);
+      } else
+        fullLocation = nullptr;
     }
 
     // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
@@ -698,45 +729,18 @@ bool process_sample_record(
         }
       }
     }
-    // Need to subtract one. PC is the return address, but we're
-    // looking for the callsite.
-    dwarf::taddr pc = inst_ptr - 1;
-    char *name = nullptr;
-
-    for (auto &entry : sym_map) {
-      // DEBUG("name is " << entry.second);
-      // DEBUG("add is " << entry.first.first << entry.first.second);
-      if (entry.second.contains(pc)) {
-        name = (char *)entry.first.c_str();
-        DEBUG("dwarf function name obtained is " << name);
-        break;
-      }
-    }
 
     fprintf(result_file,
             R"(
                         "symName": "%s",
-                        "dwarfName": "%s",
                         "fileName": "%s",
                         "fileBase": "%p",
                         "symAddr": "%p",
                         "mangledName": "%s"
                       )",
-            function_name, name, file_name, file_base, sym_addr, sym_name);
+            function_name, file_name, file_base, sym_addr, sym_name);
     free(demangled_name);  // NOLINT
-    char *fullLocation = nullptr;
-    auto line = -1;
-    size_t start_loop = time_ms();
-
-    // for (auto &it : ranges) {
-    //   if (it.first.contains(pc)) {
-    //     line = it.second.get()->get_line();
-    //     fullLocation =
-    //     (char*)(it.second.get()->get_file()->get_name().c_str()); break;
-    //   }
-    // }
-
-    if (fullLocation == NULL) DEBUG("cannot find location for " << pc);
+    // Get space for line
 
     fprintf(result_file,
             R"(,
@@ -975,7 +979,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
 int collect_perf_data(
     const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd, int socket,
     bg_reading *rapl_reading, bg_reading *wattsup_reading, dwarf::dwarf dw,
-    multimap<string, interval> sym_map,
+    multimap<interval, string, cmpByInterval> sym_map,
     std::map<interval, std::shared_ptr<line>, cmpByInterval> ranges) {
   bool is_first_timeslice = true;
   bool done = false;
@@ -983,29 +987,6 @@ int collect_perf_data(
   vector<tuple<int, base_record, int64_t>> warnings;
 
   size_t last_ts = time_ms(), finish_ts = last_ts, curr_ts = 0;
-
-  // vector<string> binary_scope_v = {"MAIN"};
-  // unordered_set<string> binary_scope(binary_scope_v.begin(),
-  //                                    binary_scope_v.end());
-
-  // vector<string> source_scope_v = {"%%"};
-  // unordered_set<string> source_scope(source_scope_v.begin(),
-  //                                    source_scope_v.end());
-
-  // Replace 'MAIN' in the binary_scope with the real path of the main
-  // executable
-  // if (binary_scope.find("MAIN") != binary_scope.end()) {
-  //   binary_scope.erase("MAIN");
-  //   string main_name = readlink_str("/proc/self/exe");
-  //   binary_scope.insert(main_name);
-  //   DEBUG("Including MAIN, which is " << main_name);
-  // }
-
-  // // multimap<string, interval> sym_map;
-
-  // memory_map::get_instance().build(binary_scope, source_scope, sym_map);
-
-  // ranges = memory_map::get_instance().ranges();
 
   restart_reading(rapl_reading);
   restart_reading(wattsup_reading);
