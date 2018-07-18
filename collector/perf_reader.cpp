@@ -34,6 +34,7 @@
 #include "const.hpp"
 #include "debug.hpp"
 #include "find_events.hpp"
+#include "inspect.hpp"
 #include "perf_reader.hpp"
 #include "rapl.hpp"
 #include "shared.hpp"
@@ -50,6 +51,8 @@ using std::tie;
 using std::tuple;
 using std::vector;
 
+// contents of buffer filled when PERF_RECORD_SAMPLE type is enabled plus
+// certain sample types
 /// the following record structs all have the perf_event_header shaved off,
 /// since it's removed by the get_next_record function
 
@@ -143,6 +146,28 @@ int get_record_size(int record_type) {
   }
 }
 
+/**
+ * Read a link's contents and return it as a string
+ */
+static string readlink_str(const char *path) {
+  size_t exe_size = 1024;
+  ssize_t exe_used;
+
+  while (true) {
+    char exe_path[exe_size];
+
+    exe_used = readlink(path, exe_path, exe_size - 1);
+    // REQUIRE(exe_used > 0) << "Unable to read link " << path;
+
+    if (exe_used < exe_size - 1) {
+      exe_path[exe_used] = '\0';
+      return string(exe_path);
+    }
+
+    exe_size += 1024;
+  }
+}
+
 /*
  * Adds a file descriptor to the global epoll
  */
@@ -174,6 +199,14 @@ void delete_fd_from_epoll(int fd) {
     parent_shutdown(INTERNAL_ERROR);
   }
   sample_fd_count--;
+}
+
+/**
+ * erase all the unnecessary entry in a map
+ */
+void map_delete(
+    std::map<interval, std::shared_ptr<line>, cmpByInterval> ranges) {
+  return;
 }
 
 /*
@@ -464,12 +497,12 @@ void process_throttle_record(
       record_type, base_record{.throttle = throttle}, global->period));
 }
 
-bool process_sample_record(const sample_record &sample,
-                           const perf_fd_info &info, bool is_first_timeslice,
-                           bool is_first_sample, bg_reading *rapl_reading,
-                           bg_reading *wattsup_reading,
-                           const map<uint64_t, kernel_sym> &kernel_syms,
-                           dwarf::dwarf dw) {
+bool process_sample_record(
+    const sample_record &sample, const perf_fd_info &info,
+    bool is_first_timeslice, bool is_first_sample, bg_reading *rapl_reading,
+    bg_reading *wattsup_reading, const map<uint64_t, kernel_sym> &kernel_syms,
+    const map<interval, std::shared_ptr<line>, cmpByInterval> &ranges,
+    const map<interval, string, cmpByInterval> &sym_map, dwarf::dwarf dw) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
@@ -617,7 +650,6 @@ bool process_sample_record(const sample_record &sample,
       // Lookup the name of the function given the function
       // pointer
       if (dladdr(reinterpret_cast<void *>(inst_ptr), &info) != 0) {
-        sym_name = info.dli_sname;
         file_name = info.dli_fname;
         file_base = info.dli_fbase;
         sym_addr = info.dli_saddr;
@@ -629,13 +661,52 @@ bool process_sample_record(const sample_record &sample,
       uint64_t addr = lookup_kernel_addr(kernel_syms, inst_ptr);
       if (addr != -1) {
         auto ks = kernel_syms.at(addr);
-        sym_name_str = ks.sym;
-        sym_name = sym_name_str.c_str();
         file_name = "(kernel)";
         file_base = nullptr;
         sym_addr = reinterpret_cast<void *>(addr);
       }
     }
+
+    // Need to subtract one. PC is the return address, but we're
+    // looking for the callsite.
+    dwarf::taddr pc = inst_ptr - 1;
+
+    // Get the sym name
+    DEBUG("cpd: looking up function symbol");
+    auto upper_sym = sym_map.upper_bound(interval(pc, pc));
+    if (upper_sym != sym_map.begin()) {
+      --upper_sym;
+      if (upper_sym->first.contains(pc)) {
+        sym_name = (char *)upper_sym->second.c_str();
+      } else {
+        DEBUG("cpd: cannot find function symbol");
+        sym_name = nullptr;
+      }
+    }
+
+    char *fullLocation = (char *)malloc(sizeof(char) * 256);
+    auto line = -1;
+    auto column = -1;
+    size_t start_loop = time_ms();
+
+    // Get the line full location
+    DEBUG("cpd: looking up line location");
+    auto upper_range = ranges.upper_bound(interval(pc, pc));
+    if (upper_range != ranges.begin()) {
+      --upper_range;
+      if (upper_range->first.contains(pc)) {
+        DEBUG("line is " << upper_range->second);
+        line = upper_range->second.get()->get_line();
+        sprintf(
+            fullLocation, "%s:%d",
+            (char *)(upper_range->second.get()->get_file()->get_name().c_str()),
+            line);
+      } else {
+        DEBUG("cpd: cannot find line location");
+        fullLocation = nullptr;
+      }
+    }
+
     // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
     if (sym_name != nullptr) {
       DEBUG("cpd: demangling symbol name");
@@ -675,36 +746,13 @@ bool process_sample_record(const sample_record &sample,
                       )",
             function_name, file_name, file_base, sym_addr, sym_name);
     free(demangled_name);  // NOLINT
+    // Get space for line
 
-    // Need to subtract one. PC is the return address, but we're
-    // looking for the callsite.
-    dwarf::taddr pc = inst_ptr - 1;
-
-    // Find the CU containing pc
-    // XXX Use .debug_aranges
-    auto line = -1, column = -1;
-    char *fullLocation = nullptr;
-
-    DEBUG("cpd: looking up line and column number");
-    for (auto &cu : dw.compilation_units()) {
-      if (die_pc_range(cu.root()).contains(pc)) {
-        // Map PC to a line
-        auto &lt = cu.get_line_table();
-        auto it = lt.find_address(pc);
-        if (it != lt.end()) {
-          line = it->line;
-          column = it->column;
-          fullLocation = const_cast<char *>(it->file->path.c_str());
-        }
-        break;
-      }
-    }
     fprintf(result_file,
             R"(,
                     "line": %d,
-                    "col": %d,
                     "fullLocation": "%s" })",
-            line, column, fullLocation);
+            line, fullLocation);
   }
 
   Util::delete_brackets(1);
@@ -934,9 +982,11 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
  * Sets up the required events and records performance of subject process into
  * result file.
  */
-int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
-                      int socket, bg_reading *rapl_reading,
-                      bg_reading *wattsup_reading, dwarf::dwarf dw) {
+int collect_perf_data(
+    const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd, int socket,
+    bg_reading *rapl_reading, bg_reading *wattsup_reading, dwarf::dwarf dw,
+    std::map<interval, string, cmpByInterval> sym_map,
+    std::map<interval, std::shared_ptr<line>, cmpByInterval> ranges) {
   bool is_first_timeslice = true;
   bool done = false;
   int sample_period_skips = 0;
@@ -1048,7 +1098,7 @@ int collect_perf_data(const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd,
                     is_first_sample = process_sample_record(
                         local_result.sample, info, is_first_timeslice,
                         is_first_sample, rapl_reading, wattsup_reading,
-                        kernel_syms, dw);
+                        kernel_syms, ranges, sym_map, dw);
                   } else {
                     DEBUG("cpd: not first sample, skipping");
                   }

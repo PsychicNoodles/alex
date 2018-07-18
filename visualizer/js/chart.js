@@ -7,7 +7,7 @@ const warnings = require("./warnings");
 const WIDTH = 500;
 const HEIGHT = 250;
 
-function render(
+function create(
   root,
   {
     spectrum,
@@ -27,8 +27,6 @@ function render(
   }
 ) {
   root.classed("chart", true);
-
-  root.selectAll("*").remove();
 
   const svg = root
     .append("svg")
@@ -84,4 +82,51 @@ function render(
     .text(yAxisLabel);
 }
 
-module.exports = { render, WIDTH, HEIGHT };
+/*
+ * Updates the children that rely on (plot) data.
+ */
+function updateData(
+  root,
+  {
+    spectrum,
+    plotData,
+    hiddenThreadsStore,
+    densityMax,
+    getIndependentVariable,
+    getDependentVariable,
+    yAxisLabel,
+    xScale,
+    yScale,
+    yFormat
+  }
+) {
+  const svg = root.select("svg");
+
+  svg.select("g.plot").call(plot.render, {
+    data: plotData,
+    hiddenThreadsStore,
+    xScale,
+    yScale,
+    getIndependentVariable,
+    getDependentVariable,
+    densityMax,
+    spectrum
+  });
+
+  svg
+    .select("g.chart__axis--x")
+    .call(d3.axisBottom(xScale).tickFormat(d3.format(".2s")));
+
+  svg
+    .select("g.chart__axis--y")
+    .call(d3.axisLeft(yScale).tickFormat(yFormat))
+    .select(".chart__axis-label--y")
+    .attr("class", "chart__axis-label chart__axis-label--y")
+    .attr("text-anchor", "middle")
+    .attr("y", -40)
+    .attr("x", -(HEIGHT / 2))
+    .attr("transform", "rotate(-90)")
+    .text(yAxisLabel);
+}
+
+module.exports = { create, updateData, WIDTH, HEIGHT };

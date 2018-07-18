@@ -41,6 +41,19 @@ button:disabled {
   border: 1px solid #ddd;
 }
 
+#header {
+  align-items: center;
+  border-bottom: 1px solid #999;
+  display: flex;
+  grid-area: header;
+  justify-content: center;
+  margin: 0;
+}
+
+#title {
+  font-size: 1.25em;
+}
+
 #progress {
   position: absolute;
   top: 0;
@@ -51,13 +64,14 @@ button:disabled {
 #charts {
   grid-area: charts;
   overflow: auto;
-  padding: 20px;
+  padding: 0.25em;
 }
 
 #info {
   grid-area: info;
   overflow-y: auto;
   overflow-x: hidden;
+  border-left: 1px solid #999;
 }
 
 #legend {
@@ -100,11 +114,6 @@ button:disabled {
   flex: 1;
 }
 
-#title {
-  position: absolute;
-  top: 0px;
-}
-
 @media (max-width: 750px) {
   #charts {
     padding: 0;
@@ -113,9 +122,10 @@ button:disabled {
 
 @media (max-width: 1500px) {
   body {
-    grid-template-rows: 2fr 1fr;
+    grid-template-rows: auto 2fr 1fr;
     grid-template-columns: 1fr auto;
     grid-template-areas:
+      "header header"
       "charts info"
       "side-bar side-bar";
   }
@@ -127,9 +137,11 @@ button:disabled {
 
 @media (min-width: 1500px) {
   body {
-    grid-template-rows: 1fr;
+    grid-template-rows: 1fr auto;
     grid-template-columns: 700px auto 1fr;
-    grid-template-areas: "charts info side-bar";
+    grid-template-areas:
+      "header header header"
+      "charts info side-bar";
   }
 
   #side-bar {
