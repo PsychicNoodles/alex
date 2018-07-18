@@ -4,6 +4,7 @@
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 #include <set>
 
 #include "const.hpp"
@@ -76,9 +77,7 @@ set<string> str_split_set(const string& str, const string& delim) {
 
 void shutdown(pid_t pid, FILE* writef, int code) {
   kill(pid, SIGKILL);
-  // if (writef != nullptr) {
-  //   fclose(writef);
-  // }
+  std::clog.flush();
   Util::our_exit(code);
 }
 
