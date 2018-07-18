@@ -421,8 +421,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
             });
 
             d3.selectAll("#charts .plot").each(function(_, i) {
-              d3.select(this).call(plot.toggleCircles, {
-                data: filterData(plotDataByChart.get(charts[i]))
+              d3.select(this).call(plot.render, {
+                data: filterData(plotDataByChart.get(charts[i])),
+                densityMax,
+                spectrum
               });
             });
           }
