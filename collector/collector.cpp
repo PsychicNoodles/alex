@@ -165,6 +165,11 @@ dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
 static int collector_main(int argc, char **argv, char **env) {
   DEBUG("Version: " << VERSION);
 
+  DEBUG(argc - 1 << " args...");
+  for (int i = 0; i < argc; i++) {
+    DEBUG("argv[" << i << "]: " << argv[i]);
+  }
+
   enable_segfault_trace();  // has exit
 
   print_self_maps();
