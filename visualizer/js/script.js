@@ -14,7 +14,6 @@ const {
 } = require("./process-data");
 const { analyze } = require("./analysis");
 const chart = require("./chart");
-const plot = require("./plot");
 const functionRuntimes = require("./function-runtimes");
 const warningList = require("./warning-list");
 const legend = require("./legend");
