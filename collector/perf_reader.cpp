@@ -45,7 +45,6 @@
 using std::make_pair;
 using std::make_tuple;
 using std::map;
-using std::pair;
 using std::string;
 using std::tie;
 using std::tuple;
@@ -194,14 +193,6 @@ void delete_fd_from_epoll(int fd) {
     PARENT_SHUTDOWN_PERROR(INTERNAL_ERROR, "error removing perf fd " << fd);
   }
   sample_fd_count--;
-}
-
-/**
- * erase all the unnecessary entry in a map
- */
-void map_delete(
-    std::map<interval, std::shared_ptr<line>, cmpByInterval> ranges) {
-  return;
 }
 
 /*
@@ -487,7 +478,7 @@ bool process_sample_record(
     bool is_first_timeslice, bool is_first_sample, bg_reading *rapl_reading,
     bg_reading *wattsup_reading, const map<uint64_t, kernel_sym> &kernel_syms,
     const map<interval, std::shared_ptr<line>, cmpByInterval> &ranges,
-    const map<interval, string, cmpByInterval> &sym_map, dwarf::dwarf dw) {
+    const map<interval, string, cmpByInterval> &sym_map) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
@@ -644,7 +635,7 @@ bool process_sample_record(
       DEBUG("cpd: looking up kernel stack frame");
       uint64_t addr = lookup_kernel_addr(kernel_syms, inst_ptr);
       if (addr != -1) {
-        auto ks = kernel_syms.at(addr);
+        const auto &ks = kernel_syms.at(addr);
         file_name = "(kernel)";
         file_base = nullptr;
         sym_addr = reinterpret_cast<void *>(addr);
@@ -661,17 +652,18 @@ bool process_sample_record(
     if (upper_sym != sym_map.begin()) {
       --upper_sym;
       if (upper_sym->first.contains(pc)) {
-        sym_name = (char *)upper_sym->second.c_str();
+        sym_name = const_cast<char *>(upper_sym->second.c_str());
       } else {
         DEBUG("cpd: cannot find function symbol");
         sym_name = nullptr;
       }
     }
 
-    char *fullLocation = (char *)malloc(sizeof(char) * 256);
+    size_t fullLocationSize = 256;
+    char fullLocation[fullLocationSize];
+    snprintf(fullLocation, fullLocationSize, "(null)");
     auto line = -1;
     auto column = -1;
-    size_t start_loop = time_ms();
 
     // Get the line full location
     DEBUG("cpd: looking up line location");
@@ -681,13 +673,12 @@ bool process_sample_record(
       if (upper_range->first.contains(pc)) {
         DEBUG("line is " << upper_range->second);
         line = upper_range->second.get()->get_line();
-        sprintf(
-            fullLocation, "%s:%d",
-            (char *)(upper_range->second.get()->get_file()->get_name().c_str()),
-            line);
+        snprintf(fullLocation, fullLocationSize, "%s:%d",
+                 const_cast<char *>(
+                     upper_range->second.get()->get_file()->get_name().c_str()),
+                 line);
       } else {
         DEBUG("cpd: cannot find line location");
-        fullLocation = nullptr;
       }
     }
 
@@ -775,7 +766,7 @@ void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
   bool is_first_element = true;
   for (auto &t : warnings) {
     int record_type;
-    base_record record;
+    base_record record{};
     int64_t extra;
     tie(record_type, record, extra) = t;
     if (is_first_element) {
@@ -788,8 +779,6 @@ void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
     if (record_type == PERF_RECORD_THROTTLE) {
       auto throttle = record.throttle;
       uint64_t time = throttle.time;
-      uint64_t id = throttle.id;
-      uint64_t stream_id = throttle.stream_id;
       fprintf(result_file, R"(
       {
        "type": "PERF_RECORD_THROTTLE",
@@ -800,6 +789,8 @@ void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
       if (SAMPLE_ID_ALL) {
         write_sample_id(throttle.sample_id);
       } else {
+        uint64_t id = throttle.id;
+        uint64_t stream_id = throttle.stream_id;
         fprintf(result_file, R"(,
        "id": %lu,
        "stream_id": %lu)",
@@ -812,8 +803,6 @@ void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
     } else if (record_type == PERF_RECORD_UNTHROTTLE) {
       auto throttle = record.throttle;
       uint64_t time = throttle.time;
-      uint64_t id = throttle.id;
-      uint64_t stream_id = throttle.stream_id;
       fprintf(result_file, R"(
       {
        "type": "PERF_RECORD_UNTHROTTLE",
@@ -824,6 +813,8 @@ void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
       if (SAMPLE_ID_ALL) {
         write_sample_id(throttle.sample_id);
       } else {
+        uint64_t id = throttle.id;
+        uint64_t stream_id = throttle.stream_id;
         fprintf(result_file, R"(,
        "id": %lu,
        "stream_id": %lu)",
@@ -835,13 +826,13 @@ void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
       delete_brackets(1);
     } else if (record_type == PERF_RECORD_LOST) {
       auto lost = record.lost;
-      uint64_t id = lost.id;
       uint64_t num_lost = lost.lost;
       fprintf(result_file, R"(
       {
        "type": "PERF_RECORD_LOST",)");
       add_brackets("}");
       if (!SAMPLE_ID_ALL) {
+        uint64_t id = lost.id;
         fprintf(result_file, R"(
        "id": %lu,)",
                 id);
@@ -971,9 +962,10 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
  */
 int collect_perf_data(
     const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd, int socket,
-    bg_reading *rapl_reading, bg_reading *wattsup_reading, dwarf::dwarf dw,
-    std::map<interval, string, cmpByInterval> sym_map,
-    std::map<interval, std::shared_ptr<line>, cmpByInterval> ranges) {
+    bg_reading *rapl_reading, bg_reading *wattsup_reading,
+    const dwarf::dwarf & /*dw*/,
+    const std::map<interval, string, cmpByInterval> &sym_map,
+    const std::map<interval, std::shared_ptr<line>, cmpByInterval> &ranges) {
   bool is_first_timeslice = true;
   bool done = false;
   int sample_period_skips = 0;
@@ -1081,7 +1073,7 @@ int collect_perf_data(
                     is_first_sample = process_sample_record(
                         local_result.sample, info, is_first_timeslice,
                         is_first_sample, rapl_reading, wattsup_reading,
-                        kernel_syms, ranges, sym_map, dw);
+                        kernel_syms, ranges, sym_map);
                   } else {
                     DEBUG("cpd: not first sample, skipping");
                   }

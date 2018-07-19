@@ -208,8 +208,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       cpuTimeOffset
     });
 
-    const yScalesByChart = new WeakMap();
-    for (const chartParams of charts) {
+    const chartsWithYScales = charts.map(chartParams => {
       const { getDependentVariable } = chartParams;
       const normalData = sdFilter(processedData, getDependentVariable, sdRange);
       const yScaleMax = d3.max(normalData, getDependentVariable);
@@ -218,8 +217,11 @@ ipcRenderer.on("result", async (event, resultFile) => {
         .scaleLinear()
         .domain([yScaleMax, yScaleMin])
         .range([0, chart.HEIGHT]);
-      yScalesByChart.set(chartParams, yScale);
-    }
+      return {
+        ...chartParams,
+        yScale
+      };
+    });
 
     stream
       .fromStreamables([
@@ -249,38 +251,41 @@ ipcRenderer.on("result", async (event, resultFile) => {
             processedData: fullFilteredData
           });
 
-          const plotDataByChart = new WeakMap();
+          const chartsWithPlotData = chartsWithYScales
+            .map(chartParams => {
+              const {
+                getDependentVariable,
+                flattenThreads,
+                yScale
+              } = chartParams;
 
-          for (const chartParams of charts) {
-            const { getDependentVariable, flattenThreads } = chartParams;
+              const normalData = sdFilter(
+                flattenThreads ? sourceFilteredData : fullFilteredData,
+                getDependentVariable,
+                sdRange
+              );
 
-            const normalData = sdFilter(
-              flattenThreads ? sourceFilteredData : fullFilteredData,
-              getDependentVariable,
-              sdRange
-            );
+              const plotData = computeRenderableData({
+                data: normalData,
+                xScale,
+                yScale,
+                getIndependentVariable,
+                getDependentVariable
+              });
 
-            const plotData = computeRenderableData({
-              data: normalData,
-              xScale,
-              yScale: yScalesByChart.get(chartParams),
-              getIndependentVariable,
-              getDependentVariable
-            });
-
-            plotDataByChart.set(chartParams, plotData);
-          }
-
-          const chartsWithPlotData = charts.filter(
-            chart => plotDataByChart.get(chart).length > 0
-          );
+              return {
+                ...chartParams,
+                plotData
+              };
+            })
+            .filter(chart => chart.plotData.length > 0);
 
           const densityMax = Math.max(
             chartsWithPlotData.reduce(
               (currentMax, chartParams) =>
                 Math.max(
                   currentMax,
-                  d3.max(plotDataByChart.get(chartParams), d => d.densityAvg)
+                  d3.max(chartParams.plotData, d => d.densityAvg)
                 ),
               0
             ),
@@ -292,27 +297,25 @@ ipcRenderer.on("result", async (event, resultFile) => {
             .selectAll("div")
             .data(chartsWithPlotData);
 
-          let someHighDensity = false;
-
           chartsDataSelection
             .enter()
             .append("div")
-            .each(function(chartParams) {
-              const isLowDensity =
-                d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) < 2;
-              if (!isLowDensity) {
-                someHighDensity = true;
-              }
-              const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
+            .each(function({
+              getDependentVariable,
+              yAxisLabel,
+              yFormat,
+              yScale,
+              plotData
+            }) {
               d3.select(this).call(chart.create, {
                 getIndependentVariable,
                 getDependentVariable,
                 xAxisLabel,
                 yAxisLabel,
                 xScale,
-                yScale: yScalesByChart.get(chartParams),
+                yScale,
                 yFormat,
-                plotData: plotDataByChart.get(chartParams),
+                plotData,
                 densityMax,
                 spectrum,
                 cpuTimeOffset,
@@ -321,21 +324,21 @@ ipcRenderer.on("result", async (event, resultFile) => {
               });
             })
             .merge(chartsDataSelection)
-            .each(function(chartParams) {
-              const isLowDensity =
-                d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) < 2;
-              if (!isLowDensity) {
-                someHighDensity = true;
-              }
-              const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
+            .each(function({
+              getDependentVariable,
+              yAxisLabel,
+              yFormat,
+              yScale,
+              plotData
+            }) {
               d3.select(this).call(chart.updateData, {
                 getIndependentVariable,
                 getDependentVariable,
                 yAxisLabel,
                 xScale,
-                yScale: yScalesByChart.get(chartParams),
+                yScale,
                 yFormat,
-                plotData: plotDataByChart.get(chartParams),
+                plotData,
                 densityMax,
                 spectrum
               });
@@ -343,16 +346,12 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
           chartsDataSelection.exit().remove();
 
-          if (someHighDensity) {
-            d3.select("#legend")
-              .style("display", "block")
-              .call(legend.render, {
-                densityMax,
-                spectrum
-              });
-          } else {
-            d3.select("#legend").style("display", "none");
-          }
+          d3.select("#legend")
+            .style("display", "block")
+            .call(legend.render, {
+              densityMax,
+              spectrum
+            });
         })
       );
 

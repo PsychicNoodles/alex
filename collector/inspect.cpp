@@ -11,13 +11,13 @@
 
 #include <elf.h>
 #include <fcntl.h>
-#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <cstdlib>
 
 #include <fcntl.h>
-#include <inttypes.h>
+#include <cinttypes>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -37,26 +37,28 @@
 
 #include "log.hpp"
 
-using namespace std;
+using std::unordered_map;
+using std::unordered_set;
+using std::vector;
 
 /**
  * Locate the build ID encoded in an ELF file and return it as a formatted
  * string
  */
-static string find_build_id(elf::elf& f) {
+static string find_build_id(const elf::elf& f) {
   for (auto& section : f.sections()) {
     if (section.get_hdr().type == elf::sht::note) {
-      uintptr_t base = reinterpret_cast<uintptr_t>(section.data());
+      auto base = reinterpret_cast<uintptr_t>(section.data());
       size_t offset = 0;
       while (offset < section.size()) {
-        Elf64_Nhdr* hdr = reinterpret_cast<Elf64_Nhdr*>(base + offset);
+        auto* hdr = reinterpret_cast<Elf64_Nhdr*>(base + offset);
 
         if (hdr->n_type == NT_GNU_BUILD_ID) {
           // Found the build-id note
           stringstream ss;
           uintptr_t desc_base =
               base + offset + sizeof(Elf64_Nhdr) + hdr->n_namesz;
-          uint8_t* build_id = reinterpret_cast<uint8_t*>(desc_base);
+          auto* build_id = reinterpret_cast<uint8_t*>(desc_base);
           for (size_t i = 0; i < hdr->n_descsz; i++) {
             ss.flags(ios::hex);
             ss.width(2);
@@ -75,23 +77,25 @@ static string find_build_id(elf::elf& f) {
   return "";
 }
 
-static string absolute_path(const string filename) {
-  if (filename[0] == '/') return filename;
+static string absolute_path(const string& filename) {
+  if (filename[0] == '/') {
+    return filename;
+  }
 
-  char* cwd = getcwd(NULL, 0);
-  REQUIRE(cwd != NULL) << "Failed to get current directory";
+  char* cwd = getcwd(nullptr, 0);
+  REQUIRE(cwd != nullptr) << "Failed to get current directory";
 
   return string(cwd) + '/' + filename;
 }
 
-static string canonicalize_path(const string filename) {
+static string canonicalize_path(const string& filename) {
   vector<string> parts = str_split_vec(absolute_path(filename), "\t");
 
   // Iterate over the path parts to produce a reduced list of path sections
   vector<string> reduced;
-  for (string part : parts) {
+  for (const string& part : parts) {
     if (part == "..") {
-      REQUIRE(reduced.size() > 0) << "Invalid absolute path";
+      REQUIRE(!reduced.empty()) << "Invalid absolute path";
       reduced.pop_back();
     } else if (part.length() > 0 && part != ".") {
       // Skip single-dot or empty entries
@@ -101,7 +105,7 @@ static string canonicalize_path(const string filename) {
 
   // Join path sections into a single string
   string result;
-  for (string part : reduced) {
+  for (const string& part : reduced) {
     result += "/" + part;
   }
 
@@ -109,7 +113,7 @@ static string canonicalize_path(const string filename) {
 }
 
 static bool file_exists(const string& filename) {
-  struct stat statbuf;
+  struct stat statbuf {};
   int rc = stat(filename.c_str(), &statbuf);
   // If the stat call succeeds, the file must exist
   return rc == 0;
@@ -119,7 +123,7 @@ static bool file_exists(const string& filename) {
  * Get the full path to a file specified via absolute path, relative path, or
  * raw name resolved via the PATH variable.
  */
-static const string get_full_path(const string filename) {
+static const string get_full_path(const string& filename) {
   if (filename.find('/') != string::npos) {
     return canonicalize_path(filename);
 
@@ -144,7 +148,7 @@ static const string get_full_path(const string filename) {
  * This will work for files specified by relative path, absolute path, or raw
  * name resolved via the PATH variable.
  */
-elf::elf locate_debug_executable(const string filename) {
+elf::elf locate_debug_executable(const string& filename) {
   elf::elf f;
 
   const string full_path = get_full_path(filename);
@@ -233,15 +237,21 @@ unordered_map<string, uintptr_t> get_loaded_files() {
 
     // Read in "<base>-<limit> <perms> <offset> <dev_major>:<dev_minor> <inode>"
     maps >> std::hex >> base;
-    if (maps.get() != '-') break;
+    if (maps.get() != '-') {
+      break;
+    }
     maps >> std::hex >> limit;
 
-    if (maps.get() != ' ') break;
+    if (maps.get() != ' ') {
+      break;
+    }
     maps.get(perms, 5);
 
     maps >> std::hex >> offset;
     maps >> std::hex >> dev_major;
-    if (maps.get() != ':') break;
+    if (maps.get() != ':') {
+      break;
+    }
     maps >> std::hex >> dev_minor;
     maps >> std::dec >> inode;
 
@@ -317,7 +327,7 @@ bool in_scope(const string& name, const unordered_set<string>& scope) {
   return false;
 }
 
-void memory_map::build(const unordered_set<string>& binary_scope,
+void memory_map::build(const unordered_set<string>& /*binary_scope*/,
                        const unordered_set<string>& source_scope,
                        std::map<interval, string, cmpByInterval>& sym_table) {
   size_t in_scope_count = 0;
@@ -340,23 +350,31 @@ void memory_map::build(const unordered_set<string>& binary_scope,
 }
 
 dwarf::value find_attribute(const dwarf::die& d, dwarf::DW_AT attr) {
-  if (!d.valid()) return dwarf::value();
+  if (!d.valid()) {
+    return {};
+  }
 
   try {
-    if (d.has(attr)) return d[attr];
+    if (d.has(attr)) {
+      return d[attr];
+    }
 
     if (d.has(dwarf::DW_AT::abstract_origin)) {
       const dwarf::die child =
           d.resolve(dwarf::DW_AT::abstract_origin).as_reference();
       dwarf::value v = find_attribute(child, attr);
-      if (v.valid()) return v;
+      if (v.valid()) {
+        return v;
+      }
     }
 
     if (d.has(dwarf::DW_AT::specification)) {
       const dwarf::die child =
           d.resolve(dwarf::DW_AT::specification).as_reference();
       dwarf::value v = find_attribute(child, attr);
-      if (v.valid()) return v;
+      if (v.valid()) {
+        return v;
+      }
     }
   } catch (dwarf::format_error e) {
     WARNING << "Ignoring DWARF format error " << e.what();
@@ -365,7 +383,7 @@ dwarf::value find_attribute(const dwarf::die& d, dwarf::DW_AT attr) {
   return dwarf::value();
 }
 
-void memory_map::add_range(std::string filename, size_t line_no,
+void memory_map::add_range(const std::string& filename, size_t line_no,
                            interval range) {
   shared_ptr<file> f = get_file(filename);
   shared_ptr<line> l = f->get_line(line_no);
@@ -377,7 +395,9 @@ void memory_map::process_inlines(
     const dwarf::die& d, const dwarf::line_table& table,
     const unordered_set<string>& source_scope, uintptr_t load_address,
     std::map<interval, string, cmpByInterval>& sym_table) {
-  if (!d.valid()) return;
+  if (!d.valid()) {
+    return;
+  }
 
   try {
     if (d.tag == dwarf::DW_TAG::inlined_subroutine) {
@@ -396,7 +416,9 @@ void memory_map::process_inlines(
 
       size_t decl_line = 0;
       dwarf::value decl_line_val = find_attribute(d, dwarf::DW_AT::decl_line);
-      if (decl_line_val.valid()) decl_line = decl_line_val.as_uconstant();
+      if (decl_line_val.valid()) {
+        decl_line = decl_line_val.as_uconstant();
+      }
 
       string call_file;
       if (d.has(dwarf::DW_AT::call_file) && table.valid()) {
@@ -410,7 +432,7 @@ void memory_map::process_inlines(
       }
 
       // If the call location is in scope but the function is not, add an entry
-      if (decl_file.size() > 0 && call_file.size() > 0) {
+      if (!decl_file.empty() && !call_file.empty()) {
         if (!in_scope(decl_file, source_scope) &&
             in_scope(call_file, source_scope)) {
           // Does this inline have separate ranges?
@@ -430,19 +452,25 @@ void memory_map::process_inlines(
               uint64_t low_pc;
               uint64_t high_pc;
 
-              if (low_pc_val.get_type() == dwarf::value::type::address)
+              if (low_pc_val.get_type() == dwarf::value::type::address) {
                 low_pc = low_pc_val.as_address();
-              else if (low_pc_val.get_type() == dwarf::value::type::uconstant)
+              } else if (low_pc_val.get_type() ==
+                         dwarf::value::type::uconstant) {
                 low_pc = low_pc_val.as_uconstant();
-              else if (low_pc_val.get_type() == dwarf::value::type::sconstant)
+              } else if (low_pc_val.get_type() ==
+                         dwarf::value::type::sconstant) {
                 low_pc = low_pc_val.as_sconstant();
+              }
 
-              if (high_pc_val.get_type() == dwarf::value::type::address)
+              if (high_pc_val.get_type() == dwarf::value::type::address) {
                 high_pc = high_pc_val.as_address();
-              else if (high_pc_val.get_type() == dwarf::value::type::uconstant)
+              } else if (high_pc_val.get_type() ==
+                         dwarf::value::type::uconstant) {
                 high_pc = high_pc_val.as_uconstant();
-              else if (high_pc_val.get_type() == dwarf::value::type::sconstant)
+              } else if (high_pc_val.get_type() ==
+                         dwarf::value::type::sconstant) {
                 high_pc = high_pc_val.as_sconstant();
+              }
 
               add_range(call_file, call_line,
                         interval(low_pc, high_pc) + load_address);
@@ -464,7 +492,9 @@ void dump_tree(const dwarf::die& d, int depth,
                std::map<interval, string, cmpByInterval>& sym_table,
                uintptr_t load_address, const dwarf::line_table& table,
                const unordered_set<string>& source_scope) {
-  if (!d.valid()) return;
+  if (!d.valid()) {
+    return;
+  }
   try {
     if (d.tag == dwarf::DW_TAG::subprogram) {
       string name;
@@ -482,9 +512,11 @@ void dump_tree(const dwarf::die& d, int depth,
 
       size_t decl_line = 0;
       dwarf::value decl_line_val = find_attribute(d, dwarf::DW_AT::decl_line);
-      if (decl_line_val.valid()) decl_line = decl_line_val.as_uconstant();
+      if (decl_line_val.valid()) {
+        decl_line = decl_line_val.as_uconstant();
+      }
 
-      if (decl_file.size() > 0) {
+      if (!decl_file.empty()) {
         if (in_scope(decl_file, source_scope)) {
           if (d.has(dwarf::DW_AT::low_pc) && d.has(dwarf::DW_AT::high_pc)) {
             dwarf::value low_pc_val = find_attribute(d, dwarf::DW_AT::low_pc);
@@ -494,12 +526,15 @@ void dump_tree(const dwarf::die& d, int depth,
               uint64_t low_pc = 0;
               uint64_t high_pc = 0;
 
-              if (low_pc_val.get_type() == dwarf::value::type::address)
+              if (low_pc_val.get_type() == dwarf::value::type::address) {
                 low_pc = low_pc_val.as_address();
-              else if (low_pc_val.get_type() == dwarf::value::type::uconstant)
+              } else if (low_pc_val.get_type() ==
+                         dwarf::value::type::uconstant) {
                 low_pc = low_pc_val.as_uconstant();
-              else if (low_pc_val.get_type() == dwarf::value::type::sconstant)
+              } else if (low_pc_val.get_type() ==
+                         dwarf::value::type::sconstant) {
                 low_pc = low_pc_val.as_sconstant();
+              }
 
               high_pc = high_pc_val.as_sconstant();
               if (high_pc != 0 && low_pc != 0) {
@@ -548,7 +583,7 @@ bool memory_map::process_file(
   dwarf::dwarf d(dwarf::elf::create_loader(f));
 
   // Walk through the compilation units (source files) in the executable
-  for (auto unit : d.compilation_units()) {
+  for (const auto& unit : d.compilation_units()) {
     auto& lineTable = unit.get_line_table();
     dump_tree(unit.root(), 0, sym_table, load_address, lineTable, source_scope);
     int fileIndex = 0;
@@ -647,6 +682,6 @@ shared_ptr<line> memory_map::find_line(uintptr_t addr) {
 
 memory_map& memory_map::get_instance() {
   static char buf[sizeof(memory_map)];
-  static memory_map* the_instance = new (buf) memory_map();
+  static auto* the_instance = new (buf) memory_map();
   return *the_instance;
 }

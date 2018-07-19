@@ -175,7 +175,7 @@ dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
   // closed by mmap_loader constructor
   int fd = open(const_cast<char *>(file), O_RDONLY);
   if (fd < 0) {
-    SHUTDOWN_PERROR(global->subject_pid, NULL, DEBUG_SYMBOLS_FILE_ERROR,
+    SHUTDOWN_PERROR(global->subject_pid, nullptr, DEBUG_SYMBOLS_FILE_ERROR,
                     "cannot open executable (" << file << ")");
   }
 
@@ -261,7 +261,7 @@ static int collector_main(int argc, char **argv, char **env) {
         snprintf(msg, 256, "error in reading dwarf file for executable: %s",
                  e.what());
       }
-      shutdown(subject_pid, NULL, DEBUG_SYMBOLS_FILE_ERROR, msg);
+      shutdown(subject_pid, nullptr, DEBUG_SYMBOLS_FILE_ERROR, msg);
     }
 
     vector<string> binary_scope_v = {"MAIN"};
@@ -313,7 +313,7 @@ static int collector_main(int argc, char **argv, char **env) {
     }
 
     DEBUG("collector_main: setting up collector");
-    bg_reading rapl_reading{0}, wattsup_reading{0};
+    bg_reading rapl_reading{nullptr}, wattsup_reading{nullptr};
     setup_collect_perf_data(sigterm_fd, sockets[0], wu_fd, result_file, argv[0],
                             &rapl_reading, &wattsup_reading);
 

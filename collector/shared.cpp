@@ -25,17 +25,17 @@ void init_global_vars(uint64_t period, pid_t collector_pid,
   for (int i = 0; i < global->events_size; i++) {
     global->events[i] =
         static_cast<char *>(malloc_shared(sizeof(char) * events.at(i).size()));
-    memcpy((void *)global->events[i], events.at(i).c_str(),
+    memcpy(static_cast<void *>(global->events[i]), events.at(i).c_str(),
            events.at(i).size());
   }
   global->presets =
       static_cast<char **>(malloc_shared(sizeof(char *) * presets.size()));
   global->presets_size = presets.size();
   size_t i = 0;
-  for (auto p : presets) {
+  for (const auto &p : presets) {
     global->presets[i] =
         static_cast<char *>(malloc_shared(sizeof(char) * p.size()));
-    memcpy((void *)global->presets[i], p.c_str(), p.size());
+    memcpy(static_cast<void *>(global->presets[i]), p.c_str(), p.size());
     i++;
   }
 }

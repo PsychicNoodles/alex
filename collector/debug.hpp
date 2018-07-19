@@ -6,9 +6,11 @@
 #include <string>
 #include <unordered_map>
 
-using namespace std;
 #include <libelfin/dwarf/dwarf++.hh>
 #include <libelfin/elf/elf++.hh>
+
+using std::unordered_map;
+using std::string;
 
 // debug macro
 #define DEBUG_BUF_SIZE 512
