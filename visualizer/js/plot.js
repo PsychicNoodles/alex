@@ -7,9 +7,9 @@ function render(root, { data, densityMax, spectrum }) {
   root.classed("plot", true);
 
   // Create the points and position them in the plot
-  const circles = (root.select("g").empty()
-    ? root.append("g").attr("class", "circles")
-    : root.select("g")
+  const circles = (root.select("svg").empty()
+    ? root.append("svg").attr("class", "circles")
+    : root.select("svg")
   )
     .selectAll("circle")
     .data(data);

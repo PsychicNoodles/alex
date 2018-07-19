@@ -117,7 +117,7 @@ function render(root, { warnings, cpuTimeOffset }) {
     ) {
       return `Period changed to ${e.period}`;
     } else if (e.type === "PERF_RECORD_LOST") {
-      return `Post ${e.lost} events`;
+      return `Lost ${e.lost} events`;
     }
   });
 

@@ -127,6 +127,24 @@ function updateData(
     .attr("x", -(HEIGHT / 2))
     .attr("transform", "rotate(-90)")
     .text(yAxisLabel);
+
+  svg.call(
+    d3
+      .zoom()
+      .scaleExtent([1, 8])
+      .extent([[0, 0], [WIDTH, HEIGHT]])
+      .on("zoom", function() {
+        const t = d3.event.transform;
+        const yt = t.rescaleY(yScale);
+        d3.select(this)
+          .selectAll("circle")
+          .data(plotData)
+          .attr("cy", d => yt(getDependentVariable(d)));
+        d3.select(this)
+          .select(".chart__axis--y")
+          .call(d3.axisLeft(yt).tickFormat(yFormat));
+      })
+  );
 }
 
 module.exports = { create, updateData, WIDTH, HEIGHT };
