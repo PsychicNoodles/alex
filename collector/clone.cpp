@@ -42,8 +42,8 @@ void *__imposter(void *arg) {
   DEBUG(tid << ": registering fd " << info.cpu_clock_fd
             << " with collector for bookkeeping");
   if (!register_perf_fds(perf_register_sock, &info)) {
-    perror("failed to send new thread's fd");
-    shutdown(global->collector_pid, nullptr, INTERNAL_ERROR);
+    SHUTDOWN_PERROR(global->collector_pid, nullptr, INTERNAL_ERROR,
+                    "failed to send new thread's fd");
   }
 
   DEBUG(tid << ": starting routine");
@@ -80,8 +80,8 @@ pid_t fork(void) {
     DEBUG(pid << ": registering PROCESS fd " << info.cpu_clock_fd
               << " with collector for bookkeeping");
     if (!register_perf_fds(perf_register_sock, &info)) {
-      perror("failed to send PROCESS new thread's fd");
-      shutdown(pid, nullptr, INTERNAL_ERROR);
+      SHUTDOWN_PERROR(pid, nullptr, INTERNAL_ERROR,
+                      "failed to send PROCESS new thread's fd");
     }
     DEBUG(pid << ": finished PROCESS routine, unregistering fd "
               << info.cpu_clock_fd);

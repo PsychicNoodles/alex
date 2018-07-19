@@ -175,11 +175,8 @@ dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
   // closed by mmap_loader constructor
   int fd = open(const_cast<char *>(file), O_RDONLY);
   if (fd < 0) {
-    char buf[256];
-    snprintf(buf, 256, "cannot open executable (%s)", file);
-    perror(buf);
-    DEBUG("something wrong with read dwarf");
-    shutdown(global->subject_pid, NULL, DEBUG_SYMBOLS_FILE_ERROR);
+    SHUTDOWN_PERROR(global->subject_pid, NULL, DEBUG_SYMBOLS_FILE_ERROR,
+                    "cannot open executable (" << file << ")");
   }
 
   elf::elf ef(elf::create_mmap_loader(fd));
@@ -256,12 +253,15 @@ static int collector_main(int argc, char **argv, char **env) {
     try {
       dw = read_dwarf();
     } catch (dwarf::format_error &e) {
+      char msg[256];
       if (strcmp(e.what(), "required .debug_info section missing") == 0) {
-        DEBUG("could not find debug symbols, did you compile with `-g`?");
+        strncpy(msg, "could not find debug symbols, did you compile with `-g`?",
+                256);
       } else {
-        DEBUG("error in reading dwarf file for executable: " << e.what());
+        snprintf(msg, 256, "error in reading dwarf file for executable: %s",
+                 e.what());
       }
-      shutdown(subject_pid, NULL, DEBUG_SYMBOLS_FILE_ERROR);
+      shutdown(subject_pid, NULL, DEBUG_SYMBOLS_FILE_ERROR, msg);
     }
 
     vector<string> binary_scope_v = {"MAIN"};
@@ -296,11 +296,9 @@ static int collector_main(int argc, char **argv, char **env) {
     close(sockets[1]);
 
     if (result_file == nullptr) {
-      perror("couldn't open result file");
-      shutdown(subject_pid, result_file, INTERNAL_ERROR);
+      SHUTDOWN_PERROR(subject_pid, result_file, INTERNAL_ERROR,
+                      "couldn't open result file");
     }
-
-    Util::result_file = result_file;
 
     int sigterm_fd = setup_sigterm_handler();
 

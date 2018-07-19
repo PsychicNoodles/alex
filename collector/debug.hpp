@@ -15,7 +15,7 @@ using namespace std;
 #define DEBUG_HELPER(x)   \
   do {                    \
     std::ostringstream s; \
-    s << x << "\n";       \
+    s << x << std::endl;  \
     std::clog << s.str(); \
   } while (0)
 #if defined(NDEBUG)

@@ -6,10 +6,16 @@
 #include <cstring>
 #include <iostream>
 #include <set>
+#include <stack>
 
 #include "const.hpp"
+#include "debug.hpp"
 #include "shared.hpp"
 #include "util.hpp"
+
+using std::stack;
+
+stack<char> brackets;
 
 /*
  * Reports time since epoch in milliseconds.
@@ -75,10 +81,23 @@ set<string> str_split_set(const string& str, const string& delim) {
   return split;
 }
 
-void shutdown(pid_t pid, FILE* writef, int code) {
+void shutdown(pid_t pid, FILE* result_file, int code, const char* msg) {
+  DEBUG("error: " << msg);
   kill(pid, SIGKILL);
   std::clog.flush();
-  Util::our_exit(code);
+  if (brackets.empty()) {
+    brackets.push('{');
+  }
+  while (!brackets.empty()) {
+    fprintf(result_file, "%c", brackets.top());
+    brackets.pop();
+  }
+  fprintf(result_file, R"(, 
+  "error": "%s"
+  })",
+          msg);
+  fclose(result_file);
+  exit(0);
 }
 
 pid_t gettid() { return syscall(SYS_gettid); }
@@ -100,26 +119,18 @@ string getenv_safe(const char* var, const char* fallback) {
   return string(value);
 }
 
-string Util::brackets = "";
-FILE* Util::result_file = NULL;
-string Util::error_message = "";
-
-void Util::our_exit(int error_code) {
-  if (Util::brackets == "") {
-    brackets = "{";
+void add_brackets(string new_brackets) {
+  DEBUG("adding " << new_brackets.size() << " brackets: " << new_brackets);
+  for (auto& c : new_brackets) {
+    brackets.push(c);
   }
-  fprintf(Util::result_file, R"( %s, 
-  "error": "%s"
-  })",
-          Util::brackets.c_str(), Util::error_message.c_str());
-  fclose(result_file);
-  exit(0);
 }
 
-void Util::add_brackets(string new_brackets) {
-  Util::brackets.insert(0, new_brackets);
+void delete_brackets(int num_brackets) {
+  DEBUG("removing " << num_brackets << " brackets");
+  for (int i = 0; i < num_brackets; i++) {
+    brackets.pop();
+  }
 }
 
-void Util::delete_brackets(int num_brackets) {
-  Util::brackets.substr((size_t)num_brackets);
-}
+size_t count_brackets() { return brackets.size(); }
