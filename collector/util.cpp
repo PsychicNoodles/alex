@@ -88,15 +88,17 @@ void shutdown(pid_t pid, FILE* result_file, int code, const char* msg) {
   if (brackets.empty()) {
     brackets.push('{');
   }
-  while (!brackets.empty()) {
-    fprintf(result_file, "%c", brackets.top());
-    brackets.pop();
-  }
-  fprintf(result_file, R"(, 
+  if (result_file != nullptr) {
+    while (!brackets.empty()) {
+      fprintf(result_file, "%c", brackets.top());
+      brackets.pop();
+    }
+    fprintf(result_file, R"(, 
   "error": "%s"
   })",
-          msg);
-  fclose(result_file);
+            msg);
+    fclose(result_file);
+  }
   exit(0);
 }
 
