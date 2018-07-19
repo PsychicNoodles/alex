@@ -10,7 +10,10 @@
 
 #define TEST_DURATION 2
 
-void random_access_test(unsigned char *buf, size_t buflen);
+void random_access_test_1(unsigned char *buf, size_t buflen);
+void random_access_test_2(unsigned char *buf, size_t buflen);
+void random_access_test_3(unsigned char *buf, size_t buflen);
+void random_access_test_4(unsigned char *buf, size_t buflen);
 
 int main() {
   srand(time(NULL));
@@ -52,14 +55,61 @@ int main() {
   }
 
   // TESTS
-  random_access_test(tiny_buf, TINY_BUFLEN);
-  random_access_test(small_buf, SMALL_BUFLEN);
-  random_access_test(medium_buf, MEDIUM_BUFLEN);
-  random_access_test(large_buf, LARGE_BUFLEN);
+  random_access_test_1(tiny_buf, TINY_BUFLEN);
+  random_access_test_2(small_buf, SMALL_BUFLEN);
+  random_access_test_3(medium_buf, MEDIUM_BUFLEN);
+  random_access_test_4(large_buf, LARGE_BUFLEN);
   return 0;
 }
 
-void random_access_test(unsigned char *buf, size_t buflen) {
+/* Having four identical functions with different names is terrible, but the
+ * tool doesn't have a good means of differentiating input among functions. */
+
+/* void random_access_test(unsigned char *buf, size_t buflen) {
+  unsigned char random_byte = 0;
+  time_t time_start = time(NULL);
+  time_t time_end = time_start;
+  while (time_end - time_start < TEST_DURATION) {
+    int i = rand() % (buflen - 1);
+    random_byte = buf[i];
+    time_end = time(NULL);
+  }
+} */
+
+void random_access_test_1(unsigned char *buf, size_t buflen) {
+  unsigned char random_byte = 0;
+  time_t time_start = time(NULL);
+  time_t time_end = time_start;
+  while (time_end - time_start < TEST_DURATION) {
+    int i = rand() % (buflen - 1);
+    random_byte = buf[i];
+    time_end = time(NULL);
+  }
+}
+
+void random_access_test_2(unsigned char *buf, size_t buflen) {
+  unsigned char random_byte = 0;
+  time_t time_start = time(NULL);
+  time_t time_end = time_start;
+  while (time_end - time_start < TEST_DURATION) {
+    int i = rand() % (buflen - 1);
+    random_byte = buf[i];
+    time_end = time(NULL);
+  }
+}
+
+void random_access_test_3(unsigned char *buf, size_t buflen) {
+  unsigned char random_byte = 0;
+  time_t time_start = time(NULL);
+  time_t time_end = time_start;
+  while (time_end - time_start < TEST_DURATION) {
+    int i = rand() % (buflen - 1);
+    random_byte = buf[i];
+    time_end = time(NULL);
+  }
+}
+
+void random_access_test_4(unsigned char *buf, size_t buflen) {
   unsigned char random_byte = 0;
   time_t time_start = time(NULL);
   time_t time_end = time_start;
