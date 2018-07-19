@@ -38,9 +38,10 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int& wu_fd,
                              bg_reading* wattsup_reading);
 int collect_perf_data(
     const map<uint64_t, kernel_sym>& kernel_syms, int sigt_fd, int socket,
-    bg_reading* rapl_reading, bg_reading* wattsup_reading, dwarf::dwarf dw,
-    std::map<interval, string, cmpByInterval> sym_map,
-    std::map<interval, std::shared_ptr<line>, cmpByInterval> ranges);
+    bg_reading* rapl_reading, bg_reading* wattsup_reading,
+    const dwarf::dwarf& dw,
+    const std::map<interval, string, cmpByInterval>& sym_map,
+    const std::map<interval, std::shared_ptr<line>, cmpByInterval>& ranges);
 
 bool register_perf_fds(int socket, perf_fd_info* info);
 bool unregister_perf_fds(int socket);

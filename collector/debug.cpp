@@ -11,7 +11,6 @@
 #include <string>
 #include <unordered_map>
 
-using namespace std;
 #include <fstream>
 #include <iostream>
 
@@ -158,11 +157,11 @@ void dump_line_table(const dwarf::line_table &lt) {
 }
 
 void dump_tree(const dwarf::die &node, int depth) {
-  if (to_string(node.tag).compare("DW_TAG_subprogram") == 0) {
+  if (to_string(node.tag) == "DW_TAG_subprogram") {
     printf("%*.s<%" PRIx64 "> %s\n", depth, "", node.get_section_offset(),
            to_string(node.tag).c_str());
     for (auto &attr : node.attributes()) {
-      if (to_string(attr.first).compare("DW_AT_name") == 0) {
+      if (to_string(attr.first) == "DW_AT_name") {
         string name = to_string(attr.second);
         DEBUG("name is " << name.c_str());
       }
@@ -170,18 +169,20 @@ void dump_tree(const dwarf::die &node, int depth) {
              to_string(attr.second).c_str());
     }
   }
-  for (auto &child : node) dump_tree(child, depth + 1);
+  for (auto &child : node) {
+    dump_tree(child, depth + 1);
+  }
 }
 
 int dump_table_and_symbol(unordered_map<string, uintptr_t> result,
                           uint64_t inst_ptr) {
   // std::cout << "inst prt is " << inst_ptr;
   uint64_t diff = -1;
-  struct elf::Sym<> real_data;
+  struct elf::Sym<> real_data {};
   int i = 0;
-  char *name;
+  char *name = nullptr;
   for (auto &f : result) {
-    char *path = (char *)f.first.c_str();
+    auto *path = const_cast<char *>(f.first.c_str());
     int fd = open(path, O_RDONLY);
     if (fd < 0) {
       perror(path);
@@ -207,12 +208,12 @@ int dump_table_and_symbol(unordered_map<string, uintptr_t> result,
         if (diff == -1) {
           real_data = d;
           diff = new_diff;
-          name = (char *)sym.get_name().c_str();
+          name = const_cast<char *>(sym.get_name().c_str());
           i++;
         } else if (new_diff > 0 && new_diff < diff) {
           real_data = d;
           diff = new_diff;
-          name = (char *)sym.get_name().c_str();
+          name = const_cast<char *>(sym.get_name().c_str());
           i++;
         }
       }

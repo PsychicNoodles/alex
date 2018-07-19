@@ -185,7 +185,7 @@ class memory_map {
     }
   }
 
-  void add_range(std::string filename, size_t line_no, interval range);
+  void add_range(const std::string& filename, size_t line_no, interval range);
 
   /// Find a debug version of provided file and add all of its in-scope lines to
   /// the map

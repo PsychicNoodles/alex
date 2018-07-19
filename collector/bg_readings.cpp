@@ -104,7 +104,7 @@ void *get_result(bg_reading *reading) {
   if (!reading->running) {
     DEBUG("background tid " << reading->thread
                             << " was not running, cannot get result!");
-    return NULL;
+    return nullptr;
   }
   void *ret = reading->result;
   DEBUG("result for tid " << reading->thread << " is " << ptr_fmt(ret));
