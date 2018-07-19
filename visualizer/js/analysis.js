@@ -1,6 +1,8 @@
 const fisher = require("fishertest");
 /**
  * Run analyses of data.
+ * Fisher's exact test null hypothesis: the given function and other functions
+ * are equally likely to be in the selection region.
  * @param timeSlices All the data.
  * @param {(stackFrames: Array) => string} getFunctionName
  *    Get a unique name for a function. All timeslices that resolve to the same
