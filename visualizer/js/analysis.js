@@ -6,8 +6,6 @@ const fisher = require("fishertest");
  *    Get a unique name for a function. All timeslices that resolve to the same
  *    function name will be grouped together.
  * @returns Results of the analysis.
- * @todo Move out the partitioning from subfunctions into this function.
- * @todo Let client choose sort?
  */
 function analyze(timeSlices, getFunctionName) {
   const outputData = {
@@ -47,28 +45,22 @@ function analyze(timeSlices, getFunctionName) {
     return outputData;
   }
 
-  /* Chi-Squared Table variable names
-   *            | Current Function     | Other Functions
-   * ---------------------------------------------------
-   * Selected   | func.observed        | notFuncSelected
-   * ---------------------------------------------------
-   * Unselected | func.unselectedCount | notFuncUnselected
-   */
-  outputData.functions.forEach(func => {
-    const notFuncSelected = outputData.selectedTotal - func.observed;
-    const notFuncUnselected = outputData.unselectedTotal - func.unselectedCount;
-    func.probability =
+  outputData.functions.forEach(cur => {
+    const otherObserved = outputData.selectedTotal - cur.observed;
+    const otherUnselectedCount =
+      outputData.unselectedTotal - cur.unselectedCount;
+    cur.probability =
       1 -
       fisher(
-        func.observed,
-        notFuncSelected,
-        func.unselectedCount,
-        notFuncUnselected
+        cur.observed,
+        otherObserved,
+        cur.unselectedCount,
+        otherUnselectedCount
       );
     /* console.log(`1A: ${func.observed}, 1B: ${notFuncSelected}`);
     console.log(`2A: ${func.unselectedCount}, 2B: ${notFuncUnselected}`); */
-    const funcTotal = func.observed + func.unselectedCount;
-    func.expected = (funcTotal * outputData.selectedTotal) / timeSlices.length;
+    const funcTotal = cur.observed + cur.unselectedCount;
+    cur.expected = (funcTotal * outputData.selectedTotal) / timeSlices.length;
 
     /* console.log(
       `Saw ${func.observed} of ${func.name}, expected ~${Math.round(
