@@ -292,17 +292,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
             .selectAll("div")
             .data(chartsWithPlotData);
 
-          let someHighDensity = false;
-
           chartsDataSelection
             .enter()
             .append("div")
             .each(function(chartParams) {
-              const isLowDensity =
-                d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) < 2;
-              if (!isLowDensity) {
-                someHighDensity = true;
-              }
               const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
               d3.select(this).call(chart.create, {
                 getIndependentVariable,
@@ -322,11 +315,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
             })
             .merge(chartsDataSelection)
             .each(function(chartParams) {
-              const isLowDensity =
-                d3.max(plotDataByChart.get(chartParams), d => d.densityAvg) < 2;
-              if (!isLowDensity) {
-                someHighDensity = true;
-              }
               const { getDependentVariable, yAxisLabel, yFormat } = chartParams;
               d3.select(this).call(chart.updateData, {
                 getIndependentVariable,
@@ -343,16 +331,12 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
           chartsDataSelection.exit().remove();
 
-          if (someHighDensity) {
-            d3.select("#legend")
-              .style("display", "block")
-              .call(legend.render, {
-                densityMax,
-                spectrum
-              });
-          } else {
-            d3.select("#legend").style("display", "none");
-          }
+          d3.select("#legend")
+            .style("display", "block")
+            .call(legend.render, {
+              densityMax,
+              spectrum
+            });
         })
       );
 
