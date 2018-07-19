@@ -420,8 +420,6 @@ void memory_map::process_inlines(
             for (auto r : ranges_val.as_rangelist()) {
               add_range(call_file, call_line,
                         interval(r.low, r.high) + load_address);
-              // sym_table.insert(pair<interval, string> ((interval(r.low,
-              // r.high) + load_address), name));
             }
           } else {
             // Must just be one range. Add it
@@ -448,8 +446,6 @@ void memory_map::process_inlines(
 
               add_range(call_file, call_line,
                         interval(low_pc, high_pc) + load_address);
-              // sym_table.insert(pair<interval, string> ((interval(low_pc,
-              // high_pc) + load_address), name));
             }
           }
         }
