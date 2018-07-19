@@ -69,7 +69,15 @@ function analyze(timeSlices, getFunctionName) {
     ); */
   });
 
-  outputData.functions.sort((a, b) => b.probability - a.probability);
+  outputData.functions.sort((a, b) => {
+    const sort1 = b.probability - a.probability;
+    const sort2 = b.observed - a.observed;
+    if (sort1 !== 0) {
+      return sort1;
+    } else {
+      return sort2;
+    }
+  });
   return outputData;
 }
 
