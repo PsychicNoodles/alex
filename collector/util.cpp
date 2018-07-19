@@ -99,7 +99,7 @@ void shutdown(pid_t pid, FILE* result_file, int code, const char* msg) {
             msg);
     fclose(result_file);
   }
-  exit(0);
+  exit(code);
 }
 
 pid_t gettid() { return syscall(SYS_gettid); }
