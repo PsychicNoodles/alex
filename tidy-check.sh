@@ -21,7 +21,7 @@ TIDY_CHECKS_LIST=(
   "-cppcoreguidelines-pro-*" # many of these checks prescribe additional libraries
   "-cppcoreguidelines-owning-memory" # requires the additional gsl library
   "google-*"
-  "google-global-names-in-headers" # we don't currently namespace everything
+  "-google-global-names-in-headers" # we don't currently namespace everything
   "hicpp-*"
   "-hicpp-vararg" # various vararg c functions are used frequently, ie. fprintf, snprintf
   "-hicpp-no-array-decay" # we don't mind array decay
