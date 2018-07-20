@@ -636,6 +636,8 @@ bool process_sample_record(
       uint64_t addr = lookup_kernel_addr(kernel_syms, inst_ptr);
       if (addr != -1) {
         const auto &ks = kernel_syms.at(addr);
+        sym_name_str = ks.sym;
+        sym_name = sym_name_str.c_str();
         file_name = "(kernel)";
         file_base = nullptr;
         sym_addr = reinterpret_cast<void *>(addr);
@@ -647,15 +649,17 @@ bool process_sample_record(
     dwarf::taddr pc = inst_ptr - 1;
 
     // Get the sym name
-    DEBUG("cpd: looking up function symbol");
-    auto upper_sym = sym_map.upper_bound(interval(pc, pc));
-    if (upper_sym != sym_map.begin()) {
-      --upper_sym;
-      if (upper_sym->first.contains(pc)) {
-        sym_name = const_cast<char *>(upper_sym->second.c_str());
-      } else {
-        DEBUG("cpd: cannot find function symbol");
-        sym_name = nullptr;
+    if (sym_name == nullptr) {
+      DEBUG("cpd: looking up function symbol");
+      auto upper_sym = sym_map.upper_bound(interval(pc, pc));
+      if (upper_sym != sym_map.begin()) {
+        --upper_sym;
+        if (upper_sym->first.contains(pc)) {
+          sym_name = const_cast<char *>(upper_sym->second.c_str());
+        } else {
+          DEBUG("cpd: cannot find function symbol");
+          sym_name = nullptr;
+        }
       }
     }
 
@@ -1011,9 +1015,9 @@ int collect_perf_data(
           try {
             info = perf_info_mappings.at(fd);
           } catch (out_of_range &e) {
-            PARENT_SHUTDOWN_MSG(INTERNAL_ERROR,
-                                "tried looking up a perf fd that has no info ("
-                                    << fd << ")");
+            PARENT_SHUTDOWN_MSG(
+                INTERNAL_ERROR,
+                "tried looking up a perf fd that has no info (" << fd << ")");
           }
 
           if (!has_next_record(&info.sample_buf)) {
