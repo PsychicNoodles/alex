@@ -29,11 +29,15 @@ void *reading_fn_wrapper(void *raw_args) {
       DEBUG(t << ": received notifiction to stop while function was running");
       lock.unlock();
     } else {
-      DEBUG(t << ": locked, setting ready to false");
-      reading->ready = false;
-      DEBUG(t << ": waiting for ready signal");
-      reading->cv.wait(
-          lock, [&reading] { return reading->ready || !reading->running; });
+      if (reading->ready) {
+        DEBUG(t << ": ready was set to true while waiting for the lock");
+      } else {
+        DEBUG(t << ": locked, setting ready to false");
+        reading->ready = false;
+        DEBUG(t << ": waiting for ready signal");
+        reading->cv.wait(
+            lock, [&reading] { return reading->ready || !reading->running; });
+      }
       if (reading->running) {
         DEBUG(t << ": received notification to continue");
       } else {
