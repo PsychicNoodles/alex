@@ -237,6 +237,11 @@ async function collect({
     }
   });
 
+  collector.on("error", err => {
+    console.error(`Couldn't start collection: ${err.message}`);
+    process.exit(1);
+  });
+
   // Pipe through inputs and outputs
 
   if (inFile) {
