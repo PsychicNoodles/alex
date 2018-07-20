@@ -56,7 +56,7 @@ print_command=false
 while getopts "la:h:fwqc" opt; do
   case $opt in
     f)
-      fix="-fix"
+      fix="-fix -fix-errors"
       ;;
     a)
       args=$OPTARG
