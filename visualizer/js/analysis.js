@@ -59,13 +59,13 @@ function analyze(timeSlices, getFunctionName) {
           cur.unselectedCount,
           otherUnselectedCount
         );
-      /* console.log(`1A: ${func.observed}, 1B: ${notFuncSelected}`);
-      console.log(`2A: ${func.unselectedCount}, 2B: ${notFuncUnselected}`); */
+      /* console.log(`1A: ${cur.observed}, 1B: ${otherObserved}`);
+      console.log(`2A: ${cur.unselectedCount}, 2B: ${otherUnselectedCount}`); */
 
       /* console.log(
-        `Saw ${func.observed} of ${func.name}, expected ~${Math.round(
-          func.expected
-        )}, probability ${func.probability}`
+        `Saw ${cur.observed} of ${cur.name}, expected ~${Math.round(
+          cur.expected
+        )}, probability ${cur.probability}`
       ); */
     });
   }
