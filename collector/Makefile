@@ -40,7 +40,7 @@ clean:
 tidy:
 	@for src in $(SOURCES) ; do \
 		echo "Running clang-tidy on $$src..." ; \
-		eval `$(TIDY_SCRIPT) $(TIDY_FIX) -c $(SRC_DIR)/$$src` 2>/dev/null ; \
+		`$(TIDY_SCRIPT) $(TIDY_FIX) -c $(SRC_DIR)/$$src` 2>/dev/null ; \
 	done
 	@echo "Finished tidying"
 

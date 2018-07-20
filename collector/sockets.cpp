@@ -48,16 +48,17 @@ int recv_perf_fds(int socket, perf_fd_info *info,
       }
       info->tid = tid;
       return cmd;
-    } else if (cmd == SOCKET_CMD_UNREGISTER) {
+    }
+    if (cmd == SOCKET_CMD_UNREGISTER) {
       DEBUG("request to unregister fds for tid " << tid);
       auto pair = find_perf_info_by_thread(perf_info_mappings, tid);
       if (pair != perf_info_mappings.end()) {
         DEBUG("found perf info");
         *info = pair->second;
         return cmd;
-      } else {
-        DEBUG("couldn't find perf info for thread " << tid);
       }
+      DEBUG("couldn't find perf info for thread " << tid);
+
     } else {
       DEBUG("received invalid socket cmd");
       return cmd;

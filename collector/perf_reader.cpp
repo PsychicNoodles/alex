@@ -326,7 +326,8 @@ bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
       *done = true;
       // don't check the other fds, jump back to epolling
       return true;
-    } else if (fd == socket) {
+    }
+    if (fd == socket) {
       DEBUG("cpd: received message from a thread in subject");
       int cmd;
       auto *info = new perf_fd_info;
@@ -390,10 +391,9 @@ int adjust_period(int record_type) {
           "minimum "
           << MIN_PERIOD << " (currently " << global->period << ")");
       return 0;
-    } else {
-      DEBUG("unthrottle event detected, decreasing period");
-      global->period = (global->period) / PERIOD_ADJUST_SCALE;
     }
+    DEBUG("unthrottle event detected, decreasing period");
+    global->period = (global->period) / PERIOD_ADJUST_SCALE;
   }
 
   DEBUG("new period is " << global->period);
