@@ -66,11 +66,9 @@ static string find_build_id(const elf::elf& f) {
             ss << static_cast<size_t>(build_id[i]);
           }
           return ss.str();
-
-        } else {
-          // Advance to the next note header
-          offset += sizeof(Elf64_Nhdr) + hdr->n_namesz + hdr->n_descsz;
         }
+        // Advance to the next note header
+        offset += sizeof(Elf64_Nhdr) + hdr->n_namesz + hdr->n_descsz;
       }
     }
   }
@@ -130,17 +128,15 @@ static bool file_exists(const string& filename) {
 static const string get_full_path(const string& filename) {
   if (filename.find('/') != string::npos) {
     return canonicalize_path(filename);
+  }
+  // Search the environment's path for the first match
+  const string path_env = getenv("PATH");
+  vector<string> search_dirs = str_split_vec(getenv_safe("PATH", ":"), "\t");
 
-  } else {
-    // Search the environment's path for the first match
-    const string path_env = getenv("PATH");
-    vector<string> search_dirs = str_split_vec(getenv_safe("PATH", ":"), "\t");
-
-    for (const string& dir : search_dirs) {
-      string full_path = dir + '/' + filename;
-      if (file_exists(full_path)) {
-        return full_path;
-      }
+  for (const string& dir : search_dirs) {
+    string full_path = dir + '/' += filename;
+    if (file_exists(full_path)) {
+      return full_path;
     }
   }
 
@@ -283,11 +279,12 @@ bool wildcard_match(string::const_iterator subject,
   if ((pattern == pattern_end) != (subject == subject_end)) {
     // If one but not both of the iterators have finished, match failed
     return false;
-  } else if (pattern == pattern_end && subject == subject_end) {
+  }
+  if (pattern == pattern_end && subject == subject_end) {
     // If both iterators have finished, match succeeded
     return true;
-
-  } else if (*pattern == '%') {
+  }
+  if (*pattern == '%') {
     // Try possible matches of the wildcard, starting with the longest possible
     // match
     for (auto match_end = subject_end; match_end >= subject; match_end--) {
@@ -297,23 +294,19 @@ bool wildcard_match(string::const_iterator subject,
     }
     // No matches found. Abort
     return false;
-
-  } else {
-    // Walk through non-wildcard characters to match
-    while (subject != subject_end && pattern != pattern_end &&
-           *pattern != '%') {
-      // If the characters do not match, abort. Otherwise keep going.
-      if (*pattern != *subject) {
-        return false;
-      } else {
-        pattern++;
-        subject++;
-      }
-    }
-
-    // Recursive call to handle wildcard or termination cases
-    return wildcard_match(subject, subject_end, pattern, pattern_end);
   }
+  // Walk through non-wildcard characters to match
+  while (subject != subject_end && pattern != pattern_end && *pattern != '%') {
+    // If the characters do not match, abort. Otherwise keep going.
+    if (*pattern != *subject) {
+      return false;
+    }
+    pattern++;
+    subject++;
+  }
+
+  // Recursive call to handle wildcard or termination cases
+  return wildcard_match(subject, subject_end, pattern, pattern_end);
 }
 
 bool wildcard_match(const string& subject, const string& pattern) {
@@ -383,11 +376,11 @@ dwarf::value find_attribute(const dwarf::die& d, dwarf::DW_AT attr) {
         return v;
       }
     }
-  } catch (dwarf::format_error e) {
+  } catch (dwarf::format_error& e) {
     DEBUG("ignoring DWARF format error " << e.what());
   }
 
-  return dwarf::value();
+  return {};
 }
 
 void memory_map::add_range(const std::string& filename, size_t line_no,
@@ -421,11 +414,7 @@ void memory_map::process_inlines(
         decl_file = table.get_file(decl_file_val.as_uconstant())->path;
       }
 
-      size_t decl_line = 0;
       dwarf::value decl_line_val = find_attribute(d, dwarf::DW_AT::decl_line);
-      if (decl_line_val.valid()) {
-        decl_line = decl_line_val.as_uconstant();
-      }
 
       string call_file;
       if (d.has(dwarf::DW_AT::call_file) && table.valid()) {
@@ -456,8 +445,7 @@ void memory_map::process_inlines(
             dwarf::value high_pc_val = find_attribute(d, dwarf::DW_AT::high_pc);
 
             if (low_pc_val.valid() && high_pc_val.valid()) {
-              uint64_t low_pc;
-              uint64_t high_pc;
+              uint64_t low_pc = 0, high_pc = 0;
 
               if (low_pc_val.get_type() == dwarf::value::type::address) {
                 low_pc = low_pc_val.as_address();
@@ -486,7 +474,7 @@ void memory_map::process_inlines(
         }
       }
     }
-  } catch (dwarf::format_error e) {
+  } catch (dwarf::format_error& e) {
     DEBUG("ignoring DWARF format error " << e.what());
   }
 
@@ -496,7 +484,7 @@ void memory_map::process_inlines(
 }
 
 void dump_tree(const dwarf::die& d, int depth,
-               std::map<interval, string, cmpByInterval>& sym_table,
+               std::map<interval, string, cmpByInterval>* sym_table,
                uintptr_t load_address, const dwarf::line_table& table,
                const unordered_set<string>& source_scope) {
   if (!d.valid()) {
@@ -517,11 +505,7 @@ void dump_tree(const dwarf::die& d, int depth,
         decl_file = table.get_file(decl_file_val.as_uconstant())->path;
       }
 
-      size_t decl_line = 0;
       dwarf::value decl_line_val = find_attribute(d, dwarf::DW_AT::decl_line);
-      if (decl_line_val.valid()) {
-        decl_line = decl_line_val.as_uconstant();
-      }
 
       if (!decl_file.empty()) {
         if (in_scope(decl_file, source_scope)) {
@@ -545,7 +529,7 @@ void dump_tree(const dwarf::die& d, int depth,
 
               high_pc = high_pc_val.as_sconstant();
               if (high_pc != 0 && low_pc != 0) {
-                sym_table.insert(pair<interval, string>(
+                sym_table->insert(pair<interval, string>(
                     (interval(low_pc, low_pc + high_pc) + load_address), name));
               }
             }
@@ -553,7 +537,7 @@ void dump_tree(const dwarf::die& d, int depth,
         }
       }
     }
-  } catch (dwarf::format_error e) {
+  } catch (dwarf::format_error& e) {
     DEBUG("Ignoring DWARF format error " << e.what());
   }
 
@@ -592,7 +576,8 @@ bool memory_map::process_file(
   // Walk through the compilation units (source files) in the executable
   for (const auto& unit : d.compilation_units()) {
     auto& lineTable = unit.get_line_table();
-    dump_tree(unit.root(), 0, sym_table, load_address, lineTable, source_scope);
+    dump_tree(unit.root(), 0, &sym_table, load_address, lineTable,
+              source_scope);
     int fileIndex = 0;
     bool needProcess = false;
     // check if files using by lineTable are in source_scope
@@ -641,7 +626,7 @@ bool memory_map::process_file(
           // INFO << "Included source file " << filename;
         }
 
-      } catch (dwarf::format_error e) {
+      } catch (dwarf::format_error& e) {
         DEBUG("ignoring DWARF format error when reading line table: "
               << e.what());
       }
@@ -681,10 +666,9 @@ shared_ptr<line> memory_map::find_line(uintptr_t addr) {
   auto iter = _ranges.find(addr);
   if (iter != _ranges.end()) {
     return iter->second;
-  } else {
-    DEBUG("cannot find lines");
-    return shared_ptr<line>();
   }
+  DEBUG("cannot find lines");
+  return shared_ptr<line>();
 }
 
 memory_map& memory_map::get_instance() {
