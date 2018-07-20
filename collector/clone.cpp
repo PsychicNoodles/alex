@@ -25,6 +25,7 @@ execvp_fn_t real_execvp;
 execv_fn_t real_execv;
 execvpe_fn_t real_execvpe;
 int perf_register_sock;
+bool is_finished = false;
 
 void set_perf_register_sock(int sock) { perf_register_sock = sock; }
 
@@ -105,7 +106,6 @@ int execvp(const char *file, char *const argv[]) {
   if (unsetenv("LD_PRELOAD")) {
     perror("clone.cpp: couldn't unset env");
   }
-
   return real_execvp(file, argv);
 }
 

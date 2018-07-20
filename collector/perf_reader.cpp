@@ -255,7 +255,8 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
 
       DEBUG("opening perf event");
       // use cpu cycles event as group leader again
-      auto event_fd = perf_event_open(&attr, target, -1, cpu_clock_perf.fd, 0);
+      auto event_fd = perf_event_open(&attr, target, -1, cpu_clock_perf.fd,
+                                      PERF_FLAG_FD_CLOEXEC);
       if (event_fd == -1) {
         PARENT_SHUTDOWN_PERROR(INTERNAL_ERROR,
                                "couldn't perf_event_open for event");
