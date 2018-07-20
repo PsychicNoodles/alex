@@ -237,12 +237,6 @@ async function collect({
     }
   });
 
-  // Keep track so we can wait on this before quitting
-  Promise.all([
-    new Promise(resolve => collector.stdout.on("end", resolve)),
-    new Promise(resolve => collector.stderr.on("end", resolve))
-  ]);
-
   // Pipe through inputs and outputs
 
   if (inFile) {
