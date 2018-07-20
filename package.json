@@ -73,7 +73,7 @@
       "git add"
     ],
     "*.{c,h,cpp,hpp}": [
-      "clang-format -i -style=file",
+      "./tidy-check.sh -q",
       "git add"
     ]
   }
