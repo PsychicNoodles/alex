@@ -44,6 +44,7 @@
 using std::make_pair;
 using std::make_tuple;
 using std::map;
+using std::out_of_range;
 using std::string;
 using std::tie;
 using std::tuple;

@@ -10,6 +10,7 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 
 #include <libelfin/dwarf/dwarf++.hh>
 #include <libelfin/elf/elf++.hh>
@@ -29,6 +30,7 @@ using std::ifstream;
 using std::istringstream;
 using std::map;
 using std::string;
+using std::unordered_set;
 
 using main_fn_t = int (*)(int, char **, char **);
 
@@ -264,27 +266,15 @@ static int collector_main(int argc, char **argv, char **env) {
       shutdown(subject_pid, nullptr, DEBUG_SYMBOLS_FILE_ERROR, msg);
     }
 
-    vector<string> binary_scope_v = {"MAIN"};
-    unordered_set<string> binary_scope(binary_scope_v.begin(),
-                                       binary_scope_v.end());
-
     vector<string> source_scope_v = {"%%"};
     unordered_set<string> source_scope(source_scope_v.begin(),
                                        source_scope_v.end());
-
-    // include the path of the main executable
-    if (binary_scope.find("MAIN") != binary_scope.end()) {
-      binary_scope.erase("MAIN");
-      string main_name = readlink_str("/proc/self/exe");
-      binary_scope.insert(main_name);
-      DEBUG("Including MAIN, which is " << main_name);
-    }
 
     // Get all the dwarf files for debug symbols
 
     map<interval, string, cmpByInterval> sym_map;
 
-    memory_map::get_instance().build(binary_scope, source_scope, sym_map);
+    memory_map::get_instance().build(source_scope, &sym_map);
 
     std::map<interval, std::shared_ptr<line>, cmpByInterval> ranges =
         memory_map::get_instance().ranges();

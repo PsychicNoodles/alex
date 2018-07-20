@@ -1,7 +1,7 @@
 #ifndef COLLECTOR_SHARED
 #define COLLECTOR_SHARED
 
-#include <inttypes.h>
+#include <cinttypes>
 #include <set>
 #include <string>
 #include <vector>

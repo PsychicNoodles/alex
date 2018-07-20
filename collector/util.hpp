@@ -1,7 +1,7 @@
 #ifndef COLLECTOR_UTIL
 #define COLLECTOR_UTIL
 
-#include <stdio.h>
+#include <cstdio>
 #include <set>
 #include <string>
 #include <vector>

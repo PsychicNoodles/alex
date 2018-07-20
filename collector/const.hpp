@@ -1,8 +1,7 @@
 #ifndef COLLECTOR_CONST
 #define COLLECTOR_CONST
 
-#include <inttypes.h>
-#include <stdbool.h>
+#include <cinttypes>
 
 #ifndef VERSION
 #define VERSION "whoops"  // should be set by make command
@@ -41,7 +40,7 @@ const char* callchain_str(uint64_t callchain);
   127  // default value found in /proc/sys/kernel/perf_event_max_stacks
 #endif
 
-#define SAMPLE_EPOLL_TIMEOUT -1  // wait "forever"
+#define SAMPLE_EPOLL_TIMEOUT (-1)  // wait "forever"
 #define MAX_SAMPLE_PERIOD_SKIPS 30
 #define MAX_MONITORING_SETUP_ATTEMPTS 10
 #define HANDLE_EVENTS true  // an easy way to globally enable/disable events

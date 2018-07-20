@@ -6,11 +6,11 @@
 #include <perfmon/perf_event.h>
 #include <perfmon/pfmlib.h>
 #include <perfmon/pfmlib_perf_event.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <map>
 #include <string>
 
@@ -21,16 +21,16 @@ struct perf_buffer {
 };
 
 struct perf_fd_info {
-  int cpu_clock_fd;
-  pid_t tid;
-  perf_buffer sample_buf;
+  int cpu_clock_fd{};
+  pid_t tid{};
+  perf_buffer sample_buf{};
   std::map<std::string, int> event_fds;
 };
 
 #define PAGE_SIZE 0x1000LL
 #define NUM_DATA_PAGES \
   256  // this needs to be a power of two :'( (an hour was spent here)
-#define BUFFER_SIZE (1 + NUM_DATA_PAGES) * PAGE_SIZE
+#define BUFFER_SIZE ((1 + NUM_DATA_PAGES) * PAGE_SIZE)
 
 #define SAMPLE_ADDR_AND_IP (PERF_SAMPLE_ADDR | PERF_SAMPLE_IP)
 

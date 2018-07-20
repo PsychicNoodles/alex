@@ -24,7 +24,7 @@
 #include <libelfin/dwarf/dwarf++.hh>
 #include <libelfin/elf/elf++.hh>
 
-using namespace std;
+using std::string;
 
 namespace dwarf {
 class die;
@@ -41,9 +41,8 @@ class memory_map;
  */
 class line {
  public:
-  line(std::weak_ptr<file> f, size_t l) : _file(f), _line(l) {}
-  line(const line&) = default;
-  line& operator=(const line&) = default;
+  line(std::weak_ptr<file> f, size_t l)
+      : _file(std::move(std::move(f))), _line(l) {}
 
   inline std::shared_ptr<file> get_file() const { return _file.lock(); }
   inline size_t get_line() const { return _line; }
@@ -63,19 +62,18 @@ class interval {
   /// Standard constructor
   interval(uintptr_t base, uintptr_t limit) : _base(base), _limit(limit) {}
   interval(void* base, void* limit)
-      : interval((uintptr_t)base, (uintptr_t)limit) {}
+      : interval(reinterpret_cast<uintptr_t>(base),
+                 reinterpret_cast<uintptr_t>(limit)) {}
 
   /// Unit interval constructor
-  interval(uintptr_t p) : _base(p), _limit(p + 1) {}
-  interval(void* p) : interval((uintptr_t)p) {}
+  explicit interval(uintptr_t p) : _base(p), _limit(p + 1) {}
+  explicit interval(void* p) : interval(reinterpret_cast<uintptr_t>(p)) {}
 
   /// Default constructor for use in maps
   interval() : interval(nullptr, nullptr) {}
 
   /// Shift
-  interval operator+(uintptr_t x) const {
-    return interval(_base + x, _limit + x);
-  }
+  interval operator+(uintptr_t x) const { return {_base + x, _limit + x}; }
 
   /// Shift in place
   void operator+=(uintptr_t x) {
@@ -109,7 +107,7 @@ struct cmpByInterval {
  */
 class file : public std::enable_shared_from_this<file> {
  public:
-  explicit file(const std::string& name) : _name(name) {}
+  explicit file(std::string name) : _name(std::move(name)) {}
   file(const file&) = default;
   file& operator=(const file&) = default;
 
@@ -126,11 +124,10 @@ class file : public std::enable_shared_from_this<file> {
     auto iter = _lines.find(index);
     if (iter != _lines.end()) {
       return iter->second;
-    } else {
-      std::shared_ptr<line> l(new line(shared_from_this(), index));
-      _lines.emplace(index, l);
-      return l;
     }
+    std::shared_ptr<line> l(new line(shared_from_this(), index));
+    _lines.emplace(index, l);
+    return l;
   }
 
   inline bool has_line(size_t index) {
@@ -158,31 +155,30 @@ class memory_map {
   /// Build a map from addresses to source lines by examining binaries that
   /// match the provided scope patterns, adding only source files matching the
   /// source scope patterns.
-  void build(const std::unordered_set<std::string>& binary_scope,
-             const std::unordered_set<std::string>& source_scope,
-             std::map<interval, string, cmpByInterval>& sym_table);
+  void build(const std::unordered_set<std::string>& source_scope,
+             std::map<interval, string, cmpByInterval>* sym_table);
 
   std::shared_ptr<line> find_line(const std::string& name);
   std::shared_ptr<line> find_line(uintptr_t addr);
 
   static memory_map& get_instance();
 
+  memory_map(const memory_map&) = delete;
+  memory_map& operator=(const memory_map&) = delete;
+
  private:
   memory_map()
       : _files(std::map<std::string, std::shared_ptr<file>>()),
         _ranges(std::map<interval, std::shared_ptr<line>, cmpByInterval>()) {}
-  memory_map(const memory_map&) = delete;
-  memory_map& operator=(const memory_map&) = delete;
 
   inline std::shared_ptr<file> get_file(const std::string& filename) {
     auto iter = _files.find(filename);
     if (iter != _files.end()) {
       return iter->second;
-    } else {
-      std::shared_ptr<file> f(new file(filename));
-      _files.emplace(filename, f);
-      return f;
     }
+    std::shared_ptr<file> f(new file(filename));
+    _files.emplace(filename, f);
+    return f;
   }
 
   void add_range(const std::string& filename, size_t line_no, interval range);
@@ -191,13 +187,14 @@ class memory_map {
   /// the map
   bool process_file(const std::string& name, uintptr_t load_address,
                     const std::unordered_set<std::string>& source_scope,
-                    std::map<interval, string, cmpByInterval>& sym_table);
+                    std::map<interval, string, cmpByInterval>* sym_table);
 
   /// Add entries for all inlined calls
-  void process_inlines(const dwarf::die& d, const dwarf::line_table& table,
-                       const std::unordered_set<std::string>& source_scope,
-                       uintptr_t load_address,
-                       std::map<interval, string, cmpByInterval>& sym_table);
+  void process_inlines(
+      const dwarf::die& d, const dwarf::line_table& table,
+      const std::unordered_set<std::string>& source_scope,
+      uintptr_t load_address,
+      const std::map<interval, string, cmpByInterval>& sym_table);
 
   std::map<std::string, std::shared_ptr<file>> _files;
   std::map<interval, std::shared_ptr<line>, cmpByInterval> _ranges;

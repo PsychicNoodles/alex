@@ -23,7 +23,9 @@
 #define ENERGY_NAME "name"
 #define ENERGY_FILE "energy_uj"
 
-using namespace std;
+using std::map;
+using std::string;
+using std::vector;
 
 map<string, uint64_t> measure_energy();
 void measure_energy_into_map(map<string, uint64_t>* m);
@@ -34,6 +36,6 @@ vector<string> find_in_dir(const string& dir, const string& substr);
 
 string file_readline(const string& path);
 
-void find_rapl_events(map<string, vector<string>>);
+void find_rapl_events(map<string, vector<string>> /*events*/);
 
 #endif
