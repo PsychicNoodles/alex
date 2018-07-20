@@ -20,12 +20,14 @@ TIDY_CHECKS_LIST=(
   "cppcoreguidelines-*"
   "-cppcoreguidelines-pro-*" # many of these checks prescribe additional libraries
   "-cppcoreguidelines-owning-memory" # requires the additional gsl library
+  "-cppcoreguidelines-special-member-functions" # classes aren't used much, and they don't need all special fns defined
   "google-*"
   "-google-global-names-in-headers" # we don't currently namespace everything
   "hicpp-*"
   "-hicpp-vararg" # various vararg c functions are used frequently, ie. fprintf, snprintf
   "-hicpp-no-array-decay" # we don't mind array decay
   "-hicpp-signed-bitwise" # makes it difficult to macro define bitwise parameters
+  "-hicpp-special-member-functions" # aliases to above cppcoreguidelines version
   "llvm-*"
   "-llvm-include-order" # we use a different style guide for include order
   "-llvm-header-guard" # includes too many directories in header guard
