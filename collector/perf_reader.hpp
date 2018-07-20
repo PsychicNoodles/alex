@@ -16,11 +16,13 @@
 #include "bg_readings.hpp"
 #include "inspect.hpp"
 #include "perf_sampler.hpp"
+#include "shared.hpp"
 
-using namespace std;
+using std::map;
+using std::unordered_map;
 
 struct kernel_sym {
-  char type;
+  char type{};
   string sym;
   string cat;
 };
@@ -30,6 +32,15 @@ struct addr_sym {
   uint64_t low_pc;
   char* sym_name;
 };
+
+FILE* get_result_file();
+
+#define PARENT_SHUTDOWN_MSG(code, msg) \
+  SHUTDOWN_MSG(global->subject_pid, get_result_file(), code, msg)
+#define PARENT_SHUTDOWN_ERRMSG(code, title, desc) \
+  SHUTDOWN_ERRMSG(global->subject_pid, get_result_file(), code, title, desc)
+#define PARENT_SHUTDOWN_PERROR(code, title) \
+  SHUTDOWN_PERROR(global->subject_pid, get_result_file(), code, title)
 
 void setup_perf_events(pid_t target, bool setup_events, perf_fd_info* info);
 void setup_collect_perf_data(int sigt_fd, int socket, const int& wu_fd,
@@ -42,10 +53,5 @@ int collect_perf_data(
     const dwarf::dwarf& dw,
     const std::map<interval, string, cmpByInterval>& sym_map,
     const std::map<interval, std::shared_ptr<line>, cmpByInterval>& ranges);
-
-bool register_perf_fds(int socket, perf_fd_info* info);
-bool unregister_perf_fds(int socket);
-unordered_map<pair<uint64_t, uint64_t>, char*> dump_sym(const dwarf::die& node,
-                                                        int depth);
 
 #endif

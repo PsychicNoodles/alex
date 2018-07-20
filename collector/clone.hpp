@@ -7,30 +7,28 @@
 #include <perfmon/pfmlib.h>
 #include <perfmon/pfmlib_perf_event.h>
 #include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <vector>
 
 #define EVENT "perf_count_hw_cache_misses"
 #define SAMPLE 0
 #define EVENT_ACCURACY 100000
 
-typedef int (*pthread_create_fn_t)(pthread_t *, const pthread_attr_t *,
-                                   void *(*)(void *), void *);
+using pthread_create_fn_t = int (*)(pthread_t *, const pthread_attr_t *,
+                                    void *(*)(void *), void *);
 
-typedef pid_t (*fork_fn_t)(void);
+using fork_fn_t = pid_t (*)();
 
-typedef void *(*routine_fn_t)(void *);
+using routine_fn_t = void *(*)(void *);
 
-typedef int (*execve_fn_t)(const char *filename, char *const argv[],
-                           char *const envp[]);
-typedef int (*execvp_fn_t)(const char *file, char *const argv[]);
+using execve_fn_t = int (*)(const char *, char *const *, char *const *);
+using execvp_fn_t = int (*)(const char *, char *const *);
 
-typedef int (*execv_fn_t)(const char *path, char *const argv[]);
-typedef int (*execvpe_fn_t)(const char *file, char *const argv[],
-                            char *const envp[]);
+using execv_fn_t = int (*)(const char *, char *const *);
+using execvpe_fn_t = int (*)(const char *, char *const *, char *const *);
 
 extern pthread_create_fn_t real_pthread_create;
 extern fork_fn_t real_fork;
@@ -39,10 +37,10 @@ extern execvp_fn_t real_execvp;
 extern execv_fn_t real_execv;
 extern execvpe_fn_t real_execvpe;
 
-typedef struct disguise {
+using disguise_t = struct disguise {
   routine_fn_t victim;
   void *args;
-} disguise_t;
+};
 
 void set_perf_register_sock(int sock);
 

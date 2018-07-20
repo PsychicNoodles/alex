@@ -31,7 +31,7 @@
 #ifndef ANCILLARY_H__
 #define ANCILLARY_H__
 
-#include <stddef.h>
+#include <cstddef>
 
 /***************************************************************************
  * Start of the readable part.

@@ -184,6 +184,12 @@ async function collect({
   visualizeOption,
   wattsupDevice
 }) {
+  const MIN_PERIOD = 100000;
+  if (period < MIN_PERIOD) {
+    console.error(`Period must be greater than ${MIN_PERIOD}.`);
+    process.exit(1);
+  }
+
   const rawResultFile = tempFile(".json");
   const resultFile = resultOption || tempFile(".json");
 
@@ -231,37 +237,34 @@ async function collect({
     }
   });
 
-  // Keep track so we can wait on this before quitting
-  Promise.all([
-    new Promise(resolve => collector.stdout.on("end", resolve)),
-    new Promise(resolve => collector.stderr.on("end", resolve))
-  ]);
-
   // Pipe through inputs and outputs
 
   if (inFile) {
-    const fileStream = fs.createReadStream(inFile);
-    fileStream.on("open", () => {
-      fileStream.pipe(collector.stdin);
-    });
+    fs.createReadStream(inFile)
+      .pipe(collector.stdin)
+      .on("error", err =>
+        console.error(`Problem connecting to program stdin: ${err.message}`)
+      );
   } else {
     process.stdin.pipe(collector.stdin);
   }
 
   if (outFile) {
-    const fileStream = fs.createWriteStream(outFile);
-    fileStream.on("open", () => {
-      collector.stdout.pipe(fileStream);
-    });
+    collector.stdout
+      .pipe(fs.createWriteStream(outFile))
+      .on("error", err =>
+        console.error(`Problem connecting to program stdout: ${err.message}`)
+      );
   } else {
     collector.stdout.pipe(process.stdout);
   }
 
   if (errFile) {
-    const fileStream = fs.createWriteStream(errFile);
-    fileStream.on("open", () => {
-      collector.stderr.pipe(fileStream);
-    });
+    collector.stderr
+      .pipe(fs.createWriteStream(errFile))
+      .on("error", err =>
+        console.error(`Problem connecting to program stderr: ${err.message}`)
+      );
   } else {
     collector.stderr.pipe(process.stderr);
   }

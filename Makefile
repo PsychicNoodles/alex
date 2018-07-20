@@ -6,6 +6,9 @@ node_modules: package.json
 collector:
 	$(MAKE) -C collector
 
+collector-tidy:
+	$(MAKE) -C collector tidy
+
 examples:
 	$(MAKE) -C examples
 

@@ -7,9 +7,14 @@ const fisher = require("fishertest");
  * @param {(stackFrames: Array) => string} getFunctionName
  *    Get a unique name for a function. All timeslices that resolve to the same
  *    function name will be grouped together.
+ * @param threshold
+ *    The probability, from 0 to 1, which the probability returned by fisher()
+ *    must fall below. (I.E., if 0.1 is the threshold, only p < 0.1 would be
+ *    returned.In the converted returned probability, this corresponds to
+ *    percentages above 90%.)
  * @returns Results of the analysis.
  */
-function analyze(timeSlices, getFunctionName) {
+function analyze(timeSlices, getFunctionName, threshold) {
   const outputData = {
     selectedTotal: 0,
     unselectedTotal: 0,
@@ -26,7 +31,8 @@ function analyze(timeSlices, getFunctionName) {
         observed: 0,
         unselectedCount: 0,
         expected: 0,
-        probability: 0
+        probability: 0,
+        conclusion: ""
       });
     }
 
@@ -43,41 +49,55 @@ function analyze(timeSlices, getFunctionName) {
 
   outputData.functions = [...functionsMap.values()];
 
-  if (outputData.selectedTotal === 0 || outputData.unselectedTotal === 0) {
-    return outputData;
+  if (outputData.selectedTotal !== 0 && outputData.unselectedTotal !== 0) {
+    outputData.functions.forEach(cur => {
+      const curTotal = cur.observed + cur.unselectedCount;
+      cur.expected = (curTotal * outputData.selectedTotal) / timeSlices.length;
+
+      const otherObserved = outputData.selectedTotal - cur.observed;
+      const otherUnselectedCount =
+        outputData.unselectedTotal - cur.unselectedCount;
+      cur.probability =
+        1 -
+        fisher(
+          cur.observed,
+          otherObserved,
+          cur.unselectedCount,
+          otherUnselectedCount
+        );
+
+      if (cur.probability >= 1 - threshold && cur.observed >= cur.expected) {
+        cur.conclusion = "Unusually prevalent";
+      } else if (
+        cur.probability >= 1 - threshold &&
+        cur.observed < cur.expected
+      ) {
+        cur.conclusion = "Unusually absent";
+      } else {
+        cur.conclusion = "Insignificant";
+      }
+
+      /* console.log(`1A: ${cur.observed}, 1B: ${otherObserved}`);
+      console.log(`2A: ${cur.unselectedCount}, 2B: ${otherUnselectedCount}`); */
+
+      /* console.log(
+        `Saw ${cur.observed} of ${cur.name}, expected ~${Math.round(
+          cur.expected
+        )}, probability ${cur.probability}`
+      ); */
+    });
   }
-
-  outputData.functions.forEach(cur => {
-    const otherObserved = outputData.selectedTotal - cur.observed;
-    const otherUnselectedCount =
-      outputData.unselectedTotal - cur.unselectedCount;
-    cur.probability =
-      1 -
-      fisher(
-        cur.observed,
-        otherObserved,
-        cur.unselectedCount,
-        otherUnselectedCount
-      );
-    /* console.log(`1A: ${func.observed}, 1B: ${notFuncSelected}`);
-    console.log(`2A: ${func.unselectedCount}, 2B: ${notFuncUnselected}`); */
-    const funcTotal = cur.observed + cur.unselectedCount;
-    cur.expected = (funcTotal * outputData.selectedTotal) / timeSlices.length;
-
-    /* console.log(
-      `Saw ${func.observed} of ${func.name}, expected ~${Math.round(
-        func.expected
-      )}, probability ${func.probability}`
-    ); */
-  });
 
   outputData.functions.sort((a, b) => {
     const sort1 = b.probability - a.probability;
     const sort2 = b.observed - a.observed;
+    const sort3 = b.time - a.time;
     if (sort1 !== 0) {
       return sort1;
-    } else {
+    } else if (sort2 !== 0) {
       return sort2;
+    } else {
+      return sort3;
     }
   });
   return outputData;
