@@ -33,9 +33,9 @@
 #include <libelfin/dwarf/dwarf++.hh>
 #include <libelfin/elf/elf++.hh>
 
+#include "const.hpp"
+#include "perf_reader.hpp"
 #include "util.hpp"
-
-#include "log.hpp"
 
 using std::unordered_map;
 using std::unordered_set;
@@ -83,7 +83,9 @@ static string absolute_path(const string& filename) {
   }
 
   char* cwd = getcwd(nullptr, 0);
-  REQUIRE(cwd != nullptr) << "Failed to get current directory";
+  if (cwd == nullptr) {
+    PARENT_SHUTDOWN_MSG(INTERNAL_ERROR, "failed to get current directory");
+  }
 
   return string(cwd) + '/' + filename;
 }
@@ -95,7 +97,9 @@ static string canonicalize_path(const string& filename) {
   vector<string> reduced;
   for (const string& part : parts) {
     if (part == "..") {
-      REQUIRE(!reduced.empty()) << "Invalid absolute path";
+      if (reduced.empty()) {
+        PARENT_SHUTDOWN_MSG(INTERNAL_ERROR, "invalid absolute path");
+      }
       reduced.pop_back();
     } else if (part.length() > 0 && part != ".") {
       // Skip single-dot or empty entries
@@ -345,8 +349,11 @@ void memory_map::build(const unordered_set<string>& /*binary_scope*/,
     }
     //}
   }
-  REQUIRE(in_scope_count > 0) << "Debug information was not found for any "
-                                 "in-scope executables or libraries";
+  if (in_scope_count == 0) {
+    PARENT_SHUTDOWN_MSG(INTERNAL_ERROR,
+                        "debug information was not found for any in-scope "
+                        "executables or libraries");
+  }
 }
 
 dwarf::value find_attribute(const dwarf::die& d, dwarf::DW_AT attr) {
@@ -377,7 +384,7 @@ dwarf::value find_attribute(const dwarf::die& d, dwarf::DW_AT attr) {
       }
     }
   } catch (dwarf::format_error e) {
-    WARNING << "Ignoring DWARF format error " << e.what();
+    DEBUG("ignoring DWARF format error " << e.what());
   }
 
   return dwarf::value();
@@ -480,7 +487,7 @@ void memory_map::process_inlines(
       }
     }
   } catch (dwarf::format_error e) {
-    WARNING << "Ignoring DWARF format error " << e.what();
+    DEBUG("ignoring DWARF format error " << e.what());
   }
 
   for (const auto& child : d) {
@@ -576,7 +583,7 @@ bool memory_map::process_file(
       break;
 
     default:
-      WARNING << "Unsupported ELF file type...";
+      DEBUG("unsupported ELF file type");
   }
 
   // Read the DWARF information from the chosen file
@@ -635,8 +642,8 @@ bool memory_map::process_file(
         }
 
       } catch (dwarf::format_error e) {
-        WARNING << "Ignoring DWARF format error when reading line table: "
-                << e.what();
+        DEBUG("ignoring DWARF format error when reading line table: "
+              << e.what());
       }
     }  // if needProcess
   }
@@ -647,7 +654,7 @@ bool memory_map::process_file(
 shared_ptr<line> memory_map::find_line(const string& name) {
   string::size_type colon_pos = name.find_first_of(':');
   if (colon_pos == string::npos) {
-    WARNING << "Could not identify file name in input " << name;
+    DEBUG("could not identify file name in input " << name);
     return shared_ptr<line>();
   }
 

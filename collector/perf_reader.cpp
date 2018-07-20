@@ -37,7 +37,6 @@
 #include "inspect.hpp"
 #include "perf_reader.hpp"
 #include "rapl.hpp"
-#include "shared.hpp"
 #include "sockets.hpp"
 #include "util.hpp"
 #include "wattsup.hpp"
@@ -116,7 +115,7 @@ union base_record {
 };
 
 // output file for data collection results
-FILE *result_file;
+FILE *result_file = nullptr;
 
 // map between cpu cycles fd (the only fd in a thread that is sampled) and its
 // related information/fds
@@ -126,13 +125,6 @@ map<int, perf_fd_info> perf_info_mappings;
 int sample_epfd = epoll_create1(0);
 // a count of the number of fds added to the epoll
 size_t sample_fd_count = 0;
-
-#define PARENT_SHUTDOWN_MSG(code, msg) \
-  SHUTDOWN_MSG(global->subject_pid, result_file, code, msg)
-#define PARENT_SHUTDOWN_ERRMSG(code, title, desc) \
-  SHUTDOWN_ERRMSG(global->subject_pid, result_file, code, title, desc)
-#define PARENT_SHUTDOWN_PERROR(code, title) \
-  SHUTDOWN_PERROR(global->subject_pid, result_file, code, title)
 
 int get_record_size(int record_type) {
   switch (record_type) {
@@ -147,6 +139,8 @@ int get_record_size(int record_type) {
       return -1;
   }
 }
+
+FILE *get_result_file() { return result_file; }
 
 /**
  * Read a link's contents and return it as a string
