@@ -7,9 +7,14 @@ const fisher = require("fishertest");
  * @param {(stackFrames: Array) => string} getFunctionName
  *    Get a unique name for a function. All timeslices that resolve to the same
  *    function name will be grouped together.
+ * @param threshold
+ *    The probability, from 0 to 1, which the probability returned by fisher()
+ *    must fall below. (I.E., if 0.1 is the threshold, only p < 0.1 would be
+ *    returned.In the converted returned probability, this corresponds to
+ *    percentages above 90%.)
  * @returns Results of the analysis.
  */
-function analyze(timeSlices, getFunctionName) {
+function analyze(timeSlices, getFunctionName, threshold) {
   const outputData = {
     selectedTotal: 0,
     unselectedTotal: 0,
@@ -26,7 +31,8 @@ function analyze(timeSlices, getFunctionName) {
         observed: 0,
         unselectedCount: 0,
         expected: 0,
-        probability: 0
+        probability: 0,
+        conclusion: ""
       });
     }
 
@@ -59,6 +65,17 @@ function analyze(timeSlices, getFunctionName) {
           cur.unselectedCount,
           otherUnselectedCount
         );
+
+      if (cur.probability >= 1 - threshold && cur.observed >= cur.expected) {
+        cur.conclusion = "Unusually prevalent";
+      } else if (
+        cur.probability >= 1 - threshold &&
+        cur.observed < cur.expected
+      ) {
+        cur.conclusion = "Unusually absent";
+      } else {
+        cur.conclusion = "Insignificant";
+      }
 
       /* console.log(`1A: ${cur.observed}, 1B: ${otherObserved}`);
       console.log(`2A: ${cur.unselectedCount}, 2B: ${otherUnselectedCount}`); */

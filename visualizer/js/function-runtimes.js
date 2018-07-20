@@ -19,6 +19,7 @@ function render(root, { functions, functionsAreSelectable, onFunctionSelect }) {
   headerRowSelection.append("th").text("Expected Count");
   headerRowSelection.append("th").text("Observed Count");
   headerRowSelection.append("th").text("Probability");
+  headerRowSelection.append("th").text("Conclusion");
 
   const MAX_NUM_FUNCTIONS = 100;
   const tableDataSelection = root
@@ -36,7 +37,8 @@ function render(root, { functions, functionsAreSelectable, onFunctionSelect }) {
       time,
       expected,
       observed,
-      probability
+      probability,
+      conclusion
     }) {
       const row = d3
         .select(this)
@@ -46,7 +48,8 @@ function render(root, { functions, functionsAreSelectable, onFunctionSelect }) {
           d3.format(".4s")(time),
           expected.toFixed(0),
           observed,
-          d3.format(".0%")(probability)
+          d3.format(".1%")(probability),
+          conclusion
         ]);
 
       row
