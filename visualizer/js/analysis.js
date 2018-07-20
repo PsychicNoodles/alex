@@ -45,6 +45,9 @@ function analyze(timeSlices, getFunctionName) {
 
   if (outputData.selectedTotal !== 0 && outputData.unselectedTotal !== 0) {
     outputData.functions.forEach(cur => {
+      const funcTotal = cur.observed + cur.unselectedCount;
+      cur.expected = (funcTotal * outputData.selectedTotal) / timeSlices.length;
+
       const otherObserved = outputData.selectedTotal - cur.observed;
       const otherUnselectedCount =
         outputData.unselectedTotal - cur.unselectedCount;
@@ -58,8 +61,6 @@ function analyze(timeSlices, getFunctionName) {
         );
       /* console.log(`1A: ${func.observed}, 1B: ${notFuncSelected}`);
       console.log(`2A: ${func.unselectedCount}, 2B: ${notFuncUnselected}`); */
-      const funcTotal = cur.observed + cur.unselectedCount;
-      cur.expected = (funcTotal * outputData.selectedTotal) / timeSlices.length;
 
       /* console.log(
         `Saw ${func.observed} of ${func.name}, expected ~${Math.round(
