@@ -17,6 +17,7 @@ void *reading_fn_wrapper(void *raw_args) {
   unique_lock<mutex> lock(reading->mtx);
   DEBUG(t << ": waiting for notification to start");
   reading->cv.wait(lock, [&reading] { return reading->ready; });
+  reading->ready = false;
   DEBUG(t << ": received notification to start");
   while (reading->running) {
     lock.unlock();
@@ -31,12 +32,12 @@ void *reading_fn_wrapper(void *raw_args) {
     } else {
       if (reading->ready) {
         DEBUG(t << ": ready was set to true while waiting for the lock");
-      } else {
-        DEBUG(t << ": locked, setting ready to false");
         reading->ready = false;
+      } else {
         DEBUG(t << ": waiting for ready signal");
         reading->cv.wait(
             lock, [&reading] { return reading->ready || !reading->running; });
+        reading->ready = false;
       }
       if (reading->running) {
         DEBUG(t << ": received notification to continue");
