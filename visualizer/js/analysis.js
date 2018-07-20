@@ -43,41 +43,42 @@ function analyze(timeSlices, getFunctionName) {
 
   outputData.functions = [...functionsMap.values()];
 
-  if (outputData.selectedTotal === 0 || outputData.unselectedTotal === 0) {
-    return outputData;
+  if (outputData.selectedTotal !== 0 && outputData.unselectedTotal !== 0) {
+    outputData.functions.forEach(cur => {
+      const otherObserved = outputData.selectedTotal - cur.observed;
+      const otherUnselectedCount =
+        outputData.unselectedTotal - cur.unselectedCount;
+      cur.probability =
+        1 -
+        fisher(
+          cur.observed,
+          otherObserved,
+          cur.unselectedCount,
+          otherUnselectedCount
+        );
+      /* console.log(`1A: ${func.observed}, 1B: ${notFuncSelected}`);
+      console.log(`2A: ${func.unselectedCount}, 2B: ${notFuncUnselected}`); */
+      const funcTotal = cur.observed + cur.unselectedCount;
+      cur.expected = (funcTotal * outputData.selectedTotal) / timeSlices.length;
+
+      /* console.log(
+        `Saw ${func.observed} of ${func.name}, expected ~${Math.round(
+          func.expected
+        )}, probability ${func.probability}`
+      ); */
+    });
   }
-
-  outputData.functions.forEach(cur => {
-    const otherObserved = outputData.selectedTotal - cur.observed;
-    const otherUnselectedCount =
-      outputData.unselectedTotal - cur.unselectedCount;
-    cur.probability =
-      1 -
-      fisher(
-        cur.observed,
-        otherObserved,
-        cur.unselectedCount,
-        otherUnselectedCount
-      );
-    /* console.log(`1A: ${func.observed}, 1B: ${notFuncSelected}`);
-    console.log(`2A: ${func.unselectedCount}, 2B: ${notFuncUnselected}`); */
-    const funcTotal = cur.observed + cur.unselectedCount;
-    cur.expected = (funcTotal * outputData.selectedTotal) / timeSlices.length;
-
-    /* console.log(
-      `Saw ${func.observed} of ${func.name}, expected ~${Math.round(
-        func.expected
-      )}, probability ${func.probability}`
-    ); */
-  });
 
   outputData.functions.sort((a, b) => {
     const sort1 = b.probability - a.probability;
     const sort2 = b.observed - a.observed;
+    const sort3 = b.time - a.time;
     if (sort1 !== 0) {
       return sort1;
-    } else {
+    } else if (sort2 !== 0) {
       return sort2;
+    } else {
+      return sort3;
     }
   });
   return outputData;
