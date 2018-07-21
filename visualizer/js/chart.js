@@ -20,6 +20,8 @@ function create(
     yAxisLabel,
     xScale,
     yScale,
+    yScale_present,
+    brush,
     yFormat,
     cpuTimeOffset,
     warningRecords,
@@ -43,10 +45,8 @@ function create(
   svg.append("g").call(plot.render, {
     data: plotData,
     hiddenThreadsStore,
-    xScale,
-    yScale,
-    getIndependentVariable,
-    getDependentVariable,
+    xGetter: d => xScale(getIndependentVariable(d)),
+    yGetter: d => yScale_present(getDependentVariable(d)),
     densityMax,
     spectrum
   });
@@ -70,7 +70,7 @@ function create(
   svg
     .append("g")
     .attr("class", "chart__axis chart__axis--y")
-    .call(d3.axisLeft(yScale).tickFormat(yFormat))
+    .call(d3.axisLeft(yScale_present).tickFormat(yFormat))
 
     // Label
     .append("text")
@@ -80,7 +80,66 @@ function create(
     .attr("x", -(HEIGHT / 2))
     .attr("transform", "rotate(-90)")
     .text(yAxisLabel);
+
+  //side bar
+  const g = svg
+    .append("g")
+    .attr("class", "chart__sideBar")
+    .attr("transform", `translate(${WIDTH * 1.01}, 0)`);
+
+  g.append("g").call(plot.render, {
+    data: plotData,
+    hiddenThreadsStore,
+    xGetter: d => xScale(getIndependentVariable(d) * 0.075),
+    yGetter: d => yScale(getDependentVariable(d)),
+    densityMax,
+    spectrum
+  });
+
+  //brush
+
+  brush.on("brush", brushed1);
+
+  g.append("g")
+    .attr("class", "y brush")
+    .call(brush)
+    .call(brush.move, yScale.range());
+
+  function brushed1() {
+    console.log(this);
+    const s = d3.event.selection || yScale.range();
+    yScale_present.domain(s.map(yScale.invert, yScale));
+    console.log(plotData);
+
+    svg
+      .select(".plot")
+      .selectAll("circle")
+      .data(plotData)
+      .attr("cy", d => yScale_present(getDependentVariable(d)));
+    svg
+      .select(".chart__axis--y")
+      .call(d3.axisLeft(yScale_present).tickFormat(yFormat));
+  }
 }
+
+// function brushed(brush, yScale_present, yScale, plotData, svg, yFormat, getDependentVariable) {
+//   console.log(this);
+//   let extentFunc = brush.extent;
+//   let extent = extentFunc();
+//   let extentArr = extent();
+//   var s = [extentArr[0][1], extentArr[1][1]] || yScale.range();
+//   yScale_present.domain(s.map(yScale.invert, yScale));
+//   console.log(plotData);
+
+//   svg.select(".plot")
+//     .selectAll("circle")
+//     .data(plotData)
+//     .attr("cy", d =>
+//       yScale_present(getDependentVariable(d)));
+//   svg
+//     .select(".chart__axis--y")
+//     .call(d3.axisLeft(yScale_present).tickFormat(yFormat));
+// }
 
 /*
  * Updates the children that rely on (plot) data.
@@ -97,6 +156,8 @@ function updateData(
     yAxisLabel,
     xScale,
     yScale,
+    yScale_present,
+    brush,
     yFormat
   }
 ) {
@@ -105,10 +166,8 @@ function updateData(
   svg.select("g.plot").call(plot.render, {
     data: plotData,
     hiddenThreadsStore,
-    xScale,
-    yScale,
-    getIndependentVariable,
-    getDependentVariable,
+    xGetter: d => xScale(getIndependentVariable(d)),
+    yGetter: d => yScale_present(getDependentVariable(d)),
     densityMax,
     spectrum
   });
@@ -119,7 +178,7 @@ function updateData(
 
   svg
     .select("g.chart__axis--y")
-    .call(d3.axisLeft(yScale).tickFormat(yFormat))
+    .call(d3.axisLeft(yScale_present).tickFormat(yFormat))
     .select(".chart__axis-label--y")
     .attr("class", "chart__axis-label chart__axis-label--y")
     .attr("text-anchor", "middle")
@@ -128,23 +187,36 @@ function updateData(
     .attr("transform", "rotate(-90)")
     .text(yAxisLabel);
 
-  svg.call(
-    d3
-      .zoom()
-      .scaleExtent([1, 8])
-      .extent([[0, 0], [WIDTH, HEIGHT]])
-      .on("zoom", function() {
-        const t = d3.event.transform;
-        const yt = t.rescaleY(yScale);
-        d3.select(this)
-          .selectAll("circle")
-          .data(plotData)
-          .attr("cy", d => yt(getDependentVariable(d)));
-        d3.select(this)
-          .select(".chart__axis--y")
-          .call(d3.axisLeft(yt).tickFormat(yFormat));
-      })
-  );
+  //side bar
+  const g = svg.select("g.chart__sideBar");
+
+  g.select("g.plot").call(plot.render, {
+    data: plotData,
+    hiddenThreadsStore,
+    xGetter: d => xScale(getIndependentVariable(d) * 0.075),
+    yGetter: d => yScale(getDependentVariable(d)),
+    densityMax,
+    spectrum
+  });
+
+  function brushed2() {
+    const s = d3.event.selection || yScale.range();
+    yScale_present.domain(s.map(yScale.invert, yScale));
+    console.log(plotData);
+
+    svg
+      .select(".plot")
+      .selectAll("circle")
+      .data(plotData)
+      .attr("cy", d => yScale_present(getDependentVariable(d)));
+    svg
+      .select(".chart__axis--y")
+      .call(d3.axisLeft(yScale_present).tickFormat(yFormat));
+  }
+
+  brush.on("brush", brushed2);
+
+  console.log();
 }
 
 module.exports = { create, updateData, WIDTH, HEIGHT };

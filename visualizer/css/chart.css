@@ -7,6 +7,7 @@ svg.chart__svg {
   /* Make space for the axes */
   overflow: visible;
   margin-left: 8.5%;
+  margin-right: 8.5%;
   margin-bottom: 12%;
 }
 
@@ -21,4 +22,10 @@ svg.chart__svg {
   font-family: sans-serif;
   font-size: 12px;
   fill: #000;
+}
+
+.brush .extent {
+  stroke: #fff;
+  fill-opacity: 0.125;
+  shape-rendering: crispEdges;
 }

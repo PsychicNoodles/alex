@@ -210,16 +210,29 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
     const chartsWithYScales = charts.map(chartParams => {
       const { getDependentVariable } = chartParams;
-      const normalData = sdFilter(processedData, getDependentVariable, sdRange);
+      const normalData = processedData;
+      // sdFilter(processedData, getDependentVariable, sdRange);
       const yScaleMax = d3.max(normalData, getDependentVariable);
       const yScaleMin = d3.min(normalData, getDependentVariable);
       const yScale = d3
         .scaleLinear()
         .domain([yScaleMax, yScaleMin])
         .range([0, chart.HEIGHT]);
+      const yScale_present = d3
+        .scaleLinear()
+        .domain(yScale.domain())
+        .range(yScale.range());
+
+      const brush = d3
+        .brushY()
+        .extent([[0, 0], [chart.WIDTH * 0.075, chart.HEIGHT]]);
+
       return {
         ...chartParams,
-        yScale
+        yScale,
+        yScale_present,
+        brush,
+        chart
       };
     });
 
@@ -259,11 +272,14 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 yScale
               } = chartParams;
 
-              const normalData = sdFilter(
-                flattenThreads ? sourceFilteredData : fullFilteredData,
-                getDependentVariable,
-                sdRange
-              );
+              const normalData = flattenThreads
+                ? sourceFilteredData
+                : fullFilteredData;
+              // sdFilter(
+              //   flattenThreads ? sourceFilteredData : fullFilteredData,
+              //   getDependentVariable,
+              //   sdRange
+              // );
 
               const plotData = computeRenderableData({
                 data: normalData,
@@ -305,6 +321,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
               yAxisLabel,
               yFormat,
               yScale,
+              yScale_present,
+              brush,
               plotData
             }) {
               d3.select(this).call(chart.create, {
@@ -314,6 +332,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 yAxisLabel,
                 xScale,
                 yScale,
+                yScale_present,
+                brush,
                 yFormat,
                 plotData,
                 densityMax,
@@ -329,6 +349,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
               yAxisLabel,
               yFormat,
               yScale,
+              yScale_present,
+              brush,
               plotData
             }) {
               d3.select(this).call(chart.updateData, {
@@ -337,6 +359,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 yAxisLabel,
                 xScale,
                 yScale,
+                yScale_present,
+                brush,
                 yFormat,
                 plotData,
                 densityMax,
