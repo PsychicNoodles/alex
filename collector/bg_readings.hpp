@@ -6,7 +6,9 @@
 
 #include <pthread.h>
 
-using namespace std;
+using std::condition_variable;
+using std::mutex;
+using std::unique_lock;
 
 struct bg_reading {
   void* result;

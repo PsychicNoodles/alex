@@ -9,6 +9,9 @@
 #include "rapl.hpp"
 #include "wattsup.hpp"
 
+using std::cerr;
+using std::cout;
+using std::endl;
 using std::map;
 using std::set;
 using std::string;

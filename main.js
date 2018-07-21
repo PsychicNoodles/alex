@@ -237,11 +237,10 @@ async function collect({
     }
   });
 
-  // Keep track so we can wait on this before quitting
-  Promise.all([
-    new Promise(resolve => collector.stdout.on("end", resolve)),
-    new Promise(resolve => collector.stderr.on("end", resolve))
-  ]);
+  collector.on("error", err => {
+    console.error(`Couldn't start collection: ${err.message}`);
+    process.exit(1);
+  });
 
   // Pipe through inputs and outputs
 

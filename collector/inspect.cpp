@@ -37,6 +37,15 @@
 #include "perf_reader.hpp"
 #include "util.hpp"
 
+using std::ifstream;
+using std::ios;
+using std::out_of_range;
+using std::pair;
+using std::shared_ptr;
+using std::skipws;
+using std::string;
+using std::stringstream;
+using std::system_error;
 using std::unordered_map;
 using std::unordered_set;
 using std::vector;
@@ -324,9 +333,8 @@ bool in_scope(const string& name, const unordered_set<string>& scope) {
   return false;
 }
 
-void memory_map::build(const unordered_set<string>& /*binary_scope*/,
-                       const unordered_set<string>& source_scope,
-                       std::map<interval, string, cmpByInterval>& sym_table) {
+void memory_map::build(const unordered_set<string>& source_scope,
+                       std::map<interval, string, cmpByInterval>* sym_table) {
   size_t in_scope_count = 0;
   for (const auto& f : get_loaded_files()) {
     // if (in_scope(f.first, binary_scope)) {
@@ -394,7 +402,7 @@ void memory_map::add_range(const std::string& filename, size_t line_no,
 void memory_map::process_inlines(
     const dwarf::die& d, const dwarf::line_table& table,
     const unordered_set<string>& source_scope, uintptr_t load_address,
-    std::map<interval, string, cmpByInterval>& sym_table) {
+    const std::map<interval, string, cmpByInterval>& sym_table) {
   if (!d.valid()) {
     return;
   }
@@ -549,7 +557,7 @@ void dump_tree(const dwarf::die& d, int depth,
 bool memory_map::process_file(
     const string& name, uintptr_t load_address,
     const unordered_set<string>& source_scope,
-    std::map<interval, string, cmpByInterval>& sym_table) {
+    std::map<interval, string, cmpByInterval>* sym_table) {
   elf::elf f = locate_debug_executable(name);
   // If a debug version of the file could not be located, return false
   if (!f.valid()) {
@@ -576,8 +584,7 @@ bool memory_map::process_file(
   // Walk through the compilation units (source files) in the executable
   for (const auto& unit : d.compilation_units()) {
     auto& lineTable = unit.get_line_table();
-    dump_tree(unit.root(), 0, &sym_table, load_address, lineTable,
-              source_scope);
+    dump_tree(unit.root(), 0, sym_table, load_address, lineTable, source_scope);
     int fileIndex = 0;
     bool needProcess = false;
     // check if files using by lineTable are in source_scope
@@ -620,7 +627,7 @@ bool memory_map::process_file(
           }
         }
         process_inlines(unit.root(), unit.get_line_table(), source_scope,
-                        load_address, sym_table);
+                        load_address, *sym_table);
 
         for (const string& filename : included_files) {
           // INFO << "Included source file " << filename;
@@ -663,7 +670,7 @@ shared_ptr<line> memory_map::find_line(const string& name) {
 }
 
 shared_ptr<line> memory_map::find_line(uintptr_t addr) {
-  auto iter = _ranges.find(addr);
+  auto iter = _ranges.find(interval(addr));
   if (iter != _ranges.end()) {
     return iter->second;
   }

@@ -18,10 +18,11 @@
 #include "perf_sampler.hpp"
 #include "shared.hpp"
 
-using namespace std;
+using std::map;
+using std::unordered_map;
 
 struct kernel_sym {
-  char type;
+  char type{};
   string sym;
   string cat;
 };
@@ -52,10 +53,5 @@ int collect_perf_data(
     const dwarf::dwarf& dw,
     const std::map<interval, string, cmpByInterval>& sym_map,
     const std::map<interval, std::shared_ptr<line>, cmpByInterval>& ranges);
-
-bool register_perf_fds(int socket, perf_fd_info* info);
-bool unregister_perf_fds(int socket);
-unordered_map<pair<uint64_t, uint64_t>, char*> dump_sym(const dwarf::die& node,
-                                                        int depth);
 
 #endif

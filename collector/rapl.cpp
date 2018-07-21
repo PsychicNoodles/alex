@@ -18,9 +18,9 @@
 
 #include "debug.hpp"
 
-using std::map;
-using std::string;
-using std::vector;
+using std::ifstream;
+using std::istringstream;
+using std::pair;
 
 map<string, uint64_t> measure_energy() {
   map<string, uint64_t> m;

@@ -458,7 +458,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
                       .map(frame => frame.symName)
                       .reverse()
                       .join(FUNCTION_NAME_SEPARATOR)
-                  : stackFrames[0].symName
+                  : stackFrames[0].symName,
+              0.05 // TODO: modify this value via UI
             );
 
             // Compute a cumulative moving average for processing time so we can
