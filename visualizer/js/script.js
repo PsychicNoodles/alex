@@ -266,57 +266,58 @@ ipcRenderer.on("result", async (event, resultFile) => {
               stackFrames: timeslice.stackFrames.filter(
                 frame => !hiddenSources.includes(frame.fileName)
               )
-            }));
+            })); //make a new array
 
           //then filter with thread selection
           const fullFilteredData = sourceFilteredData.filter(
+            //keep whose tid is not in hiddenThreads
             timeslice => !hiddenThreads.includes(timeslice.tid)
           );
 
+          //re-render stats side bar
           d3.select("#stats").call(stats.render, {
             processedData: fullFilteredData
           });
 
-          const chartsWithPlotData = chartsWithYScales
-            .map(chartParams => {
-              const {
-                getDependentVariable,
-                flattenThreads,
-                yScale
-              } = chartParams;
+          const chartsWithPlotData = chartsWithYScales.map(chartParams => {
+            const {
+              getDependentVariable,
+              flattenThreads,
+              yScale
+            } = chartParams;
 
-              const normalData = flattenThreads
-                ? sourceFilteredData
-                : fullFilteredData;
-              // sdFilter(
-              //   flattenThreads ? sourceFilteredData : fullFilteredData,
-              //   getDependentVariable,
-              //   sdRange
-              // );
+            const normalData = flattenThreads
+              ? sourceFilteredData
+              : fullFilteredData;
+            // sdFilter(
+            //   flattenThreads ? sourceFilteredData : fullFilteredData,
+            //   getDependentVariable,
+            //   sdRange
+            // );
 
-              const plotData = computeRenderableData({
-                data: normalData,
-                xScale,
-                yScale,
-                getIndependentVariable,
-                getDependentVariable
-              });
+            const plotData = computeRenderableData({
+              data: normalData,
+              xScale,
+              yScale,
+              getIndependentVariable,
+              getDependentVariable
+            });
 
-              return {
-                ...chartParams,
-                plotData
-              };
-            })
-            .filter(chart => chart.plotData.length > 0);
+            return {
+              ...chartParams,
+              plotData
+            };
+          });
+          //.filter(chart => chart.plotData.length > 0);
 
           const densityMax = Math.max(
             chartsWithPlotData.reduce(
               (currentMax, chartParams) =>
                 Math.max(
                   currentMax,
-                  d3.max(chartParams.plotData, d => d.densityAvg)
+                  d3.max(chartParams.plotData, d => d.densityAvg) || 0
                 ),
-              0
+              0 //the initial value
             ),
             5
           );
