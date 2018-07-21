@@ -22,6 +22,7 @@ const brushes = require("./brushes");
 const sourceSelect = require("./source-select");
 const threadSelect = require("./thread-select");
 const tableSelect = require("./table-select");
+const chartsSelect = require("./charts-select");
 const warnings = require("./warnings");
 const stream = require("./stream");
 const progressBar = require("./progress-bar");
@@ -97,6 +98,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     const charts = [
       {
         presetsRequired: ["cache"],
+        id: "cacheMissRate",
         yAxisLabel: "Cache Miss Rate",
         yFormat: d3.format(".0%"),
         getDependentVariable: d =>
@@ -107,6 +109,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["cpu"],
+        id: "instructionsPerCycle",
         yAxisLabel: "Instructions Per Cycle",
         yFormat: d3.format(".2"),
         getDependentVariable: d =>
@@ -116,6 +119,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
+        id: "cpuPower",
         yAxisLabel: "CPU Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodCpu"] || 0,
@@ -123,6 +127,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
+        id: "memoryPower",
         yAxisLabel: "Memory Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodMemory"] || 0,
@@ -130,6 +135,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
+        id: "overallPower",
         yAxisLabel: "Overall Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodOverall"] || 0,
@@ -137,6 +143,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["wattsup"],
+        id: "wattsup",
         yAxisLabel: "Wattsup Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup),
@@ -174,10 +181,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
     const warningCounts = [...warningCountsMap];
     const warningsDistinct = [...warningCountsMap.keys()];
-
-    d3.select("#stats").call(stats.render, {
-      processedData
-    });
 
     const sourcesSet = new Set(),
       threadsSet = new Set();
@@ -224,10 +227,11 @@ ipcRenderer.on("result", async (event, resultFile) => {
     stream
       .fromStreamables([
         sourceSelect.hiddenSourcesStore.stream,
-        threadSelect.hiddenThreadsStore.stream
+        threadSelect.hiddenThreadsStore.stream,
+        chartsSelect.hiddenChartsStore.stream
       ])
       .pipe(
-        stream.subscribe(([hiddenSources, hiddenThreads]) => {
+        stream.subscribe(([hiddenSources, hiddenThreads, hiddenCharts]) => {
           const sourceFilteredData = processedData
             .filter(timeslice =>
               timeslice.stackFrames.some(
@@ -250,8 +254,11 @@ ipcRenderer.on("result", async (event, resultFile) => {
           });
 
           const plotDataByChart = new WeakMap();
+          const visibleCharts = charts.filter(
+            chart => !hiddenCharts.includes(chart)
+          );
 
-          for (const chartParams of charts) {
+          for (const chartParams of visibleCharts) {
             const { getDependentVariable, flattenThreads } = chartParams;
 
             const normalData = sdFilter(
@@ -271,7 +278,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
             plotDataByChart.set(chartParams, plotData);
           }
 
-          const chartsWithPlotData = charts.filter(
+          const chartsWithPlotData = visibleCharts.filter(
             chart => plotDataByChart.get(chart).length > 0
           );
 
@@ -330,6 +337,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
             });
 
           chartsDataSelection.exit().remove();
+
+          d3.select("#charts-select").call(chartsSelect.render, {
+            chartsWithPlotData
+          });
 
           d3.select("#legend")
             .style("display", "block")

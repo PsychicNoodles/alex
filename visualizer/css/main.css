@@ -87,6 +87,10 @@ button:disabled {
   overflow: auto;
 }
 
+#charts-select {
+  padding: 10px;
+}
+
 #side-bar {
   grid-area: side-bar;
   overflow: hidden;
