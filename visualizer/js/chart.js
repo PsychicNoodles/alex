@@ -122,25 +122,6 @@ function create(
   }
 }
 
-// function brushed(brush, yScale_present, yScale, plotData, svg, yFormat, getDependentVariable) {
-//   console.log(this);
-//   let extentFunc = brush.extent;
-//   let extent = extentFunc();
-//   let extentArr = extent();
-//   var s = [extentArr[0][1], extentArr[1][1]] || yScale.range();
-//   yScale_present.domain(s.map(yScale.invert, yScale));
-//   console.log(plotData);
-
-//   svg.select(".plot")
-//     .selectAll("circle")
-//     .data(plotData)
-//     .attr("cy", d =>
-//       yScale_present(getDependentVariable(d)));
-//   svg
-//     .select(".chart__axis--y")
-//     .call(d3.axisLeft(yScale_present).tickFormat(yFormat));
-// }
-
 /*
  * Updates the children that rely on (plot) data.
  */

@@ -88,12 +88,81 @@ ipcRenderer.on("result", async (event, resultFile) => {
     alert("timeslices array (maybe after processed) is empty");
     window.close();
   } else {
+    //progress bar
     loadingProgressStore.dispatch(state => ({
       ...state,
       progressBarIsVisible: false
     }));
 
+    //set up xAxis elements,vars
+    const xAxisLabel = "CPU Time Elapsed";
+    const cpuTimeOffset = processedData[0].cpuTime;
+    const getIndependentVariable = d => d.cpuTime - cpuTimeOffset;
+
+    const xScaleMin = getIndependentVariable(processedData[0]);
+    const xScaleMax = getIndependentVariable(
+      processedData[processedData.length - 1]
+    );
+    const xScale = d3
+      .scaleLinear()
+      .domain([xScaleMin, xScaleMax])
+      .range([0, chart.WIDTH]);
+
+    //stats side bar
+    d3.select("#stats").call(stats.render, {
+      processedData
+    });
+
+    d3.select("#table-select").call(tableSelect.render);
+
+    //sources & thread
+    const sourcesSet = new Set(),
+      threadsSet = new Set();
+    processedData.forEach(timeslice => {
+      timeslice.stackFrames.forEach(frame => {
+        sourcesSet.add(frame.fileName);
+      });
+      threadsSet.add(timeslice.tid);
+    });
+
+    d3.select("#source-select").call(sourceSelect.render, {
+      sources: [...sourcesSet]
+    });
+
+    d3.select("#thread-select").call(threadSelect.render, {
+      threads: [...threadsSet]
+    });
+
+    //warnings
+    const warningRecords = result.warning;
+    const warningCountsMap = new Map();
+    warningRecords.forEach(warning => {
+      if (warningCountsMap.has(warning.type)) {
+        warningCountsMap.set(
+          warning.type,
+          warningCountsMap.get(warning.type) + 1
+        );
+      } else {
+        warningCountsMap.set(warning.type, 1);
+      }
+    });
+
+    const warningCounts = [...warningCountsMap];
+    const warningsDistinct = [...warningCountsMap.keys()];
+
+    d3.select("#warning-list").call(warningList.render, {
+      warnings: warningRecords,
+      cpuTimeOffset
+    });
+
+    d3.select("#warnings").call(warnings.render, {
+      warningCounts,
+      warningRecords
+    });
+
+    //charts charts charts
     const { presets } = result.header;
+    //make a array containing some information of each chart
     const charts = [
       {
         presetsRequired: ["cache"],
@@ -146,78 +215,16 @@ ipcRenderer.on("result", async (event, resultFile) => {
       presetsRequired.every(presetName => presetName in presets)
     );
 
-    const xAxisLabel = "CPU Time Elapsed";
-    const cpuTimeOffset = processedData[0].cpuTime;
-    const getIndependentVariable = d => d.cpuTime - cpuTimeOffset;
-
-    const xScaleMin = getIndependentVariable(processedData[0]);
-    const xScaleMax = getIndependentVariable(
-      processedData[processedData.length - 1]
-    );
-    const xScale = d3
-      .scaleLinear()
-      .domain([xScaleMin, xScaleMax])
-      .range([0, chart.WIDTH]);
-
-    const warningRecords = result.warning;
-    const warningCountsMap = new Map();
-    warningRecords.forEach(warning => {
-      if (warningCountsMap.has(warning.type)) {
-        warningCountsMap.set(
-          warning.type,
-          warningCountsMap.get(warning.type) + 1
-        );
-      } else {
-        warningCountsMap.set(warning.type, 1);
-      }
-    });
-
-    const warningCounts = [...warningCountsMap];
-    const warningsDistinct = [...warningCountsMap.keys()];
-
-    d3.select("#stats").call(stats.render, {
-      processedData
-    });
-
-    const sourcesSet = new Set(),
-      threadsSet = new Set();
-    processedData.forEach(timeslice => {
-      timeslice.stackFrames.forEach(frame => {
-        sourcesSet.add(frame.fileName);
-      });
-      threadsSet.add(timeslice.tid);
-    });
-
-    d3.select("#table-select").call(tableSelect.render);
-
-    d3.select("#source-select").call(sourceSelect.render, {
-      sources: [...sourcesSet]
-    });
-
-    d3.select("#thread-select").call(threadSelect.render, {
-      threads: [...threadsSet]
-    });
-
-    d3.select("#warnings").call(warnings.render, {
-      warningCounts,
-      warningRecords
-    });
-
-    d3.select("#warning-list").call(warningList.render, {
-      warnings: warningRecords,
-      cpuTimeOffset
-    });
-
+    //combine yScales (x2), brush and and a chart file ????? into a new var and make a array of them
     const chartsWithYScales = charts.map(chartParams => {
       const { getDependentVariable } = chartParams;
       const normalData = processedData;
       // sdFilter(processedData, getDependentVariable, sdRange);
-      const yScaleMax = d3.max(normalData, getDependentVariable);
-      const yScaleMin = d3.min(normalData, getDependentVariable);
       const yScale = d3
         .scaleLinear()
-        .domain([yScaleMax, yScaleMin])
+        .domain(d3.extent(normalData, getDependentVariable).reverse())
         .range([0, chart.HEIGHT]);
+
       const yScale_present = d3
         .scaleLinear()
         .domain(yScale.domain())
@@ -236,6 +243,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       };
     });
 
+    //update with subscriptions
     stream
       .fromStreamables([
         sourceSelect.hiddenSourcesStore.stream,
@@ -243,19 +251,24 @@ ipcRenderer.on("result", async (event, resultFile) => {
       ])
       .pipe(
         stream.subscribe(([hiddenSources, hiddenThreads]) => {
+          //first filter with source selection!
           const sourceFilteredData = processedData
-            .filter(timeslice =>
+            .filter((
+              timeslice //keep the timeslices which have at least one frame with its filename not in hiddenSources
+            ) =>
               timeslice.stackFrames.some(
                 frame => !hiddenSources.includes(frame.fileName)
               )
             )
             .map(timeslice => ({
+              //and then remove those frames with a hiddensource
               ...timeslice,
               stackFrames: timeslice.stackFrames.filter(
                 frame => !hiddenSources.includes(frame.fileName)
               )
             }));
 
+          //then filter with thread selection
           const fullFilteredData = sourceFilteredData.filter(
             timeslice => !hiddenThreads.includes(timeslice.tid)
           );
