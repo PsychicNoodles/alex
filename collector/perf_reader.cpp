@@ -37,7 +37,6 @@
 #include "inspect.hpp"
 #include "perf_reader.hpp"
 #include "rapl.hpp"
-#include "shared.hpp"
 #include "sockets.hpp"
 #include "util.hpp"
 #include "wattsup.hpp"
@@ -116,7 +115,7 @@ union base_record {
 };
 
 // output file for data collection results
-FILE *result_file;
+FILE *result_file = nullptr;
 
 // map between cpu cycles fd (the only fd in a thread that is sampled) and its
 // related information/fds
@@ -126,13 +125,6 @@ map<int, perf_fd_info> perf_info_mappings;
 int sample_epfd = epoll_create1(0);
 // a count of the number of fds added to the epoll
 size_t sample_fd_count = 0;
-
-#define PARENT_SHUTDOWN_MSG(code, msg) \
-  SHUTDOWN_MSG(global->subject_pid, result_file, code, msg)
-#define PARENT_SHUTDOWN_ERRMSG(code, title, desc) \
-  SHUTDOWN_ERRMSG(global->subject_pid, result_file, code, title, desc)
-#define PARENT_SHUTDOWN_PERROR(code, title) \
-  SHUTDOWN_PERROR(global->subject_pid, result_file, code, title)
 
 int get_record_size(int record_type) {
   switch (record_type) {
@@ -147,6 +139,8 @@ int get_record_size(int record_type) {
       return -1;
   }
 }
+
+FILE *get_result_file() { return result_file; }
 
 /**
  * Read a link's contents and return it as a string
@@ -332,7 +326,8 @@ bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
       *done = true;
       // don't check the other fds, jump back to epolling
       return true;
-    } else if (fd == socket) {
+    }
+    if (fd == socket) {
       DEBUG("cpd: received message from a thread in subject");
       int cmd;
       auto *info = new perf_fd_info;
@@ -396,10 +391,9 @@ int adjust_period(int record_type) {
           "minimum "
           << MIN_PERIOD << " (currently " << global->period << ")");
       return 0;
-    } else {
-      DEBUG("unthrottle event detected, decreasing period");
-      global->period = (global->period) / PERIOD_ADJUST_SCALE;
     }
+    DEBUG("unthrottle event detected, decreasing period");
+    global->period = (global->period) / PERIOD_ADJUST_SCALE;
   }
 
   DEBUG("new period is " << global->period);
@@ -636,6 +630,8 @@ bool process_sample_record(
       uint64_t addr = lookup_kernel_addr(kernel_syms, inst_ptr);
       if (addr != -1) {
         const auto &ks = kernel_syms.at(addr);
+        sym_name_str = ks.sym;
+        sym_name = sym_name_str.c_str();
         file_name = "(kernel)";
         file_base = nullptr;
         sym_addr = reinterpret_cast<void *>(addr);
@@ -647,15 +643,17 @@ bool process_sample_record(
     dwarf::taddr pc = inst_ptr - 1;
 
     // Get the sym name
-    DEBUG("cpd: looking up function symbol");
-    auto upper_sym = sym_map.upper_bound(interval(pc, pc));
-    if (upper_sym != sym_map.begin()) {
-      --upper_sym;
-      if (upper_sym->first.contains(pc)) {
-        sym_name = const_cast<char *>(upper_sym->second.c_str());
-      } else {
-        DEBUG("cpd: cannot find function symbol");
-        sym_name = nullptr;
+    if (sym_name == nullptr) {
+      DEBUG("cpd: looking up function symbol");
+      auto upper_sym = sym_map.upper_bound(interval(pc, pc));
+      if (upper_sym != sym_map.begin()) {
+        --upper_sym;
+        if (upper_sym->first.contains(pc)) {
+          sym_name = const_cast<char *>(upper_sym->second.c_str());
+        } else {
+          DEBUG("cpd: cannot find function symbol");
+          sym_name = nullptr;
+        }
       }
     }
 
@@ -1011,9 +1009,9 @@ int collect_perf_data(
           try {
             info = perf_info_mappings.at(fd);
           } catch (out_of_range &e) {
-            PARENT_SHUTDOWN_MSG(INTERNAL_ERROR,
-                                "tried looking up a perf fd that has no info ("
-                                    << fd << ")");
+            PARENT_SHUTDOWN_MSG(
+                INTERNAL_ERROR,
+                "tried looking up a perf fd that has no info (" << fd << ")");
           }
 
           if (!has_next_record(&info.sample_buf)) {

@@ -16,6 +16,7 @@
 #include "bg_readings.hpp"
 #include "inspect.hpp"
 #include "perf_sampler.hpp"
+#include "shared.hpp"
 
 using namespace std;
 
@@ -30,6 +31,15 @@ struct addr_sym {
   uint64_t low_pc;
   char* sym_name;
 };
+
+FILE* get_result_file();
+
+#define PARENT_SHUTDOWN_MSG(code, msg) \
+  SHUTDOWN_MSG(global->subject_pid, get_result_file(), code, msg)
+#define PARENT_SHUTDOWN_ERRMSG(code, title, desc) \
+  SHUTDOWN_ERRMSG(global->subject_pid, get_result_file(), code, title, desc)
+#define PARENT_SHUTDOWN_PERROR(code, title) \
+  SHUTDOWN_PERROR(global->subject_pid, get_result_file(), code, title)
 
 void setup_perf_events(pid_t target, bool setup_events, perf_fd_info* info);
 void setup_collect_perf_data(int sigt_fd, int socket, const int& wu_fd,
