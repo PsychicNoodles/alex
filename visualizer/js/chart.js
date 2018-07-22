@@ -7,7 +7,7 @@ const warnings = require("./warnings");
 const WIDTH = 500;
 const HEIGHT = 250;
 
-function create(
+function render(
   root,
   {
     spectrum,
@@ -16,8 +16,8 @@ function create(
     densityMax,
     getIndependentVariable,
     getDependentVariable,
-    xAxisLabel,
-    yAxisLabel,
+    xAxisLabelText,
+    yAxisLabelText,
     xScale,
     yScale,
     yScale_present,
@@ -30,19 +30,27 @@ function create(
 ) {
   root.classed("chart", true);
 
-  const svg = root
-    .append("svg")
-    .attr("class", "chart__svg")
-    .attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`);
+  const svg = root.select("svg.chart__svg").empty()
+    ? root
+        .append("svg")
+        .attr("class", "chart__svg")
+        .attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`)
+    : root.select("svg.chart__svg");
 
-  svg.append("g").call(warnings.renderLines, {
-    xScale,
-    warningRecords,
-    warningsDistinct,
-    cpuTimeOffset
-  });
+  if (root.select("g.warning-lines").empty()) {
+    svg.append("g").call(warnings.renderLines, {
+      xScale,
+      warningRecords,
+      warningsDistinct,
+      cpuTimeOffset
+    });
+  }
 
-  svg.append("g").call(plot.render, {
+  const chartPlot = root.select("g.plot").empty()
+    ? svg.append("g")
+    : svg.select("g.plot");
+
+  chartPlot.call(plot.render, {
     data: plotData,
     hiddenThreadsStore,
     xGetter: d => xScale(getIndependentVariable(d)),
@@ -51,43 +59,63 @@ function create(
     spectrum
   });
 
-  svg.append("g").call(brushes.render);
+  if (root.select("g.brushes").empty()) {
+    svg.append("g").call(brushes.render);
+  }
 
-  svg
-    .append("g")
-    .attr("class", "chart__axis chart__axis--x")
-    .attr("transform", `translate(0, ${HEIGHT})`)
-    .call(d3.axisBottom(xScale).tickFormat(d3.format(".2s")))
+  const xAxis = root.select("g.chart__axis--x").empty()
+    ? svg
+        .append("g")
+        .attr("class", "chart__axis chart__axis--x")
+        .attr("transform", `translate(0, ${HEIGHT})`)
+    : svg.select("g.chart__axis--x");
 
-    // Label
-    .append("text")
-    .attr("class", "chart__axis-label chart__axis-label--x")
-    .attr("text-anchor", "middle")
-    .attr("x", WIDTH / 2)
-    .attr("y", 50)
-    .text(xAxisLabel);
+  xAxis.call(d3.axisBottom(xScale).tickFormat(d3.format(".2s")));
 
-  svg
-    .append("g")
-    .attr("class", "chart__axis chart__axis--y")
-    .call(d3.axisLeft(yScale_present).tickFormat(yFormat))
+  const xAxisLabel = xAxis.select(".chart__axis-label--x").empty()
+    ? xAxis
+        .append("text")
+        .attr("class", "chart__axis-label chart__axis-label--x")
+        .attr("text-anchor", "middle")
+        .attr("x", WIDTH / 2)
+        .attr("y", 50)
+        .text(xAxisLabelText)
+    : svg.select("chart__axis-label--x");
 
-    // Label
-    .append("text")
-    .attr("class", "chart__axis-label chart__axis-label--y")
-    .attr("text-anchor", "middle")
-    .attr("y", -40)
-    .attr("x", -(HEIGHT / 2))
-    .attr("transform", "rotate(-90)")
-    .text(yAxisLabel);
+  //yAxis
+  const yAxis = root.select("g.chart__axis--y").empty()
+    ? svg
+        .append("g")
+        .attr("class", "chart__axis chart__axis--y")
+        .call(d3.axisLeft(yScale_present).tickFormat(yFormat))
+    : svg.select("g.chart__axis--y");
+
+  yAxis.call(d3.axisLeft(yScale_present).tickFormat(yFormat));
+
+  const yAxisLabel = yAxis.select(".chart__axis-label--y").empty()
+    ? yAxis
+        .append("text")
+        .attr("class", "chart__axis-label chart__axis-label--y")
+        .attr("text-anchor", "middle")
+        .attr("y", -40)
+        .attr("x", -(HEIGHT / 2))
+        .attr("transform", "rotate(-90)")
+        .text(yAxisLabelText)
+    : svg.select("chart__axis-label--y").text(yAxisLabelText);
 
   //side bar
-  const g = svg
-    .append("g")
-    .attr("class", "chart__sideBar")
-    .attr("transform", `translate(${WIDTH * 1.01}, 0)`);
+  const sideBar = root.select("g.chart__sideBar").empty()
+    ? svg
+        .append("g")
+        .attr("class", "chart__sideBar")
+        .attr("transform", `translate(${WIDTH * 1.01}, 0)`)
+    : svg.select("g.chart__sideBar");
 
-  g.append("g").call(plot.render, {
+  const sideBarPlot = sideBar.select("g.plot").empty()
+    ? sideBar.append("g")
+    : sideBar.select("g.plot");
+
+  sideBarPlot.call(plot.render, {
     data: plotData,
     hiddenThreadsStore,
     xGetter: d => xScale(getIndependentVariable(d) * 0.075),
@@ -97,15 +125,17 @@ function create(
   });
 
   //brush
+  brush.on("brush", brushed);
 
-  brush.on("brush", brushed1);
+  const sideBarBrush = sideBar.select("g.sideBar-brush").empty()
+    ? sideBar
+        .append("g")
+        .attr("class", "sideBar-brush")
+        .call(brush)
+        .call(brush.move, yScale.range())
+    : sideBar.select("g.sideBar-brush");
 
-  g.append("g")
-    .attr("class", "y brush")
-    .call(brush)
-    .call(brush.move, yScale.range());
-
-  function brushed1() {
+  function brushed() {
     console.log(this);
     const s = d3.event.selection || yScale.range();
     yScale_present.domain(s.map(yScale.invert, yScale));
@@ -122,82 +152,4 @@ function create(
   }
 }
 
-/*
- * Updates the children that rely on (plot) data.
- */
-function updateData(
-  root,
-  {
-    spectrum,
-    plotData,
-    hiddenThreadsStore,
-    densityMax,
-    getIndependentVariable,
-    getDependentVariable,
-    yAxisLabel,
-    xScale,
-    yScale,
-    yScale_present,
-    brush,
-    yFormat
-  }
-) {
-  const svg = root.select("svg");
-
-  svg.select("g.plot").call(plot.render, {
-    data: plotData,
-    hiddenThreadsStore,
-    xGetter: d => xScale(getIndependentVariable(d)),
-    yGetter: d => yScale_present(getDependentVariable(d)),
-    densityMax,
-    spectrum
-  });
-
-  svg
-    .select("g.chart__axis--x")
-    .call(d3.axisBottom(xScale).tickFormat(d3.format(".2s")));
-
-  svg
-    .select("g.chart__axis--y")
-    .call(d3.axisLeft(yScale_present).tickFormat(yFormat))
-    .select(".chart__axis-label--y")
-    .attr("class", "chart__axis-label chart__axis-label--y")
-    .attr("text-anchor", "middle")
-    .attr("y", -40)
-    .attr("x", -(HEIGHT / 2))
-    .attr("transform", "rotate(-90)")
-    .text(yAxisLabel);
-
-  //side bar
-  const g = svg.select("g.chart__sideBar");
-
-  g.select("g.plot").call(plot.render, {
-    data: plotData,
-    hiddenThreadsStore,
-    xGetter: d => xScale(getIndependentVariable(d) * 0.075),
-    yGetter: d => yScale(getDependentVariable(d)),
-    densityMax,
-    spectrum
-  });
-
-  function brushed2() {
-    const s = d3.event.selection || yScale.range();
-    yScale_present.domain(s.map(yScale.invert, yScale));
-    console.log(plotData);
-
-    svg
-      .select(".plot")
-      .selectAll("circle")
-      .data(plotData)
-      .attr("cy", d => yScale_present(getDependentVariable(d)));
-    svg
-      .select(".chart__axis--y")
-      .call(d3.axisLeft(yScale_present).tickFormat(yFormat));
-  }
-
-  brush.on("brush", brushed2);
-
-  console.log();
-}
-
-module.exports = { create, updateData, WIDTH, HEIGHT };
+module.exports = { render, WIDTH, HEIGHT };

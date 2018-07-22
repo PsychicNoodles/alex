@@ -95,7 +95,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     }));
 
     //set up xAxis elements,vars
-    const xAxisLabel = "CPU Time Elapsed";
+    const xAxisLabelText = "CPU Time Elapsed";
     const cpuTimeOffset = processedData[0].cpuTime;
     const getIndependentVariable = d => d.cpuTime - cpuTimeOffset;
 
@@ -166,7 +166,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     const charts = [
       {
         presetsRequired: ["cache"],
-        yAxisLabel: "Cache Miss Rate",
+        yAxisLabelText: "Cache Miss Rate",
         yFormat: d3.format(".0%"),
         getDependentVariable: d =>
           getEventCount(d, presets.cache.misses) /
@@ -176,7 +176,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["cpu"],
-        yAxisLabel: "Instructions Per Cycle",
+        yAxisLabelText: "Instructions Per Cycle",
         yFormat: d3.format(".2"),
         getDependentVariable: d =>
           getEventCount(d, presets.cpu.instructions) /
@@ -185,28 +185,28 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
-        yAxisLabel: "CPU Power",
+        yAxisLabelText: "CPU Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodCpu"] || 0,
         flattenThreads: true
       },
       {
         presetsRequired: ["rapl"],
-        yAxisLabel: "Memory Power",
+        yAxisLabelText: "Memory Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodMemory"] || 0,
         flattenThreads: true
       },
       {
         presetsRequired: ["rapl"],
-        yAxisLabel: "Overall Power",
+        yAxisLabelText: "Overall Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodOverall"] || 0,
         flattenThreads: true
       },
       {
         presetsRequired: ["wattsup"],
-        yAxisLabel: "Wattsup Power",
+        yAxisLabelText: "Wattsup Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup),
         flattenThreads: true
@@ -308,7 +308,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
               plotData
             };
           });
-          //.filter(chart => chart.plotData.length > 0);
 
           const densityMax = Math.max(
             chartsWithPlotData.reduce(
@@ -330,20 +329,22 @@ ipcRenderer.on("result", async (event, resultFile) => {
           chartsDataSelection
             .enter()
             .append("div")
+            .merge(chartsDataSelection)
             .each(function({
               getDependentVariable,
-              yAxisLabel,
+              xAxisLabelText,
+              yAxisLabelText,
               yFormat,
               yScale,
               yScale_present,
               brush,
               plotData
             }) {
-              d3.select(this).call(chart.create, {
+              d3.select(this).call(chart.render, {
                 getIndependentVariable,
                 getDependentVariable,
-                xAxisLabel,
-                yAxisLabel,
+                xAxisLabelText,
+                yAxisLabelText,
                 xScale,
                 yScale,
                 yScale_present,
@@ -355,30 +356,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 cpuTimeOffset,
                 warningRecords,
                 warningsDistinct
-              });
-            })
-            .merge(chartsDataSelection)
-            .each(function({
-              getDependentVariable,
-              yAxisLabel,
-              yFormat,
-              yScale,
-              yScale_present,
-              brush,
-              plotData
-            }) {
-              d3.select(this).call(chart.updateData, {
-                getIndependentVariable,
-                getDependentVariable,
-                yAxisLabel,
-                xScale,
-                yScale,
-                yScale_present,
-                brush,
-                yFormat,
-                plotData,
-                densityMax,
-                spectrum
               });
             });
 
