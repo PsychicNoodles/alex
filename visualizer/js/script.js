@@ -22,6 +22,7 @@ const brushes = require("./brushes");
 const sourceSelect = require("./source-select");
 const threadSelect = require("./thread-select");
 const tableSelect = require("./table-select");
+const chartsSelect = require("./charts-select");
 const warnings = require("./warnings");
 const stream = require("./stream");
 const progressBar = require("./progress-bar");
@@ -247,10 +248,11 @@ ipcRenderer.on("result", async (event, resultFile) => {
     stream
       .fromStreamables([
         sourceSelect.hiddenSourcesStore.stream,
-        threadSelect.hiddenThreadsStore.stream
+        threadSelect.hiddenThreadsStore.stream,
+        chartsSelect.hiddenChartsStore.stream
       ])
       .pipe(
-        stream.subscribe(([hiddenSources, hiddenThreads]) => {
+        stream.subscribe(([hiddenSources, hiddenThreads, hiddenCharts]) => {
           //first filter with source selection!
           const sourceFilteredData = processedData
             .filter((
@@ -279,7 +281,11 @@ ipcRenderer.on("result", async (event, resultFile) => {
             processedData: fullFilteredData
           });
 
-          const chartsWithPlotData = chartsWithYScales.map(chartParams => {
+          const visibleCharts = chartsWithYScales.filter(
+            chart => !hiddenCharts.includes(chart)
+          );
+
+          const chartsWithPlotData = visibleCharts.map(chartParams => {
             const {
               getDependentVariable,
               flattenThreads,
@@ -360,6 +366,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
             });
 
           chartsDataSelection.exit().remove();
+
+          d3.select("#charts-select").call(chartsSelect.render, {
+            chartsWithYScales
+          });
 
           d3.select("#legend")
             .style("display", "block")
