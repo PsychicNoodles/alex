@@ -15,6 +15,7 @@
 #include <ctime>
 
 #include "debug.hpp"
+#include "util.hpp"
 
 namespace alex {
 
@@ -34,9 +35,10 @@ int setup_serial_device(int fd);
 /* Read from the meter */
 double wu_read(int fd);
 
-int wattsupSetUp();
+int wu_setup(const char* device_name =
+                 getenv_safe("COLLECTOR_WATTSUP_DEVICE", "ttyUSB0").c_str());
 
-void wattsupTurnOff(int wu_fd);
+void wu_shutdown(int wu_fd);
 
 }  // namespace alex
 

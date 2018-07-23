@@ -37,7 +37,7 @@ bool event_is_available(string event_name) {
 
 bool preset_is_available(string preset) {
   if (preset == "wattsup") {
-    return wattsupSetUp() != -1;
+    return wu_setup() != -1;
   } else if (preset == "rapl") {
     vector<string> powerzones = find_in_dir(ENERGY_ROOT, "intel-rapl:");
     return powerzones.size() != 0;
