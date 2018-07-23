@@ -435,6 +435,8 @@ async function collect({
               readline_interface.close();
             }
           );
+        } else if (visualizeOption === "no") {
+          process.exit(0);
         }
       } else {
         process.exit(1);
