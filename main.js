@@ -19,36 +19,7 @@ process.on("unhandledRejection", err => {
 });
 
 yargs
-  .command("list", "List available presets.", {}, async () => {
-    const presets = await getAllPresetInfo();
-    const maxNameLength = Math.max(
-      ...presets.map(preset => preset.name.length)
-    );
-    const presetToString = preset =>
-      `  ${preset.name.padEnd(maxNameLength)}  ${preset.description || ""}`;
-
-    console.info("Available Presets:");
-    console.info(
-      presetToString({
-        name: "all",
-        description: "Shortcut for all available presets."
-      })
-    );
-    console.info(
-      presets
-        .filter(preset => preset.isAvailable)
-        .map(presetToString)
-        .join("\n")
-    );
-    console.info("");
-    console.info("Unavailable Presets:");
-    console.info(
-      presets
-        .filter(preset => !preset.isAvailable)
-        .map(presetToString)
-        .join("\n")
-    );
-  })
+  .command("list", "List available presets.", {}, list)
   .command(
     "collect <executable> [args..]",
     "Collect performance data on an executable.",
@@ -77,15 +48,15 @@ yargs
         .describe("in", "The file to pipe into the stdin of <executable>.")
         .option("out", {
           description: "The file to pipe the stdout of <executable> into.",
-          default: path.resolve(__dirname) + `/out-${Date.now()}.log`
+          default: path.join(__dirname, `/out-${Date.now()}.log`)
         })
         .option("err", {
           description: "The file to pipe the stderr of <executable> into.",
-          default: path.resolve(__dirname) + `/err-${Date.now()}.log`
+          default: path.join(__dirname, `/err-${Date.now()}.log`)
         })
         .option("result", {
           description: "The file to pipe the performance results into.",
-          default: path.resolve(__dirname) + `/result-${Date.now()}.json`
+          default: path.join(__dirname, `/result-${Date.now()}.json`)
         })
         .option("visualize", {
           description: "Where to visualize the results.",
@@ -130,7 +101,7 @@ yargs
       visualize(argv.file);
     }
   )
-  .demandCommand()
+  .demandCommand(1, "Must specify a command.")
   .help()
   .parse();
 
@@ -155,26 +126,33 @@ function getAllPresetInfo() {
   });
 }
 
-const MS_PER_SEC = 1000;
+async function list() {
+  const presets = await getAllPresetInfo();
+  const maxNameLength = Math.max(...presets.map(preset => preset.name.length));
+  const presetToString = preset =>
+    `  ${preset.name.padEnd(maxNameLength)}  ${preset.description || ""}`;
 
-function startCounting() {
-  console.info("Collecting performance data...");
-
-  const startTime = Date.now();
-  return {
-    startTime,
-    progressInterval: setInterval(() => {
-      // Clear previous progress message
-      readline.cursorTo(process.stdout, 0);
-
-      process.stdout.write(
-        `It's been ${prettyMS(Date.now() - startTime, {
-          verbose: true,
-          secDecimalDigits: 0
-        })}. Still going...`
-      );
-    }, 1 * MS_PER_SEC)
-  };
+  console.info("Available Presets:");
+  console.info(
+    presetToString({
+      name: "all",
+      description: "Shortcut for all available presets."
+    })
+  );
+  console.info(
+    presets
+      .filter(preset => preset.isAvailable)
+      .map(presetToString)
+      .join("\n")
+  );
+  console.info("");
+  console.info("Unavailable Presets:");
+  console.info(
+    presets
+      .filter(preset => !preset.isAvailable)
+      .map(presetToString)
+      .join("\n")
+  );
 }
 
 async function collect({
@@ -221,12 +199,25 @@ async function collect({
     }
   }
 
-  let progressInterval,
+  let startTime = Date.now();
+  let progressInterval;
+  process.on("SIGUSR2", () => {
+    console.info("Collecting performance data...");
+
+    const MS_PER_SEC = 1000;
     startTime = Date.now();
-  process.on(
-    "SIGUSR2",
-    () => ({ progressInterval, startTime } = startCounting())
-  );
+    progressInterval = setInterval(() => {
+      // Clear previous progress message
+      readline.cursorTo(process.stdout, 0);
+
+      process.stdout.write(
+        `It's been ${prettyMS(Date.now() - startTime, {
+          verbose: true,
+          secDecimalDigits: 0
+        })}. Still going...`
+      );
+    }, 1 * MS_PER_SEC);
+  });
 
   console.info("Waiting for collection to start...");
 
