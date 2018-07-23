@@ -616,7 +616,7 @@ bool process_sample_record(
     char *demangled_name = nullptr;
     void *file_base = nullptr, *sym_addr = nullptr;
     DEBUG("cpd: looking up symbol for inst ptr " << ptr_fmt((void *)inst_ptr));
-    if (callchain_section == CALLCHAIN_USER) {
+    if (callchain_section == PERF_CONTEXT_USER) {
       DEBUG("cpd: looking up user stack frame");
       Dl_info info;
       // Lookup the name of the function given the function
@@ -628,7 +628,7 @@ bool process_sample_record(
       } else {
         DEBUG("cpd: could not look up user stack frame");
       }
-    } else if (callchain_section == CALLCHAIN_KERNEL) {
+    } else if (callchain_section == PERF_CONTEXT_KERNEL) {
       DEBUG("cpd: looking up kernel stack frame");
       uint64_t addr = lookup_kernel_addr(kernel_syms, inst_ptr);
       if (addr != -1) {

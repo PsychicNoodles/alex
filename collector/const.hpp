@@ -22,14 +22,6 @@ namespace alex {
 #define EVENT_ERROR 6               // Cannot open event
 #define PARAM_ERROR 7               // Period is too small
 
-// https://godoc.org/github.com/aclements/go-perf/perffile#pkg-constants
-#define CALLCHAIN_HYPERVISOR 0xffffffffffffffe0
-#define CALLCHAIN_KERNEL 0xffffffffffffff80
-#define CALLCHAIN_USER 0xfffffffffffffe00
-#define CALLCHAIN_GUEST 0xfffffffffffff800
-#define CALLCHAIN_GUESTKERNEL 0xfffffffffffff780
-#define CALLCHAIN_GUESTUSER 0xfffffffffffff600
-
 bool is_callchain_marker(uint64_t instruction_pointers);
 const char* callchain_str(uint64_t callchain);
 

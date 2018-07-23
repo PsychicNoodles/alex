@@ -5,32 +5,32 @@
 
 namespace alex {
 
-const char* callchain_str(uint64_t callchain) {
+const char* callchain_str(enum perf_callchain_context callchain) {
   switch (callchain) {
-    case CALLCHAIN_HYPERVISOR:
+    case PERF_CONTEXT_HV:
       return "hypervisor";
-    case CALLCHAIN_KERNEL:
+    case PERF_CONTEXT_KERNEL:
       return "kernel";
-    case CALLCHAIN_USER:
+    case PERF_CONTEXT_USER:
       return "user";
-    case CALLCHAIN_GUEST:
+    case PERF_CONTEXT_GUEST:
       return "guest";
-    case CALLCHAIN_GUESTKERNEL:
+    case PERF_CONTEXT_GUEST_KERNEL:
       return "guest kernel";
-    case CALLCHAIN_GUESTUSER:
+    case PERF_CONTEXT_GUEST_USER:
       return "guest user";
     default:
       return nullptr;
   }
 }
 
-bool is_callchain_marker(uint64_t instruction_pointers) {
-  return instruction_pointers == CALLCHAIN_GUEST ||
-         instruction_pointers == CALLCHAIN_GUESTKERNEL ||
-         instruction_pointers == CALLCHAIN_GUESTUSER ||
-         instruction_pointers == CALLCHAIN_HYPERVISOR ||
-         instruction_pointers == CALLCHAIN_USER ||
-         instruction_pointers == CALLCHAIN_KERNEL;
+bool is_callchain_marker(enum perf_callchain_context instruction_pointers) {
+  return instruction_pointers == PERF_CONTEXT_HV ||
+         instruction_pointers == PERF_CONTEXT_KERNEL ||
+         instruction_pointers == PERF_CONTEXT_USER ||
+         instruction_pointers == PERF_CONTEXT_GUEST ||
+         instruction_pointers == PERF_CONTEXT_GUEST_KERNEL ||
+         instruction_pointers == PERF_CONTEXT_GUEST_USER;
 }
 
 const char* record_type_str(int type) {
