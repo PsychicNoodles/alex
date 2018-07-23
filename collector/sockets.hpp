@@ -2,8 +2,7 @@
 #define COLLECTOR_SOCKETS
 
 // command numbers sent over the socket from threads in the subject program
-#define SOCKET_CMD_REGISTER 1
-#define SOCKET_CMD_UNREGISTER 2
+enum socket_cmd : int { SOCKET_CMD_REGISTER = 1, SOCKET_CMD_UNREGISTER = 2 };
 
 #include <map>
 

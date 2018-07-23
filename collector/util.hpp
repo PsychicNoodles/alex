@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "const.hpp"
+
 namespace alex {
 
 using std::set;
@@ -18,7 +20,7 @@ string ptr_fmt(uintptr_t ptr);
 char* int_to_hex(uint64_t i);
 vector<string> str_split_vec(const string& str, const string& delim);
 set<string> str_split_set(const string& str, const string& delim);
-void shutdown(pid_t pid, FILE* result_file, int code, const char* msg);
+void shutdown(pid_t pid, FILE* result_file, error code, const char* msg);
 pid_t gettid();
 bool preset_enabled(const char* name);
 

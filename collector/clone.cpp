@@ -40,7 +40,7 @@ void *__imposter(void *arg) {
 
   perf_fd_info info;
   DEBUG(tid << ": setting up perf events");
-  setup_perf_events(tid, HANDLE_EVENTS, &info);
+  setup_perf_events(tid, &info);
   DEBUG(tid << ": registering fd " << info.cpu_clock_fd
             << " with collector for bookkeeping");
   if (!register_perf_fds(perf_register_sock, &info)) {
@@ -78,7 +78,7 @@ pid_t fork() {
     DEBUG("parent process PROCESS" << pid);
     perf_fd_info info;
     DEBUG(pid << ": setting up PROCESS perf events with PID");
-    setup_perf_events(pid, HANDLE_EVENTS, &info);
+    setup_perf_events(pid, &info);
     DEBUG(pid << ": registering PROCESS fd " << info.cpu_clock_fd
               << " with collector for bookkeeping");
     if (!register_perf_fds(perf_register_sock, &info)) {

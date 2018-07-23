@@ -35,20 +35,16 @@ int wu_start_external_log(int wu_fd, int interval) {
   char command[BUFSIZ];
   int ret, length;
 
-  DEBUG("Enabling logging...");
-
   sprintf(command, "#L,W,3,E,1,%d;", interval);
-  // DEBUG(command);
+  DEBUG("starting wattsup log: " << command);
 
   length = strlen(command);
 
   ret = write(wu_fd, command, length);
   if (ret != length) {
-    // DEBUG("Error starting logging " <<	strerror(errno) << "!");
+    perror("error starting wattsup log");
     return -1;
   }
-
-  // sleep(10);
 
   return 0;
 }
@@ -59,55 +55,51 @@ int wu_stop_external_log(int wu_fd) {
   char command[BUFSIZ];
   int ret, length;
 
-  // DEBUG("Disabling logging...");
+  DEBUG("stopping wattsup log");
 
   sprintf(command, "#L,R,0;");
-  // DEBUG(command);
 
   length = strlen(command);
 
   ret = write(wu_fd, command, length);
   if (ret != length) {
-    // DEBUG("Error stopping logging");
-    // DEBUG(strerror(errno));
+    perror("error stopping wattsup log");
     return -1;
   }
-
-  // sleep(10);
 
   return 0;
 }
 
 /* Open our device, probably ttyUSB0 */
-int open_device(char* device_name) {
+int open_device(const char* device_name) {
   struct stat s {};
   int ret;
   char full_device_name[BUFSIZ];
 
   sprintf(full_device_name, "/dev/%s", device_name);
+  DEBUG("statting wattsup device " << full_device_name);
 
   ret = stat(full_device_name, &s);
   if (ret < 0) {
-    DEBUG("Problem statting " << full_device_name << strerror(errno));
+    perror("problem statting wattsup device");
     return -1;
   }
 
   if (!S_ISCHR(s.st_mode)) {
-    DEBUG("Error: " << full_device_name << " is not a TTY character device.");
+    DEBUG("wattsup device is not a TTY character device");
     return -1;
   }
 
   ret = access(full_device_name, R_OK | W_OK);
   if (ret) {
-    DEBUG("Error: " << full_device_name << " is not writable, "
-                    << strerror(errno));
+    perror("wattsup device is not writable");
     return -1;
   }
 
   /* Not NONBLOCK */
   ret = open(full_device_name, O_RDWR);
   if (ret < 0) {
-    DEBUG("Error! Could not open " << full_device_name << strerror(errno));
+    perror("could not open wattsup device");
     return -1;
   }
 
@@ -123,8 +115,7 @@ int setup_serial_device(int fd) {
   /* get the current attributes */
   ret = tcgetattr(fd, &t);
   if (ret) {
-    // sprintf(errm, "tcgetattr failed, %s\n", strerror(errno));
-    // DEBUG(errm);
+    perror("wattsup setup tcgetattr failed");
     return ret;
   }
 
@@ -151,8 +142,7 @@ int setup_serial_device(int fd) {
   ret = tcsetattr(fd, TCSANOW, &t);
 
   if (ret) {
-    // sprintf(errm, "ERROR: setting terminal attributes, %s\n",
-    // strerror(errno)); DEBUG(errm);
+    perror("wattsup setup tcsetattr failed");
     return ret;
   }
 
@@ -171,15 +161,12 @@ double wu_read(int fd) {
 
   while (ret < 0 || string[0] != '#') {
     ret = read(fd, string, STRING_SIZE);
-    DEBUG("WATTSUP: Read return bytes read: " << ret);
-    DEBUG("WATTSUP: Read returned " << string);
     if ((ret < 0) && (errno != EAGAIN)) {
       perror("error reading from wattsup device");
-      DEBUG("error is " << errno << ": " << strerror(errno));
       return -1;
     }
     if (string[0] != '#') {
-      DEBUG("Protocol error with string " << string);
+      DEBUG("wattsup protocol error, re-reading");
     }
   }
 
@@ -215,25 +202,23 @@ double wu_read(int fd) {
   watts /= 10.0;
 
   DEBUG("wattsup read in " << watts << " watts");
-  return (watts);
+  return watts;
 }
 
-int wattsupSetUp() {
+int wu_setup(const char* device_name) {
+  DEBUG("setting up wattsup on device " << device_name);
   char* errm;
-  char* device_name = const_cast<char*>(
-      getenv_safe("COLLECTOR_WATTSUP_DEVICE", "ttyUSB0").c_str());
   int ret;
   int wu_fd = 0;
 
-  /*************************/
-  /* Open device           */
-  /*************************/
+  DEBUG("opening wattsup device");
   wu_fd = open_device(device_name);
   if (wu_fd < 0) {
     return wu_fd;
   }
 
-  DEBUG("DEBUG: " << device_name << " is opened");
+  DEBUG("wattsup device " << device_name
+                          << " is opened, setting up serial device");
 
   ret = setup_serial_device(wu_fd);
   if (ret) {
@@ -242,19 +227,18 @@ int wattsupSetUp() {
   }
 
   /* Enable logging */
+  DEBUG("enabling wattsup log");
   ret = wu_start_external_log(wu_fd, 1);
   if (ret) {
-    DEBUG("Error enabling logging");
-
+    DEBUG("error enabling logging");
     return -1;
   }
-
-  DEBUG("IN WATTSUP wu_fd is " << wu_fd);
 
   return wu_fd;
 }
 
-void wattsupTurnOff(int wu_fd) {
+void wu_shutdown(int wu_fd) {
+  DEBUG("shutting down wattsup");
   wu_stop_external_log(wu_fd);
   close(wu_fd);
 }

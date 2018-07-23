@@ -12,6 +12,7 @@ const progressStream = require("progress-stream");
 const { parser: streamJSONParser } = require("stream-json");
 const { stringer: streamJSONStringer } = require("stream-json/Stringer");
 const StreamJSONAssembler = require("stream-json/Assembler");
+const prettyMS = require("pretty-ms");
 
 process.on("unhandledRejection", err => {
   throw err;
@@ -109,8 +110,11 @@ yargs
         errFile: argv.err,
         resultOption: argv.result,
         events: argv.events || [],
-        executableArgs: argv.args,
-        visualizeOption: argv.visualize
+        visualizeOption: argv.visualize,
+        // Manually parse this out, since positional args can't handle "--xxx" args
+        executableArgs: process.argv.includes("--")
+          ? process.argv.slice(process.argv.indexOf("--") + 2)
+          : argv.args
       });
     }
   )
@@ -127,7 +131,8 @@ yargs
     }
   )
   .demandCommand()
-  .help().argv;
+  .help()
+  .parse();
 
 function getAllPresetInfo() {
   return new Promise((resolve, reject) => {
@@ -159,13 +164,14 @@ function startCounting() {
   return {
     startTime,
     progressInterval: setInterval(() => {
-      //Clear previous progress message
+      // Clear previous progress message
       readline.cursorTo(process.stdout, 0);
 
-      const numSeconds = Math.round((Date.now() - startTime) / MS_PER_SEC);
-      const s = numSeconds === 1 ? "" : "s";
       process.stdout.write(
-        `It's been ${numSeconds} second${s}. Still going...`
+        `It's been ${prettyMS(Date.now() - startTime, {
+          verbose: true,
+          secDecimalDigits: 0
+        })}. Still going...`
       );
     }, 1 * MS_PER_SEC)
   };
@@ -277,11 +283,13 @@ async function collect({
   collector.on("exit", async code => {
     clearInterval(progressInterval);
 
-    const numSeconds = (Date.now() - startTime) / MS_PER_SEC;
-
     // Clear out progress message
     readline.cursorTo(process.stdout, 0);
-    console.info(`Finished after collecting for ${numSeconds} seconds.`);
+    console.info(
+      `Finished after collecting for ${prettyMS(Date.now() - startTime, {
+        verbose: true
+      })}.`
+    );
 
     const errorCodes = {
       1: "Internal error.",
