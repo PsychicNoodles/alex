@@ -19,7 +19,12 @@ process.on("unhandledRejection", err => {
 });
 
 yargs
-  .command("list", "List available presets.", {}, list)
+  .command(
+    "list",
+    "List available presets.",
+    yargs => yargs.check(validatePositionalArgs({ max: 1 })),
+    list
+  )
   .command(
     "collect <executable> [args..]",
     "Collect performance data on an executable.",
@@ -93,17 +98,55 @@ yargs
     "visualize <file>",
     "Visualize performance data from a file.",
     yargs =>
-      yargs.positional("file", {
-        description: "File to read result data from.",
-        type: "string"
-      }),
+      yargs
+        .positional("file", {
+          description: "File to read result data from.",
+          type: "string"
+        })
+        .check(validatePositionalArgs({ max: 1 })),
     argv => {
       visualize(argv.file);
     }
   )
+  .command("*", false, yargs =>
+    yargs.check(argv => {
+      throw new Error(`Unknown command: ${argv._[0]}`);
+    })
+  )
   .demandCommand(1, "Must specify a command.")
+  .check((argv, aliases) => {
+    const validKeys = [
+      "$0",
+      "_",
+      ...Object.keys(aliases),
+      ...Object.keys(aliases)
+        .map(key => aliases[key])
+        .reduce((a, b) => [...a, ...b])
+    ];
+
+    const invalidKeys = Object.keys(argv).filter(
+      key => !validKeys.includes(key)
+    );
+    if (invalidKeys.length > 0) {
+      const firstInvalidArg =
+        (invalidKeys[0].length === 1 ? "-" : "--") + invalidKeys[0];
+      throw new Error(`Unknown argument: ${firstInvalidArg}`);
+    }
+
+    return true;
+  })
   .help()
   .parse();
+
+function validatePositionalArgs({ max }) {
+  return argv => {
+    if (argv._.length > max) {
+      throw new Error(`Unknown argument: ${argv._[1]}`);
+    }
+
+    return true;
+  };
+}
 
 function getAllPresetInfo() {
   return new Promise((resolve, reject) => {
@@ -219,6 +262,7 @@ async function collect({
     }, 1 * MS_PER_SEC);
   });
 
+  console.info("$ " + [executable, ...executableArgs].join(" "));
   console.info("Waiting for collection to start...");
 
   const collector = spawn(executable, executableArgs, {
@@ -397,6 +441,6 @@ function visualize(resultFile) {
   spawn(
     path.join(__dirname, "./node_modules/.bin/electron"),
     [path.join(__dirname, "./visualizer"), resultFile],
-    { stdio: "inherit" }
+    { stdio: ["ignore", "inherit", "ignore"] }
   );
 }
