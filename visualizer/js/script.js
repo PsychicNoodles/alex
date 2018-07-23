@@ -173,7 +173,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
           getEventCount(d, presets.cache.misses) /
             (getEventCount(d, presets.cache.hits) +
               getEventCount(d, presets.cache.misses)) || 0,
-        flattenThreads: false
+        flattenThreads: false //,
+        // densityMax_local:Number = 0
       },
       {
         presetsRequired: ["cpu"],
@@ -182,35 +183,40 @@ ipcRenderer.on("result", async (event, resultFile) => {
         getDependentVariable: d =>
           getEventCount(d, presets.cpu.instructions) /
             getEventCount(d, presets.cpu.cpuCycles) || 0,
-        flattenThreads: false
+        flattenThreads: false //,
+        // densityMax_local:Number = 0
       },
       {
         presetsRequired: ["rapl"],
         yAxisLabelText: "CPU Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodCpu"] || 0,
-        flattenThreads: true
+        flattenThreads: true //,
+        // densityMax_local:Number = 0
       },
       {
         presetsRequired: ["rapl"],
         yAxisLabelText: "Memory Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodMemory"] || 0,
-        flattenThreads: true
+        flattenThreads: true //,
+        // densityMax_local:Number = 0
       },
       {
         presetsRequired: ["rapl"],
         yAxisLabelText: "Overall Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodOverall"] || 0,
-        flattenThreads: true
+        flattenThreads: true //,
+        // densityMax_local:Number = 0
       },
       {
         presetsRequired: ["wattsup"],
         yAxisLabelText: "Wattsup Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup),
-        flattenThreads: true
+        flattenThreads: true //,
+        // densityMax_local:Number = 0
       }
     ].filter(({ presetsRequired }) =>
       presetsRequired.every(presetName => presetName in presets)
@@ -243,6 +249,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
         chart
       };
     });
+
+    const densityMap = new Map();
 
     //update with subscriptions
     stream
@@ -287,10 +295,13 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
           const chartsWithPlotData = visibleCharts.map(chartParams => {
             const {
+              yAxisLabelText,
               getDependentVariable,
               flattenThreads,
               yScale
             } = chartParams;
+
+            // let {densityMax_local} = chartParams;
 
             const normalData = flattenThreads
               ? sourceFilteredData
@@ -309,8 +320,17 @@ ipcRenderer.on("result", async (event, resultFile) => {
               getDependentVariable
             });
 
+            const densityMax_local = d3.max(plotData, d => d.densityAvg) || 0;
+            const densityMax_local_present = densityMax_local;
+            densityMap.set(
+              chartParams.yAxisLabelText,
+              densityMax_local_present
+            );
+
             return {
               ...chartParams,
+              densityMax_local,
+              densityMax_local_present,
               plotData
             };
           });
@@ -318,10 +338,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
           const densityMax = Math.max(
             chartsWithPlotData.reduce(
               (currentMax, chartParams) =>
-                Math.max(
-                  currentMax,
-                  d3.max(chartParams.plotData, d => d.densityAvg) || 0
-                ),
+                Math.max(currentMax, chartParams.densityMax_local),
               0 //the initial value
             ),
             5
@@ -344,7 +361,9 @@ ipcRenderer.on("result", async (event, resultFile) => {
               yScale,
               yScale_present,
               brush,
-              plotData
+              plotData,
+              densityMax_local,
+              densityMax_local_present
             }) {
               d3.select(this).call(chart.render, {
                 getIndependentVariable,
@@ -361,7 +380,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 spectrum,
                 cpuTimeOffset,
                 warningRecords,
-                warningsDistinct
+                warningsDistinct,
+                densityMax_local,
+                densityMax_local_present,
+                densityMap
               });
             });
 

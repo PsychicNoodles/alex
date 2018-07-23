@@ -3,6 +3,7 @@ const d3 = require("d3");
 const plot = require("./plot");
 const brushes = require("./brushes");
 const warnings = require("./warnings");
+const legend = require("./legend");
 
 const WIDTH = 500;
 const HEIGHT = 250;
@@ -25,7 +26,10 @@ function render(
     yFormat,
     cpuTimeOffset,
     warningRecords,
-    warningsDistinct
+    warningsDistinct,
+    densityMax_local,
+    densityMax_local_present,
+    densityMap
   }
 ) {
   root.classed("chart", true);
@@ -135,31 +139,67 @@ function render(
         .call(brush.move, yScale.range())
     : sideBar.select("g.sideBar-brush");
 
-  // var line = d3.line()
-  // .x(function(d) { return x(d.date); })
-  // .y(function(d) { return y(d.value); });
-
   const handle = sideBarBrush
     .selectAll(".handle")
     .attr("fill", "#666")
     .attr("fill-opacity", 0.8);
 
-  // sideBarBrush.selectAll(".overlay")
-
   function brushed() {
-    console.log(this);
     const s = d3.event.selection || yScale.range();
     yScale_present.domain(s.map(yScale.invert, yScale));
-    console.log(plotData);
+    const scale =
+      (yScale_present.domain()[1] - yScale_present.domain()[0]) /
+      (yScale.domain()[1] - yScale.domain()[0]);
+    //console.log(yScale_present.domain()[1], yScale_present.domain()[0], yScale.domain()[1],  yScale.domain()[0])
+    if (densityMax_local_present === densityMax) {
+      //densityMax will change
+      densityMax_local_present = densityMax_local * scale;
+      //console.log("local_present ", densityMax_local_present);
+      densityMap.set(yAxisLabelText, densityMax_local_present);
+      //console.log(densityMap);
+
+      const densityMaxOld = densityMax;
+      densityMax = 0;
+      for (const densityMax_local_present of densityMap.values()) {
+        densityMax = Math.max(densityMax, densityMax_local_present);
+      } //find the new densityMax
+      console.log(densityMax);
+
+      const colorScale = d3.scaleSequential(spectrum);
+      const colorScaleInvert = spectrum.invert;
+      console.log(spectrum);
+      d3.selectAll("circle").each(function(d, i) {
+        d3.select(this).style("fill", "#777"); //d3.scaleSequential(spectrum).invert((d3.select(this).style("fill"))) * densityMaxOld /densityMax);
+      });
+    } else {
+      //densityMax wont change
+      densityMax_local_present = densityMax_local * scale;
+      //console.log("local_present ", densityMax_local_present);
+      densityMap.set(yAxisLabelText, densityMax_local_present);
+      //console.log(densityMap);
+    }
 
     svg
       .select(".plot")
       .selectAll("circle")
       .data(plotData)
-      .attr("cy", d => yScale_present(getDependentVariable(d)));
+      .attr("cy", d => yScale_present(getDependentVariable(d)))
+      .style("fill", d => {
+        d.densityAvgPresent = d.densityAvg * scale;
+        return d3.scaleSequential(spectrum)(d.densityAvgPresent / densityMax);
+      });
     svg
       .select(".chart__axis--y")
       .call(d3.axisLeft(yScale_present).tickFormat(yFormat));
+
+    console.log("la", densityMax);
+
+    d3.select("#legend")
+      .style("display", "block")
+      .call(legend.render, {
+        densityMax,
+        spectrum
+      });
   }
 }
 

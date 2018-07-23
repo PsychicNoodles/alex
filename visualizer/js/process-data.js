@@ -125,7 +125,8 @@ function computeRenderableData({
 
     return {
       ...renderable,
-      densityAvg: totalDensity / count
+      densityAvg: totalDensity / count,
+      densityAvgPresent: totalDensity / count
     };
   });
 }
