@@ -66,7 +66,7 @@ iwyu:
 iwyu-fix:
 	@for src in $(COLLECTOR_SOURCES) ; do \
 		echo "Running IWYU and fixing $$src..." ; \
-		$(IWYU) $(CFLAGS) $(PERF_SAMPLE_MAX_STACK_MACRO) $$src 2>&1 >/dev/null | $(IWYU_FIX_INCLUDES) ; \
+		$(IWYU) $(CFLAGS) $(PERF_SAMPLE_MAX_STACK_MACRO) $$src 2>&1 >/dev/null | tee /dev/tty | $(IWYU_FIX_INCLUDES) ; \
 	done
 	@echo "Finished IWYU + fixes"
 
