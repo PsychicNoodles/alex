@@ -1,6 +1,5 @@
 #include "const.hpp"
 
-#include <linux/perf_event.h>
 #include <cstddef>
 
 namespace alex {

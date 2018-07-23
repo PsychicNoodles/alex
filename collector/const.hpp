@@ -1,6 +1,7 @@
 #ifndef COLLECTOR_CONST
 #define COLLECTOR_CONST
 
+#include <linux/perf_event.h>
 #include <cinttypes>
 
 namespace alex {
@@ -22,8 +23,8 @@ namespace alex {
 #define EVENT_ERROR 6               // Cannot open event
 #define PARAM_ERROR 7               // Period is too small
 
-bool is_callchain_marker(uint64_t instruction_pointers);
-const char* callchain_str(uint64_t callchain);
+bool is_callchain_marker(enum perf_callchain_context instruction_pointers);
+const char* callchain_str(enum perf_callchain_context callchain);
 
 #define SAMPLE_TYPE (PERF_SAMPLE_TIME | PERF_SAMPLE_CALLCHAIN | PERF_SAMPLE_TID)
 #define SAMPLE_ID_ALL true  // whether sample_id_all should be set
