@@ -19,7 +19,7 @@ enum : size_t {
       256  // this needs to be a power of two :'( (an hour was spent here)
 };
 
-enum errors : int {
+enum error : int {
   INTERNAL_ERROR = 1,        // Problem with something internal, see error logs
   RESULT_FILE_ERROR,         // Problem with the result file
   EXECUTABLE_FILE_ERROR,     // Problem with the executable file
