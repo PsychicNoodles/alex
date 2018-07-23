@@ -1,3 +1,6 @@
+#ifndef COLLECTOR_FIND_EVENTS
+#define COLLECTOR_FIND_EVENTS
+
 #include <cstring>
 #include <map>
 #include <set>
@@ -19,3 +22,5 @@ map<string, vector<string>> build_preset(const string& preset);
 void print_preset_events(FILE* result_file);
 
 }  // namespace alex
+
+#endif

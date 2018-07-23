@@ -1,3 +1,6 @@
+#ifndef COLLECTOR_SOCKETS
+#define COLLECTOR_SOCKETS
+
 // command numbers sent over the socket from threads in the subject program
 #define SOCKET_CMD_REGISTER 1
 #define SOCKET_CMD_UNREGISTER 2
@@ -14,3 +17,5 @@ bool register_perf_fds(int socket, perf_fd_info *info);
 bool unregister_perf_fds(int socket);
 
 }  // namespace alex
+
+#endif

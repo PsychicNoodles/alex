@@ -1,3 +1,6 @@
+#ifndef COLLECTOR_WATTSUP
+#define COLLECTOR_WATTSUP
+
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -36,3 +39,5 @@ int wattsupSetUp();
 void wattsupTurnOff(int wu_fd);
 
 }  // namespace alex
+
+#endif

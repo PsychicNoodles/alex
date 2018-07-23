@@ -1,5 +1,5 @@
-#ifndef COLLECTOR_GLOBAL
-#define COLLECTOR_GLOBAL
+#ifndef COLLECTOR_READER
+#define COLLECTOR_READER
 
 #include <sys/types.h>
 #include <cstdio>
