@@ -79,14 +79,20 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
   if (result.error) {
     alert(result.error);
+    window.close();
   }
-  document.getElementById("title").textContent = result.header.programName;
+
+  d3.select("#title").text(result.header.programName);
   const processedData = processData(result.timeslices, result.header);
   const spectrum = d3.interpolateWarm;
   const sdRange = 4;
 
   if (processedData.length === 0) {
-    alert("timeslices array (maybe after processed) is empty");
+    alert(
+      result.timeslices.length === 0
+        ? "No data in result file.  Perhaps the program terminated too quickly."
+        : "No usable data in result file."
+    );
     window.close();
   } else {
     //progress bar
