@@ -15,11 +15,11 @@ function render(root, { functions, functionsAreSelectable, onFunctionSelect }) {
     .insert("tr", "tr")
     .attr("class", "function-runtimes__header-row");
   headerRowSelection.append("th").text("Function Name");
-  headerRowSelection.append("th").text("CPU Time");
-  headerRowSelection.append("th").text("Expected Count");
-  headerRowSelection.append("th").text("Observed Count");
-  headerRowSelection.append("th").text("Probability");
   headerRowSelection.append("th").text("Conclusion");
+  headerRowSelection.append("th").text("Probability");
+  headerRowSelection.append("th").text("Expected");
+  headerRowSelection.append("th").text("Observed");
+  headerRowSelection.append("th").text("CPU Time");
 
   const MAX_NUM_FUNCTIONS = 100;
   const tableDataSelection = root
@@ -34,22 +34,22 @@ function render(root, { functions, functionsAreSelectable, onFunctionSelect }) {
     .each(function({
       name,
       displayNames,
-      time,
+      conclusion,
+      probability,
       expected,
       observed,
-      probability,
-      conclusion
+      time
     }) {
       const row = d3
         .select(this)
         .selectAll(".function-runtimes__data-column")
         .data([
           null,
-          d3.format(".4s")(time),
+          conclusion,
+          d3.format(".1%")(probability),
           expected.toFixed(0),
           observed,
-          d3.format(".1%")(probability),
-          conclusion
+          d3.format(".4s")(time)
         ]);
 
       row
