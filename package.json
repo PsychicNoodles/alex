@@ -21,7 +21,7 @@
   "license": "UNLICENSED",
   "dependencies": {
     "ajv": "^6.5.2",
-    "bootstrap-colorpicker": "^2.5.2",
+    "bootstrap-colorpicker": "^2.5.3",
     "chi-squared": "^1.1.0",
     "d3": "^5.5.0",
     "d3-svg-legend": "^2.25.6",
@@ -31,6 +31,7 @@
     "lint-staged": "^7.2.0",
     "lodash": "^4.17.10",
     "prettier": "^1.13.7",
+    "pretty-ms": "^3.2.0",
     "progress": "^2.0.0",
     "progress-stream": "^2.0.0",
     "stream-json": "^1.1.0",
@@ -38,8 +39,8 @@
     "yargs": "^12.0.1"
   },
   "devDependencies": {
-    "@types/yargs": "^11.1.0",
-    "eslint": "^5.1.0"
+    "@types/yargs": "^11.1.1",
+    "eslint": "^5.2.0"
   },
   "eslintConfig": {
     "env": {

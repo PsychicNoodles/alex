@@ -1,5 +1,5 @@
-#ifndef COLLECTOR_GLOBAL
-#define COLLECTOR_GLOBAL
+#ifndef COLLECTOR_READER
+#define COLLECTOR_READER
 
 #include <sys/types.h>
 #include <cstdio>
@@ -17,6 +17,8 @@
 #include "inspect.hpp"
 #include "perf_sampler.hpp"
 #include "shared.hpp"
+
+namespace alex {
 
 using std::map;
 using std::unordered_map;
@@ -42,7 +44,7 @@ FILE* get_result_file();
 #define PARENT_SHUTDOWN_PERROR(code, title) \
   SHUTDOWN_PERROR(global->subject_pid, get_result_file(), code, title)
 
-void setup_perf_events(pid_t target, bool setup_events, perf_fd_info* info);
+void setup_perf_events(pid_t target, perf_fd_info* info);
 void setup_collect_perf_data(int sigt_fd, int socket, const int& wu_fd,
                              FILE* res_file, char* program_name,
                              bg_reading* rapl_reading,
@@ -50,8 +52,9 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int& wu_fd,
 int collect_perf_data(
     const map<uint64_t, kernel_sym>& kernel_syms, int sigt_fd, int socket,
     bg_reading* rapl_reading, bg_reading* wattsup_reading,
-    const dwarf::dwarf& dw,
     const std::map<interval, string, cmpByInterval>& sym_map,
     const std::map<interval, std::shared_ptr<line>, cmpByInterval>& ranges);
+
+}  // namespace alex
 
 #endif

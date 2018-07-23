@@ -3,14 +3,14 @@ const d3 = require("d3");
 /**
  * Render the the scatter plot within the chart.
  */
-function render(root, { data, densityMax, spectrum }) {
+function render(root, { data, densityMax, spectrum, xGetter, yGetter }) {
   root.classed("plot", true);
 
   // Create the points and position them in the plot
-  const circles = (root.select("svg").empty()
+  const circles = (root.select("svg.circles").empty()
     ? root.append("svg").attr("class", "circles")
-    : root.select("svg")
-  )
+    : root.select("svg.circles")
+  ) //S.selectAll("*").remove()
     .selectAll("circle")
     .data(data);
 
@@ -19,8 +19,8 @@ function render(root, { data, densityMax, spectrum }) {
     .append("circle")
     .merge(circles)
     .attr("class", "circle")
-    .attr("cx", d => d.x)
-    .attr("cy", d => d.y)
+    .attr("cx", d => xGetter(d))
+    .attr("cy", d => yGetter(d))
     .attr("r", 1)
     .style("fill", d =>
       d3.scaleSequential(spectrum)(d.densityAvg / densityMax)

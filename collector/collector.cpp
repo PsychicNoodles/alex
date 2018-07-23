@@ -26,6 +26,8 @@
 #include "util.hpp"
 #include "wattsup.hpp"
 
+namespace alex {
+
 using std::ifstream;
 using std::istringstream;
 using std::map;
@@ -172,7 +174,7 @@ int setup_sigterm_handler() {
 /*
  * Reads the dwarf data stored in the given executable file
  */
-dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
+::dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
   DEBUG("cpd: reading dwarf file from " << file);
   // closed by mmap_loader constructor
   int fd = open(const_cast<char *>(file), O_RDONLY);
@@ -181,8 +183,8 @@ dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
                     "cannot open executable (" << file << ")");
   }
 
-  elf::elf ef(elf::create_mmap_loader(fd));
-  return dwarf::dwarf(dwarf::elf::create_loader(ef));
+  ::elf::elf ef(elf::create_mmap_loader(fd));
+  return ::dwarf::dwarf(::dwarf::elf::create_loader(ef));
 }
 
 static int collector_main(int argc, char **argv, char **env) {
@@ -251,20 +253,6 @@ static int collector_main(int argc, char **argv, char **env) {
     set_subject_pid(subject_pid);
 
     DEBUG("collector_main: checking for debug symbols");
-    dwarf::dwarf dw;
-    try {
-      dw = read_dwarf();
-    } catch (dwarf::format_error &e) {
-      char msg[256];
-      if (strcmp(e.what(), "required .debug_info section missing") == 0) {
-        strncpy(msg, "could not find debug symbols, did you compile with `-g`?",
-                256);
-      } else {
-        snprintf(msg, 256, "error in reading dwarf file for executable: %s",
-                 e.what());
-      }
-      shutdown(subject_pid, nullptr, DEBUG_SYMBOLS_FILE_ERROR, msg);
-    }
 
     vector<string> source_scope_v = {"%%"};
     unordered_set<string> source_scope(source_scope_v.begin(),
@@ -326,7 +314,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
     result =
         collect_perf_data(kernel_syms, sigterm_fd, sockets[0], &rapl_reading,
-                          &wattsup_reading, dw, sym_map, ranges);
+                          &wattsup_reading, sym_map, ranges);
 
     DEBUG("collector_main: finished collector, closing file");
 
@@ -352,3 +340,5 @@ extern "C" int __libc_start_main(main_fn_t main_fn, int argc, char **argv,
                                     rtld_fini, stack_end);
   return result;
 }
+
+}  // namespace alex

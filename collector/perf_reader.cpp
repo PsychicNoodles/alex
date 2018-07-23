@@ -41,6 +41,8 @@
 #include "util.hpp"
 #include "wattsup.hpp"
 
+namespace alex {
+
 using std::make_pair;
 using std::make_tuple;
 using std::map;
@@ -200,7 +202,7 @@ void delete_fd_from_epoll(int fd) {
  * every other event as children in the group. Thus, when the cpu cycles event
  * is started all the others are as well simultaneously
  */
-void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
+void setup_perf_events(pid_t target, perf_fd_info *info) {
   DEBUG("setting up perf events for target " << target);
   // set up the cpu cycles perf buffer
   perf_event_attr cpu_clock_attr{};
@@ -228,7 +230,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   info->sample_buf = cpu_clock_perf;
   info->tid = target;
 
-  if (setup_events && global->events_size != 0) {
+  if (global->events_size != 0) {
     DEBUG("setting up events");
     for (int i = 0; i < global->events_size; i++) {
       DEBUG("event: " << global->events[i]);
@@ -583,10 +585,11 @@ bool process_sample_record(
   add_brackets("]");
 
   bool is_first_stack = true;
-  uint64_t callchain_section = 0;
+  perf_callchain_context callchain_section;
   DEBUG("cpd: looking up " << sample.num_instruction_pointers << " inst ptrs");
   for (uint64_t i = 0; i < sample.num_instruction_pointers; i++) {
-    uint64_t inst_ptr = sample.instruction_pointers[i];
+    auto inst_ptr =
+        static_cast<perf_callchain_context>(sample.instruction_pointers[i]);
     if (is_callchain_marker(inst_ptr)) {
       callchain_section = inst_ptr;
       continue;
@@ -615,7 +618,7 @@ bool process_sample_record(
     char *demangled_name = nullptr;
     void *file_base = nullptr, *sym_addr = nullptr;
     DEBUG("cpd: looking up symbol for inst ptr " << ptr_fmt((void *)inst_ptr));
-    if (callchain_section == CALLCHAIN_USER) {
+    if (callchain_section == PERF_CONTEXT_USER) {
       DEBUG("cpd: looking up user stack frame");
       Dl_info info;
       // Lookup the name of the function given the function
@@ -627,7 +630,7 @@ bool process_sample_record(
       } else {
         DEBUG("cpd: could not look up user stack frame");
       }
-    } else if (callchain_section == CALLCHAIN_KERNEL) {
+    } else if (callchain_section == PERF_CONTEXT_KERNEL) {
       DEBUG("cpd: looking up kernel stack frame");
       uint64_t addr = lookup_kernel_addr(kernel_syms, inst_ptr);
       if (addr != -1) {
@@ -642,7 +645,7 @@ bool process_sample_record(
 
     // Need to subtract one. PC is the return address, but we're
     // looking for the callsite.
-    dwarf::taddr pc = inst_ptr - 1;
+    ::dwarf::taddr pc = inst_ptr - 1;
 
     // Get the sym name
     if (sym_name == nullptr) {
@@ -878,7 +881,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
 
   DEBUG("cpd: setting up perf events for main thread in subject");
   perf_fd_info subject_info;
-  setup_perf_events(global->subject_pid, HANDLE_EVENTS, &subject_info);
+  setup_perf_events(global->subject_pid, &subject_info);
   DEBUG("cpd: main thread registered with fd " << subject_info.cpu_clock_fd);
   setup_buffer(&subject_info);
   handle_perf_register(&subject_info);
@@ -963,7 +966,6 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
 int collect_perf_data(
     const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd, int socket,
     bg_reading *rapl_reading, bg_reading *wattsup_reading,
-    const dwarf::dwarf & /*dw*/,
     const std::map<interval, string, cmpByInterval> &sym_map,
     const std::map<interval, std::shared_ptr<line>, cmpByInterval> &ranges) {
   bool is_first_timeslice = true;
@@ -1115,3 +1117,5 @@ int collect_perf_data(
 
   return 0;
 }
+
+}  // namespace alex

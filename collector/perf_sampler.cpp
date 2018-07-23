@@ -3,7 +3,10 @@
 #include "perf_reader.hpp"
 #include "util.hpp"
 
-int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
+namespace alex {
+
+sampler_result setup_monitoring(perf_buffer *result, perf_event_attr *attr,
+                                int pid = 0) {
   DEBUG("setting up monitoring for pid " << pid);
   int fd = perf_event_open(attr, pid, -1, -1, PERF_FLAG_FD_CLOEXEC);
 
@@ -17,7 +20,7 @@ int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
   return SAMPLER_MONITOR_SUCCESS;
 }
 
-int setup_buffer(perf_fd_info *info) {
+sampler_result setup_buffer(perf_fd_info *info) {
   void *buffer = mmap(nullptr, BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED,
                       info->cpu_clock_fd, 0);
   if (buffer == MAP_FAILED) {
@@ -58,7 +61,7 @@ void clear_records(perf_buffer *perf) {
   perf->info->data_tail = perf->info->data_head;
 }
 
-int start_monitoring(int fd) {
+sampler_result start_monitoring(int fd) {
   if (ioctl(fd, PERF_EVENT_IOC_ENABLE, 0) == -1) {
     perror("start_monitoring");
     return SAMPLER_MONITOR_ERROR;
@@ -67,7 +70,7 @@ int start_monitoring(int fd) {
   return SAMPLER_MONITOR_SUCCESS;
 }
 
-int stop_monitoring(int fd) {
+sampler_result stop_monitoring(int fd) {
   if (ioctl(fd, PERF_EVENT_IOC_DISABLE, 0) == -1) {
     perror("stop_monitoring");
     return SAMPLER_MONITOR_ERROR;
@@ -76,7 +79,7 @@ int stop_monitoring(int fd) {
   return SAMPLER_MONITOR_SUCCESS;
 }
 
-int resume_monitoring(int fd) {
+sampler_result resume_monitoring(int fd) {
   if (ioctl(fd, PERF_EVENT_IOC_ENABLE, 0) == -1) {
     perror("resume_monitoring");
     return SAMPLER_MONITOR_ERROR;
@@ -85,7 +88,7 @@ int resume_monitoring(int fd) {
   return SAMPLER_MONITOR_SUCCESS;
 }
 
-int reset_monitoring(int fd) {
+sampler_result reset_monitoring(int fd) {
   if (ioctl(fd, PERF_EVENT_IOC_RESET, 0) == -1) {
     perror("reset_monitoring");
     return SAMPLER_MONITOR_ERROR;
@@ -111,3 +114,5 @@ int setup_pfm_os_event(perf_event_attr *attr, char *event_name) {
 
   return pfm_result;
 }
+
+}  // namespace alex

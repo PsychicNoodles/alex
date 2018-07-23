@@ -9,6 +9,8 @@
 #include "shared.hpp"
 #include "util.hpp"
 
+namespace alex {
+
 using std::find_if;
 using std::map;
 using std::pair;
@@ -30,7 +32,7 @@ int recv_perf_fds(int socket, perf_fd_info *info,
   size_t n_fds = num_perf_fds();
   int ancil_fds[n_fds];
   pid_t tid;
-  int cmd;
+  socket_cmd cmd;
   struct iovec ios[]{{&tid, sizeof(pid_t)}, {&cmd, sizeof(int)}};
 
   int n_recv = ancil_recv_fds_with_msg(socket, ancil_fds, n_fds, ios, 2);
@@ -85,7 +87,7 @@ bool register_perf_fds(int socket, perf_fd_info *info) {
     ancil_fds[i + 1] = info->event_fds[global->events[i]];
   }
   pid_t tid = gettid();
-  int cmd = SOCKET_CMD_REGISTER;
+  socket_cmd cmd = SOCKET_CMD_REGISTER;
   DEBUG("sending tid " << tid << ", cmd " << cmd);
   struct iovec ios[]{{&tid, sizeof(pid_t)}, {&cmd, sizeof(int)}};
   return ancil_send_fds_with_msg(socket, ancil_fds, n_fds, ios, 2) == 0;
@@ -98,8 +100,13 @@ bool register_perf_fds(int socket, perf_fd_info *info) {
 bool unregister_perf_fds(int socket) {
   DEBUG("unregistering perf fds");
   pid_t tid = gettid();
-  int cmd = SOCKET_CMD_UNREGISTER;
+  socket_cmd cmd = SOCKET_CMD_UNREGISTER;
   DEBUG("sending tid " << tid << ", cmd " << cmd);
   struct iovec ios[]{{&tid, sizeof(pid_t)}, {&cmd, sizeof(int)}};
   return ancil_send_fds_with_msg(socket, nullptr, 0, ios, 2) == 0;
 }
+<<<<<<< HEAD
+=======
+
+}  // namespace alex
+>>>>>>> 9743c6ecd65a688228436031ddbf9392b644d73a

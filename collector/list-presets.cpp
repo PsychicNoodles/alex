@@ -9,6 +9,11 @@
 #include "rapl.hpp"
 #include "wattsup.hpp"
 
+namespace alex {
+
+using std::cerr;
+using std::cout;
+using std::endl;
 using std::map;
 using std::set;
 using std::string;
@@ -56,6 +61,10 @@ bool preset_is_available(string preset) {
     return true;
   }
 }
+
+}  // namespace alex
+
+using namespace alex;
 
 int main(int argc, char **argv) {
   if (argc != 1) {

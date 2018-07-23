@@ -6,19 +6,14 @@
  * directory of this distribution and at http://github.com/plasma-umass/coz.
  */
 
-#include "inspect.hpp"
-#include "debug.hpp"
-
 #include <elf.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <cstdlib>
-
-#include <fcntl.h>
 #include <cinttypes>
 #include <cstdint>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -34,8 +29,12 @@
 #include <libelfin/elf/elf++.hh>
 
 #include "const.hpp"
+#include "debug.hpp"
+#include "inspect.hpp"
 #include "perf_reader.hpp"
 #include "util.hpp"
+
+namespace alex {
 
 using std::ifstream;
 using std::ios;
@@ -357,7 +356,7 @@ void memory_map::build(const unordered_set<string>& source_scope,
   }
 }
 
-dwarf::value find_attribute(const dwarf::die& d, dwarf::DW_AT attr) {
+::dwarf::value find_attribute(const ::dwarf::die& d, ::dwarf::DW_AT attr) {
   if (!d.valid()) {
     return {};
   }
@@ -367,25 +366,25 @@ dwarf::value find_attribute(const dwarf::die& d, dwarf::DW_AT attr) {
       return d[attr];
     }
 
-    if (d.has(dwarf::DW_AT::abstract_origin)) {
-      const dwarf::die child =
-          d.resolve(dwarf::DW_AT::abstract_origin).as_reference();
-      dwarf::value v = find_attribute(child, attr);
+    if (d.has(::dwarf::DW_AT::abstract_origin)) {
+      const ::dwarf::die child =
+          d.resolve(::dwarf::DW_AT::abstract_origin).as_reference();
+      ::dwarf::value v = find_attribute(child, attr);
       if (v.valid()) {
         return v;
       }
     }
 
-    if (d.has(dwarf::DW_AT::specification)) {
-      const dwarf::die child =
-          d.resolve(dwarf::DW_AT::specification).as_reference();
-      dwarf::value v = find_attribute(child, attr);
+    if (d.has(::dwarf::DW_AT::specification)) {
+      const ::dwarf::die child =
+          d.resolve(::dwarf::DW_AT::specification).as_reference();
+      ::dwarf::value v = find_attribute(child, attr);
       if (v.valid()) {
         return v;
       }
     }
-  } catch (dwarf::format_error& e) {
-    DEBUG("ignoring DWARF format error " << e.what());
+  } catch (::dwarf::format_error& e) {
+    DEBUG("ignoring ::dwarf format error " << e.what());
   }
 
   return {};
@@ -400,7 +399,7 @@ void memory_map::add_range(const std::string& filename, size_t line_no,
 }
 
 void memory_map::process_inlines(
-    const dwarf::die& d, const dwarf::line_table& table,
+    const ::dwarf::die& d, const ::dwarf::line_table& table,
     const unordered_set<string>& source_scope, uintptr_t load_address,
     const std::map<interval, string, cmpByInterval>& sym_table) {
   if (!d.valid()) {
@@ -408,31 +407,33 @@ void memory_map::process_inlines(
   }
 
   try {
-    if (d.tag == dwarf::DW_TAG::inlined_subroutine) {
+    if (d.tag == ::dwarf::DW_TAG::inlined_subroutine) {
       string name;
-      dwarf::value name_val = find_attribute(d, dwarf::DW_AT::name);
+      ::dwarf::value name_val = find_attribute(d, ::dwarf::DW_AT::name);
 
       if (name_val.valid()) {
         name = name_val.as_string();
       }
 
       string decl_file;
-      dwarf::value decl_file_val = find_attribute(d, dwarf::DW_AT::decl_file);
+      ::dwarf::value decl_file_val =
+          find_attribute(d, ::dwarf::DW_AT::decl_file);
       if (decl_file_val.valid() && table.valid()) {
         decl_file = table.get_file(decl_file_val.as_uconstant())->path;
       }
 
-      dwarf::value decl_line_val = find_attribute(d, dwarf::DW_AT::decl_line);
+      ::dwarf::value decl_line_val =
+          find_attribute(d, ::dwarf::DW_AT::decl_line);
 
       string call_file;
-      if (d.has(dwarf::DW_AT::call_file) && table.valid()) {
+      if (d.has(::dwarf::DW_AT::call_file) && table.valid()) {
         call_file =
-            table.get_file(d[dwarf::DW_AT::call_file].as_uconstant())->path;
+            table.get_file(d[::dwarf::DW_AT::call_file].as_uconstant())->path;
       }
 
       size_t call_line = 0;
-      if (d.has(dwarf::DW_AT::call_line)) {
-        call_line = d[dwarf::DW_AT::call_line].as_uconstant();
+      if (d.has(::dwarf::DW_AT::call_line)) {
+        call_line = d[::dwarf::DW_AT::call_line].as_uconstant();
       }
 
       // If the call location is in scope but the function is not, add an entry
@@ -440,7 +441,7 @@ void memory_map::process_inlines(
         if (!in_scope(decl_file, source_scope) &&
             in_scope(call_file, source_scope)) {
           // Does this inline have separate ranges?
-          dwarf::value ranges_val = find_attribute(d, dwarf::DW_AT::ranges);
+          ::dwarf::value ranges_val = find_attribute(d, ::dwarf::DW_AT::ranges);
           if (ranges_val.valid()) {
             // Add each range
             for (auto r : ranges_val.as_rangelist()) {
@@ -449,29 +450,31 @@ void memory_map::process_inlines(
             }
           } else {
             // Must just be one range. Add it
-            dwarf::value low_pc_val = find_attribute(d, dwarf::DW_AT::low_pc);
-            dwarf::value high_pc_val = find_attribute(d, dwarf::DW_AT::high_pc);
+            ::dwarf::value low_pc_val =
+                find_attribute(d, ::dwarf::DW_AT::low_pc);
+            ::dwarf::value high_pc_val =
+                find_attribute(d, ::dwarf::DW_AT::high_pc);
 
             if (low_pc_val.valid() && high_pc_val.valid()) {
               uint64_t low_pc = 0, high_pc = 0;
 
-              if (low_pc_val.get_type() == dwarf::value::type::address) {
+              if (low_pc_val.get_type() == ::dwarf::value::type::address) {
                 low_pc = low_pc_val.as_address();
               } else if (low_pc_val.get_type() ==
-                         dwarf::value::type::uconstant) {
+                         ::dwarf::value::type::uconstant) {
                 low_pc = low_pc_val.as_uconstant();
               } else if (low_pc_val.get_type() ==
-                         dwarf::value::type::sconstant) {
+                         ::dwarf::value::type::sconstant) {
                 low_pc = low_pc_val.as_sconstant();
               }
 
-              if (high_pc_val.get_type() == dwarf::value::type::address) {
+              if (high_pc_val.get_type() == ::dwarf::value::type::address) {
                 high_pc = high_pc_val.as_address();
               } else if (high_pc_val.get_type() ==
-                         dwarf::value::type::uconstant) {
+                         ::dwarf::value::type::uconstant) {
                 high_pc = high_pc_val.as_uconstant();
               } else if (high_pc_val.get_type() ==
-                         dwarf::value::type::sconstant) {
+                         ::dwarf::value::type::sconstant) {
                 high_pc = high_pc_val.as_sconstant();
               }
 
@@ -482,8 +485,8 @@ void memory_map::process_inlines(
         }
       }
     }
-  } catch (dwarf::format_error& e) {
-    DEBUG("ignoring DWARF format error " << e.what());
+  } catch (::dwarf::format_error& e) {
+    DEBUG("ignoring ::dwarf format error " << e.what());
   }
 
   for (const auto& child : d) {
@@ -491,47 +494,51 @@ void memory_map::process_inlines(
   }
 }
 
-void dump_tree(const dwarf::die& d, int depth,
+void dump_tree(const ::dwarf::die& d, int depth,
                std::map<interval, string, cmpByInterval>* sym_table,
-               uintptr_t load_address, const dwarf::line_table& table,
+               uintptr_t load_address, const ::dwarf::line_table& table,
                const unordered_set<string>& source_scope) {
   if (!d.valid()) {
     return;
   }
   try {
-    if (d.tag == dwarf::DW_TAG::subprogram) {
+    if (d.tag == ::dwarf::DW_TAG::subprogram) {
       string name;
-      dwarf::value name_val = find_attribute(d, dwarf::DW_AT::name);
+      ::dwarf::value name_val = find_attribute(d, ::dwarf::DW_AT::name);
 
       if (name_val.valid()) {
         name = name_val.as_string();
       }
 
       string decl_file;
-      dwarf::value decl_file_val = find_attribute(d, dwarf::DW_AT::decl_file);
+      ::dwarf::value decl_file_val =
+          find_attribute(d, ::dwarf::DW_AT::decl_file);
       if (decl_file_val.valid() && table.valid()) {
         decl_file = table.get_file(decl_file_val.as_uconstant())->path;
       }
 
-      dwarf::value decl_line_val = find_attribute(d, dwarf::DW_AT::decl_line);
+      ::dwarf::value decl_line_val =
+          find_attribute(d, ::dwarf::DW_AT::decl_line);
 
       if (!decl_file.empty()) {
         if (in_scope(decl_file, source_scope)) {
-          if (d.has(dwarf::DW_AT::low_pc) && d.has(dwarf::DW_AT::high_pc)) {
-            dwarf::value low_pc_val = find_attribute(d, dwarf::DW_AT::low_pc);
-            dwarf::value high_pc_val = find_attribute(d, dwarf::DW_AT::high_pc);
+          if (d.has(::dwarf::DW_AT::low_pc) && d.has(::dwarf::DW_AT::high_pc)) {
+            ::dwarf::value low_pc_val =
+                find_attribute(d, ::dwarf::DW_AT::low_pc);
+            ::dwarf::value high_pc_val =
+                find_attribute(d, ::dwarf::DW_AT::high_pc);
 
             if (low_pc_val.valid() && high_pc_val.valid()) {
               uint64_t low_pc = 0;
               uint64_t high_pc = 0;
 
-              if (low_pc_val.get_type() == dwarf::value::type::address) {
+              if (low_pc_val.get_type() == ::dwarf::value::type::address) {
                 low_pc = low_pc_val.as_address();
               } else if (low_pc_val.get_type() ==
-                         dwarf::value::type::uconstant) {
+                         ::dwarf::value::type::uconstant) {
                 low_pc = low_pc_val.as_uconstant();
               } else if (low_pc_val.get_type() ==
-                         dwarf::value::type::sconstant) {
+                         ::dwarf::value::type::sconstant) {
                 low_pc = low_pc_val.as_sconstant();
               }
 
@@ -545,8 +552,8 @@ void dump_tree(const dwarf::die& d, int depth,
         }
       }
     }
-  } catch (dwarf::format_error& e) {
-    DEBUG("Ignoring DWARF format error " << e.what());
+  } catch (::dwarf::format_error& e) {
+    DEBUG("Ignoring ::dwarf format error " << e.what());
   }
 
   for (const auto& child : d) {
@@ -578,8 +585,8 @@ bool memory_map::process_file(
       DEBUG("unsupported ELF file type");
   }
 
-  // Read the DWARF information from the chosen file
-  dwarf::dwarf d(dwarf::elf::create_loader(f));
+  // Read the ::dwarf information from the chosen file
+  ::dwarf::dwarf d(::dwarf::elf::create_loader(f));
 
   // Walk through the compilation units (source files) in the executable
   for (const auto& unit : d.compilation_units()) {
@@ -605,7 +612,7 @@ bool memory_map::process_file(
         size_t prev_line;
         uintptr_t prev_address = 0;
         set<string> included_files;
-        // Walk through the line instructions in the DWARF line table
+        // Walk through the line instructions in the ::dwarf line table
         for (auto& line_info : unit.get_line_table()) {
           // Insert an entry if this isn't the first line command in the
           // sequence
@@ -633,8 +640,8 @@ bool memory_map::process_file(
           // INFO << "Included source file " << filename;
         }
 
-      } catch (dwarf::format_error& e) {
-        DEBUG("ignoring DWARF format error when reading line table: "
+      } catch (::dwarf::format_error& e) {
+        DEBUG("ignoring ::dwarf format error when reading line table: "
               << e.what());
       }
     }  // if needProcess
@@ -683,3 +690,5 @@ memory_map& memory_map::get_instance() {
   static auto* the_instance = new (buf) memory_map();
   return *the_instance;
 }
+
+}  // namespace alex

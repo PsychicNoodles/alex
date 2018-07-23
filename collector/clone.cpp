@@ -83,7 +83,7 @@ pid_t fork(void) {
     DEBUG("CHILD PROCESS");
     pid_t tid = gettid();
     DEBUG(tid << ": setting up PROCESS perf events with PID");
-    setup_perf_events(tid, HANDLE_EVENTS, &info);
+    setup_perf_events(tid, &info);
     DEBUG(tid << ": registering PROCESS fd " << info.cpu_clock_fd
               << " with collector for bookkeeping");
     if (!register_perf_fds(perf_register_sock, &info)) {

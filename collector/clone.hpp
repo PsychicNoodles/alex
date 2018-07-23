@@ -13,9 +13,7 @@
 #include <cstring>
 #include <vector>
 
-#define EVENT "perf_count_hw_cache_misses"
-#define SAMPLE 0
-#define EVENT_ACCURACY 100000
+namespace alex {
 
 using pthread_create_fn_t = int (*)(pthread_t *, const pthread_attr_t *,
                                     void *(*)(void *), void *);
@@ -47,5 +45,7 @@ using disguise_t = struct disguise {
 };
 
 void set_perf_register_sock(int sock);
+
+}  // namespace alex
 
 #endif
