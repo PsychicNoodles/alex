@@ -1,7 +1,5 @@
 CXX := clang++
 TIDY_SCRIPT := ../tidy-check.sh
-IWYU := iwyu
-IWYU_FIX_INCLUDES := python fix_includes.py
 
 GIT_VERSION := $(shell git describe --abbrev=4 --dirty --always --tags)
 PERF_SAMPLE_MAX_STACK_MACRO := $(shell cat /proc/sys/kernel/perf_event_max_stack 2>/dev/null)
@@ -55,20 +53,6 @@ tidy:
 
 tidy-fix: TIDY_FIX = -f
 tidy-fix: tidy
-
-iwyu:
-	@for src in $(COLLECTOR_SOURCES) ; do \
-		echo "Running IWYU on $$src..." ; \
-		$(IWYU) $(CFLAGS) $(PERF_SAMPLE_MAX_STACK_MACRO) $$src ; \
-	done
-	@echo "Finished IWYU"
-
-iwyu-fix:
-	@for src in $(COLLECTOR_SOURCES) ; do \
-		echo "Running IWYU and fixing $$src..." ; \
-		$(IWYU) $(CFLAGS) $(PERF_SAMPLE_MAX_STACK_MACRO) $$src 2>&1 >/dev/null | tee /dev/tty | $(IWYU_FIX_INCLUDES) ; \
-	done
-	@echo "Finished IWYU + fixes"
 
 build:
 	mkdir -p build
