@@ -16,20 +16,12 @@
 #include "sockets.hpp"
 #include "util.hpp"
 
+alex::perf_fd_info info;
+int perf_register_sock;
+
 namespace alex {
 
 using std::string;
-
-pthread_create_fn_t real_pthread_create;
-fork_fn_t real_fork;
-execve_fn_t real_execve;
-execvp_fn_t real_execvp;
-execv_fn_t real_execv;
-execvpe_fn_t real_execvpe;
-exit_fn_t real_exit;
-_Exit_fn_t real__Exit;
-int perf_register_sock;
-perf_fd_info info;
 
 void set_perf_register_sock(int sock) { perf_register_sock = sock; }
 
@@ -66,6 +58,25 @@ void *__imposter(void *arg) {
   DEBUG(tid << ": exiting");
   return ret;
 }
+}  // namespace alex
+
+using alex::__imposter;
+using alex::close_fds;
+using alex::disguise_t;
+using alex::gettid;
+using alex::INTERNAL_ERROR;
+using alex::setup_perf_events;
+using alex::unregister_perf_fds;
+
+pthread_create_fn_t real_pthread_create;
+fork_fn_t real_fork;
+execve_fn_t real_execve;
+execvp_fn_t real_execvp;
+execv_fn_t real_execv;
+execvpe_fn_t real_execvpe;
+// exit_fn_t real_exit;
+// _exit_fn_t real__exit;
+// _Exit_fn_t real__Exit;
 
 // redefining these libc functions upsets the linter
 
@@ -99,6 +110,7 @@ pid_t fork(void) {
   return pid;
 }
 
+// // NOLINTNEXTLINE
 // void exit(int status) {
 //   pid_t tid = gettid();
 //   DEBUG(tid << ": finished PROCESS routine, unregistering fd "
@@ -108,6 +120,7 @@ pid_t fork(void) {
 //   real_exit(status);
 // }
 
+// // NOLINTNEXTLINE
 // void _Exit(int status) {
 //   pid_t tid = gettid();
 //   DEBUG(tid << ": finished PROCESS routine, unregistering fd "
@@ -115,6 +128,16 @@ pid_t fork(void) {
 //   unregister_perf_fds(perf_register_sock);
 //   DEBUG(tid << ": exiting PROCESS");
 //   real__Exit(status);
+// }
+
+// // NOLINTNEXTLINE
+// void _exit(int status) {
+//   pid_t tid = gettid();
+//   DEBUG(tid << ": finished PROCESS routine, unregistering fd "
+//             << info.cpu_clock_fd);
+//   unregister_perf_fds(perf_register_sock);
+//   DEBUG(tid << ": exiting PROCESS");
+//   real__exit(status);
 // }
 
 // NOLINTNEXTLINE
@@ -180,6 +203,12 @@ __attribute__((constructor)) void init() {
   //   exit(2);
   // }
 
+  // real__exit = reinterpret_cast<_exit_fn_t>(dlsym(RTLD_NEXT, "_exit"));
+  // if (real__exit == nullptr) {
+  //   dlerror();
+  //   exit(2);
+  // }
+
   real_fork = reinterpret_cast<fork_fn_t>(dlsym(RTLD_NEXT, "fork"));
   if (real_fork == nullptr) {
     dlerror();
@@ -209,5 +238,3 @@ __attribute__((constructor)) void init() {
     exit(2);
   }
 }
-
-}  // namespace alex
