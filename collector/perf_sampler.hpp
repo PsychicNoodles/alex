@@ -31,24 +31,22 @@ struct perf_fd_info {
   std::map<std::string, int> event_fds;
 };
 
-#define BUFFER_SIZE ((1 + NUM_DATA_PAGES) * PAGE_SIZE)
+enum : size_t { BUFFER_SIZE = ((1 + NUM_DATA_PAGES) * PAGE_SIZE) };
 
-#define SAMPLE_ADDR_AND_IP (PERF_SAMPLE_ADDR | PERF_SAMPLE_IP)
-
-#define SAMPLER_MONITOR_SUCCESS 0
-#define SAMPLER_MONITOR_ERROR 1
+enum sampler_result { SAMPLER_MONITOR_SUCCESS = 0, SAMPLER_MONITOR_ERROR = 1 };
 
 inline size_t perf_buffer_data_size() { return BUFFER_SIZE - PAGE_SIZE; }
 
 // Configure the perf buffer
-int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid);
-int setup_buffer(perf_fd_info *info);
+sampler_result setup_monitoring(perf_buffer *result, perf_event_attr *attr,
+                                int pid);
+sampler_result setup_buffer(perf_fd_info *info);
 
 // Control monitoring
-int reset_monitoring(int fd);
-int start_monitoring(int fd);
-int stop_monitoring(int fd);
-int resume_monitoring(int fd);
+sampler_result reset_monitoring(int fd);
+sampler_result start_monitoring(int fd);
+sampler_result stop_monitoring(int fd);
+sampler_result resume_monitoring(int fd);
 
 /* does the perf_event buffer have any new records? */
 bool has_next_record(perf_buffer *perf);
