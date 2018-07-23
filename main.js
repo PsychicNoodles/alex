@@ -110,8 +110,9 @@ yargs
         errFile: argv.err,
         resultOption: argv.result,
         events: argv.events || [],
-        executableArgs: argv.args,
-        visualizeOption: argv.visualize
+        visualizeOption: argv.visualize,
+        // Manually parse this out, since positional args can't handle "--xxx" args
+        executableArgs: process.argv.slice(process.argv.indexOf("--") + 2)
       });
     }
   )
@@ -128,7 +129,8 @@ yargs
     }
   )
   .demandCommand()
-  .help().argv;
+  .help()
+  .parse();
 
 function getAllPresetInfo() {
   return new Promise((resolve, reject) => {
