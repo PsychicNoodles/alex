@@ -4,7 +4,7 @@
 
 namespace alex {
 
-const char* callchain_str(enum perf_callchain_context callchain) {
+const char* callchain_str(perf_callchain_context callchain) {
   switch (callchain) {
     case PERF_CONTEXT_HV:
       return "hypervisor";
@@ -23,7 +23,7 @@ const char* callchain_str(enum perf_callchain_context callchain) {
   }
 }
 
-bool is_callchain_marker(enum perf_callchain_context instruction_pointers) {
+bool is_callchain_marker(perf_callchain_context instruction_pointers) {
   return instruction_pointers == PERF_CONTEXT_HV ||
          instruction_pointers == PERF_CONTEXT_KERNEL ||
          instruction_pointers == PERF_CONTEXT_USER ||

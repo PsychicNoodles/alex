@@ -202,7 +202,7 @@ void delete_fd_from_epoll(int fd) {
  * every other event as children in the group. Thus, when the cpu cycles event
  * is started all the others are as well simultaneously
  */
-void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
+void setup_perf_events(pid_t target, perf_fd_info *info) {
   DEBUG("setting up perf events for target " << target);
   // set up the cpu cycles perf buffer
   perf_event_attr cpu_clock_attr{};
@@ -230,7 +230,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   info->sample_buf = cpu_clock_perf;
   info->tid = target;
 
-  if (setup_events && global->events_size != 0) {
+  if (global->events_size != 0) {
     DEBUG("setting up events");
     for (int i = 0; i < global->events_size; i++) {
       DEBUG("event: " << global->events[i]);
@@ -584,10 +584,11 @@ bool process_sample_record(
   add_brackets("]");
 
   bool is_first_stack = true;
-  uint64_t callchain_section = 0;
+  perf_callchain_context callchain_section;
   DEBUG("cpd: looking up " << sample.num_instruction_pointers << " inst ptrs");
   for (uint64_t i = 0; i < sample.num_instruction_pointers; i++) {
-    uint64_t inst_ptr = sample.instruction_pointers[i];
+    auto inst_ptr =
+        static_cast<perf_callchain_context>(sample.instruction_pointers[i]);
     if (is_callchain_marker(inst_ptr)) {
       callchain_section = inst_ptr;
       continue;
@@ -879,7 +880,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
 
   DEBUG("cpd: setting up perf events for main thread in subject");
   perf_fd_info subject_info;
-  setup_perf_events(global->subject_pid, HANDLE_EVENTS, &subject_info);
+  setup_perf_events(global->subject_pid, &subject_info);
   DEBUG("cpd: main thread registered with fd " << subject_info.cpu_clock_fd);
   setup_buffer(&subject_info);
   handle_perf_register(&subject_info);

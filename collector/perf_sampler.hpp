@@ -14,6 +14,8 @@
 #include <map>
 #include <string>
 
+#include "const.hpp"
+
 namespace alex {
 
 struct perf_buffer {
@@ -29,9 +31,6 @@ struct perf_fd_info {
   std::map<std::string, int> event_fds;
 };
 
-#define PAGE_SIZE 0x1000LL
-#define NUM_DATA_PAGES \
-  256  // this needs to be a power of two :'( (an hour was spent here)
 #define BUFFER_SIZE ((1 + NUM_DATA_PAGES) * PAGE_SIZE)
 
 #define SAMPLE_ADDR_AND_IP (PERF_SAMPLE_ADDR | PERF_SAMPLE_IP)
