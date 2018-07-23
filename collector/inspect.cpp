@@ -384,7 +384,7 @@ void memory_map::build(const unordered_set<string>& source_scope,
       }
     }
   } catch (::dwarf::format_error& e) {
-    DEBUG("ignoring ::dwarf format error " << e.what());
+    DEBUG("ignoring dwarf format error " << e.what());
   }
 
   return {};
@@ -486,7 +486,7 @@ void memory_map::process_inlines(
       }
     }
   } catch (::dwarf::format_error& e) {
-    DEBUG("ignoring ::dwarf format error " << e.what());
+    DEBUG("ignoring dwarf format error " << e.what());
   }
 
   for (const auto& child : d) {
@@ -553,7 +553,7 @@ void dump_tree(const ::dwarf::die& d, int depth,
       }
     }
   } catch (::dwarf::format_error& e) {
-    DEBUG("Ignoring ::dwarf format error " << e.what());
+    DEBUG("Ignoring dwarf format error " << e.what());
   }
 
   for (const auto& child : d) {
@@ -641,7 +641,7 @@ bool memory_map::process_file(
         }
 
       } catch (::dwarf::format_error& e) {
-        DEBUG("ignoring ::dwarf format error when reading line table: "
+        DEBUG("ignoring dwarf format error when reading line table: "
               << e.what());
       }
     }  // if needProcess

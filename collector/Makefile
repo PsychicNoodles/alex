@@ -8,7 +8,7 @@ PERF_SAMPLE_MAX_STACK_MACRO := $(shell cat /proc/sys/kernel/perf_event_max_stack
 ifneq ($(PERF_SAMPLE_MAX_STACK_MACRO),) # if the file was found
 PERF_SAMPLE_MAX_STACK_MACRO := -DSAMPLE_MAX_STACK="$(PERF_SAMPLE_MAX_STACK_MACRO)"
 endif
-CFLAGS := -DVERSION=\"$(GIT_VERSION)\" -I../../include --std=c++11 
+CFLAGS := -DVERSION=\"$(GIT_VERSION)\" -I../../include --std=c++11 -DDEBUG_FNAME
 
 COLLECTOR_SOURCES := collector.cpp perf_reader.cpp const.cpp util.cpp debug.cpp perf_sampler.cpp clone.cpp rapl.cpp wattsup.cpp bg_readings.cpp ancillary.cpp find_events.cpp shared.cpp sockets.cpp inspect.cpp
 EVENT_SOURCES := list-presets.cpp debug.cpp wattsup.cpp rapl.cpp perf_sampler.cpp util.cpp shared.cpp find_events.cpp
@@ -37,10 +37,10 @@ all: build/collector.$(SHLIB_SUFFIX) build/list-presets
 pedantic: WARN = -Werror
 pedantic: all
 
-nolog: DEBUG = -D NDEBUG
+nolog: DEBUG = -DNDEBUG
 nolog: all
 
-minlog: DEBUG = -D MINDEBUG
+minlog: DEBUG = -DMINDEBUG
 minlog: all
 
 clean:
