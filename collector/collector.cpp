@@ -286,8 +286,8 @@ static int collector_main(int argc, char **argv, char **env) {
     int wu_fd = -1;
     if (wattsup_enabled) {
       // setting up wattsup
-      wu_fd = wattsupSetUp();
-      DEBUG("WATTSUP setup, wu_fd is: " << wu_fd);
+      wu_fd = wu_setup();
+      DEBUG("collector_main: wu_fd is " << wu_fd);
     }
 
     DEBUG("collector_main: setting up collector");
@@ -319,7 +319,7 @@ static int collector_main(int argc, char **argv, char **env) {
     DEBUG("collector_main: finished collector, closing file");
 
     if (wattsup_enabled && wu_fd != -1) {
-      wattsupTurnOff(wu_fd);
+      wu_shutdown(wu_fd);
     }
     fclose(result_file);
     close(sockets[0]);
