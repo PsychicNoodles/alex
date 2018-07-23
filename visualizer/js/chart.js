@@ -72,7 +72,7 @@ function render(
 
   xAxis.call(d3.axisBottom(xScale).tickFormat(d3.format(".2s")));
 
-  const xAxisLabel = xAxis.select(".chart__axis-label--x").empty()
+  xAxis.select(".chart__axis-label--x").empty()
     ? xAxis
         .append("text")
         .attr("class", "chart__axis-label chart__axis-label--x")
@@ -92,7 +92,7 @@ function render(
 
   yAxis.call(d3.axisLeft(yScale_present).tickFormat(yFormat));
 
-  const yAxisLabel = yAxis.select(".chart__axis-label--y").empty()
+  yAxis.select(".chart__axis-label--y").empty()
     ? yAxis
         .append("text")
         .attr("class", "chart__axis-label chart__axis-label--y")
@@ -127,7 +127,7 @@ function render(
   //brush
   brush.on("brush", brushed);
 
-  const sideBarBrush = sideBar.select("g.sideBar-brush").empty()
+  sideBar.select("g.sideBar-brush").empty()
     ? sideBar
         .append("g")
         .attr("class", "sideBar-brush")
