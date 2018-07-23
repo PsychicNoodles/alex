@@ -53,15 +53,18 @@ yargs
         .describe("in", "The file to pipe into the stdin of <executable>.")
         .option("out", {
           description: "The file to pipe the stdout of <executable> into.",
-          default: path.join(__dirname, `/out-${Date.now()}.log`)
+          default: path.join(__dirname, `/out-${new Date().toISOString()}.log`)
         })
         .option("err", {
           description: "The file to pipe the stderr of <executable> into.",
-          default: path.join(__dirname, `/err-${Date.now()}.log`)
+          default: path.join(__dirname, `/err-${new Date().toISOString()}.log`)
         })
         .option("result", {
           description: "The file to pipe the performance results into.",
-          default: path.join(__dirname, `/result-${Date.now()}.json`)
+          default: path.join(
+            __dirname,
+            `/result-${new Date().toISOString()}.json`
+          )
         })
         .option("visualize", {
           description: "Where to visualize the results.",
@@ -77,7 +80,10 @@ yargs
           description:
             'Use "dmesg" after plugging in the device to see what the USB serial port is detected at.',
           default: "ttyUSB0"
-        }),
+        })
+        .example(
+          "$0 collect --in my-input-file.in -p cache -- ./my-program --arg1 arg2"
+        ),
     argv => {
       collect({
         ...argv,
