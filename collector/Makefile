@@ -1,14 +1,23 @@
 CXX := clang++
+TIDY_SCRIPT := ../tidy-check.sh
+IWYU := iwyu
+IWYU_FIX_INCLUDES := python fix_includes.py
+
 GIT_VERSION := $(shell git describe --abbrev=4 --dirty --always --tags)
 PERF_SAMPLE_MAX_STACK_MACRO := $(shell cat /proc/sys/kernel/perf_event_max_stack 2>/dev/null)
 ifneq ($(PERF_SAMPLE_MAX_STACK_MACRO),) # if the file was found
 PERF_SAMPLE_MAX_STACK_MACRO := -DSAMPLE_MAX_STACK="$(PERF_SAMPLE_MAX_STACK_MACRO)"
 endif
-CFLAGS := $(shell pkg-config --cflags --libs libelf++ libdwarf++) -DVERSION=\"$(GIT_VERSION)\"
-SOURCES := collector.cpp perf_reader.cpp const.cpp util.cpp debug.cpp perf_sampler.cpp clone.cpp rapl.cpp wattsup.cpp bg_readings.cpp ancillary.cpp find_events.cpp shared.cpp sockets.cpp inspect.cpp
+CFLAGS := -DVERSION=\"$(GIT_VERSION)\" -I../../include --std=c++11 
+
+COLLECTOR_SOURCES := collector.cpp perf_reader.cpp const.cpp util.cpp debug.cpp perf_sampler.cpp clone.cpp rapl.cpp wattsup.cpp bg_readings.cpp ancillary.cpp find_events.cpp shared.cpp sockets.cpp inspect.cpp
 EVENT_SOURCES := list-presets.cpp debug.cpp wattsup.cpp rapl.cpp perf_sampler.cpp util.cpp shared.cpp find_events.cpp
+
+LDFLAGS := $(shell pkg-config --cflags --libs libelf++ libdwarf++)
+COLLECTOR_LDFLAGS := $(LDFLAGS) -ldl -lpfm -pthread
+EVENT_LDFLAGS := $(LDFLAGS) -lpfm
+
 SRC_DIR := .
-TIDY_SCRIPT := ../tidy-check.sh
 
 ifeq ($(shell uname -s),Darwin)
 SHLIB_SUFFIX := dylib
@@ -38,7 +47,7 @@ clean:
 	@rm -rf build
 
 tidy:
-	@for src in $(SOURCES) ; do \
+	@for src in $(COLLECTOR_SOURCES) ; do \
 		echo "Running clang-tidy on $$src..." ; \
 		`$(TIDY_SCRIPT) $(TIDY_FIX) -c $(SRC_DIR)/$$src` 2>/dev/null ; \
 	done
@@ -47,11 +56,25 @@ tidy:
 tidy-fix: TIDY_FIX = -f
 tidy-fix: tidy
 
+iwyu:
+	@for src in $(COLLECTOR_SOURCES) ; do \
+		echo "Running IWYU on $$src..." ; \
+		$(IWYU) $(CFLAGS) $(PERF_SAMPLE_MAX_STACK_MACRO) $$src ; \
+	done
+	@echo "Finished IWYU"
+
+iwyu-fix:
+	@for src in $(COLLECTOR_SOURCES) ; do \
+		echo "Running IWYU and fixing $$src..." ; \
+		$(IWYU) $(CFLAGS) $(PERF_SAMPLE_MAX_STACK_MACRO) $$src 2>&1 >/dev/null | $(IWYU_FIX_INCLUDES) ; \
+	done
+	@echo "Finished IWYU + fixes"
+
 build:
 	mkdir -p build
 
-build/collector.$(SHLIB_SUFFIX): $(SOURCES) | build
-	$(CXXLIB) $(CFLAGS) $(PERF_SAMPLE_MAX_STACK_MACRO) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -ldl -lpfm -pthread -rdynamic
+build/collector.$(SHLIB_SUFFIX): $(COLLECTOR_SOURCES) | build
+	$(CXXLIB) $(CFLAGS) $(PERF_SAMPLE_MAX_STACK_MACRO) $(DEBUG) $(WARN) -g -o $@ $^ $(COLLECTOR_LDFLAGS)
 
 build/list-presets: $(EVENT_SOURCES) | build
-	$(CXX) $(CFLAGS) $(DEBUG) -I../../include --std=c++11 $(WARN) -g -o $@ $^ -lpfm -rdynamic
+	$(CXX) $(CFLAGS) $(DEBUG) $(WARN) -g -o $@ $^ $(EVENT_LDFLAGS)
