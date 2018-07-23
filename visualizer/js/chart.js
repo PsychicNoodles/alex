@@ -135,6 +135,17 @@ function render(
         .call(brush.move, yScale.range())
     : sideBar.select("g.sideBar-brush");
 
+  // var line = d3.line()
+  // .x(function(d) { return x(d.date); })
+  // .y(function(d) { return y(d.value); });
+
+  const handle = sideBarBrush
+    .selectAll(".handle")
+    .attr("fill", "#666")
+    .attr("fill-opacity", 0.8);
+
+  // sideBarBrush.selectAll(".overlay")
+
   function brushed() {
     console.log(this);
     const s = d3.event.selection || yScale.range();
