@@ -112,7 +112,9 @@ yargs
         events: argv.events || [],
         visualizeOption: argv.visualize,
         // Manually parse this out, since positional args can't handle "--xxx" args
-        executableArgs: process.argv.slice(process.argv.indexOf("--") + 2)
+        executableArgs: process.argv.includes("--")
+          ? process.argv.slice(process.argv.indexOf("--") + 2)
+          : argv.args
       });
     }
   )
