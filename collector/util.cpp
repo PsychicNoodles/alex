@@ -13,6 +13,8 @@
 #include "shared.hpp"
 #include "util.hpp"
 
+namespace alex {
+
 using std::stack;
 
 stack<char> brackets;
@@ -136,3 +138,5 @@ void delete_brackets(int num_brackets) {
 }
 
 size_t count_brackets() { return brackets.size(); }
+
+}  // namespace alex

@@ -8,6 +8,8 @@
 #include "rapl.hpp"
 #include "shared.hpp"
 
+namespace alex {
+
 using std::map;
 using std::pair;
 using std::set;
@@ -117,3 +119,5 @@ void print_preset_events(FILE* result_file) {
    }
    )");
 }
+
+}  // namespace alex

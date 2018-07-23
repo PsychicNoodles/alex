@@ -1,22 +1,12 @@
 #ifndef COLLECTOR_RAPL
 #define COLLECTOR_RAPL
-#include <csignal>
-#include <cstdint>
-#include <cstdlib>
-#include <cstring>
-#include <fstream>
-#include <iostream>
 #include <map>
-#include <sstream>
+#include <string>
 #include <vector>
 
-#include <dirent.h>
-#include <unistd.h>
-
-#include <sys/types.h>
-#include <sys/wait.h>
-
 #include "debug.hpp"
+
+namespace alex {
 
 #define ENERGY_ROOT "/sys/class/powercap/intel-rapl/"
 #define ENERGY_PREFIX "intel-rapl"
@@ -37,5 +27,7 @@ vector<string> find_in_dir(const string& dir, const string& substr);
 string file_readline(const string& path);
 
 void find_rapl_events(map<string, vector<string>> /*events*/);
+
+}  // namespace alex
 
 #endif

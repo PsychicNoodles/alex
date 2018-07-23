@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+namespace alex {
+
 using std::set;
 using std::string;
 using std::vector;
@@ -36,5 +38,7 @@ size_t count_brackets();
   SHUTDOWN_MSG(pid, result_file, code, title << ": " << desc)
 #define SHUTDOWN_PERROR(pid, result_file, code, title) \
   SHUTDOWN_ERRMSG(pid, result_file, code, title, strerror(errno))
+
+}  // namespace alex
 
 #endif

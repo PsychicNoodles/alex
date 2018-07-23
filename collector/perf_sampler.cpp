@@ -3,6 +3,8 @@
 #include "perf_reader.hpp"
 #include "util.hpp"
 
+namespace alex {
+
 int setup_monitoring(perf_buffer *result, perf_event_attr *attr, int pid = 0) {
   DEBUG("setting up monitoring for pid " << pid);
   int fd = perf_event_open(attr, pid, -1, -1, PERF_FLAG_FD_CLOEXEC);
@@ -111,3 +113,5 @@ int setup_pfm_os_event(perf_event_attr *attr, char *event_name) {
 
   return pfm_result;
 }
+
+}  // namespace alex

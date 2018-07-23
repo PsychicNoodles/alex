@@ -1,19 +1,19 @@
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/time.h>
 #include <termios.h>
 #include <unistd.h>
 #include <cctype>
 #include <cerrno>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
 
-#include <sys/stat.h>
-#include <sys/time.h>
-
-#include <csignal>
-
 #include "debug.hpp"
+
+namespace alex {
 
 /* start the external logging of power info */
 /* #L,W,3,E,<Reserved>,<Interval>; */
@@ -34,3 +34,5 @@ double wu_read(int fd);
 int wattsupSetUp();
 
 void wattsupTurnOff(int wu_fd);
+
+}  // namespace alex

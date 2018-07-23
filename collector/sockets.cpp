@@ -9,6 +9,8 @@
 #include "shared.hpp"
 #include "util.hpp"
 
+namespace alex {
+
 using std::find_if;
 using std::map;
 using std::pair;
@@ -102,3 +104,5 @@ bool unregister_perf_fds(int socket) {
   struct iovec ios[]{{&tid, sizeof(pid_t)}, {&cmd, sizeof(int)}};
   return ancil_send_fds_with_msg(socket, nullptr, 0, ios, 2) == 0;
 }
+
+}  // namespace alex

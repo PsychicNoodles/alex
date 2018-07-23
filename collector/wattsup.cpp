@@ -9,23 +9,23 @@
  ***************************************************************************************/
 
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/time.h>
 #include <termios.h>
 #include <unistd.h>
 #include <cctype>
 #include <cerrno>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
 
-#include <sys/stat.h>
-#include <sys/time.h>
-
-#include <csignal>
-
 #include "debug.hpp"
 #include "util.hpp"
 #include "wattsup.hpp"
+
+namespace alex {
 
 #define STRING_SIZE 256
 
@@ -258,3 +258,5 @@ void wattsupTurnOff(int wu_fd) {
   wu_stop_external_log(wu_fd);
   close(wu_fd);
 }
+
+}  // namespace alex

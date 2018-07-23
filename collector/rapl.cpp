@@ -1,3 +1,7 @@
+#include <dirent.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <csignal>
 #include <cstdint>
 #include <cstdlib>
@@ -8,15 +12,10 @@
 #include <sstream>
 #include <vector>
 
-#include <dirent.h>
-#include <unistd.h>
-
-#include <sys/types.h>
-#include <sys/wait.h>
-
+#include "debug.hpp"
 #include "rapl.hpp"
 
-#include "debug.hpp"
+namespace alex {
 
 using std::ifstream;
 using std::istringstream;
@@ -98,3 +97,5 @@ void find_rapl_events(map<string, vector<string>> events) {
     }
   }
 }
+
+}  // namespace alex

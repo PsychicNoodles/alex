@@ -3,6 +3,8 @@
 #include "debug.hpp"
 #include "util.hpp"
 
+namespace alex {
+
 struct reading_fn_args {
   void *(*reading_fn)(void *);
   void *args;
@@ -115,3 +117,5 @@ void *get_result(bg_reading *reading) {
   reading->result = nullptr;
   return ret;
 }
+
+}  // namespace alex

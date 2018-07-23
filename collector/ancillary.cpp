@@ -42,6 +42,8 @@
 
 #include "ancillary.hpp"
 
+namespace alex {
+
 int ancil_send_fds_with_msg(int sock, const int *fds, unsigned n_fds,
                             struct iovec *iov, size_t iovlen) {
   ANCIL_FD_BUFFER(ANCIL_MAX_N_FDS) buffer{};
@@ -100,3 +102,5 @@ int ancil_recv_fds_with_msg(int sock, int *fds, unsigned n_fds,
   n_fds = (cmsg->cmsg_len - sizeof(struct cmsghdr)) / sizeof(int);
   return (n_fds);
 }
+
+}  // namespace alex
