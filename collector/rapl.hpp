@@ -26,7 +26,7 @@ vector<string> find_in_dir(const string& dir, const string& substr);
 
 string file_readline(const string& path);
 
-void find_rapl_events(map<string, vector<string>> /*events*/);
+void find_rapl_events(map<string, vector<string>>* events);
 
 }  // namespace alex
 

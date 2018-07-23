@@ -53,7 +53,7 @@ map<string, vector<string>> build_preset(const string& preset) {
         pair<string, vector<string>>("branchMisses", {"branch-misses"}));
     events.insert(pair<string, vector<string>>("branches", {"branches"}));
   } else if (preset == "rapl") {
-    find_rapl_events(events);
+    find_rapl_events(&events);
   } else if (preset == "wattsup") {
     events.insert(pair<string, vector<string>>("wattsup", {"wattsup"}));
   }
