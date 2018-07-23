@@ -6,7 +6,6 @@ const d3 = require("d3");
 function render(root, { data, densityMax, spectrum, xGetter, yGetter }) {
   root.classed("plot", true);
 
-  console.log("hello");
   // Create the points and position them in the plot
   const circles = (root.select("svg.circles").empty()
     ? root.append("svg").attr("class", "circles")

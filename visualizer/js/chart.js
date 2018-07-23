@@ -101,7 +101,7 @@ function render(
         .attr("x", -(HEIGHT / 2))
         .attr("transform", "rotate(-90)")
         .text(yAxisLabelText)
-    : svg.select("chart__axis-label--y").text(yAxisLabelText);
+    : yAxis.select(".chart__axis-label--y").text(yAxisLabelText);
 
   //side bar
   const sideBar = root.select("g.chart__sideBar").empty()
@@ -136,10 +136,8 @@ function render(
     : sideBar.select("g.sideBar-brush");
 
   function brushed() {
-    console.log(this);
     const s = d3.event.selection || yScale.range();
     yScale_present.domain(s.map(yScale.invert, yScale));
-    console.log(plotData);
 
     svg
       .select(".plot")
