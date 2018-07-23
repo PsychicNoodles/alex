@@ -24,10 +24,19 @@ execve_fn_t real_execve;
 execvp_fn_t real_execvp;
 execv_fn_t real_execv;
 execvpe_fn_t real_execvpe;
+exit_fn_t real_exit;
+_Exit_fn_t real__Exit;
 int perf_register_sock;
-bool is_finished = false;
+perf_fd_info info;
 
 void set_perf_register_sock(int sock) { perf_register_sock = sock; }
+
+void close_fds() {
+  close(info.cpu_clock_fd);
+  for (const auto &entry : info.event_fds) {
+    close(entry.second);
+  }
+}
 
 void *__imposter(void *arg) {
   pid_t tid = gettid();
@@ -37,7 +46,6 @@ void *__imposter(void *arg) {
   void *arguments = d->args;
   delete d;
 
-  perf_fd_info info;
   DEBUG(tid << ": setting up perf events");
   setup_perf_events(tid, HANDLE_EVENTS, &info);
   DEBUG(tid << ": registering fd " << info.cpu_clock_fd
@@ -51,6 +59,7 @@ void *__imposter(void *arg) {
   void *ret = routine(arguments);
 
   DEBUG(tid << ": finished routine, unregistering fd " << info.cpu_clock_fd);
+  close_fds();
   unregister_perf_fds(perf_register_sock);
   DEBUG(tid << ": exiting");
   return ret;
@@ -72,28 +81,43 @@ pid_t fork(void) {
   pid_t pid = real_fork();
   if (pid == 0) {
     DEBUG("CHILD PROCESS");
-  } else if (pid > 0) {
-    DEBUG("THE PID IS " << getpid());
-    DEBUG("parent process PROCESS" << pid);
-    perf_fd_info info;
-    DEBUG(pid << ": setting up PROCESS perf events with PID");
-    setup_perf_events(pid, HANDLE_EVENTS, &info);
-    DEBUG(pid << ": registering PROCESS fd " << info.cpu_clock_fd
+    pid_t tid = gettid();
+    DEBUG(tid << ": setting up PROCESS perf events with PID");
+    setup_perf_events(tid, HANDLE_EVENTS, &info);
+    DEBUG(tid << ": registering PROCESS fd " << info.cpu_clock_fd
               << " with collector for bookkeeping");
     if (!register_perf_fds(perf_register_sock, &info)) {
-      SHUTDOWN_PERROR(pid, nullptr, INTERNAL_ERROR,
+      SHUTDOWN_PERROR(tid, nullptr, INTERNAL_ERROR,
                       "failed to send PROCESS new thread's fd");
     }
-    DEBUG(pid << ": finished PROCESS routine, unregistering fd "
-              << info.cpu_clock_fd);
-    unregister_perf_fds(perf_register_sock);
-    DEBUG(pid << ": exiting PROCESS");
+  } else if (pid > 0) {
+    DEBUG("CHILD PID IS " << getpid());
   }
   return pid;
 }
 
+// void exit(int status) {
+//   pid_t tid = gettid();
+//   DEBUG(tid << ": finished PROCESS routine, unregistering fd "
+//             << info.cpu_clock_fd);
+//   unregister_perf_fds(perf_register_sock);
+//   DEBUG(tid << ": exiting PROCESS");
+//   real_exit(status);
+// }
+
+// void _Exit(int status) {
+//   pid_t tid = gettid();
+//   DEBUG(tid << ": finished PROCESS routine, unregistering fd "
+//             << info.cpu_clock_fd);
+//   unregister_perf_fds(perf_register_sock);
+//   DEBUG(tid << ": exiting PROCESS");
+//   real__Exit(status);
+// }
+
 // NOLINTNEXTLINE
 int execve(const char *filename, char *const argv[], char *const envp[]) {
+  close_fds();
+  unregister_perf_fds(perf_register_sock);
   if (unsetenv("LD_PRELOAD")) {
     perror("clone.cpp: couldn't unset env");
   }
@@ -103,6 +127,8 @@ int execve(const char *filename, char *const argv[], char *const envp[]) {
 
 // NOLINTNEXTLINE
 int execvp(const char *file, char *const argv[]) {
+  close_fds();
+  unregister_perf_fds(perf_register_sock);
   if (unsetenv("LD_PRELOAD")) {
     perror("clone.cpp: couldn't unset env");
   }
@@ -111,6 +137,8 @@ int execvp(const char *file, char *const argv[]) {
 
 // NOLINTNEXTLINE
 int execv(const char *path, char *const argv[]) {
+  close_fds();
+  unregister_perf_fds(perf_register_sock);
   if (unsetenv("LD_PRELOAD")) {
     perror("clone.cpp: couldn't unset env");
   }
@@ -120,6 +148,8 @@ int execv(const char *path, char *const argv[]) {
 
 // NOLINTNEXTLINE
 int execvpe(const char *file, char *const argv[], char *const envp[]) {
+  close_fds();
+  unregister_perf_fds(perf_register_sock);
   if (unsetenv("LD_PRELOAD")) {
     perror("clone.cpp: couldn't unset env");
   }
@@ -134,6 +164,18 @@ __attribute__((constructor)) void init() {
     dlerror();
     exit(2);
   }
+
+  // real_exit = reinterpret_cast<exit_fn_t>(dlsym(RTLD_NEXT, "exit"));
+  // if (real_exit == nullptr) {
+  //   dlerror();
+  //   exit(2);
+  // }
+
+  // real__Exit = reinterpret_cast<_Exit_fn_t>(dlsym(RTLD_NEXT, "_Exit"));
+  // if (real__Exit == nullptr) {
+  //   dlerror();
+  //   exit(2);
+  // }
 
   real_fork = reinterpret_cast<fork_fn_t>(dlsym(RTLD_NEXT, "fork"));
   if (real_fork == nullptr) {

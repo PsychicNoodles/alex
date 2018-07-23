@@ -13,6 +13,10 @@ using std::map;
 using std::set;
 using std::string;
 
+using std::cerr;
+using std::cout;
+using std::endl;
+
 bool event_is_available(string event_name) {
   pfm_initialize();
   perf_event_attr attr{};

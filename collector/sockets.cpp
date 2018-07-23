@@ -53,8 +53,9 @@ int recv_perf_fds(int socket, perf_fd_info *info,
       DEBUG("request to unregister fds for tid " << tid);
       auto pair = find_perf_info_by_thread(perf_info_mappings, tid);
       if (pair != perf_info_mappings.end()) {
-        DEBUG("found perf info");
+        DEBUG("info: " << ptr_fmt(info));
         *info = pair->second;
+        DEBUG("found perf info for fd " << info->cpu_clock_fd);
         return cmd;
       }
       DEBUG("couldn't find perf info for thread " << tid);
