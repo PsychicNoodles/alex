@@ -46,28 +46,6 @@ void ready_handler(int signum) {
   }
 }
 
-/**
- * Read a link's contents and return it as a string
- */
-static string readlink_str(const char *path) {
-  size_t exe_size = 1024;
-  ssize_t exe_used;
-
-  while (true) {
-    char exe_path[exe_size];
-
-    exe_used = readlink(path, exe_path, exe_size - 1);
-    // REQUIRE(exe_used > 0) << "Unable to read link " << path;
-
-    if (exe_used < exe_size - 1) {
-      exe_path[exe_used] = '\0';
-      return string(exe_path);
-    }
-
-    exe_size += 1024;
-  }
-}
-
 void setup_global_vars() {
   DEBUG("setting up globals");
   // set up period

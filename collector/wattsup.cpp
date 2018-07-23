@@ -110,7 +110,6 @@ int open_device(const char* device_name) {
 int setup_serial_device(int fd) {
   struct termios t {};
   int ret;
-  char* errm;
 
   /* get the current attributes */
   ret = tcgetattr(fd, &t);
@@ -207,7 +206,6 @@ double wu_read(int fd) {
 
 int wu_setup(const char* device_name) {
   DEBUG("setting up wattsup on device " << device_name);
-  char* errm;
   int ret;
   int wu_fd = 0;
 

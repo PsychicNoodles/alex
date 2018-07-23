@@ -202,31 +202,6 @@ class memory_map {
   std::map<interval, std::shared_ptr<line>, cmpByInterval> _ranges;
 };
 
-static std::ostream& operator<<(std::ostream& os, const interval& i) {
-  os << std::hex << "0x" << i.get_base() << "-0x" << i.get_limit() << std::dec;
-  return os;
-}
-
-static std::ostream& operator<<(std::ostream& os, const file& f) {
-  os << f.get_name();
-  return os;
-}
-
-static std::ostream& operator<<(std::ostream& os, const file* f) {
-  os << *f;
-  return os;
-}
-
-static std::ostream& operator<<(std::ostream& os, const line& l) {
-  os << l.get_file() << ":" << l.get_line();
-  return os;
-}
-
-static std::ostream& operator<<(std::ostream& os, const line* l) {
-  os << *l;
-  return os;
-}
-
 }  // namespace alex
 
 #endif

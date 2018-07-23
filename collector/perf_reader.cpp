@@ -145,28 +145,6 @@ int get_record_size(int record_type) {
 
 FILE *get_result_file() { return result_file; }
 
-/**
- * Read a link's contents and return it as a string
- */
-static string readlink_str(const char *path) {
-  size_t exe_size = 1024;
-  ssize_t exe_used;
-
-  while (true) {
-    char exe_path[exe_size];
-
-    exe_used = readlink(path, exe_path, exe_size - 1);
-    // REQUIRE(exe_used > 0) << "Unable to read link " << path;
-
-    if (exe_used < exe_size - 1) {
-      exe_path[exe_used] = '\0';
-      return string(exe_path);
-    }
-
-    exe_size += 1024;
-  }
-}
-
 /*
  * Adds a file descriptor to the global epoll
  */
@@ -583,7 +561,7 @@ bool process_sample_record(
   add_brackets("]");
 
   bool is_first_stack = true;
-  perf_callchain_context callchain_section;
+  perf_callchain_context callchain_section = PERF_CONTEXT_KERNEL;
   DEBUG("looking up " << sample.num_instruction_pointers << " inst ptrs");
   for (uint64_t i = 0; i < sample.num_instruction_pointers; i++) {
     auto inst_ptr =
@@ -664,7 +642,6 @@ bool process_sample_record(
     char fullLocation[fullLocationSize];
     snprintf(fullLocation, fullLocationSize, "(null)");
     auto line = -1;
-    auto column = -1;
 
     // Get the line full location
     DEBUG("looking up line location");
@@ -940,6 +917,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
     setup_reading(wattsup_reading,
                   [](void *raw_args) -> void * {
                     int wu_fd_fn = (static_cast<int *>(raw_args))[0];
+                    // NOLINTNEXTLINE(misc-lambda-function-name)
                     DEBUG("wu fd inside function is " << wu_fd_fn);
                     auto d = new double;
                     *d = wu_read(wu_fd_fn);

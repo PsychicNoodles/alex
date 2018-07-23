@@ -422,9 +422,6 @@ void memory_map::process_inlines(
         decl_file = table.get_file(decl_file_val.as_uconstant())->path;
       }
 
-      ::dwarf::value decl_line_val =
-          find_attribute(d, ::dwarf::DW_AT::decl_line);
-
       string call_file;
       if (d.has(::dwarf::DW_AT::call_file) && table.valid()) {
         call_file =
@@ -516,9 +513,6 @@ void dump_tree(const ::dwarf::die& d, int depth,
       if (decl_file_val.valid() && table.valid()) {
         decl_file = table.get_file(decl_file_val.as_uconstant())->path;
       }
-
-      ::dwarf::value decl_line_val =
-          find_attribute(d, ::dwarf::DW_AT::decl_line);
 
       if (!decl_file.empty()) {
         if (in_scope(decl_file, source_scope)) {
@@ -635,10 +629,6 @@ bool memory_map::process_file(
         }
         process_inlines(unit.root(), unit.get_line_table(), source_scope,
                         load_address, *sym_table);
-
-        for (const string& filename : included_files) {
-          // INFO << "Included source file " << filename;
-        }
 
       } catch (::dwarf::format_error& e) {
         DEBUG("ignoring dwarf format error when reading line table: "

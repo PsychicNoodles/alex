@@ -31,7 +31,7 @@ void crit_err_hdlr(int sig_num, siginfo_t *info, void *ucontext) {
   void *array[50];
   void *caller_address;
   char **messages;
-  int size, i;
+  int size;
   sig_ucontext *uc;
 
   uc = static_cast<sig_ucontext *>(ucontext);
