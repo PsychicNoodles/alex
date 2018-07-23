@@ -105,8 +105,5 @@ bool unregister_perf_fds(int socket) {
   struct iovec ios[]{{&tid, sizeof(pid_t)}, {&cmd, sizeof(int)}};
   return ancil_send_fds_with_msg(socket, nullptr, 0, ios, 2) == 0;
 }
-<<<<<<< HEAD
-=======
 
 }  // namespace alex
->>>>>>> 9743c6ecd65a688228436031ddbf9392b644d73a

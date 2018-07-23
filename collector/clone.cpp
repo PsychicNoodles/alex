@@ -16,6 +16,8 @@
 #include "sockets.hpp"
 #include "util.hpp"
 
+namespace alex {
+
 using std::string;
 
 pthread_create_fn_t real_pthread_create;
@@ -47,7 +49,7 @@ void *__imposter(void *arg) {
   delete d;
 
   DEBUG(tid << ": setting up perf events");
-  setup_perf_events(tid, HANDLE_EVENTS, &info);
+  setup_perf_events(tid, &info);
   DEBUG(tid << ": registering fd " << info.cpu_clock_fd
             << " with collector for bookkeeping");
   if (!register_perf_fds(perf_register_sock, &info)) {
@@ -77,6 +79,7 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   return real_pthread_create(thread, attr, &__imposter, d);
 }
 
+// NOLINTNEXTLINE
 pid_t fork(void) {
   pid_t pid = real_fork();
   if (pid == 0) {
@@ -206,3 +209,5 @@ __attribute__((constructor)) void init() {
     exit(2);
   }
 }
+
+}  // namespace alex
