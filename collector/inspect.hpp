@@ -6,8 +6,8 @@
  * directory of this distribution and at http://github.com/plasma-umass/coz.
  */
 
-#if !defined(CAUSAL_RUNTIME_INSPECT_H)
-#define CAUSAL_RUNTIME_INSPECT_H
+#ifndef COLLECTOR_INSPECT
+#define COLLECTOR_INSPECT
 
 #include <atomic>
 #include <cstdint>
@@ -23,6 +23,8 @@
 
 #include <libelfin/dwarf/dwarf++.hh>
 #include <libelfin/elf/elf++.hh>
+
+namespace alex {
 
 using std::string;
 
@@ -191,7 +193,7 @@ class memory_map {
 
   /// Add entries for all inlined calls
   void process_inlines(
-      const dwarf::die& d, const dwarf::line_table& table,
+      const ::dwarf::die& d, const ::dwarf::line_table& table,
       const std::unordered_set<std::string>& source_scope,
       uintptr_t load_address,
       const std::map<interval, string, cmpByInterval>& sym_table);
@@ -224,5 +226,7 @@ static std::ostream& operator<<(std::ostream& os, const line* l) {
   os << *l;
   return os;
 }
+
+}  // namespace alex
 
 #endif

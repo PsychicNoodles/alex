@@ -101,7 +101,7 @@ function render(
         .attr("x", -(HEIGHT / 2))
         .attr("transform", "rotate(-90)")
         .text(yAxisLabelText)
-    : svg.select("chart__axis-label--y").text(yAxisLabelText);
+    : yAxis.select(".chart__axis-label--y").text(yAxisLabelText);
 
   //side bar
   const sideBar = root.select("g.chart__sideBar").empty()

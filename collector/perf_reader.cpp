@@ -41,6 +41,8 @@
 #include "util.hpp"
 #include "wattsup.hpp"
 
+namespace alex {
+
 using std::make_pair;
 using std::make_tuple;
 using std::map;
@@ -641,7 +643,7 @@ bool process_sample_record(
 
     // Need to subtract one. PC is the return address, but we're
     // looking for the callsite.
-    dwarf::taddr pc = inst_ptr - 1;
+    ::dwarf::taddr pc = inst_ptr - 1;
 
     // Get the sym name
     if (sym_name == nullptr) {
@@ -962,7 +964,6 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
 int collect_perf_data(
     const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd, int socket,
     bg_reading *rapl_reading, bg_reading *wattsup_reading,
-    const dwarf::dwarf & /*dw*/,
     const std::map<interval, string, cmpByInterval> &sym_map,
     const std::map<interval, std::shared_ptr<line>, cmpByInterval> &ranges) {
   bool is_first_timeslice = true;
@@ -1114,3 +1115,5 @@ int collect_perf_data(
 
   return 0;
 }
+
+}  // namespace alex

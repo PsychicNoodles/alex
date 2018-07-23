@@ -3,6 +3,8 @@
 
 #include <cinttypes>
 
+namespace alex {
+
 #ifndef VERSION
 #define VERSION "whoops"  // should be set by make command
 #endif
@@ -53,5 +55,7 @@ const char* callchain_str(uint64_t callchain);
   100  // max number of times to check for another record before epolling again
 
 const char* record_type_str(int type);
+
+}  // namespace alex
 
 #endif

@@ -3,6 +3,8 @@
 #include <linux/perf_event.h>
 #include <cstddef>
 
+namespace alex {
+
 const char* callchain_str(uint64_t callchain) {
   switch (callchain) {
     case CALLCHAIN_HYPERVISOR:
@@ -67,3 +69,5 @@ const char* record_type_str(int type) {
       return nullptr;
   }
 }
+
+}  // namespace alex

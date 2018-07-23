@@ -13,6 +13,8 @@
 #include <cstring>
 #include <vector>
 
+namespace alex {
+
 #define EVENT "perf_count_hw_cache_misses"
 #define SAMPLE 0
 #define EVENT_ACCURACY 100000
@@ -43,5 +45,7 @@ using disguise_t = struct disguise {
 };
 
 void set_perf_register_sock(int sock);
+
+}  // namespace alex
 
 #endif

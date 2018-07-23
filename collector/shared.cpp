@@ -5,6 +5,8 @@
 
 #include "debug.hpp"
 
+namespace alex {
+
 global_vars *global;
 
 void *malloc_shared(size_t size) {
@@ -59,3 +61,5 @@ void debug_global_var() {
                           << global->subject_pid << ", collector_pid "
                           << global->collector_pid);
 }
+
+}  // namespace alex

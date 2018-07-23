@@ -1,3 +1,7 @@
+#include <dirent.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <csignal>
 #include <cstdint>
 #include <cstdlib>
@@ -8,15 +12,10 @@
 #include <sstream>
 #include <vector>
 
-#include <dirent.h>
-#include <unistd.h>
-
-#include <sys/types.h>
-#include <sys/wait.h>
-
+#include "debug.hpp"
 #include "rapl.hpp"
 
-#include "debug.hpp"
+namespace alex {
 
 using std::ifstream;
 using std::istringstream;
@@ -78,7 +77,7 @@ string file_readline(const string &path) {
 }
 
 // not suitable for multipackages at present
-void find_rapl_events(map<string, vector<string>> events) {
+void find_rapl_events(map<string, vector<string>> *events) {
   DEBUG("Finding rapl events");
   vector<string> powerzones = find_in_dir(ENERGY_ROOT, "intel-rapl:");
   DEBUG("Found " << powerzones.size() << " zones");
@@ -87,14 +86,16 @@ void find_rapl_events(map<string, vector<string>> events) {
     string zonedir = string(ENERGY_ROOT) + "/" + zone + "/";
     string name = file_readline(zonedir + ENERGY_NAME);
     DEBUG("found event: " << name);
-    events.insert(pair<string, vector<string>>("package", {name}));
+    events->insert(pair<string, vector<string>>("package", {name}));
     vector<string> subzones = find_in_dir(zonedir, zone);
     DEBUG("Found " << subzones.size() << " subzones");
     for (auto &sub : subzones) {
       DEBUG("Trying subzone " << sub);
       name = file_readline(zonedir + sub + "/" + ENERGY_NAME);
-      events.insert(pair<string, vector<string>>(name, {name}));
+      events->insert(pair<string, vector<string>>(name, {name}));
       DEBUG("found event: " << name);
     }
   }
 }
+
+}  // namespace alex

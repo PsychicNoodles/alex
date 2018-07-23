@@ -3,6 +3,8 @@
 #include "debug.hpp"
 #include "util.hpp"
 
+namespace alex {
+
 struct reading_fn_args {
   void *(*reading_fn)(void *);
   void *args;
@@ -17,6 +19,7 @@ void *reading_fn_wrapper(void *raw_args) {
   unique_lock<mutex> lock(reading->mtx);
   DEBUG(t << ": waiting for notification to start");
   reading->cv.wait(lock, [&reading] { return reading->ready; });
+  reading->ready = false;
   DEBUG(t << ": received notification to start");
   while (reading->running) {
     lock.unlock();
@@ -31,9 +34,8 @@ void *reading_fn_wrapper(void *raw_args) {
     } else {
       if (reading->ready) {
         DEBUG(t << ": ready was set to true while waiting for the lock");
-      } else {
-        DEBUG(t << ": locked, setting ready to false");
         reading->ready = false;
+      } else {
         DEBUG(t << ": waiting for ready signal");
         reading->cv.wait(
             lock, [&reading] { return reading->ready || !reading->running; });
@@ -115,3 +117,5 @@ void *get_result(bg_reading *reading) {
   reading->result = nullptr;
   return ret;
 }
+
+}  // namespace alex

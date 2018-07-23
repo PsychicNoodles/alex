@@ -14,6 +14,8 @@
 #include <map>
 #include <string>
 
+namespace alex {
+
 struct perf_buffer {
   int fd;
   perf_event_mmap_page *info;
@@ -59,5 +61,7 @@ void *get_next_record(perf_buffer *perf, int *type, int *size);
 void clear_records(perf_buffer *perf);
 
 int setup_pfm_os_event(perf_event_attr *attr, char *event_name);
+
+}  // namespace alex
 
 #endif

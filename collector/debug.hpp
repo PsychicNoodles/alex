@@ -9,6 +9,8 @@
 #include <libelfin/dwarf/dwarf++.hh>
 #include <libelfin/elf/elf++.hh>
 
+namespace alex {
+
 using std::string;
 using std::unordered_map;
 
@@ -41,5 +43,7 @@ void dump_line_table(const dwarf::line_table& lt);
 void dump_tree(const dwarf::die& node, int depth = 0);
 int dump_table_and_symbol(unordered_map<string, uintptr_t> result,
                           uint64_t inst_ptr);
+
+}  // namespace alex
 
 #endif
