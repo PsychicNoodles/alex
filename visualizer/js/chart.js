@@ -11,25 +11,26 @@ const HEIGHT = 250;
 function render(
   root,
   {
-    spectrum,
-    plotData,
-    hiddenThreadsStore,
-    densityMax,
     getIndependentVariable,
     getDependentVariable,
     xAxisLabelText,
     yAxisLabelText,
     xScale,
     yScale,
-    yScale_present,
+    //yScale_present,
     brush,
     yFormat,
+    plotData,
+    densityMax,
+    spectrum,
     cpuTimeOffset,
     warningRecords,
     warningsDistinct,
     densityMax_local,
-    densityMax_local_present,
-    densityMap
+    // densityMax_local_present,
+    // densityMap
+    currentYScale,
+    onYScalesChange
   }
 ) {
   root.classed("chart", true);
@@ -56,9 +57,9 @@ function render(
 
   chartPlot.call(plot.render, {
     data: plotData,
-    hiddenThreadsStore,
+    // hiddenThreadsStore,
     xGetter: d => xScale(getIndependentVariable(d)),
-    yGetter: d => yScale_present(getDependentVariable(d)),
+    yGetter: d => currentYScale(getDependentVariable(d)),
     densityMax,
     spectrum
   });
@@ -88,13 +89,10 @@ function render(
 
   //yAxis
   const yAxis = root.select("g.chart__axis--y").empty()
-    ? svg
-        .append("g")
-        .attr("class", "chart__axis chart__axis--y")
-        .call(d3.axisLeft(yScale_present).tickFormat(yFormat))
+    ? svg.append("g").attr("class", "chart__axis chart__axis--y")
     : svg.select("g.chart__axis--y");
 
-  yAxis.call(d3.axisLeft(yScale_present).tickFormat(yFormat));
+  yAxis.call(d3.axisLeft(currentYScale).tickFormat(yFormat));
 
   const yAxisLabel = yAxis.select(".chart__axis-label--y").empty()
     ? yAxis
@@ -121,7 +119,7 @@ function render(
 
   sideBarPlot.call(plot.render, {
     data: plotData,
-    hiddenThreadsStore,
+    // hiddenThreadsStore,
     xGetter: d => xScale(getIndependentVariable(d) * 0.075),
     yGetter: d => yScale(getDependentVariable(d)),
     densityMax,
@@ -129,14 +127,17 @@ function render(
   });
 
   //brush
-  brush.on("brush", brushed);
+  brush.on("end", brushed);
+
+  const ext = brush.extent();
+  console.log(ext());
 
   const sideBarBrush = sideBar.select("g.sideBar-brush").empty()
     ? sideBar
         .append("g")
         .attr("class", "sideBar-brush")
         .call(brush)
-        .call(brush.move, yScale.range())
+        .call(brush.move, currentYScale.domain().map(d => yScale(d)))
     : sideBar.select("g.sideBar-brush");
 
   const handle = sideBarBrush
@@ -146,60 +147,11 @@ function render(
 
   function brushed() {
     const s = d3.event.selection || yScale.range();
-    yScale_present.domain(s.map(yScale.invert, yScale));
-    const scale =
-      (yScale_present.domain()[1] - yScale_present.domain()[0]) /
-      (yScale.domain()[1] - yScale.domain()[0]);
-    //console.log(yScale_present.domain()[1], yScale_present.domain()[0], yScale.domain()[1],  yScale.domain()[0])
-    if (densityMax_local_present === densityMax) {
-      //densityMax will change
-      densityMax_local_present = densityMax_local * scale;
-      //console.log("local_present ", densityMax_local_present);
-      densityMap.set(yAxisLabelText, densityMax_local_present);
-      //console.log(densityMap);
-
-      const densityMaxOld = densityMax;
-      densityMax = 0;
-      for (const densityMax_local_present of densityMap.values()) {
-        densityMax = Math.max(densityMax, densityMax_local_present);
-      } //find the new densityMax
-      console.log(densityMax);
-
-      const colorScale = d3.scaleSequential(spectrum);
-      const colorScaleInvert = spectrum.invert;
-      console.log(spectrum);
-      d3.selectAll("circle").each(function(d, i) {
-        d3.select(this).style("fill", "#777"); //d3.scaleSequential(spectrum).invert((d3.select(this).style("fill"))) * densityMaxOld /densityMax);
-      });
-    } else {
-      //densityMax wont change
-      densityMax_local_present = densityMax_local * scale;
-      //console.log("local_present ", densityMax_local_present);
-      densityMap.set(yAxisLabelText, densityMax_local_present);
-      //console.log(densityMap);
-    }
-
-    svg
-      .select(".plot")
-      .selectAll("circle")
-      .data(plotData)
-      .attr("cy", d => yScale_present(getDependentVariable(d)))
-      .style("fill", d => {
-        d.densityAvgPresent = d.densityAvg * scale;
-        return d3.scaleSequential(spectrum)(d.densityAvgPresent / densityMax);
-      });
-    svg
-      .select(".chart__axis--y")
-      .call(d3.axisLeft(yScale_present).tickFormat(yFormat));
-
-    console.log("la", densityMax);
-
-    d3.select("#legend")
-      .style("display", "block")
-      .call(legend.render, {
-        densityMax,
-        spectrum
-      });
+    const currentYScale = d3
+      .scaleLinear()
+      .domain(s.map(yScale.invert, yScale))
+      .range(yScale.range());
+    onYScalesChange(s.map(yScale.invert, yScale));
   }
 }
 
