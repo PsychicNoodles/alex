@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+namespace alex {
+
 using std::set;
 using std::string;
 using std::vector;
@@ -39,5 +41,7 @@ void set_subject_pid(pid_t subject_pid);
 size_t num_perf_fds();
 
 void debug_global_var();
+
+}  // namespace alex
 
 #endif

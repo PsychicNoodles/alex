@@ -22,7 +22,6 @@ TIDY_CHECKS_LIST=(
   "-cppcoreguidelines-owning-memory" # requires the additional gsl library
   "-cppcoreguidelines-special-member-functions" # classes aren't used much, and they don't need all special fns defined
   "google-*"
-  "-google-global-names-in-headers" # we don't currently namespace everything
   "hicpp-*"
   "-hicpp-vararg" # various vararg c functions are used frequently, ie. fprintf, snprintf
   "-hicpp-no-array-decay" # we don't mind array decay

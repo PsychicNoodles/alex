@@ -3,7 +3,6 @@ const d3 = require("d3");
 const plot = require("./plot");
 const brushes = require("./brushes");
 const warnings = require("./warnings");
-const legend = require("./legend");
 
 const WIDTH = 500;
 const HEIGHT = 250;
@@ -17,7 +16,6 @@ function render(
     yAxisLabelText,
     xScale,
     yScale,
-    //yScale_present,
     brush,
     yFormat,
     plotData,
@@ -26,9 +24,6 @@ function render(
     cpuTimeOffset,
     warningRecords,
     warningsDistinct,
-    densityMax_local,
-    // densityMax_local_present,
-    // densityMap
     currentYScale,
     onYScalesChange
   }
@@ -57,7 +52,6 @@ function render(
 
   chartPlot.call(plot.render, {
     data: plotData,
-    // hiddenThreadsStore,
     xGetter: d => xScale(getIndependentVariable(d)),
     yGetter: d => currentYScale(getDependentVariable(d)),
     densityMax,
@@ -77,7 +71,7 @@ function render(
 
   xAxis.call(d3.axisBottom(xScale).tickFormat(d3.format(".2s")));
 
-  const xAxisLabel = xAxis.select(".chart__axis-label--x").empty()
+  xAxis.select(".chart__axis-label--x").empty()
     ? xAxis
         .append("text")
         .attr("class", "chart__axis-label chart__axis-label--x")
@@ -94,7 +88,7 @@ function render(
 
   yAxis.call(d3.axisLeft(currentYScale).tickFormat(yFormat));
 
-  const yAxisLabel = yAxis.select(".chart__axis-label--y").empty()
+  yAxis.select(".chart__axis-label--y").empty()
     ? yAxis
         .append("text")
         .attr("class", "chart__axis-label chart__axis-label--y")
@@ -103,7 +97,7 @@ function render(
         .attr("x", -(HEIGHT / 2))
         .attr("transform", "rotate(-90)")
         .text(yAxisLabelText)
-    : svg.select("chart__axis-label--y").text(yAxisLabelText);
+    : yAxis.select(".chart__axis-label--y").text(yAxisLabelText);
 
   //side bar
   const sideBar = root.select("g.chart__sideBar").empty()
@@ -129,9 +123,6 @@ function render(
   //brush
   brush.on("end", brushed);
 
-  const ext = brush.extent();
-  console.log(ext());
-
   const sideBarBrush = sideBar.select("g.sideBar-brush").empty()
     ? sideBar
         .append("g")
@@ -140,17 +131,13 @@ function render(
         .call(brush.move, currentYScale.domain().map(d => yScale(d)))
     : sideBar.select("g.sideBar-brush");
 
-  const handle = sideBarBrush
+  sideBarBrush
     .selectAll(".handle")
     .attr("fill", "#666")
     .attr("fill-opacity", 0.8);
 
   function brushed() {
     const s = d3.event.selection || yScale.range();
-    const currentYScale = d3
-      .scaleLinear()
-      .domain(s.map(yScale.invert, yScale))
-      .range(yScale.range());
     onYScalesChange(s.map(yScale.invert, yScale));
   }
 }

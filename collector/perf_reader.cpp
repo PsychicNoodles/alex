@@ -41,6 +41,8 @@
 #include "util.hpp"
 #include "wattsup.hpp"
 
+namespace alex {
+
 using std::make_pair;
 using std::make_tuple;
 using std::map;
@@ -143,28 +145,6 @@ int get_record_size(int record_type) {
 
 FILE *get_result_file() { return result_file; }
 
-/**
- * Read a link's contents and return it as a string
- */
-static string readlink_str(const char *path) {
-  size_t exe_size = 1024;
-  ssize_t exe_used;
-
-  while (true) {
-    char exe_path[exe_size];
-
-    exe_used = readlink(path, exe_path, exe_size - 1);
-    // REQUIRE(exe_used > 0) << "Unable to read link " << path;
-
-    if (exe_used < exe_size - 1) {
-      exe_path[exe_used] = '\0';
-      return string(exe_path);
-    }
-
-    exe_size += 1024;
-  }
-}
-
 /*
  * Adds a file descriptor to the global epoll
  */
@@ -200,7 +180,7 @@ void delete_fd_from_epoll(int fd) {
  * every other event as children in the group. Thus, when the cpu cycles event
  * is started all the others are as well simultaneously
  */
-void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
+void setup_perf_events(pid_t target, perf_fd_info *info) {
   DEBUG("setting up perf events for target " << target);
   // set up the cpu cycles perf buffer
   perf_event_attr cpu_clock_attr{};
@@ -228,7 +208,7 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
   info->sample_buf = cpu_clock_perf;
   info->tid = target;
 
-  if (setup_events && global->events_size != 0) {
+  if (global->events_size != 0) {
     DEBUG("setting up events");
     for (int i = 0; i < global->events_size; i++) {
       DEBUG("event: " << global->events[i]);
@@ -250,7 +230,8 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
 
       DEBUG("opening perf event");
       // use cpu cycles event as group leader again
-      auto event_fd = perf_event_open(&attr, target, -1, cpu_clock_perf.fd, 0);
+      auto event_fd = perf_event_open(&attr, target, -1, cpu_clock_perf.fd,
+                                      PERF_FLAG_FD_CLOEXEC);
       if (event_fd == -1) {
         PARENT_SHUTDOWN_PERROR(INTERNAL_ERROR,
                                "couldn't perf_event_open for event");
@@ -272,17 +253,17 @@ void setup_perf_events(pid_t target, bool setup_events, perf_fd_info *info) {
  * program.
  */
 void handle_perf_register(perf_fd_info *info) {
-  DEBUG("cpd: handling perf register request for thread "
-        << info->tid << ", adding to epoll");
+  DEBUG("handling perf register request for thread " << info->tid
+                                                     << ", adding to epoll");
   add_fd_to_epoll(info->cpu_clock_fd);
-  DEBUG("cpd: inserting mapping for fd " << info->cpu_clock_fd);
+  DEBUG("inserting mapping for fd " << info->cpu_clock_fd);
   for (int i = 0; i < global->events_size; i++) {
     DEBUG("event[" << i << "]: " << info->event_fds[global->events[i]]);
   }
   perf_info_mappings.emplace(make_pair(info->cpu_clock_fd, *info));
-  DEBUG("cpd: successfully added fd " << info->cpu_clock_fd
-                                      << " and associated fds for thread "
-                                      << info->tid);
+  DEBUG("successfully added fd " << info->cpu_clock_fd
+                                 << " and associated fds for thread "
+                                 << info->tid);
 }
 
 /*
@@ -290,24 +271,24 @@ void handle_perf_register(perf_fd_info *info) {
  * program.
  */
 void handle_perf_unregister(perf_fd_info *info) {
-  DEBUG("cpd: handling perf unregister request for thread "
+  DEBUG("handling perf unregister request for thread "
         << info->tid << ", removing from epoll");
 
   stop_monitoring(info->cpu_clock_fd);
   delete_fd_from_epoll(info->cpu_clock_fd);
-  DEBUG("cpd: closing all associated fds");
+  DEBUG("closing all associated fds");
   close(info->cpu_clock_fd);
   for (auto entry : info->event_fds) {
     close(entry.second);
   }
-  DEBUG("cpd: removing mapping");
+  DEBUG("removing mapping");
   perf_info_mappings.erase(info->cpu_clock_fd);
 
-  DEBUG("cpd: freeing malloced memory");
+  DEBUG("freeing malloced memory");
   munmap(info->sample_buf.info, BUFFER_SIZE);
-  DEBUG("cpd: successfully removed fd " << info->cpu_clock_fd
-                                        << " and associated fds for thread "
-                                        << info->tid);
+  DEBUG("successfully removed fd " << info->cpu_clock_fd
+                                   << " and associated fds for thread "
+                                   << info->tid);
 
   delete info;
 }
@@ -323,21 +304,21 @@ bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
     int fd = evlist[i].data.fd;
     // check if it's sigterm or request to register thread
     if (fd == sigt_fd) {
-      DEBUG("cpd: received sigterm, stopping");
+      DEBUG("received sigterm, stopping");
       *done = true;
       // don't check the other fds, jump back to epolling
       return true;
     }
     if (fd == socket) {
-      DEBUG("cpd: received message from a thread in subject");
+      DEBUG("received message from a thread in subject");
       int cmd;
       auto *info = new perf_fd_info;
       for (cmd = recv_perf_fds(socket, info, perf_info_mappings); cmd > 0;
            info = new perf_fd_info,
           cmd = recv_perf_fds(socket, info, perf_info_mappings)) {
-        DEBUG("cpd: received cmd " << cmd);
+        DEBUG("received cmd " << cmd);
         if (cmd == SOCKET_CMD_REGISTER) {
-          DEBUG("cpd: setting up buffer for fd " << info->cpu_clock_fd);
+          DEBUG("setting up buffer for fd " << info->cpu_clock_fd);
           if (setup_buffer(info) != SAMPLER_MONITOR_SUCCESS) {
             PARENT_SHUTDOWN_MSG(INTERNAL_ERROR, "cannot set up buffer for fd");
           }
@@ -349,12 +330,12 @@ bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
         }
       }
       if (cmd == 0) {
-        DEBUG("cpd: removing closed socket from epoll");
+        DEBUG("removing closed socket from epoll");
         delete_fd_from_epoll(socket);
       } else if (cmd != -1) {
         PARENT_SHUTDOWN_MSG(INTERNAL_ERROR, "unknown perf command");
       }
-      DEBUG("cpd: exhausted requests");
+      DEBUG("exhausted requests");
       // re-poll for data
       return true;
     }
@@ -410,25 +391,24 @@ int adjust_period(int record_type) {
 void copy_record_to_stack(base_record *record, base_record *local,
                           int record_type, int record_size,
                           uintptr_t data_start, uintptr_t data_end) {
-  DEBUG("cpd: copying record " << ptr_fmt(record) << " to stack "
-                               << ptr_fmt(local));
+  DEBUG("copying record " << ptr_fmt(record) << " to stack " << ptr_fmt(local));
   auto record_ptr = reinterpret_cast<uintptr_t>(record),
        local_ptr = reinterpret_cast<uintptr_t>(local);
   uintptr_t first_part_bytes, second_part_start;
   if (record_ptr + record_size > data_end) {
-    DEBUG("cpd: record extends past end of page, copying in two parts");
+    DEBUG("record extends past end of page, copying in two parts");
     first_part_bytes = data_end - record_ptr;
     second_part_start = data_start;
-    DEBUG("cpd: copying " << first_part_bytes << " bytes first from "
-                          << ptr_fmt(record) << " to " << ptr_fmt(local));
+    DEBUG("copying " << first_part_bytes << " bytes first from "
+                     << ptr_fmt(record) << " to " << ptr_fmt(local));
     memcpy(local, record, first_part_bytes);
   } else {
     first_part_bytes = 0;
     second_part_start = record_ptr;
   }
-  DEBUG("cpd: copying " << (record_size - first_part_bytes) << " bytes from "
-                        << ptr_fmt(second_part_start) << " to "
-                        << ptr_fmt(local_ptr + first_part_bytes));
+  DEBUG("copying " << (record_size - first_part_bytes) << " bytes from "
+                   << ptr_fmt(second_part_start) << " to "
+                   << ptr_fmt(local_ptr + first_part_bytes));
   memcpy(reinterpret_cast<void *>(local_ptr + first_part_bytes),
          reinterpret_cast<void *>(second_part_start),
          record_size - first_part_bytes);
@@ -439,9 +419,9 @@ void copy_record_to_stack(base_record *record, base_record *local,
                              (sizeof(uint64_t) * (SAMPLE_MAX_STACK + 2)),
              inst_ptrs_dst = local_ptr + record_size -
                              (sizeof(uint64_t) * (SAMPLE_MAX_STACK + 2));
-    DEBUG("cpd: copying " << local->sample.num_instruction_pointers
-                          << " inst ptrs from " << ptr_fmt(inst_ptrs_src)
-                          << " to " << ptr_fmt(inst_ptrs_dst));
+    DEBUG("copying " << local->sample.num_instruction_pointers
+                     << " inst ptrs from " << ptr_fmt(inst_ptrs_src) << " to "
+                     << ptr_fmt(inst_ptrs_dst));
     if (local->sample.num_instruction_pointers > (SAMPLE_MAX_STACK + 2)) {
       PARENT_SHUTDOWN_MSG(INTERNAL_ERROR,
                           "number of inst ptrs "
@@ -479,10 +459,10 @@ bool process_sample_record(
   // loop, causing it to never return to epoll
 
   int64_t num_timer_ticks = 0;
-  DEBUG("cpd: reading from fd " << info.cpu_clock_fd);
+  DEBUG("reading from fd " << info.cpu_clock_fd);
   read(info.cpu_clock_fd, &num_timer_ticks, sizeof(num_timer_ticks));
-  DEBUG("cpd: read in from fd " << info.cpu_clock_fd
-                                << " num of cycles: " << num_timer_ticks);
+  DEBUG("read in from fd " << info.cpu_clock_fd
+                           << " num of cycles: " << num_timer_ticks);
   if (reset_monitoring(info.cpu_clock_fd) != SAMPLER_MONITOR_SUCCESS) {
     PARENT_SHUTDOWN_MSG(INTERNAL_ERROR, "couldn't reset monitoring for fd "
                                             << info.cpu_clock_fd);
@@ -504,7 +484,7 @@ bool process_sample_record(
           sample.time, num_timer_ticks, sample.pid, sample.tid);
   add_brackets("}}");
 
-  DEBUG("cpd: reading from each fd");
+  DEBUG("reading from each fd");
 
   bool is_first_event = true;
   for (int i = 0; i < global->events_size; i++) {
@@ -517,10 +497,9 @@ bool process_sample_record(
     }
 
     int64_t count = 0;
-    DEBUG("cpd: reading from fd " << info.event_fds.at(event));
+    DEBUG("reading from fd " << info.event_fds.at(event));
     read(info.event_fds.at(event), &count, sizeof(int64_t));
-    DEBUG("cpd: read in from fd " << info.event_fds.at(event) << " count "
-                                  << count);
+    DEBUG("read in from fd " << info.event_fds.at(event) << " count " << count);
     if (reset_monitoring(info.event_fds.at(event)) != SAMPLER_MONITOR_SUCCESS) {
       PARENT_SHUTDOWN_MSG(INTERNAL_ERROR, "couldn't reset monitoring for "
                                               << info.event_fds.at(event));
@@ -531,12 +510,12 @@ bool process_sample_record(
 
   // rapl
   if (rapl_reading->running) {
-    DEBUG("cpd: checking for RAPL energy results");
+    DEBUG("checking for RAPL energy results");
     if (has_result(rapl_reading)) {
-      DEBUG("cpd: RAPL result found, writing out");
+      DEBUG("RAPL result found, writing out");
       void *raw_result = get_result(rapl_reading);
       if (raw_result == nullptr) {
-        DEBUG("cpd: RAPL result was null");
+        DEBUG("RAPL result was null");
       } else {
         map<string, uint64_t> *nrg =
             (static_cast<map<string, uint64_t> *>(raw_result));
@@ -545,32 +524,32 @@ bool process_sample_record(
           fprintf(result_file, R"("%s": %lu)", p.first.c_str(), p.second);
         }
         delete nrg;
-        DEBUG("cpd: restarting RAPL energy readings");
+        DEBUG("restarting RAPL energy readings");
         restart_reading(rapl_reading);
       }
     } else {
-      DEBUG("cpd: no RAPL result available");
+      DEBUG("no RAPL result available");
     }
   }
 
   // wattsup
   if (wattsup_reading->running) {
-    DEBUG("cpd: checking for wattsup energy results");
+    DEBUG("checking for wattsup energy results");
     if (has_result(wattsup_reading)) {
-      DEBUG("cpd: wattsup result found, writing out");
+      DEBUG("wattsup result found, writing out");
       void *raw_result = get_result(wattsup_reading);
       if (raw_result == nullptr) {
-        DEBUG("cpd: wattsup result was null");
+        DEBUG("wattsup result was null");
       } else {
         double *ret = (static_cast<double *>(raw_result));
         fprintf(result_file, ",");
         fprintf(result_file, R"("wattsup": %1lf)", *ret);
         delete ret;
-        DEBUG("cpd: restarting wattsup energy readings");
+        DEBUG("restarting wattsup energy readings");
         restart_reading(wattsup_reading);
       }
     } else {
-      DEBUG("cpd: no wattsup result available");
+      DEBUG("no wattsup result available");
     }
   }
 
@@ -582,17 +561,18 @@ bool process_sample_record(
   add_brackets("]");
 
   bool is_first_stack = true;
-  uint64_t callchain_section = 0;
-  DEBUG("cpd: looking up " << sample.num_instruction_pointers << " inst ptrs");
+  perf_callchain_context callchain_section = PERF_CONTEXT_KERNEL;
+  DEBUG("looking up " << sample.num_instruction_pointers << " inst ptrs");
   for (uint64_t i = 0; i < sample.num_instruction_pointers; i++) {
-    uint64_t inst_ptr = sample.instruction_pointers[i];
+    auto inst_ptr =
+        static_cast<perf_callchain_context>(sample.instruction_pointers[i]);
     if (is_callchain_marker(inst_ptr)) {
       callchain_section = inst_ptr;
       continue;
     }
-    DEBUG("cpd: on instruction pointer "
-          << int_to_hex(inst_ptr) << " (" << (i + 1) << "/"
-          << sample.num_instruction_pointers << ")");
+    DEBUG("on instruction pointer " << int_to_hex(inst_ptr) << " (" << (i + 1)
+                                    << "/" << sample.num_instruction_pointers
+                                    << ")");
 
     if (is_first_stack) {
       is_first_stack = false;
@@ -613,9 +593,9 @@ bool process_sample_record(
                *function_name = nullptr;
     char *demangled_name = nullptr;
     void *file_base = nullptr, *sym_addr = nullptr;
-    DEBUG("cpd: looking up symbol for inst ptr " << ptr_fmt((void *)inst_ptr));
-    if (callchain_section == CALLCHAIN_USER) {
-      DEBUG("cpd: looking up user stack frame");
+    DEBUG("looking up symbol for inst ptr " << ptr_fmt((void *)inst_ptr));
+    if (callchain_section == PERF_CONTEXT_USER) {
+      DEBUG("looking up user stack frame");
       Dl_info info;
       // Lookup the name of the function given the function
       // pointer
@@ -624,10 +604,10 @@ bool process_sample_record(
         file_base = info.dli_fbase;
         sym_addr = info.dli_saddr;
       } else {
-        DEBUG("cpd: could not look up user stack frame");
+        DEBUG("could not look up user stack frame");
       }
-    } else if (callchain_section == CALLCHAIN_KERNEL) {
-      DEBUG("cpd: looking up kernel stack frame");
+    } else if (callchain_section == PERF_CONTEXT_KERNEL) {
+      DEBUG("looking up kernel stack frame");
       uint64_t addr = lookup_kernel_addr(kernel_syms, inst_ptr);
       if (addr != -1) {
         const auto &ks = kernel_syms.at(addr);
@@ -641,18 +621,18 @@ bool process_sample_record(
 
     // Need to subtract one. PC is the return address, but we're
     // looking for the callsite.
-    dwarf::taddr pc = inst_ptr - 1;
+    ::dwarf::taddr pc = inst_ptr - 1;
 
     // Get the sym name
     if (sym_name == nullptr) {
-      DEBUG("cpd: looking up function symbol");
+      DEBUG("looking up function symbol");
       auto upper_sym = sym_map.upper_bound(interval(pc, pc));
       if (upper_sym != sym_map.begin()) {
         --upper_sym;
         if (upper_sym->first.contains(pc)) {
           sym_name = const_cast<char *>(upper_sym->second.c_str());
         } else {
-          DEBUG("cpd: cannot find function symbol");
+          DEBUG("cannot find function symbol");
           sym_name = nullptr;
         }
       }
@@ -662,10 +642,9 @@ bool process_sample_record(
     char fullLocation[fullLocationSize];
     snprintf(fullLocation, fullLocationSize, "(null)");
     auto line = -1;
-    auto column = -1;
 
     // Get the line full location
-    DEBUG("cpd: looking up line location");
+    DEBUG("looking up line location");
     auto upper_range = ranges.upper_bound(interval(pc, pc));
     if (upper_range != ranges.begin()) {
       --upper_range;
@@ -677,13 +656,13 @@ bool process_sample_record(
                      upper_range->second.get()->get_file()->get_name().c_str()),
                  line);
       } else {
-        DEBUG("cpd: cannot find line location");
+        DEBUG("cannot find line location");
       }
     }
 
     // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
     if (sym_name != nullptr) {
-      DEBUG("cpd: demangling symbol name");
+      DEBUG("demangling symbol name");
       int demangle_status;
       demangled_name =
           abi::__cxa_demangle(sym_name, nullptr, nullptr, &demangle_status);
@@ -696,7 +675,7 @@ bool process_sample_record(
           PARENT_SHUTDOWN_MSG(INTERNAL_ERROR,
                               "demangling errored due to memory allocation");
         } else if (demangle_status == -2) {
-          DEBUG("cpd: could not demangle name " << sym_name);
+          DEBUG("could not demangle name " << sym_name);
         } else if (demangle_status == -3) {
           PARENT_SHUTDOWN_MSG(INTERNAL_ERROR,
                               "demangling errored due to invalid arguments");
@@ -869,21 +848,21 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
                              bg_reading *wattsup_reading) {
   result_file = res_file;
 
-  DEBUG("collector_main: registering " << sigt_fd << " as sigterm fd");
+  DEBUG("registering " << sigt_fd << " as sigterm fd");
   add_fd_to_epoll(sigt_fd);
 
-  DEBUG("cpd: registering socket " << socket);
+  DEBUG("registering socket " << socket);
   add_fd_to_epoll(socket);
 
-  DEBUG("cpd: setting up perf events for main thread in subject");
+  DEBUG("setting up perf events for main thread in subject");
   perf_fd_info subject_info;
-  setup_perf_events(global->subject_pid, HANDLE_EVENTS, &subject_info);
-  DEBUG("cpd: main thread registered with fd " << subject_info.cpu_clock_fd);
+  setup_perf_events(global->subject_pid, &subject_info);
+  DEBUG("main thread registered with fd " << subject_info.cpu_clock_fd);
   setup_buffer(&subject_info);
   handle_perf_register(&subject_info);
 
   // write the header
-  DEBUG("cpd: writing result header");
+  DEBUG("writing result header");
   fprintf(result_file,
           R"(
             {
@@ -928,7 +907,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
                     return m;
                   },
                   nullptr);
-    DEBUG("cpd: rapl reading in tid " << rapl_reading->thread);
+    DEBUG("rapl reading in tid " << rapl_reading->thread);
   } else {
     DEBUG("RAPL preset not enabled");
   }
@@ -938,19 +917,20 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
     setup_reading(wattsup_reading,
                   [](void *raw_args) -> void * {
                     int wu_fd_fn = (static_cast<int *>(raw_args))[0];
+                    // NOLINTNEXTLINE(misc-lambda-function-name)
                     DEBUG("wu fd inside function is " << wu_fd_fn);
                     auto d = new double;
                     *d = wu_read(wu_fd_fn);
                     return d;
                   },
                   const_cast<int *>(&wu_fd));
-    DEBUG("cpd: wattsup reading in tid " << wattsup_reading->thread);
+    DEBUG("wattsup reading in tid " << wattsup_reading->thread);
     DEBUG("wattsup fd is " << wu_fd);
   } else {
     if (preset_enabled("wattsup")) {
       DEBUG("wattsup preset not enabled");
     } else {
-      DEBUG("cpd: wattsup couldn't open device, skipping setup");
+      DEBUG("wattsup couldn't open device, skipping setup");
     }
   }
 }
@@ -962,7 +942,6 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
 int collect_perf_data(
     const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd, int socket,
     bg_reading *rapl_reading, bg_reading *wattsup_reading,
-    const dwarf::dwarf & /*dw*/,
     const std::map<interval, string, cmpByInterval> &sym_map,
     const std::map<interval, std::shared_ptr<line>, cmpByInterval> &ranges) {
   bool is_first_timeslice = true;
@@ -975,10 +954,10 @@ int collect_perf_data(
   restart_reading(rapl_reading);
   restart_reading(wattsup_reading);
 
-  DEBUG("cpd: entering epoll ready loop");
+  DEBUG("entering epoll ready loop");
   while (!done) {
     auto evlist = new epoll_event[sample_fd_count];
-    DEBUG("cpd: epolling for results or new threads");
+    DEBUG("epolling for results or new threads");
     int ready_fds =
         epoll_wait(sample_epfd, evlist, sample_fd_count, SAMPLE_EPOLL_TIMEOUT);
 
@@ -989,22 +968,22 @@ int collect_perf_data(
 
     curr_ts = time_ms();
     if (curr_ts - last_ts > EPOLL_TIME_DIFF_MAX) {
-      DEBUG("cpd: significant time between epoll_waits: "
+      DEBUG("significant time between epoll_waits: "
             << curr_ts - last_ts << " (since finish " << curr_ts - finish_ts
             << ")");
     }
     last_ts = curr_ts;
 
     if (ready_fds == 0) {
-      DEBUG("cpd: no sample fds were ready within the timeout ("
+      DEBUG("no sample fds were ready within the timeout ("
             << SAMPLE_EPOLL_TIMEOUT << ")");
     } else {
-      DEBUG("cpd: " << ready_fds << " sample fds were ready");
+      DEBUG("" << ready_fds << " sample fds were ready");
 
       if (!check_priority_fds(evlist, ready_fds, sigt_fd, socket, &done)) {
         for (int i = 0; i < ready_fds; i++) {
           const auto fd = evlist[i].data.fd;
-          DEBUG("cpd: perf fd " << fd << " is ready");
+          DEBUG("perf fd " << fd << " is ready");
 
           perf_fd_info info;
           try {
@@ -1017,8 +996,8 @@ int collect_perf_data(
 
           if (!has_next_record(&info.sample_buf)) {
             sample_period_skips++;
-            DEBUG("cpd: SKIPPED SAMPLE PERIOD (" << sample_period_skips
-                                                 << " in a row)");
+            DEBUG("SKIPPED SAMPLE PERIOD (" << sample_period_skips
+                                            << " in a row)");
             if (sample_period_skips >= MAX_SAMPLE_PERIOD_SKIPS) {
               PARENT_SHUTDOWN_MSG(
                   INTERNAL_ERROR,
@@ -1031,14 +1010,14 @@ int collect_perf_data(
             uintptr_t data_start =
                           reinterpret_cast<uintptr_t>(info.sample_buf.data),
                       data_end = data_start + info.sample_buf.info->data_size;
-            DEBUG("cpd: mmapped region starts at " << ptr_fmt(data_start)
-                                                   << " and ends at "
-                                                   << ptr_fmt(data_end));
+            DEBUG("mmapped region starts at " << ptr_fmt(data_start)
+                                              << " and ends at "
+                                              << ptr_fmt(data_end));
             int i;
             for (i = 0;
                  has_next_record(&info.sample_buf) && i < MAX_RECORD_READS;
                  i++) {
-              DEBUG("cpd: getting next record");
+              DEBUG("getting next record");
               int record_type, record_size;
               base_record *perf_result = reinterpret_cast<base_record *>(
                               get_next_record(&info.sample_buf, &record_type,
@@ -1049,13 +1028,13 @@ int collect_perf_data(
               // structs generally have different contents
               record_size = get_record_size(record_type);
               if (record_size == -1) {
-                DEBUG("cpd: record type is not supported ("
+                DEBUG("record type is not supported ("
                       << record_type_str(record_type) << " " << record_type
                       << ")");
               } else {
-                DEBUG("cpd: record type is " << record_type << " "
-                                             << record_type_str(record_type)
-                                             << " with size " << record_size);
+                DEBUG("record type is " << record_type << " "
+                                        << record_type_str(record_type)
+                                        << " with size " << record_size);
 
                 if (record_type == PERF_RECORD_THROTTLE ||
                     record_type == PERF_RECORD_UNTHROTTLE) {
@@ -1074,24 +1053,24 @@ int collect_perf_data(
                         is_first_sample, rapl_reading, wattsup_reading,
                         kernel_syms, ranges, sym_map);
                   } else {
-                    DEBUG("cpd: not first sample, skipping");
+                    DEBUG("not first sample, skipping");
                   }
                 } else if (record_type == PERF_RECORD_LOST) {
                   copy_record_to_stack(perf_result, &local_result, record_type,
                                        record_size, data_start, data_end);
                   process_lost_record(local_result.lost, &warnings);
                 } else {
-                  DEBUG("cpd: record type was not recognized ("
+                  DEBUG("record type was not recognized ("
                         << record_type_str(record_type) << " " << record_type
                         << ")");
                 }
               }
             }
             if (i == MAX_RECORD_READS) {
-              DEBUG("cpd: limit reached, clearing remaining samples");
+              DEBUG("limit reached, clearing remaining samples");
               clear_records(&info.sample_buf);
             } else {
-              DEBUG("cpd: read through all records");
+              DEBUG("read through all records");
             }
 
             if (is_first_timeslice) {
@@ -1104,13 +1083,15 @@ int collect_perf_data(
     finish_ts = time_ms();
     delete[] evlist;
   }
-  DEBUG("cpd: stopping RAPL reading thread");
+  DEBUG("stopping RAPL reading thread");
   stop_reading(rapl_reading);
-  DEBUG("cpd: stopping wattsup reading thread");
+  DEBUG("stopping wattsup reading thread");
   stop_reading(wattsup_reading);
 
-  DEBUG("cpd: writing warnings");
+  DEBUG("writing warnings");
   write_warnings(warnings);
 
   return 0;
 }
+
+}  // namespace alex

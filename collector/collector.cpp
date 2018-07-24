@@ -26,6 +26,8 @@
 #include "util.hpp"
 #include "wattsup.hpp"
 
+namespace alex {
+
 using std::ifstream;
 using std::istringstream;
 using std::map;
@@ -44,30 +46,8 @@ void ready_handler(int signum) {
   }
 }
 
-/**
- * Read a link's contents and return it as a string
- */
-static string readlink_str(const char *path) {
-  size_t exe_size = 1024;
-  ssize_t exe_used;
-
-  while (true) {
-    char exe_path[exe_size];
-
-    exe_used = readlink(path, exe_path, exe_size - 1);
-    // REQUIRE(exe_used > 0) << "Unable to read link " << path;
-
-    if (exe_used < exe_size - 1) {
-      exe_path[exe_used] = '\0';
-      return string(exe_path);
-    }
-
-    exe_size += 1024;
-  }
-}
-
 void setup_global_vars() {
-  DEBUG("collector_main: setting up globals");
+  DEBUG("setting up globals");
   // set up period
   uint64_t period = -1;
 
@@ -76,10 +56,10 @@ void setup_global_vars() {
       period = stoull(getenv_safe("COLLECTOR_PERIOD", "10000000"));
       // catch stoll exceptions
     } catch (std::invalid_argument &e) {
-      DEBUG("failed to get period: Invalid argument");
+      DEBUG("failed to get period: invalid argument");
       exit(ENV_ERROR);
     } catch (std::out_of_range &e) {
-      DEBUG("failed to get period: Out of range");
+      DEBUG("failed to get period: out of range");
       exit(ENV_ERROR);
     }
   }
@@ -91,7 +71,7 @@ void setup_global_vars() {
   }
 
   // set up events array, will be a set later though
-  DEBUG("collector_main: getting events from env var");
+  DEBUG("getting events from env var");
   auto events = str_split_vec(getenv_safe("COLLECTOR_EVENTS"), ",");
   auto presets = str_split_set(getenv_safe("COLLECTOR_PRESETS"), ",");
   if (presets.find("cpu") != presets.end()) {
@@ -172,8 +152,8 @@ int setup_sigterm_handler() {
 /*
  * Reads the dwarf data stored in the given executable file
  */
-dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
-  DEBUG("cpd: reading dwarf file from " << file);
+::dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
+  DEBUG("reading dwarf file from " << file);
   // closed by mmap_loader constructor
   int fd = open(const_cast<char *>(file), O_RDONLY);
   if (fd < 0) {
@@ -181,8 +161,8 @@ dwarf::dwarf read_dwarf(const char *file = "/proc/self/exe") {
                     "cannot open executable (" << file << ")");
   }
 
-  elf::elf ef(elf::create_mmap_loader(fd));
-  return dwarf::dwarf(dwarf::elf::create_loader(ef));
+  ::elf::elf ef(elf::create_mmap_loader(fd));
+  return ::dwarf::dwarf(::dwarf::elf::create_loader(ef));
 }
 
 static int collector_main(int argc, char **argv, char **env) {
@@ -213,15 +193,13 @@ static int collector_main(int argc, char **argv, char **env) {
     exit(INTERNAL_ERROR);
   }
 
-  DEBUG("collector_main: initializing pfm");
+  DEBUG("initializing pfm");
   pfm_initialize();
 
   pid_t subject_pid = real_fork();
   if (subject_pid == 0) {
-    DEBUG(
-        "collector_main: in child process, waiting for parent to be ready "
-        "(pid: "
-        << getpid() << ")");
+    DEBUG("in child process, waiting for parent to be ready (pid: " << getpid()
+                                                                    << ")");
 
     close(sockets[0]);
     set_perf_register_sock(sockets[1]);
@@ -234,37 +212,21 @@ static int collector_main(int argc, char **argv, char **env) {
       // wait for parent
     }
 
-    DEBUG(
-        "collector_main: received parent ready signal, starting child/real "
-        "main");
+    DEBUG("received parent ready signal, starting child/real main");
     result = subject_main_fn(argc, argv, env);
 
-    DEBUG("collector_main: finished in child, killing parent");
+    DEBUG("finished in child, killing parent");
     if (kill(global->collector_pid, SIGTERM)) {
       perror("couldn't kill collector process");
       exit(INTERNAL_ERROR);
     }
     close(sockets[1]);
   } else if (subject_pid > 0) {
-    DEBUG("collector_main: in parent process, gathering executable info (pid: "
+    DEBUG("in parent process, gathering executable info (pid: "
           << global->collector_pid << ")");
     set_subject_pid(subject_pid);
 
-    DEBUG("collector_main: checking for debug symbols");
-    dwarf::dwarf dw;
-    try {
-      dw = read_dwarf();
-    } catch (dwarf::format_error &e) {
-      char msg[256];
-      if (strcmp(e.what(), "required .debug_info section missing") == 0) {
-        strncpy(msg, "could not find debug symbols, did you compile with `-g`?",
-                256);
-      } else {
-        snprintf(msg, 256, "error in reading dwarf file for executable: %s",
-                 e.what());
-      }
-      shutdown(subject_pid, nullptr, DEBUG_SYMBOLS_FILE_ERROR, msg);
-    }
+    DEBUG("checking for debug symbols");
 
     vector<string> source_scope_v = {"%%"};
     unordered_set<string> source_scope(source_scope_v.begin(),
@@ -280,7 +242,7 @@ static int collector_main(int argc, char **argv, char **env) {
         memory_map::get_instance().ranges();
 
     string env_res = getenv_safe("COLLECTOR_RESULT_FILE", "result.txt");
-    DEBUG("collector_main: result file " << env_res);
+    DEBUG("result file " << env_res);
     auto result_file = fopen(env_res.c_str(), "w");
 
     close(sockets[1]);
@@ -298,40 +260,37 @@ static int collector_main(int argc, char **argv, char **env) {
     int wu_fd = -1;
     if (wattsup_enabled) {
       // setting up wattsup
-      wu_fd = wattsupSetUp();
-      DEBUG("WATTSUP setup, wu_fd is: " << wu_fd);
+      wu_fd = wu_setup();
+      DEBUG("wu_fd is " << wu_fd);
     }
 
-    DEBUG("collector_main: setting up collector");
+    DEBUG("setting up collector");
     bg_reading rapl_reading{nullptr}, wattsup_reading{nullptr};
     setup_collect_perf_data(sigterm_fd, sockets[0], wu_fd, result_file, argv[0],
                             &rapl_reading, &wattsup_reading);
 
-    DEBUG(
-        "collector_main: result file opened, sending ready (SIGUSR2) "
-        "signal to "
-        "child");
+    DEBUG("result file opened, sending ready (SIGUSR2) signal to child");
 
     kill(subject_pid, SIGUSR2);
     while (!ready) {
       // wait for child
     }
 
-    DEBUG("collector_main: received child ready signal, starting collector");
+    DEBUG("received child ready signal, starting collector");
 
     if (getenv_safe("COLLECTOR_NOTIFY_START") == "yes") {
-      DEBUG("collector_main: notifying parent process of collector start");
+      DEBUG("notifying parent process of collector start");
       kill(getppid(), SIGUSR2);
     }
 
     result =
         collect_perf_data(kernel_syms, sigterm_fd, sockets[0], &rapl_reading,
-                          &wattsup_reading, dw, sym_map, ranges);
+                          &wattsup_reading, sym_map, ranges);
 
-    DEBUG("collector_main: finished collector, closing file");
+    DEBUG("finished collector, closing file");
 
     if (wattsup_enabled && wu_fd != -1) {
-      wattsupTurnOff(wu_fd);
+      wu_shutdown(wu_fd);
     }
     fclose(result_file);
     close(sockets[0]);
@@ -352,3 +311,5 @@ extern "C" int __libc_start_main(main_fn_t main_fn, int argc, char **argv,
                                     rtld_fini, stack_end);
   return result;
 }
+
+}  // namespace alex

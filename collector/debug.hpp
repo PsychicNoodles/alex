@@ -9,16 +9,24 @@
 #include <libelfin/dwarf/dwarf++.hh>
 #include <libelfin/elf/elf++.hh>
 
+namespace alex {
+
 using std::string;
 using std::unordered_map;
 
 // debug macro
 #define DEBUG_BUF_SIZE 512
-#define DEBUG_HELPER(x)   \
-  do {                    \
-    std::ostringstream s; \
-    s << x << std::endl;  \
-    std::clog << s.str(); \
+#if defined(DEBUG_FNAME)
+#define DEBUG_LOC() __FILE__ << "::"
+#else
+#define DEBUG_LOC() ""
+#endif
+#define DEBUG_HELPER(x)                   \
+  do {                                    \
+    std::ostringstream s;                 \
+    s << DEBUG_LOC() << __func__ << ": "; \
+    s << x << std::endl;                  \
+    std::clog << s.str();                 \
   } while (0)
 #if defined(NDEBUG)
 #define DEBUG(x)
@@ -41,5 +49,7 @@ void dump_line_table(const dwarf::line_table& lt);
 void dump_tree(const dwarf::die& node, int depth = 0);
 int dump_table_and_symbol(unordered_map<string, uintptr_t> result,
                           uint64_t inst_ptr);
+
+}  // namespace alex
 
 #endif

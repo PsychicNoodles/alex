@@ -10,7 +10,6 @@ const {
   processData,
   computeRenderableData,
   getEventCount,
-  sdFilter,
   sdDomain
 } = require("./process-data");
 const { analyze } = require("./analysis");
@@ -80,14 +79,20 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
   if (result.error) {
     alert(result.error);
+    window.close();
   }
-  document.getElementById("title").textContent = result.header.programName;
+
+  d3.select("#title").text(result.header.programName);
   const processedData = processData(result.timeslices, result.header);
   const spectrum = d3.interpolateWarm;
   const sdRange = 3;
 
   if (processedData.length === 0) {
-    alert("timeslices array (maybe after processed) is empty");
+    alert(
+      result.timeslices.length === 0
+        ? "No data in result file.  Perhaps the program terminated too quickly."
+        : "No usable data in result file."
+    );
     window.close();
   } else {
     //progress bar
@@ -362,7 +367,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
           .merge(chartsDataSelection)
           .each(function({
             getDependentVariable,
-            xAxisLabelText,
             yAxisLabelText,
             yFormat,
             yScale,
@@ -385,7 +389,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
               cpuTimeOffset,
               warningRecords,
               warningsDistinct,
-              densityMax_local,
               currentYScale: currentYScales[yAxisLabelText],
               onYScalesChange: newDomain => {
                 currentYScalesStore.dispatch(currentYScales => ({
@@ -494,7 +497,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                       .reverse()
                       .join(FUNCTION_NAME_SEPARATOR)
                   : stackFrames[0].symName,
-              0.05 // TODO: modify this value via UI
+              document.getElementById("confidence-level-input").value // TODO: modify this value via UI
             );
 
             // Compute a cumulative moving average for processing time so we can

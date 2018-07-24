@@ -8,14 +8,15 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <iostream>
 #include <string>
 #include <unordered_map>
 
-#include <fstream>
-#include <iostream>
-
 #include "const.hpp"
 #include "debug.hpp"
+
+namespace alex {
 
 /* This structure mirrors the one found in /usr/include/asm/ucontext.h */
 struct sig_ucontext {
@@ -30,7 +31,7 @@ void crit_err_hdlr(int sig_num, siginfo_t *info, void *ucontext) {
   void *array[50];
   void *caller_address;
   char **messages;
-  int size, i;
+  int size;
   sig_ucontext *uc;
 
   uc = static_cast<sig_ucontext *>(ucontext);
@@ -228,3 +229,5 @@ int dump_table_and_symbol(unordered_map<string, uintptr_t> result,
 
   return 0;
 }
+
+}  // namespace alex
