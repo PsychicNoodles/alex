@@ -34,10 +34,8 @@ app
     win.loadFile(path.join(__dirname, "./index.html"));
 
     const [resultRequestEvent] = await Promise.all([
-      new Promise(resolve =>
-        ipcMain.on("result-request", event => resolve(event))
-      ),
-      new Promise(resolve => win.on("ready-to-show", () => resolve()))
+      new Promise(resolve => ipcMain.on("result-request", resolve)),
+      new Promise(resolve => win.on("ready-to-show", resolve))
     ]);
 
     resultRequestEvent.sender.send("result", resultFile);
