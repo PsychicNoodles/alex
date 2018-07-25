@@ -244,18 +244,14 @@ ipcRenderer.on("result", async (event, resultFile) => {
       };
     });
 
-    let initialYScales = {};
-    let visibleCharts = [];
-
     //update with subscriptions
-    stream
+    const filteredDataStream = stream
       .fromStreamables([
         sourceSelect.hiddenSourcesStore.stream,
-        threadSelect.hiddenThreadsStore.stream,
-        chartsSelect.hiddenChartsStore.stream
+        threadSelect.hiddenThreadsStore.stream
       ])
       .pipe(
-        stream.subscribe(([hiddenSources, hiddenThreads, hiddenCharts]) => {
+        stream.map(([hiddenSources, hiddenThreads]) => {
           //first filter with source selection!
           const sourceFilteredData = processedData
             .filter((
@@ -279,128 +275,139 @@ ipcRenderer.on("result", async (event, resultFile) => {
             timeslice => !hiddenThreads.includes(timeslice.tid)
           );
 
-          //re-render stats side bar
-          d3.select("#stats").call(stats.render, {
-            processedData: fullFilteredData
-          });
-
-          visibleCharts = chartsWithYScales
-            .filter(chart => !hiddenCharts.includes(chart))
-            .map(chartParams => {
-              const {
-                yAxisLabelText,
-                flattenThreads,
-                yScale,
-                getDependentVariable
-              } = chartParams;
-              const filteredData = flattenThreads
-                ? sourceFilteredData
-                : fullFilteredData;
-
-              initialYScales = {
-                ...initialYScales,
-                [yAxisLabelText]: d3
-                  .scaleLinear()
-                  .domain(
-                    sdDomain(
-                      filteredData,
-                      getDependentVariable,
-                      sdRange,
-                      yScale
-                    )
-                  )
-                  .range(yScale.range())
-              };
-              console.log("initial yScales", initialYScales);
-
-              return {
-                ...chartParams,
-                filteredData
-              };
-            });
+          return { sourceFilteredData, fullFilteredData };
         })
       );
 
-    const currentYScalesStore = new Store(initialYScales);
-    stream.fromStreamables([currentYScalesStore.stream]).pipe(
-      stream.subscribe(([currentYScales]) => {
-        const chartsWithPlotData = visibleCharts.map(chartParams => {
-          const {
-            yAxisLabelText,
-            getDependentVariable,
-            filteredData
-          } = chartParams;
-
-          const plotData = computeRenderableData({
-            data: filteredData,
-            xScale,
-            yScale: currentYScales[yAxisLabelText],
-            getIndependentVariable,
-            getDependentVariable
-          });
-
-          const densityMaxLocal = d3.max(plotData, d => d.densityAvg) || 0;
-
-          return {
-            ...chartParams,
-            densityMaxLocal,
-            plotData
-          };
-        });
-
-        const chartsDataSelection = d3
-          .select("#charts")
-          .selectAll("div")
-          .data(chartsWithPlotData);
-
-        chartsDataSelection
-          .enter()
-          .append("div")
-          .merge(chartsDataSelection)
-          .each(function({
-            getDependentVariable,
-            yAxisLabelText,
-            yFormat,
-            yScale,
-            brush,
-            plotData,
-            densityMaxLocal
-          }) {
-            d3.select(this).call(chart.render, {
-              getIndependentVariable,
-              getDependentVariable,
-              xAxisLabelText,
-              yAxisLabelText,
-              xScale,
-              yScale,
-              brush,
-              yFormat,
-              plotData,
-              densityMax: densityMaxLocal,
-              spectrum,
-              cpuTimeOffset,
-              warningRecords,
-              warningsDistinct,
-              currentYScale: currentYScales[yAxisLabelText],
-              onYScalesChange: newDomain => {
-                currentYScalesStore.dispatch(currentYScales => ({
-                  ...currentYScales,
-                  [yAxisLabelText]: d3
-                    .scaleLinear()
-                    .domain(newDomain)
-                    .range(yScale.range())
-                }));
-              }
-            });
-          });
-
-        chartsDataSelection.exit().remove();
-
-        d3.select("#charts-select").call(chartsSelect.render, {
-          chartsWithYScales
+    filteredDataStream.pipe(
+      stream.subscribe(({ fullFilteredData }) => {
+        //re-render stats side bar
+        d3.select("#stats").call(stats.render, {
+          processedData: fullFilteredData
         });
       })
     );
+
+    const currentYScalesStore = new Store(
+      chartsWithYScales.reduce((currentYScales, chartParams) => {
+        const { yAxisLabelText, yScale, getDependentVariable } = chartParams;
+
+        return {
+          ...currentYScales,
+          [yAxisLabelText]: d3
+            .scaleLinear()
+            .domain(
+              sdDomain(processedData, getDependentVariable, sdRange, yScale)
+            )
+            .range(yScale.range())
+        };
+      }, {})
+    );
+
+    stream
+      .fromStreamables([
+        currentYScalesStore.stream,
+        chartsSelect.hiddenChartsStore.stream,
+        filteredDataStream
+      ])
+      .pipe(
+        stream.subscribe(
+          ([
+            currentYScales,
+            hiddenCharts,
+            { fullFilteredData, sourceFilteredData }
+          ]) => {
+            const visibleCharts = chartsWithYScales
+              .filter(chart => !hiddenCharts.includes(chart))
+              .map(chartParams => {
+                const { flattenThreads } = chartParams;
+                const filteredData = flattenThreads
+                  ? sourceFilteredData
+                  : fullFilteredData;
+                return {
+                  ...chartParams,
+                  filteredData
+                };
+              });
+
+            const chartsWithPlotData = visibleCharts.map(chartParams => {
+              const {
+                yAxisLabelText,
+                getDependentVariable,
+                filteredData
+              } = chartParams;
+
+              const plotData = computeRenderableData({
+                data: filteredData,
+                xScale,
+                yScale: currentYScales[yAxisLabelText],
+                getIndependentVariable,
+                getDependentVariable
+              });
+
+              const densityMaxLocal = d3.max(plotData, d => d.densityAvg) || 0;
+
+              return {
+                ...chartParams,
+                densityMaxLocal,
+                plotData
+              };
+            });
+
+            const chartsDataSelection = d3
+              .select("#charts")
+              .selectAll("div")
+              .data(chartsWithPlotData);
+
+            chartsDataSelection
+              .enter()
+              .append("div")
+              .merge(chartsDataSelection)
+              .each(function({
+                getDependentVariable,
+                yAxisLabelText,
+                yFormat,
+                yScale,
+                densityMaxLocal,
+                brush,
+                plotData
+              }) {
+                d3.select(this).call(chart.render, {
+                  getIndependentVariable,
+                  getDependentVariable,
+                  xAxisLabelText,
+                  yAxisLabelText,
+                  xScale,
+                  yScale,
+                  brush,
+                  yFormat,
+                  plotData,
+                  densityMax: densityMaxLocal,
+                  spectrum,
+                  cpuTimeOffset,
+                  warningRecords,
+                  warningsDistinct,
+                  currentYScale: currentYScales[yAxisLabelText],
+                  onYScaleDomainChange: newDomain => {
+                    currentYScalesStore.dispatch(currentYScales => ({
+                      ...currentYScales,
+                      [yAxisLabelText]: d3
+                        .scaleLinear()
+                        .domain(newDomain)
+                        .range(yScale.range())
+                    }));
+                  }
+                });
+              });
+
+            chartsDataSelection.exit().remove();
+
+            d3.select("#charts-select").call(chartsSelect.render, {
+              chartsWithYScales
+            });
+          }
+        )
+      );
 
     const currentSelectedFunctionStore = new Store(null);
 
