@@ -47,6 +47,7 @@ button:disabled {
   border-bottom: 1px solid #999;
   display: flex;
   grid-area: header;
+  height: 40px;
   justify-content: center;
   margin: 0;
 }
@@ -82,7 +83,8 @@ button:disabled {
 }
 
 #stats {
-  width: 135px;
+  width: 200px;
+  padding: 10px;
   overflow: auto;
 }
 
@@ -136,7 +138,7 @@ button:disabled {
 
 @media (min-width: 1500px) {
   body {
-    grid-template-rows: 1fr auto;
+    grid-template-rows: auto auto;
     grid-template-columns: 700px auto 1fr;
     grid-template-areas:
       "header header header"

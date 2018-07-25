@@ -109,9 +109,15 @@ yargs
           description: "File to read result data from.",
           type: "string"
         })
+        .option("heap-size", {
+          description:
+            "The size of the JS heap in MB (increase if visualization freezes while loading large data)",
+          type: "number",
+          default: 4096
+        })
         .check(validatePositionalArgs({ max: 1 })),
     argv => {
-      visualize(argv.file);
+      visualize(argv.file, argv.heapSize);
     }
   )
   .command("*", false, yargs =>
@@ -445,10 +451,10 @@ async function collect({
   });
 }
 
-function visualize(resultFile) {
+function visualize(resultFile, heapSize) {
   spawn(
     path.join(__dirname, "./node_modules/.bin/electron"),
-    [path.join(__dirname, "./visualizer"), resultFile],
+    [path.join(__dirname, "./visualizer"), resultFile, heapSize],
     { stdio: ["ignore", "inherit", "ignore"] }
   );
 }

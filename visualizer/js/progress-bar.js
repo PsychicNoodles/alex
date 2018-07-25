@@ -1,4 +1,4 @@
-function render(root, { percentage, text, isVisible }) {
+function render(root, { percentage, roundedPercentage, text, isVisible }) {
   root
     .classed("progress-bar", true)
     .classed("progress-bar--visible", isVisible);
@@ -20,7 +20,7 @@ function render(root, { percentage, text, isVisible }) {
 
   root
     .select(".progress-bar__text")
-    .text(`${text} (${Math.round(percentage)}%)`);
+    .text(text + (roundedPercentage === 100 ? "" : ` (${roundedPercentage}%)`));
 }
 
 module.exports = { render };

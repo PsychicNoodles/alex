@@ -3,6 +3,7 @@ const d3 = require("d3");
 const plot = require("./plot");
 const brushes = require("./brushes");
 const warnings = require("./warnings");
+const legend = require("./legend");
 
 const WIDTH = 500;
 const HEIGHT = 250;
@@ -25,10 +26,11 @@ function render(
     warningRecords,
     warningsDistinct,
     currentYScale,
-    onYScalesChange
+    onYScaleDomainChange
   }
 ) {
   root.classed("chart", true);
+  console.log("chart render ", yAxisLabelText);
 
   const svg = root.select("svg.chart__svg").empty()
     ? root
@@ -120,6 +122,19 @@ function render(
     spectrum
   });
 
+  //legend
+  const chartLegend = root.select("g.chart__legend").empty()
+    ? svg
+        .append("g")
+        .attr("class", "chart__legend")
+        .attr("transform", `translate(${WIDTH * 0.7}, ${HEIGHT + 1.1})`)
+    : svg.select("g.chart__legend");
+
+  chartLegend.call(legend.render, {
+    densityMax,
+    spectrum
+  });
+
   //brush
   brush.on("end", brushed);
 
@@ -137,8 +152,14 @@ function render(
     .attr("fill-opacity", 0.8);
 
   function brushed() {
+    console.log("brushed ", yAxisLabelText);
     const s = d3.event.selection || yScale.range();
-    onYScalesChange(s.map(yScale.invert, yScale));
+    const newDomain = s.map(yScale.invert, yScale).map(n => n.toFixed(8));
+    const oldDomain = currentYScale.domain().map(n => n.toFixed(8));
+    if (oldDomain[0] !== newDomain[0] || oldDomain[1] !== newDomain[1]) {
+      console.log("new domain != old domain");
+      onYScaleDomainChange(newDomain);
+    }
   }
 }
 
