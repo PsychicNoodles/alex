@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+import "header.proto";
+import "timeslice.proto";
+import "warning.proto";
+
+package alex;
+
+message Result {
+  Header header = 1;
+  repeated Timeslice timeslices = 2;
+  repeated Warning warnings = 3;
+}

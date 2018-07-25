@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package alex;
+
+message Timeslice {
+  // high precision CPU timer when sample was taken
+  uint64 cpuTime = 1;
+  // number of times CPU timer ticked since last sample
+  uint64 numCPUTimerTicks = 2;
+  uint32 pid = 3;
+  uint32 tid = 4;
+  // map of event names and counter values
+  map<string, uint64> events = 5;
+  repeated StackFrame stackFrames = 6;
+}
+
+message StackFrame {
+  Section section = 1;
+  string symbol = 2;
+  string fileName = 3;
+  // base address of file, upgrades to 64-bit address
+  uint64 fileBase = 4;
+  // line number, optional
+  uint64 line = 5;
+  // full (absolute) path of the file, optional
+  string fullLocation = 6;
+
+  enum Section {
+    HYPERVISOR = 0;
+    KERNEL = 1;
+    USER = 2;
+    GUEST = 3;
+    GUEST_KERNEL = 4;
+    GUEST_USER = 5;
+  }
+}

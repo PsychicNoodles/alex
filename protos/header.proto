@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package alex;
+
+message Header {
+  string programName = 1;
+  string programVersion = 2;
+  // extra events
+  repeated string events = 3;
+  // map of presets to abstract events and low level event names
+  map<string, PresetEvents> presets = 4;
+}
+
+// A "map" of a preset's event name (ie. misses) to the low level event names (ie. "MEM_LOAD_RETIRED.L3_MISS")
+message PresetEvents {
+  string name = 1;
+  repeated string events = 2;
+}
