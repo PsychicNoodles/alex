@@ -4,7 +4,6 @@ function processData(data) {
   data.map((d, i, arr) => {
     if (i > 0) {
       d.cpuTimeElapsed = d.numCPUTimerTicks / 1000000;
-      console.log("cpuTimeElapsed: ", d.cpuTimeElapsed);
       const a = arr[i - 1].events.core;
       d.events.periodCpu = (d.events.core - a) / d.cpuTimeElapsed;
       const b = arr[i - 1].events.dram;

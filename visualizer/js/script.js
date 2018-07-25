@@ -310,7 +310,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
                   )
                   .range(yScale.range())
               };
-              console.log("initial yScales", initialYScales);
 
               return {
                 ...chartParams,

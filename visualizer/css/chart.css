@@ -24,6 +24,16 @@ svg.chart__svg {
   fill: #000;
 }
 
+g.sideBar-brush {
+  stroke: #000;
+  stroke-width: 0.5px;
+}
+
+.sideBar-brush .selection {
+  stroke: #000;
+  stroke-width: 0.5px;
+}
+
 /* g.sideBar-brush rect.overlay {
   fill : #000;
   fill-opacity : 0.15;
