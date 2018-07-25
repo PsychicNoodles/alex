@@ -345,7 +345,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 getDependentVariable
               });
 
-              const densityMaxLocal = d3.max(plotData, d => d.densityAvg) || 0;
+              const densityMaxLocal =
+                Math.max(d3.max(plotData, d => d.densityAvg), 5) || 0;
 
               return {
                 ...chartParams,
