@@ -127,7 +127,7 @@ function render(
     ? svg
         .append("g")
         .attr("class", "chart__legend")
-        .attr("transform", `translate(${WIDTH * 1.1}, 0)`)
+        .attr("transform", `translate(${WIDTH * 0.7}, ${HEIGHT + 1.1})`)
     : svg.select("g.chart__legend");
 
   chartLegend.call(legend.render, {

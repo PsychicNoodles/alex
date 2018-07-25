@@ -16,10 +16,9 @@ function render(root, { densityMax, spectrum }) {
     .attr("transform", "translate(0,30)");
 
   const legendSequential = legendColor()
-    .title("Density")
     .cells(6)
-    .orient("vertical")
-    .ascending(true)
+    .orient("horizontal")
+    .shapeWidth(30)
     .scale(sequentialScale);
 
   root.select(".legendSequential").call(legendSequential);
