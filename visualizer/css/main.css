@@ -84,7 +84,7 @@ button:disabled {
 }
 
 #stats {
-  width: 135px;
+  width: 200px;
   padding: 10px;
   overflow: auto;
 }

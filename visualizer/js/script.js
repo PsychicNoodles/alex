@@ -34,9 +34,11 @@ const loadingProgressStore = new Store({
 });
 
 loadingProgressStore.subscribe(({ percentage, progressBarIsVisible }) => {
+  const roundedPercentage = Math.round(percentage);
   d3.select("#progress").call(progressBar.render, {
     percentage,
-    text: "Reading Result File",
+    roundedPercentage,
+    text: roundedPercentage === 100 ? "Parsing Data..." : "Reading Result File",
     isVisible: progressBarIsVisible
   });
 });
@@ -469,7 +471,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       .pipe(
         stream.map(
           ({ hiddenSources, hiddenThreads, selections, selectedFunction }) => {
-            const FUNCTION_NAME_SEPARATOR = " ";
+            const FUNCTION_NAME_SEPARATOR = "//";
 
             const startTime = performance.now();
             const { functions } = analyze(
