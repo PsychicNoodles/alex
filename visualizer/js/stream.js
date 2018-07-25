@@ -166,16 +166,26 @@ function fromStreamables(streamables) {
  * @returns {StreamTransform}
  */
 function map(transformData) {
-  return streamable =>
-    fromStreamable(onData =>
+  const unset = Symbol("unset");
+
+  return streamable => {
+    let lastEmittedValue = unset;
+    let lastTransformedValue;
+    return fromStreamable(onData =>
       streamable(data => {
         if (data === done) {
           onData(done);
         } else {
-          onData(transformData(data));
+          if (data !== lastEmittedValue) {
+            lastEmittedValue = data;
+            lastTransformedValue = transformData(data);
+          }
+
+          onData(lastTransformedValue);
         }
       })
     );
+  };
 }
 
 /**
@@ -186,16 +196,28 @@ function map(transformData) {
  * @returns {StreamTransform}
  */
 function filter(shouldKeep) {
-  return streamable =>
-    fromStreamable(onData =>
+  const unset = Symbol("unset");
+
+  return streamable => {
+    let lastEmittedValue = unset;
+    let shouldKeepLastEmitted;
+    return fromStreamable(onData =>
       streamable(data => {
         if (data === done) {
           onData(done);
-        } else if (shouldKeep(data)) {
-          onData(data);
+        } else {
+          if (data !== lastEmittedValue) {
+            lastEmittedValue = data;
+            shouldKeepLastEmitted = shouldKeep(data);
+          }
+
+          if (shouldKeepLastEmitted) {
+            onData(lastEmittedValue);
+          }
         }
       })
     );
+  };
 }
 
 /**
