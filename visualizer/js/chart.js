@@ -3,6 +3,7 @@ const d3 = require("d3");
 const plot = require("./plot");
 const brushes = require("./brushes");
 const warnings = require("./warnings");
+const legend = require("./legend");
 
 const WIDTH = 500;
 const HEIGHT = 250;
@@ -116,6 +117,19 @@ function render(
     // hiddenThreadsStore,
     xGetter: d => xScale(getIndependentVariable(d) * 0.075),
     yGetter: d => yScale(getDependentVariable(d)),
+    densityMax,
+    spectrum
+  });
+
+  //legend
+  const chartLegend = root.select("g.chart__legend").empty()
+    ? svg
+        .append("g")
+        .attr("class", "chart__legend")
+        .attr("transform", `translate(${WIDTH * 1.1}, 0)`)
+    : svg.select("g.chart__legend");
+
+  chartLegend.call(legend.render, {
     densityMax,
     spectrum
   });

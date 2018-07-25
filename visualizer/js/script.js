@@ -16,7 +16,6 @@ const { analyze } = require("./analysis");
 const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
 const warningList = require("./warning-list");
-const legend = require("./legend");
 const stats = require("./stats");
 const brushes = require("./brushes");
 const sourceSelect = require("./source-select");
@@ -340,23 +339,14 @@ ipcRenderer.on("result", async (event, resultFile) => {
             getDependentVariable
           });
 
-          const densityMax_local = d3.max(plotData, d => d.densityAvg) || 0;
+          const densityMaxLocal = d3.max(plotData, d => d.densityAvg) || 0;
 
           return {
             ...chartParams,
-            densityMax_local,
+            densityMaxLocal,
             plotData
           };
         });
-
-        const densityMax = Math.max(
-          chartsWithPlotData.reduce(
-            (currentMax, chartParams) =>
-              Math.max(currentMax, chartParams.densityMax_local),
-            0 //the initial value
-          ),
-          5
-        );
 
         const chartsDataSelection = d3
           .select("#charts")
@@ -374,7 +364,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
             yScale,
             brush,
             plotData,
-            densityMax_local
+            densityMaxLocal
           }) {
             d3.select(this).call(chart.render, {
               getIndependentVariable,
@@ -386,7 +376,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
               brush,
               yFormat,
               plotData,
-              densityMax,
+              densityMax: densityMaxLocal,
               spectrum,
               cpuTimeOffset,
               warningRecords,
@@ -409,13 +399,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
         d3.select("#charts-select").call(chartsSelect.render, {
           chartsWithYScales
         });
-
-        d3.select("#legend")
-          .style("display", "block")
-          .call(legend.render, {
-            densityMax,
-            spectrum
-          });
       })
     );
 
