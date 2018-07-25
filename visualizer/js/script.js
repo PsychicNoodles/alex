@@ -34,9 +34,11 @@ const loadingProgressStore = new Store({
 });
 
 loadingProgressStore.subscribe(({ percentage, progressBarIsVisible }) => {
+  const roundedPercentage = Math.round(percentage);
   d3.select("#progress").call(progressBar.render, {
     percentage,
-    text: "Reading Result File",
+    roundedPercentage,
+    text: roundedPercentage === 100 ? "Parsing Data..." : "Reading Result File",
     isVisible: progressBarIsVisible
   });
 });
