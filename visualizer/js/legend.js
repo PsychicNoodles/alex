@@ -9,10 +9,18 @@ function render(root, { densityMax, spectrum }) {
 
   const sequentialScale = d3.scaleSequential(spectrum).domain([0, densityMax]);
 
+  if (root.select("h3").empty()) {
+    root
+      .append("h3")
+      .text("Legend")
+      .attr("class", "legend__title");
+  }
+
   root
     .append("svg")
+    .attr("class", "legend__legend-sequential")
     .append("g")
-    .attr("class", "legendSequential")
+    .attr("class", "legend__legend")
     .attr("transform", "translate(0,30)");
 
   const legendSequential = legendColor()
@@ -22,7 +30,7 @@ function render(root, { densityMax, spectrum }) {
     .ascending(true)
     .scale(sequentialScale);
 
-  root.select(".legendSequential").call(legendSequential);
+  root.select(".legend__legend").call(legendSequential);
 }
 
 module.exports = { render };

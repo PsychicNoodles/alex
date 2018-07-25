@@ -3,12 +3,14 @@ const d3 = require("d3");
 function processData(data) {
   data.map((d, i, arr) => {
     if (i > 0) {
+      d.cpuTimeElapsed = d.numCPUTimerTicks / 1000000;
+      console.log("cpuTimeElapsed: ", d.cpuTimeElapsed);
       const a = arr[i - 1].events.core;
-      d.events.periodCpu = d.events.core - a;
+      d.events.periodCpu = (d.events.core - a) / d.cpuTimeElapsed;
       const b = arr[i - 1].events.dram;
-      d.events.periodMemory = d.events.dram - b;
+      d.events.periodMemory = (d.events.dram - b) / d.cpuTimeElapsed;
       const c = arr[i - 1].events["package-0"];
-      d.events.periodOverall = d.events["package-0"] - c;
+      d.events.periodOverall = (d.events["package-0"] - c) / d.cpuTimeElapsed;
     } else {
       d.events.periodCpu = 0;
       d.events.periodMemory = 0;

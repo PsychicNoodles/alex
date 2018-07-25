@@ -72,40 +72,33 @@ button:disabled {
   overflow-y: auto;
   overflow-x: hidden;
   border-left: 1px solid #999;
+  padding: 10px;
 }
 
 #legend {
   width: 100px;
-  padding: 20px;
-  margin-left: auto;
-  margin-right: auto;
 }
 
 #stats {
   width: 135px;
-  padding: 10px;
   overflow: auto;
 }
 
-#charts-select {
-  padding: 10px;
-}
-
-#side-bar {
-  grid-area: side-bar;
+#table-bar {
+  grid-area: table-bar;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-#side-bar-header {
+#table-bar-header {
   display: flex;
   align-items: center;
   padding: 5px;
   background-color: #ededed;
 }
 
-#side-bar-header > * {
+#table-bar-header > * {
   margin: 5px;
 }
 
@@ -131,10 +124,10 @@ button:disabled {
     grid-template-areas:
       "header header"
       "charts info"
-      "side-bar side-bar";
+      "table-bar table-bar";
   }
 
-  #side-bar {
+  #table-bar {
     border-top: 1px solid #999;
   }
 }
@@ -145,10 +138,10 @@ button:disabled {
     grid-template-columns: 700px auto 1fr;
     grid-template-areas:
       "header header header"
-      "charts info side-bar";
+      "charts info table-bar";
   }
 
-  #side-bar {
+  #table-bar {
     border-left: 1px solid #999;
   }
 }
