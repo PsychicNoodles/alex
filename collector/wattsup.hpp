@@ -1,19 +1,23 @@
+#ifndef COLLECTOR_WATTSUP
+#define COLLECTOR_WATTSUP
+
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/time.h>
 #include <termios.h>
 #include <unistd.h>
 #include <cctype>
 #include <cerrno>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
 
-#include <sys/stat.h>
-#include <sys/time.h>
-
-#include <csignal>
-
 #include "debug.hpp"
+#include "util.hpp"
+
+namespace alex {
 
 /* start the external logging of power info */
 /* #L,W,3,E,<Reserved>,<Interval>; */
@@ -31,6 +35,11 @@ int setup_serial_device(int fd);
 /* Read from the meter */
 double wu_read(int fd);
 
-int wattsupSetUp();
+int wu_setup(const char* device_name =
+                 getenv_safe("COLLECTOR_WATTSUP_DEVICE", "ttyUSB0").c_str());
 
-void wattsupTurnOff(int wu_fd);
+void wu_shutdown(int wu_fd);
+
+}  // namespace alex
+
+#endif

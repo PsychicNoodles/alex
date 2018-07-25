@@ -9,12 +9,18 @@
 #include "rapl.hpp"
 #include "wattsup.hpp"
 
+namespace alex {
+
 using std::cerr;
 using std::cout;
 using std::endl;
 using std::map;
 using std::set;
 using std::string;
+
+using std::cerr;
+using std::cout;
+using std::endl;
 
 bool event_is_available(string event_name) {
   pfm_initialize();
@@ -31,7 +37,7 @@ bool event_is_available(string event_name) {
 
 bool preset_is_available(string preset) {
   if (preset == "wattsup") {
-    return wattsupSetUp() != -1;
+    return wu_setup() != -1;
   } else if (preset == "rapl") {
     vector<string> powerzones = find_in_dir(ENERGY_ROOT, "intel-rapl:");
     return powerzones.size() != 0;
@@ -55,6 +61,10 @@ bool preset_is_available(string preset) {
     return true;
   }
 }
+
+}  // namespace alex
+
+using namespace alex;
 
 int main(int argc, char **argv) {
   if (argc != 1) {

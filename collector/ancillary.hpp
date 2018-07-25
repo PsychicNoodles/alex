@@ -33,6 +33,8 @@
 
 #include <cstddef>
 
+namespace alex {
+
 /***************************************************************************
  * Start of the readable part.
  ***************************************************************************/
@@ -65,5 +67,7 @@ int ancil_recv_fds_with_msg(int sock, int *fds, unsigned n_fds,
     int fd[n];             \
     struct cmsghdr h;      \
   }
+
+}  // namespace alex
 
 #endif /* ANCILLARY_H__ */

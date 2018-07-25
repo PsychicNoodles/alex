@@ -127,7 +127,8 @@ function computeRenderableData({
 
     return {
       ...renderable,
-      densityAvg: totalDensity / count
+      densityAvg: totalDensity / count,
+      densityAvgPresent: totalDensity / count
     };
   });
 }
@@ -164,9 +165,19 @@ function sdFilter(data, getDependentVariable, sdRange) {
   );
 }
 
+function sdDomain(data, getDependentVariable, sdRange, yScale) {
+  const mean = d3.mean(data, getDependentVariable);
+  const sd = d3.deviation(data, getDependentVariable);
+  return [
+    Math.min(mean + sdRange * sd, yScale.domain()[0]),
+    Math.max(mean - sdRange * sd, yScale.domain()[1])
+  ];
+}
+
 module.exports = {
   processData,
   computeRenderableData,
   getEventCount,
-  sdFilter
+  sdFilter,
+  sdDomain
 };

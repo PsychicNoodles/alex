@@ -10,22 +10,22 @@ const HEIGHT = 250;
 function render(
   root,
   {
-    spectrum,
-    plotData,
-    hiddenThreadsStore,
-    densityMax,
     getIndependentVariable,
     getDependentVariable,
     xAxisLabelText,
     yAxisLabelText,
     xScale,
     yScale,
-    yScale_present,
     brush,
     yFormat,
+    plotData,
+    densityMax,
+    spectrum,
     cpuTimeOffset,
     warningRecords,
-    warningsDistinct
+    warningsDistinct,
+    currentYScale,
+    onYScalesChange
   }
 ) {
   root.classed("chart", true);
@@ -52,9 +52,8 @@ function render(
 
   chartPlot.call(plot.render, {
     data: plotData,
-    hiddenThreadsStore,
     xGetter: d => xScale(getIndependentVariable(d)),
-    yGetter: d => yScale_present(getDependentVariable(d)),
+    yGetter: d => currentYScale(getDependentVariable(d)),
     densityMax,
     spectrum
   });
@@ -84,13 +83,10 @@ function render(
 
   //yAxis
   const yAxis = root.select("g.chart__axis--y").empty()
-    ? svg
-        .append("g")
-        .attr("class", "chart__axis chart__axis--y")
-        .call(d3.axisLeft(yScale_present).tickFormat(yFormat))
+    ? svg.append("g").attr("class", "chart__axis chart__axis--y")
     : svg.select("g.chart__axis--y");
 
-  yAxis.call(d3.axisLeft(yScale_present).tickFormat(yFormat));
+  yAxis.call(d3.axisLeft(currentYScale).tickFormat(yFormat));
 
   yAxis.select(".chart__axis-label--y").empty()
     ? yAxis
@@ -117,7 +113,7 @@ function render(
 
   sideBarPlot.call(plot.render, {
     data: plotData,
-    hiddenThreadsStore,
+    // hiddenThreadsStore,
     xGetter: d => xScale(getIndependentVariable(d) * 0.075),
     yGetter: d => yScale(getDependentVariable(d)),
     densityMax,
@@ -125,28 +121,24 @@ function render(
   });
 
   //brush
-  brush.on("brush", brushed);
+  brush.on("end", brushed);
 
-  sideBar.select("g.sideBar-brush").empty()
+  const sideBarBrush = sideBar.select("g.sideBar-brush").empty()
     ? sideBar
         .append("g")
         .attr("class", "sideBar-brush")
         .call(brush)
-        .call(brush.move, yScale.range())
+        .call(brush.move, currentYScale.domain().map(d => yScale(d)))
     : sideBar.select("g.sideBar-brush");
+
+  sideBarBrush
+    .selectAll(".handle")
+    .attr("fill", "#666")
+    .attr("fill-opacity", 0.8);
 
   function brushed() {
     const s = d3.event.selection || yScale.range();
-    yScale_present.domain(s.map(yScale.invert, yScale));
-
-    svg
-      .select(".plot")
-      .selectAll("circle")
-      .data(plotData)
-      .attr("cy", d => yScale_present(getDependentVariable(d)));
-    svg
-      .select(".chart__axis--y")
-      .call(d3.axisLeft(yScale_present).tickFormat(yFormat));
+    onYScalesChange(s.map(yScale.invert, yScale));
   }
 }
 

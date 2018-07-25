@@ -10,7 +10,7 @@ const {
   processData,
   computeRenderableData,
   getEventCount,
-  sdFilter
+  sdDomain
 } = require("./process-data");
 const { analyze } = require("./analysis");
 const chart = require("./chart");
@@ -79,14 +79,20 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
   if (result.error) {
     alert(result.error);
+    window.close();
   }
-  document.getElementById("title").textContent = result.header.programName;
+
+  d3.select("#title").text(result.header.programName);
   const processedData = processData(result.timeslices, result.header);
   const spectrum = d3.interpolateWarm;
-  const sdRange = 4;
+  const sdRange = 3;
 
   if (processedData.length === 0) {
-    alert("timeslices array (maybe after processed) is empty");
+    alert(
+      result.timeslices.length === 0
+        ? "No data in result file.  Perhaps the program terminated too quickly."
+        : "No usable data in result file."
+    );
     window.close();
   } else {
     //progress bar
@@ -178,7 +184,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       {
         presetsRequired: ["cpu"],
         yAxisLabelText: "Instructions Per Cycle",
-        yFormat: d3.format(".2"),
+        yFormat: d3.format(".3"),
         getDependentVariable: d =>
           getEventCount(d, presets.cpu.instructions) /
             getEventCount(d, presets.cpu.cpuCycles) || 0,
@@ -220,16 +226,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
     const chartsWithYScales = charts.map(chartParams => {
       const { getDependentVariable } = chartParams;
       const normalData = processedData;
-      // sdFilter(processedData, getDependentVariable, sdRange);
       const yScale = d3
         .scaleLinear()
         .domain(d3.extent(normalData, getDependentVariable).reverse())
         .range([0, chart.HEIGHT]);
-
-      const yScale_present = d3
-        .scaleLinear()
-        .domain(yScale.domain())
-        .range(yScale.range());
 
       const brush = d3
         .brushY()
@@ -238,11 +238,13 @@ ipcRenderer.on("result", async (event, resultFile) => {
       return {
         ...chartParams,
         yScale,
-        yScale_present,
         brush,
         chart
       };
     });
+
+    let initialYScales = {};
+    let visibleCharts = [];
 
     //update with subscriptions
     stream
@@ -281,104 +283,139 @@ ipcRenderer.on("result", async (event, resultFile) => {
             processedData: fullFilteredData
           });
 
-          const visibleCharts = chartsWithYScales.filter(
-            chart => !hiddenCharts.includes(chart)
-          );
-
-          const chartsWithPlotData = visibleCharts.map(chartParams => {
-            const {
-              getDependentVariable,
-              flattenThreads,
-              yScale
-            } = chartParams;
-
-            const normalData = flattenThreads
-              ? sourceFilteredData
-              : fullFilteredData;
-            // sdFilter(
-            //   flattenThreads ? sourceFilteredData : fullFilteredData,
-            //   getDependentVariable,
-            //   sdRange
-            // );
-
-            const plotData = computeRenderableData({
-              data: normalData,
-              xScale,
-              yScale,
-              getIndependentVariable,
-              getDependentVariable
-            });
-
-            return {
-              ...chartParams,
-              plotData
-            };
-          });
-
-          const densityMax = Math.max(
-            chartsWithPlotData.reduce(
-              (currentMax, chartParams) =>
-                Math.max(
-                  currentMax,
-                  d3.max(chartParams.plotData, d => d.densityAvg) || 0
-                ),
-              0 //the initial value
-            ),
-            5
-          );
-
-          const chartsDataSelection = d3
-            .select("#charts")
-            .selectAll("div")
-            .data(chartsWithPlotData);
-
-          chartsDataSelection
-            .enter()
-            .append("div")
-            .merge(chartsDataSelection)
-            .each(function({
-              getDependentVariable,
-              xAxisLabelText,
-              yAxisLabelText,
-              yFormat,
-              yScale,
-              yScale_present,
-              brush,
-              plotData
-            }) {
-              d3.select(this).call(chart.render, {
-                getIndependentVariable,
-                getDependentVariable,
-                xAxisLabelText,
+          visibleCharts = chartsWithYScales
+            .filter(chart => !hiddenCharts.includes(chart))
+            .map(chartParams => {
+              const {
                 yAxisLabelText,
-                xScale,
+                flattenThreads,
                 yScale,
-                yScale_present,
-                brush,
-                yFormat,
-                plotData,
-                densityMax,
-                spectrum,
-                cpuTimeOffset,
-                warningRecords,
-                warningsDistinct
-              });
-            });
+                getDependentVariable
+              } = chartParams;
+              const filteredData = flattenThreads
+                ? sourceFilteredData
+                : fullFilteredData;
 
-          chartsDataSelection.exit().remove();
+              initialYScales = {
+                ...initialYScales,
+                [yAxisLabelText]: d3
+                  .scaleLinear()
+                  .domain(
+                    sdDomain(
+                      filteredData,
+                      getDependentVariable,
+                      sdRange,
+                      yScale
+                    )
+                  )
+                  .range(yScale.range())
+              };
+              console.log("initial yScales", initialYScales);
 
-          d3.select("#charts-select").call(chartsSelect.render, {
-            chartsWithYScales
-          });
-
-          d3.select("#legend")
-            .style("display", "block")
-            .call(legend.render, {
-              densityMax,
-              spectrum
+              return {
+                ...chartParams,
+                filteredData
+              };
             });
         })
       );
+
+    const currentYScalesStore = new Store(initialYScales);
+    stream.fromStreamables([currentYScalesStore.stream]).pipe(
+      stream.subscribe(([currentYScales]) => {
+        const chartsWithPlotData = visibleCharts.map(chartParams => {
+          const {
+            yAxisLabelText,
+            getDependentVariable,
+            filteredData
+          } = chartParams;
+
+          const plotData = computeRenderableData({
+            data: filteredData,
+            xScale,
+            yScale: currentYScales[yAxisLabelText],
+            getIndependentVariable,
+            getDependentVariable
+          });
+
+          const densityMax_local = d3.max(plotData, d => d.densityAvg) || 0;
+
+          return {
+            ...chartParams,
+            densityMax_local,
+            plotData
+          };
+        });
+
+        const densityMax = Math.max(
+          chartsWithPlotData.reduce(
+            (currentMax, chartParams) =>
+              Math.max(currentMax, chartParams.densityMax_local),
+            0 //the initial value
+          ),
+          5
+        );
+
+        const chartsDataSelection = d3
+          .select("#charts")
+          .selectAll("div")
+          .data(chartsWithPlotData);
+
+        chartsDataSelection
+          .enter()
+          .append("div")
+          .merge(chartsDataSelection)
+          .each(function({
+            getDependentVariable,
+            yAxisLabelText,
+            yFormat,
+            yScale,
+            brush,
+            plotData,
+            densityMax_local
+          }) {
+            d3.select(this).call(chart.render, {
+              getIndependentVariable,
+              getDependentVariable,
+              xAxisLabelText,
+              yAxisLabelText,
+              xScale,
+              yScale,
+              brush,
+              yFormat,
+              plotData,
+              densityMax,
+              spectrum,
+              cpuTimeOffset,
+              warningRecords,
+              warningsDistinct,
+              currentYScale: currentYScales[yAxisLabelText],
+              onYScalesChange: newDomain => {
+                currentYScalesStore.dispatch(currentYScales => ({
+                  ...currentYScales,
+                  [yAxisLabelText]: d3
+                    .scaleLinear()
+                    .domain(newDomain)
+                    .range(yScale.range())
+                }));
+              }
+            });
+          });
+
+        chartsDataSelection.exit().remove();
+
+        d3.select("#charts-select").call(chartsSelect.render, {
+          chartsWithYScales
+        });
+
+        d3.select("#legend")
+          .style("display", "block")
+          .call(legend.render, {
+            densityMax,
+            spectrum
+          });
+      })
+    );
 
     const currentSelectedFunctionStore = new Store(null);
 
@@ -460,7 +497,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                       .reverse()
                       .join(FUNCTION_NAME_SEPARATOR)
                   : stackFrames[0].symName,
-              0.05 // TODO: modify this value via UI
+              document.getElementById("confidence-level-input").value // TODO: modify this value via UI
             );
 
             // Compute a cumulative moving average for processing time so we can

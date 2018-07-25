@@ -22,9 +22,7 @@ function render(root, { data, densityMax, spectrum, xGetter, yGetter }) {
     .attr("cx", d => xGetter(d))
     .attr("cy", d => yGetter(d))
     .attr("r", 1)
-    .style("fill", d =>
-      d3.scaleSequential(spectrum)(d.densityAvg / densityMax)
-    );
+    .style("fill", d => spectrum(d.densityAvg / densityMax));
 
   circles.exit().remove();
 }

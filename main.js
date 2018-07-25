@@ -12,42 +12,19 @@ const progressStream = require("progress-stream");
 const { parser: streamJSONParser } = require("stream-json");
 const { stringer: streamJSONStringer } = require("stream-json/Stringer");
 const StreamJSONAssembler = require("stream-json/Assembler");
+const prettyMS = require("pretty-ms");
 
 process.on("unhandledRejection", err => {
   throw err;
 });
 
 yargs
-  .command("list", "List available presets.", {}, async () => {
-    const presets = await getAllPresetInfo();
-    const maxNameLength = Math.max(
-      ...presets.map(preset => preset.name.length)
-    );
-    const presetToString = preset =>
-      `  ${preset.name.padEnd(maxNameLength)}  ${preset.description || ""}`;
-
-    console.info("Available Presets:");
-    console.info(
-      presetToString({
-        name: "all",
-        description: "Shortcut for all available presets."
-      })
-    );
-    console.info(
-      presets
-        .filter(preset => preset.isAvailable)
-        .map(presetToString)
-        .join("\n")
-    );
-    console.info("");
-    console.info("Unavailable Presets:");
-    console.info(
-      presets
-        .filter(preset => !preset.isAvailable)
-        .map(presetToString)
-        .join("\n")
-    );
-  })
+  .command(
+    "list",
+    "List available presets.",
+    yargs => yargs.check(validatePositionalArgs({ max: 1 })),
+    list
+  )
   .command(
     "collect <executable> [args..]",
     "Collect performance data on an executable.",
@@ -76,15 +53,18 @@ yargs
         .describe("in", "The file to pipe into the stdin of <executable>.")
         .option("out", {
           description: "The file to pipe the stdout of <executable> into.",
-          default: path.resolve(__dirname) + `/out-${Date.now()}.log`
+          default: path.join(__dirname, `/out-${new Date().toISOString()}.log`)
         })
         .option("err", {
           description: "The file to pipe the stderr of <executable> into.",
-          default: path.resolve(__dirname) + `/err-${Date.now()}.log`
+          default: path.join(__dirname, `/err-${new Date().toISOString()}.log`)
         })
         .option("result", {
           description: "The file to pipe the performance results into.",
-          default: path.resolve(__dirname) + `/result-${Date.now()}.json`
+          default: path.join(
+            __dirname,
+            `/result-${new Date().toISOString()}.json`
+          )
         })
         .option("visualize", {
           description: "Where to visualize the results.",
@@ -100,7 +80,10 @@ yargs
           description:
             'Use "dmesg" after plugging in the device to see what the USB serial port is detected at.',
           default: "ttyUSB0"
-        }),
+        })
+        .example(
+          "$0 collect --in my-input-file.in -p cache -- ./my-program --arg1 arg2"
+        ),
     argv => {
       collect({
         ...argv,
@@ -109,8 +92,11 @@ yargs
         errFile: argv.err,
         resultOption: argv.result,
         events: argv.events || [],
-        executableArgs: argv.args,
-        visualizeOption: argv.visualize
+        visualizeOption: argv.visualize,
+        // Manually parse this out, since positional args can't handle "--xxx" args
+        executableArgs: process.argv.includes("--")
+          ? process.argv.slice(process.argv.indexOf("--") + 2)
+          : argv.args
       });
     }
   )
@@ -118,16 +104,55 @@ yargs
     "visualize <file>",
     "Visualize performance data from a file.",
     yargs =>
-      yargs.positional("file", {
-        description: "File to read result data from.",
-        type: "string"
-      }),
+      yargs
+        .positional("file", {
+          description: "File to read result data from.",
+          type: "string"
+        })
+        .check(validatePositionalArgs({ max: 1 })),
     argv => {
       visualize(argv.file);
     }
   )
-  .demandCommand()
-  .help().argv;
+  .command("*", false, yargs =>
+    yargs.check(argv => {
+      throw new Error(`Unknown command: ${argv._[0]}`);
+    })
+  )
+  .demandCommand(1, "Must specify a command.")
+  .check((argv, aliases) => {
+    const validKeys = [
+      "$0",
+      "_",
+      ...Object.keys(aliases),
+      ...Object.keys(aliases)
+        .map(key => aliases[key])
+        .reduce((a, b) => [...a, ...b])
+    ];
+
+    const invalidKeys = Object.keys(argv).filter(
+      key => !validKeys.includes(key)
+    );
+    if (invalidKeys.length > 0) {
+      const firstInvalidArg =
+        (invalidKeys[0].length === 1 ? "-" : "--") + invalidKeys[0];
+      throw new Error(`Unknown argument: ${firstInvalidArg}`);
+    }
+
+    return true;
+  })
+  .help()
+  .parse();
+
+function validatePositionalArgs({ max }) {
+  return argv => {
+    if (argv._.length > max) {
+      throw new Error(`Unknown argument: ${argv._[1]}`);
+    }
+
+    return true;
+  };
+}
 
 function getAllPresetInfo() {
   return new Promise((resolve, reject) => {
@@ -150,25 +175,33 @@ function getAllPresetInfo() {
   });
 }
 
-const MS_PER_SEC = 1000;
+async function list() {
+  const presets = await getAllPresetInfo();
+  const maxNameLength = Math.max(...presets.map(preset => preset.name.length));
+  const presetToString = preset =>
+    `  ${preset.name.padEnd(maxNameLength)}  ${preset.description || ""}`;
 
-function startCounting() {
-  console.info("Collecting performance data...");
-
-  const startTime = Date.now();
-  return {
-    startTime,
-    progressInterval: setInterval(() => {
-      //Clear previous progress message
-      readline.cursorTo(process.stdout, 0);
-
-      const numSeconds = Math.round((Date.now() - startTime) / MS_PER_SEC);
-      const s = numSeconds === 1 ? "" : "s";
-      process.stdout.write(
-        `It's been ${numSeconds} second${s}. Still going...`
-      );
-    }, 1 * MS_PER_SEC)
-  };
+  console.info("Available Presets:");
+  console.info(
+    presetToString({
+      name: "all",
+      description: "Shortcut for all available presets."
+    })
+  );
+  console.info(
+    presets
+      .filter(preset => preset.isAvailable)
+      .map(presetToString)
+      .join("\n")
+  );
+  console.info("");
+  console.info("Unavailable Presets:");
+  console.info(
+    presets
+      .filter(preset => !preset.isAvailable)
+      .map(presetToString)
+      .join("\n")
+  );
 }
 
 async function collect({
@@ -215,13 +248,27 @@ async function collect({
     }
   }
 
-  let progressInterval,
-    startTime = Date.now();
-  process.on(
-    "SIGUSR2",
-    () => ({ progressInterval, startTime } = startCounting())
-  );
+  let startTime = Date.now();
+  let progressInterval;
+  process.on("SIGUSR2", () => {
+    console.info("Collecting performance data...");
 
+    const MS_PER_SEC = 1000;
+    startTime = Date.now();
+    progressInterval = setInterval(() => {
+      // Clear previous progress message
+      readline.cursorTo(process.stdout, 0);
+
+      process.stdout.write(
+        `It's been ${prettyMS(Date.now() - startTime, {
+          verbose: true,
+          secDecimalDigits: 0
+        })}. Still going...`
+      );
+    }, 1 * MS_PER_SEC);
+  });
+
+  console.info("$ " + [executable, ...executableArgs].join(" "));
   console.info("Waiting for collection to start...");
 
   const collector = spawn(executable, executableArgs, {
@@ -277,11 +324,13 @@ async function collect({
   collector.on("exit", async code => {
     clearInterval(progressInterval);
 
-    const numSeconds = (Date.now() - startTime) / MS_PER_SEC;
-
     // Clear out progress message
     readline.cursorTo(process.stdout, 0);
-    console.info(`Finished after collecting for ${numSeconds} seconds.`);
+    console.info(
+      `Finished after collecting for ${prettyMS(Date.now() - startTime, {
+        verbose: true
+      })}.`
+    );
 
     const errorCodes = {
       1: "Internal error.",
@@ -386,6 +435,8 @@ async function collect({
               readline_interface.close();
             }
           );
+        } else if (visualizeOption === "no") {
+          process.exit(0);
         }
       } else {
         process.exit(1);
@@ -398,6 +449,6 @@ function visualize(resultFile) {
   spawn(
     path.join(__dirname, "./node_modules/.bin/electron"),
     [path.join(__dirname, "./visualizer"), resultFile],
-    { stdio: "inherit" }
+    { stdio: ["ignore", "inherit", "ignore"] }
   );
 }

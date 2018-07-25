@@ -6,6 +6,8 @@
 
 #include <pthread.h>
 
+namespace alex {
+
 using std::condition_variable;
 using std::mutex;
 using std::unique_lock;
@@ -25,5 +27,7 @@ void stop_reading(bg_reading* reading);
 
 bool has_result(bg_reading* reading);
 void* get_result(bg_reading* reading);
+
+}  // namespace alex
 
 #endif

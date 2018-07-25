@@ -42,6 +42,7 @@ button:disabled {
 }
 
 #header {
+  font-family: "Lucida Console", Monaco, monospace;
   align-items: center;
   border-bottom: 1px solid #999;
   display: flex;
@@ -51,7 +52,8 @@ button:disabled {
 }
 
 #title {
-  font-size: 1.25em;
+  font-size: 20px;
+  margin: 15px;
 }
 
 #progress {
