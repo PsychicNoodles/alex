@@ -25,10 +25,11 @@ function render(
     warningRecords,
     warningsDistinct,
     currentYScale,
-    onYScalesChange
+    onYScaleDomainChange
   }
 ) {
   root.classed("chart", true);
+  console.log("chart render ", yAxisLabelText);
 
   const svg = root.select("svg.chart__svg").empty()
     ? root
@@ -137,8 +138,14 @@ function render(
     .attr("fill-opacity", 0.8);
 
   function brushed() {
+    console.log("brushed ", yAxisLabelText);
     const s = d3.event.selection || yScale.range();
-    onYScalesChange(s.map(yScale.invert, yScale));
+    const newDomain = s.map(yScale.invert, yScale).map(n => n.toFixed(8));
+    const oldDomain = currentYScale.domain().map(n => n.toFixed(8));
+    if (oldDomain[0] !== newDomain[0] || oldDomain[1] !== newDomain[1]) {
+      console.log("new domain != old domain");
+      onYScaleDomainChange(newDomain);
+    }
   }
 }
 
