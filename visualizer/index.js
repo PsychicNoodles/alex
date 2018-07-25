@@ -17,6 +17,9 @@ if (!resultFile) {
 // be closed automatically when the JavaScript object is garbage collected.
 let win;
 
+const heapSize = process.argv[3] || 4096;
+app.commandLine.appendSwitch("js-flags", `--max-old-space-size=${heapSize}`);
+
 app
   // This event fires when Electron has finished initialization and is ready to
   // create browser windows. Some APIs can only be used after this event occurs.
