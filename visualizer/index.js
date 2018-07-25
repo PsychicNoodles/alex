@@ -13,10 +13,6 @@ if (!resultFile) {
   throw new Error("No result file specified.");
 }
 
-ipcMain.on("result-request", event => {
-  event.sender.send("result", resultFile);
-});
-
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let win;
@@ -28,24 +24,29 @@ app
     console.info("Creating window...");
 
     win = new BrowserWindow({
-      width: 860,
+      width: 960,
       height: 900,
       minWidth: 600,
       show: false,
-      icon: path.join(__dirname, "./icons/launcher-128x128.png")
+      icon: path.join(__dirname, "./icons/launcher-64x64.png")
     });
 
     win.loadFile(path.join(__dirname, "./index.html"));
 
-    win
-      .on("ready-to-show", () => {
-        win.show();
-      })
+    const [resultRequestEvent] = await Promise.all([
+      new Promise(resolve =>
+        ipcMain.on("result-request", event => resolve(event))
+      ),
+      new Promise(resolve => win.on("ready-to-show", () => resolve()))
+    ]);
 
-      .on("closed", () => {
-        // Dereference the window object so it can be garbage collected
-        win = null;
-      });
+    resultRequestEvent.sender.send("result", resultFile);
+    win.show();
+
+    win.on("closed", () => {
+      // Dereference the window object so it can be garbage collected
+      win = null;
+    });
   })
 
   .on("window-all-closed", () => {
