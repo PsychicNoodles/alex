@@ -458,7 +458,7 @@ bool process_sample_record(
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
 
-  int64_t num_timer_ticks = 0;
+  uint64_t num_timer_ticks = 0;
   DEBUG("reading from fd " << info.cpu_clock_fd);
   read(info.cpu_clock_fd, &num_timer_ticks, sizeof(num_timer_ticks));
   DEBUG("read in from fd " << info.cpu_clock_fd
@@ -476,7 +476,7 @@ bool process_sample_record(
           R"(
                       {
                         "cpuTime": %lu,
-                        "numCPUTimerTicks": %ld,
+                        "numCPUTimerTicks": %lu,
                         "pid": %u,
                         "tid": %u,
                         "events": {
@@ -496,7 +496,7 @@ bool process_sample_record(
       fprintf(result_file, ",");
     }
 
-    int64_t count = 0;
+    uint64_t count = 0;
     DEBUG("reading from fd " << info.event_fds.at(event));
     read(info.event_fds.at(event), &count, sizeof(int64_t));
     DEBUG("read in from fd " << info.event_fds.at(event) << " count " << count);
@@ -505,7 +505,7 @@ bool process_sample_record(
                                               << info.event_fds.at(event));
     }
 
-    fprintf(result_file, R"("%s": %ld)", event, count);
+    fprintf(result_file, R"("%s": %lu)", event, count);
   }
 
   // rapl
