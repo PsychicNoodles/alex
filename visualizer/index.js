@@ -20,10 +20,14 @@ let win;
 const heapSize = process.argv[3] || 4096;
 app.commandLine.appendSwitch("js-flags", `--max-old-space-size=${heapSize}`);
 
+ipcMain.on("result-request", event => {
+  event.sender.send("result", resultFile);
+});
+
 app
   // This event fires when Electron has finished initialization and is ready to
   // create browser windows. Some APIs can only be used after this event occurs.
-  .on("ready", async () => {
+  .on("ready", () => {
     console.info("Creating window...");
 
     win = new BrowserWindow({
@@ -36,13 +40,12 @@ app
 
     win.loadFile(path.join(__dirname, "./index.html"));
 
-    const [resultRequestEvent] = await Promise.all([
+    Promise.all([
       new Promise(resolve => ipcMain.on("result-request", resolve)),
       new Promise(resolve => win.on("ready-to-show", resolve))
-    ]);
-
-    resultRequestEvent.sender.send("result", resultFile);
-    win.show();
+    ]).then(() => {
+      win.show();
+    });
 
     win.on("closed", () => {
       // Dereference the window object so it can be garbage collected
