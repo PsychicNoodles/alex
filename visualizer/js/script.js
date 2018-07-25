@@ -465,7 +465,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       .pipe(
         stream.map(
           ({ hiddenSources, hiddenThreads, selections, selectedFunction }) => {
-            const FUNCTION_NAME_SEPARATOR = " ";
+            const FUNCTION_NAME_SEPARATOR = "//";
 
             const startTime = performance.now();
             const { functions } = analyze(
