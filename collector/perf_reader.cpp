@@ -156,6 +156,7 @@ ofstream *get_result_file() { return result_file; }
 
 // https://github.com/google/protobuf/blob/master/src/google/protobuf/util/delimited_message_util.cc
 bool serialize_delimited(const Message &msg) {
+  DEBUG("serializing " << msg.GetTypeName());
   int size = msg.ByteSize();
   OstreamOutputStream ostream(result_file);
   CodedOutputStream coded(&ostream);
@@ -714,6 +715,9 @@ void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
 
     if (record_type == PERF_RECORD_THROTTLE ||
         record_type == PERF_RECORD_UNTHROTTLE) {
+      DEBUG("writing " << (record_type == PERF_RECORD_THROTTLE ? "throttle"
+                                                               : "unthrottle")
+                       << " warning");
       auto *throttle_message = new Throttle;
       warning_message.set_allocated_throttle(throttle_message);
       throttle_message->set_type(record_type == PERF_RECORD_THROTTLE
@@ -731,6 +735,7 @@ void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
       throttle_message->set_id(throttle.id);
       throttle_message->set_stream_id(throttle.stream_id);
     } else if (record_type == PERF_RECORD_LOST) {
+      DEBUG("writing lost warning");
       auto *lost_message = new Lost;
       warning_message.set_allocated_lost(lost_message);
       auto lost = record.lost;
