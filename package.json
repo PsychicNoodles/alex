@@ -21,7 +21,6 @@
   "license": "UNLICENSED",
   "dependencies": {
     "ajv": "^6.5.2",
-    "bootstrap-colorpicker": "^2.5.3",
     "d3": "^5.5.0",
     "d3-svg-legend": "^2.25.6",
     "electron": "^2.0.5",
