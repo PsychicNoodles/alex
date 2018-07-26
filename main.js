@@ -9,6 +9,7 @@ const path = require("path");
 const ProgressBar = require("progress");
 const { promisify } = require("util");
 const progressStream = require("progress-stream");
+const protobufStream = require("./visualizer/js/protobuf-stream");
 const { parser: streamJSONParser } = require("stream-json");
 const { stringer: streamJSONStringer } = require("stream-json/Stringer");
 const StreamJSONAssembler = require("stream-json/Assembler");
@@ -371,8 +372,8 @@ async function collect({
           }
         );
 
-        await new Promise((resolve, reject) => {
-          const tokenStream = fs
+        await new Promise((resolve, reject) =>
+          fs
             .createReadStream(rawResultFile)
             .pipe(
               progressStream(
@@ -382,37 +383,11 @@ async function collect({
                 }
               )
             )
-            .pipe(streamJSONParser())
-            .on("error", reject);
-
-          const LARGE_FILE_SIZE = 0x10000000; // 256 MB
-          if (resultFileSize > LARGE_FILE_SIZE) {
-            // If it is a large file, don't stringify it all at once.
-            tokenStream
-              .pipe(streamJSONStringer())
-              .on("error", reject)
-              .pipe(fs.createWriteStream(resultFile))
-              .on("finish", resolve)
-              .on("error", reject);
-          } else {
-            // If it isn't huge, we can afford to load it into memory and stringify it
-            StreamJSONAssembler.connectTo(tokenStream)
-              .on("done", ({ current }) => {
-                fs.writeFile(
-                  resultFile,
-                  JSON.stringify(current, null, 2),
-                  err => {
-                    if (err) {
-                      reject(err);
-                    } else {
-                      resolve();
-                    }
-                  }
-                );
-              })
-              .on("error", reject);
-          }
-        });
+            .pipe(protobufStream.parser())
+            .on("end", resolve)
+            .on("error", reject)
+        );
+        fs.renameSync(rawResultFile, resultFile);
         resultsProcessed = true;
       } catch (err) {
         console.error(`Couldn't process result file: ${err.message}`);

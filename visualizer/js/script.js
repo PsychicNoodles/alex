@@ -2,8 +2,8 @@ const { ipcRenderer } = require("electron");
 const d3 = require("d3");
 const fs = require("fs");
 const progressStream = require("progress-stream");
-const streamJSON = require("stream-json");
-const JSONAssembler = require("stream-json/Assembler");
+const protobufStream = require("./protobuf-stream");
+const { Header, Timeslice, Warning } = protobufStream;
 const { promisify } = require("util");
 
 const {
@@ -44,11 +44,11 @@ loadingProgressStore.subscribe(({ percentage, progressBarIsVisible }) => {
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", async (event, resultFile) => {
-  let result;
+  let protobufMessageStream;
   try {
     const { size: resultFileSize } = await promisify(fs.stat)(resultFile);
 
-    const jsonTokenStream = fs
+    protobufMessageStream = fs
       .createReadStream(resultFile)
       .pipe(
         progressStream(
@@ -64,33 +64,57 @@ ipcRenderer.on("result", async (event, resultFile) => {
           }
         )
       )
-      .pipe(streamJSON.parser());
-
-    const assembler = await new Promise((resolve, reject) =>
-      JSONAssembler.connectTo(jsonTokenStream.on("warning", reject))
-        .on("done", resolve)
-        .on("warning", reject)
-    );
-
-    result = assembler.current;
+      .pipe(protobufStream());
   } catch (err) {
     alert(`Couldn't load result file: ${err.message}`);
     window.close();
   }
 
-  if (result.error) {
-    alert(result.error);
-    window.close();
-  }
+  const headerPromise = new Promise((resolve, reject) =>
+    protobufMessageStream
+      .once("data", d => {
+        // should always be a header, but verify anyway
+        if (d.$type === Header) resolve(d);
+      })
+      .on("error", reject)
+  );
+  const timeslicesPromise = new Promise((resolve, reject) => {
+    const timeslices = [];
+    return protobufMessageStream
+      .on("data", d => {
+        if (d.$type === Timeslice) timeslices.push(d);
+      })
+      .on("end", () => resolve(timeslices))
+      .on("error", reject);
+  });
+  const warningsPromise = new Promise((resolve, reject) => {
+    const warnings = [];
+    protobufMessageStream
+      .on("data", d => {
+        if (d.$type === Warning) warnings.push(d);
+      })
+      .on("end", () => resolve(warnings))
+      .on("error", reject);
+  });
 
-  d3.select("#title").text(result.header.programName);
-  const processedData = processData(result.timeslices, result.header);
+  Promise.all([headerPromise, timeslicesPromise, warningsPromise]).catch(
+    err => {
+      alert(err);
+      window.close();
+    }
+  );
+
+  headerPromise.then(header => d3.select("#title").text(header.programName));
+  const processedData = await Promise.all([
+    timeslicesPromise,
+    headerPromise
+  ]).then(([timeslices, header]) => processData(timeslices, header));
   const spectrum = d3.interpolateWarm;
   const sdRange = 3;
 
   if (processedData.length === 0) {
     alert(
-      result.timeslices.length === 0
+      (await timeslicesPromise.length) === 0
         ? "No data in result file.  Perhaps the program terminated too quickly."
         : "No usable data in result file."
     );
@@ -142,7 +166,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     });
 
     //warnings
-    const warningRecords = result.warning;
+    const warningRecords = await warningsPromise;
     const warningCountsMap = new Map();
     warningRecords.forEach(warning => {
       if (warningCountsMap.has(warning.type)) {
@@ -169,7 +193,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     });
 
     //charts charts charts
-    const { presets } = result.header;
+    const { presets } = await headerPromise;
     //make a array containing some information of each chart
     const charts = [
       {
