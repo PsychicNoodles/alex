@@ -1,4 +1,4 @@
-SOURCES := result.proto header.proto timeslice.proto warning.proto
+SOURCES := header.proto timeslice.proto warning.proto
 CPP_OUT := ../collector/protos
 CPP_CMD := --cpp_out=$(CPP_OUT)
 JS_OUT := ../visualizer/js/protos
