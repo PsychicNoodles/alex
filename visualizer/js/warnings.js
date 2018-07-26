@@ -95,7 +95,8 @@ function render(root, { warningCounts, warningRecords }) {
     }
   });
 
-  //set up store subscription to update the warning list so that other parts can be notified and update as well
+  /* set up store subscription to update the warning list so that other parts
+  can be notified and update as well */
 
   highlightedWarningsStore.subscribeUnique(
     root,

@@ -255,14 +255,16 @@ ipcRenderer.on("result", async (event, resultFile) => {
           //first filter with source selection!
           const sourceFilteredData = processedData
             .filter((
-              timeslice //keep the timeslices which have at least one frame with its filename not in hiddenSources
+              timeslice
+              /* keep the timeslices which have at least one frame with its
+              filename not in hiddenSources */
             ) =>
               timeslice.stackFrames.some(
                 frame => !hiddenSources.includes(frame.fileName)
               )
             )
             .map(timeslice => ({
-              //and then remove those frames with a hiddensource
+              //and then remove those frames with a hiddenSource
               ...timeslice,
               stackFrames: timeslice.stackFrames.filter(
                 frame => !hiddenSources.includes(frame.fileName)
@@ -281,7 +283,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
     filteredDataStream.pipe(
       stream.subscribe(({ fullFilteredData }) => {
-        //re-render stats side bar
+        // re-render stats side bar
         d3.select("#stats").call(stats.render, {
           processedData: fullFilteredData
         });
@@ -490,12 +492,12 @@ ipcRenderer.on("result", async (event, resultFile) => {
                       .reverse()
                       .join(FUNCTION_NAME_SEPARATOR)
                   : stackFrames[0].symName,
-              document.getElementById("confidence-level-input").value // TODO: modify this value via UI
+              document.getElementById("confidence-level-input").value
             );
 
-            // Compute a cumulative moving average for processing time so we can
-            // debounce processing if it is slow
-            // https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
+            /* Compute a cumulative moving average for processing time so we can
+            debounce processing if it is slow
+            https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average */
             const timeTaken = performance.now() - startTime;
             averageProcessingTime =
               (timeTaken + numProcessingTimeSamples * averageProcessingTime) /

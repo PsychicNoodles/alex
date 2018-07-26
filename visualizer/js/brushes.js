@@ -48,11 +48,11 @@ function render(root) {
     selectionSubscription,
     ({ selections, nextSelectionId }) => {
       const brushSelection = root.selectAll("g.brush").data(
-        // Insert an invisible brush before all others (so it is at the bottom of
-        // the stack and doesn't steal mouse clicks from existing brushes)
+        /* Insert an invisible brush before all others (so it is at the bottom
+        of the stack and doesn't steal mouse clicks from existing brushes) */
         [{ id: nextSelectionId, range: [0, 0] }, ...selections],
-        // We need to use a key because we want to create a new element for each
-        // new invisible selection
+        /* We need to use a key because we want to create a new element for each
+        new invisible selection */
         selection => selection.id
       );
 
