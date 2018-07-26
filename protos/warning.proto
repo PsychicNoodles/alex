@@ -17,7 +17,7 @@ message SampleId {
   uint32 pid = 1;
   uint32 tid = 2;
   uint64 time = 3;
-  uint64 streamId = 4;
+  uint64 stream_id = 4;
   uint64 id = 5;
 }
 
@@ -28,9 +28,9 @@ message Throttle {
   // the new period
   uint64 period = 3;
   // optional
-  SampleId sampleId = 4;
+  SampleId sample_id = 4;
   // duplicate of field in sampleId if it's set
-  uint64 streamId = 5;
+  uint64 stream_id = 5;
   // duplicate of field in sampleId if it's set
   uint64 id = 6;
 
@@ -43,7 +43,7 @@ message Throttle {
 message Lost {
   uint64 lost = 1;
   // optional
-  SampleId sampleId = 2;
+  SampleId sample_id = 2;
   // duplicate of field in sampleId if it's set
   uint64 id = 3;
 }

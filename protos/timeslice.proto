@@ -5,26 +5,26 @@ package alex;
 
 message Timeslice {
   // high precision CPU timer when sample was taken
-  uint64 cpuTime = 1;
+  uint64 cpu_time = 1;
   // number of times CPU timer ticked since last sample
-  uint64 numCPUTimerTicks = 2;
+  uint64 num_CPU_timer_ticks = 2;
   uint32 pid = 3;
   uint32 tid = 4;
   // map of event names and counter values
   map<string, uint64> events = 5;
-  repeated StackFrame stackFrames = 6;
+  repeated StackFrame stack_frames = 6;
 }
 
 message StackFrame {
   Section section = 1;
   string symbol = 2;
-  string fileName = 3;
+  string file_name = 3;
   // base address of file, upgrades to 64-bit address
-  uint64 fileBase = 4;
+  uint64 file_base = 4;
   // line number, optional
   uint64 line = 5;
   // full (absolute) path of the file, optional
-  string fullLocation = 6;
+  string full_location = 6;
 
   enum Section {
     HYPERVISOR = 0;
