@@ -2,11 +2,6 @@ const d3 = require("d3");
 
 const { Store } = require("./store");
 
-// the author of this library seem to quite get how module.exports works
-require("bootstrap-colorpicker");
-// necessary evil of also requiring jquery to set handlers for its events
-const $ = require("jquery");
-
 const highlightedWarningsSubscription = d3.local();
 const highlightedWarningsStore = new Store([]);
 
@@ -80,20 +75,6 @@ function render(root, { warningCounts, warningRecords }) {
     .append("span")
     .attr("class", "input-group-addon")
     .append("i");
-
-  dropdownItemsEnterSelection.each((d, i, g) => {
-    if (i > 0) {
-      // skip the "All Warning Types" item
-      $(g[i])
-        .colorpicker({
-          color: DEFAULT_WARNING_COLOR,
-          input: ".select__color-picker"
-        })
-        .on("changeColor", e => {
-          d3.selectAll(`.warning-lines__type-${i}`).style("stroke", e.color);
-        });
-    }
-  });
 
   /* set up store subscription to update the warning list so that other parts
   can be notified and update as well */

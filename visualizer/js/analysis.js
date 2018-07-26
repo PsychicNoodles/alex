@@ -67,7 +67,6 @@ function analyze(timeSlices, getFunctionName, threshold) {
           otherUnselectedCount
         );
 
-      console.log(`${cur.probability} and ${threshold}`);
       if (cur.probability >= threshold && cur.observed >= cur.expected) {
         cur.conclusion = "Unusually prevalent";
       } else if (cur.probability >= threshold && cur.observed < cur.expected) {

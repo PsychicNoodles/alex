@@ -174,7 +174,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
     const charts = [
       {
         presetsRequired: ["cache"],
-        id: "l3CacheMissRate",
         yAxisLabelText: "L3 Cache Miss Rate",
         yFormat: d3.format(".0%"),
         getDependentVariable: d =>
@@ -185,7 +184,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["cpu"],
-        id: "instructionsPerCycle",
         yAxisLabelText: "Instructions Per Cycle",
         yFormat: d3.format(".3"),
         getDependentVariable: d =>
@@ -195,7 +193,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
-        id: "overallPower",
         yAxisLabelText: "Overall Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodOverall"] || 0,
@@ -203,7 +200,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
-        id: "cpuPower",
         yAxisLabelText: "CPU Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodCpu"] || 0,
@@ -211,7 +207,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
-        id: "memoryPower",
         yAxisLabelText: "Memory Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodMemory"] || 0,
@@ -219,7 +214,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["wattsup"],
-        id: "wattsupPower",
         yAxisLabelText: "Wattsup Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup),
@@ -313,18 +307,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
     );
 
     stream
-      .fromStreamables([
-        currentYScalesStore.stream,
-        chartsSelect.hiddenChartsStore.stream,
-        filteredDataStream
-      ])
+      .fromStreamables([currentYScalesStore.stream, filteredDataStream])
       .pipe(
         stream.subscribe(
-          ([
-            currentYScales,
-            hiddenCharts,
-            { fullFilteredData, sourceFilteredData }
-          ]) => {
+          ([currentYScales, { fullFilteredData, sourceFilteredData }]) => {
             const chartsWithPlotData = chartsWithYScales
               .map(chartParams => {
                 const {
@@ -356,9 +342,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
               })
               .filter(chartParams => chartParams.plotData.length > 0);
 
-            const visibleCharts = chartsWithPlotData.filter(
-              chart => !hiddenCharts.includes(chart.id)
-            );
+            const visibleCharts = chartsWithPlotData;
 
             const chartsDataSelection = d3
               .select("#charts")
@@ -414,6 +398,17 @@ ipcRenderer.on("result", async (event, resultFile) => {
           }
         )
       );
+
+    chartsSelect.hiddenChartsStore.stream.pipe(
+      stream.subscribe(hiddenCharts => {
+        d3.selectAll(".chart").classed("chart--hidden", false);
+        for (const yAxisLabelText of hiddenCharts) {
+          document
+            .getElementById(yAxisLabelText)
+            .classList.add("chart--hidden");
+        }
+      })
+    );
 
     const currentSelectedFunctionStore = new Store(null);
 
