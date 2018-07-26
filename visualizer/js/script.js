@@ -174,7 +174,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     const charts = [
       {
         presetsRequired: ["cache"],
-        yAxisLabelText: "Cache Miss Rate",
+        yAxisLabelText: "L3 Cache Miss Rate",
         yFormat: d3.format(".0%"),
         getDependentVariable: d =>
           getEventCount(d, presets.cache.misses) /
