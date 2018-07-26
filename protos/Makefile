@@ -2,8 +2,8 @@ SOURCES := header.proto timeslice.proto warning.proto
 CPP_OUT := ../collector/protos
 CPP_CMD := --cpp_out=$(CPP_OUT)
 JS_OUT := ../visualizer/js/protos
-JS_CMD := --js_out=import_style=$(JS_STYLE),binary:$(JS_OUT)
 JS_STYLE := commonjs
+JS_CMD := --js_out=import_style=$(JS_STYLE),binary:$(JS_OUT)
 
 .PHONY: all build cpp js clean
 
