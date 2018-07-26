@@ -3,10 +3,12 @@ syntax = "proto3";
 package alex;
 
 message Warning {
+  // optional
+  SampleId sample_id = 1;
   // "polymorphism", a warning is one of these types
   oneof warning {
-    Throttle throttle = 1;
-    Lost lost = 2;
+    Throttle throttle = 2;
+    Lost lost = 3;
   }
 }
 
@@ -26,12 +28,10 @@ message Throttle {
   uint64 time = 2;
   // the new period
   uint64 period = 3;
-  // optional
-  SampleId sample_id = 4;
   // duplicate of field in sampleId if it's set
-  uint64 stream_id = 5;
+  uint64 stream_id = 4;
   // duplicate of field in sampleId if it's set
-  uint64 id = 6;
+  uint64 id = 5;
 
   enum Type {
     THROTTLE = 0;
@@ -41,8 +41,6 @@ message Throttle {
 
 message Lost {
   uint64 lost = 1;
-  // optional
-  SampleId sample_id = 2;
   // duplicate of field in sampleId if it's set
-  uint64 id = 3;
+  uint64 id = 2;
 }
