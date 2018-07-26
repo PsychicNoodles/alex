@@ -11,7 +11,7 @@ CFLAGS := -DVERSION=\"$(GIT_VERSION)\" -I../../include --std=c++11 -DDEBUG_FNAME
 COLLECTOR_SOURCES := collector.cpp perf_reader.cpp const.cpp util.cpp debug.cpp perf_sampler.cpp clone.cpp rapl.cpp wattsup.cpp bg_readings.cpp ancillary.cpp find_events.cpp shared.cpp sockets.cpp inspect.cpp
 EVENT_SOURCES := list-presets.cpp debug.cpp wattsup.cpp rapl.cpp perf_sampler.cpp util.cpp shared.cpp find_events.cpp
 
-LDFLAGS := $(shell pkg-config --cflags --libs libelf++ libdwarf++)
+LDFLAGS := $(shell pkg-config --cflags --libs libelf++ libdwarf++) $(shell pkg-config --cflags --libs protobuf)
 COLLECTOR_LDFLAGS := $(LDFLAGS) -ldl -lpfm -pthread
 EVENT_LDFLAGS := $(LDFLAGS) -lpfm
 
