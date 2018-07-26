@@ -18,6 +18,11 @@ process.on("unhandledRejection", err => {
   throw err;
 });
 
+const dateString = new Date()
+  .toISOString()
+  .replace(/:/g, "-")
+  .replace(/\.\d{3}/, "");
+
 yargs
   .command(
     "list",
@@ -53,18 +58,15 @@ yargs
         .describe("in", "The file to pipe into the stdin of <executable>.")
         .option("out", {
           description: "The file to pipe the stdout of <executable> into.",
-          default: path.join(__dirname, `/out-${new Date().toISOString()}.log`)
+          default: path.join(__dirname, `/out-${dateString}.log`)
         })
         .option("err", {
           description: "The file to pipe the stderr of <executable> into.",
-          default: path.join(__dirname, `/err-${new Date().toISOString()}.log`)
+          default: path.join(__dirname, `/err-${dateString}.log`)
         })
         .option("result", {
           description: "The file to pipe the performance results into.",
-          default: path.join(
-            __dirname,
-            `/result-${new Date().toISOString()}.json`
-          )
+          default: path.join(__dirname, `/result-${dateString}.json`)
         })
         .option("visualize", {
           description: "Where to visualize the results.",
