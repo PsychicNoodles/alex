@@ -342,12 +342,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
               })
               .filter(chartParams => chartParams.plotData.length > 0);
 
-            const visibleCharts = chartsWithPlotData;
-
             const chartsDataSelection = d3
               .select("#charts")
               .selectAll("div")
-              .data(visibleCharts);
+              .data(chartsWithPlotData);
 
             chartsDataSelection
               .enter()
@@ -386,14 +384,15 @@ ipcRenderer.on("result", async (event, resultFile) => {
                         .domain(newDomain)
                         .range(yScale.range())
                     }));
-                  }
+                  },
+                  processedData
                 });
               });
 
             chartsDataSelection.exit().remove();
 
             d3.select("#charts-select").call(chartsSelect.render, {
-              visibleCharts
+              chartsWithPlotData
             });
           }
         )
