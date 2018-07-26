@@ -2,16 +2,19 @@
  * Run analyses of data.
  * Fisher's exact test null hypothesis: the given function and other functions
  * are equally likely to be in the selection region.
- * @param timeSlices All the data.
- * @param {(stackFrames: Array) => string} getFunctionName
+ * @param {Object} params
+ * @param {any[]} params.timeSlices All timeslices to include in the analysis.
+ * @param {(timeslice: any) => boolean} params.isSelected
+ *    Check if a timeslice is selected.
+ * @param {(timeslice: any) => string} params.getFunctionName
  *    Get a unique name for a function. All timeslices that resolve to the same
  *    function name will be grouped together.
- * @param threshold
+ * @param {number} params.threshold
  *    A probability -- any value above this will be considered significant
  *    enough to be highlighted in analysis.
  * @returns Results of the analysis.
  */
-function analyze(timeSlices, getFunctionName, threshold) {
+function analyze({ timeSlices, isSelected, getFunctionName, threshold }) {
   if (!(threshold >= 0) || !(threshold <= 100)) {
     return;
   }
@@ -25,7 +28,7 @@ function analyze(timeSlices, getFunctionName, threshold) {
   performance.mark("functions map build start");
   const functionsMap = new Map();
   for (const timeSlice of timeSlices) {
-    const functionName = getFunctionName(timeSlice.stackFrames);
+    const functionName = getFunctionName(timeSlice);
     if (!functionsMap.has(functionName)) {
       functionsMap.set(functionName, {
         name: functionName,
@@ -39,7 +42,7 @@ function analyze(timeSlices, getFunctionName, threshold) {
     }
 
     const functionEntry = functionsMap.get(functionName);
-    if (timeSlice.selected) {
+    if (isSelected(timeSlice)) {
       outputData.selectedTotal++;
       functionEntry.time += timeSlice.numCPUTimerTicks;
       functionEntry.observed++;

@@ -460,39 +460,60 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
             const startTime = performance.now();
             performance.mark("analysis start");
-            const { functions } = analyze(
-              processedData
-                .map(timeslice => {
-                  const x = xScale(getIndependentVariable(timeslice));
-                  return {
-                    ...timeslice,
-                    selected:
-                      selections.length === 0 ||
-                      selections.some(
-                        ({ range }) => range[0] <= x && x <= range[1]
-                      ),
-                    stackFrames: timeslice.stackFrames.filter(
-                      frame => !hiddenSources.includes(frame.fileName)
-                    )
-                  };
-                })
-                .filter(timeslice => timeslice.stackFrames.length)
+            const { functions } = analyze({
+              timeSlices: processedData
                 .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
+                .filter(timeslice =>
+                  timeslice.stackFrames.some(
+                    frame => !hiddenSources.includes(frame.fileName)
+                  )
+                )
                 .filter(
                   timeslice =>
                     selectedFunction
                       ? timeslice.stackFrames[0].symName === selectedFunction
                       : true
                 ),
-              stackFrames =>
-                selectedFunction
-                  ? stackFrames
-                      .map(frame => frame.symName)
-                      .reverse()
-                      .join(FUNCTION_NAME_SEPARATOR)
-                  : stackFrames[0].symName,
-              document.getElementById("confidence-level-input").value // TODO: modify this value via UI
-            );
+              isSelected:
+                selections.length === 0
+                  ? () => true
+                  : timeslice => {
+                      const x = xScale(getIndependentVariable(timeslice));
+                      for (const { range } of selections) {
+                        if (range[0] <= x && x <= range[1]) {
+                          return true;
+                        }
+                      }
+                      return false;
+                    },
+              getFunctionName: selectedFunction
+                ? timeslice => {
+                    let name = "";
+                    for (
+                      let i = timeslice.stackFrames.length - 1;
+                      i >= 0;
+                      i--
+                    ) {
+                      const frame = timeslice.stackFrames[i];
+                      if (!hiddenSources.includes(frame.fileName)) {
+                        name += frame.symName;
+                      }
+                      if (i !== 0) {
+                        name += FUNCTION_NAME_SEPARATOR;
+                      }
+                    }
+
+                    return name;
+                  }
+                : timeslice => {
+                    for (const frame of timeslice.stackFrames) {
+                      if (!hiddenSources.includes(frame.fileName)) {
+                        return frame.symName;
+                      }
+                    }
+                  },
+              threshold: document.getElementById("confidence-level-input").value // TODO: modify this value via UI
+            });
             performance.mark("analysis end");
             performance.measure("analysis", "analysis start", "analysis end");
 
