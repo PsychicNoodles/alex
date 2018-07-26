@@ -63,7 +63,7 @@ yargs
           description: "The file to pipe the performance results into.",
           default: path.join(
             __dirname,
-            `/result-${new Date().toISOString()}.json`
+            `/result-${new Date().toISOString()}.bin`
           )
         })
         .option("visualize", {
