@@ -174,7 +174,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     const charts = [
       {
         presetsRequired: ["cache"],
-        yAxisLabelText: "Cache Miss Rate",
+        yAxisLabelText: "L3 Cache Miss Rate",
         yFormat: d3.format(".0%"),
         getDependentVariable: d =>
           getEventCount(d, presets.cache.misses) /
@@ -193,6 +193,13 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
+        yAxisLabelText: "Overall Power",
+        yFormat: d3.format(".2s"),
+        getDependentVariable: d => d.events["periodOverall"] || 0,
+        flattenThreads: true
+      },
+      {
+        presetsRequired: ["rapl"],
         yAxisLabelText: "CPU Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodCpu"] || 0,
@@ -203,13 +210,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
         yAxisLabelText: "Memory Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodMemory"] || 0,
-        flattenThreads: true
-      },
-      {
-        presetsRequired: ["rapl"],
-        yAxisLabelText: "Overall Power",
-        yFormat: d3.format(".2s"),
-        getDependentVariable: d => d.events["periodOverall"] || 0,
         flattenThreads: true
       },
       {
@@ -255,14 +255,16 @@ ipcRenderer.on("result", async (event, resultFile) => {
           //first filter with source selection!
           const sourceFilteredData = processedData
             .filter((
-              timeslice //keep the timeslices which have at least one frame with its filename not in hiddenSources
+              timeslice
+              /* keep the timeslices which have at least one frame with its
+              filename not in hiddenSources */
             ) =>
               timeslice.stackFrames.some(
                 frame => !hiddenSources.includes(frame.fileName)
               )
             )
             .map(timeslice => ({
-              //and then remove those frames with a hiddensource
+              //and then remove those frames with a hiddenSource
               ...timeslice,
               stackFrames: timeslice.stackFrames.filter(
                 frame => !hiddenSources.includes(frame.fileName)
@@ -281,7 +283,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
     filteredDataStream.pipe(
       stream.subscribe(({ fullFilteredData }) => {
-        //re-render stats side bar
+        // re-render stats side bar
         d3.select("#stats").call(stats.render, {
           processedData: fullFilteredData
         });
@@ -305,60 +307,47 @@ ipcRenderer.on("result", async (event, resultFile) => {
     );
 
     stream
-      .fromStreamables([
-        currentYScalesStore.stream,
-        chartsSelect.hiddenChartsStore.stream,
-        filteredDataStream
-      ])
+      .fromStreamables([currentYScalesStore.stream, filteredDataStream])
       .pipe(
         stream.subscribe(
-          ([
-            currentYScales,
-            hiddenCharts,
-            { fullFilteredData, sourceFilteredData }
-          ]) => {
-            const visibleCharts = chartsWithYScales
-              .filter(chart => !hiddenCharts.includes(chart))
+          ([currentYScales, { fullFilteredData, sourceFilteredData }]) => {
+            const chartsWithPlotData = chartsWithYScales
               .map(chartParams => {
-                const { flattenThreads } = chartParams;
+                const {
+                  yAxisLabelText,
+                  getDependentVariable,
+                  flattenThreads
+                } = chartParams;
+
                 const filteredData = flattenThreads
                   ? sourceFilteredData
                   : fullFilteredData;
+
+                const plotData = computeRenderableData({
+                  data: filteredData,
+                  xScale,
+                  yScale: currentYScales[yAxisLabelText],
+                  getIndependentVariable,
+                  getDependentVariable
+                });
+
+                const densityMaxLocal =
+                  Math.max(d3.max(plotData, d => d.densityAvg), 5) || 0;
+
                 return {
                   ...chartParams,
-                  filteredData
+                  densityMaxLocal,
+                  plotData
                 };
-              });
+              })
+              .filter(chartParams => chartParams.plotData.length > 0);
 
-            const chartsWithPlotData = visibleCharts.map(chartParams => {
-              const {
-                yAxisLabelText,
-                getDependentVariable,
-                filteredData
-              } = chartParams;
-
-              const plotData = computeRenderableData({
-                data: filteredData,
-                xScale,
-                yScale: currentYScales[yAxisLabelText],
-                getIndependentVariable,
-                getDependentVariable
-              });
-
-              const densityMaxLocal =
-                Math.max(d3.max(plotData, d => d.densityAvg), 5) || 0;
-
-              return {
-                ...chartParams,
-                densityMaxLocal,
-                plotData
-              };
-            });
+            const visibleCharts = chartsWithPlotData;
 
             const chartsDataSelection = d3
               .select("#charts")
               .selectAll("div")
-              .data(chartsWithPlotData);
+              .data(visibleCharts);
 
             chartsDataSelection
               .enter()
@@ -404,11 +393,22 @@ ipcRenderer.on("result", async (event, resultFile) => {
             chartsDataSelection.exit().remove();
 
             d3.select("#charts-select").call(chartsSelect.render, {
-              chartsWithYScales
+              visibleCharts
             });
           }
         )
       );
+
+    chartsSelect.hiddenChartsStore.stream.pipe(
+      stream.subscribe(hiddenCharts => {
+        d3.selectAll(".chart").classed("chart--hidden", false);
+        for (const yAxisLabelText of hiddenCharts) {
+          document
+            .getElementById(yAxisLabelText)
+            .classList.add("chart--hidden");
+        }
+      })
+    );
 
     const currentSelectedFunctionStore = new Store(null);
 
@@ -490,12 +490,12 @@ ipcRenderer.on("result", async (event, resultFile) => {
                       .reverse()
                       .join(FUNCTION_NAME_SEPARATOR)
                   : stackFrames[0].symName,
-              document.getElementById("confidence-level-input").value // TODO: modify this value via UI
+              document.getElementById("confidence-level-input").value
             );
 
-            // Compute a cumulative moving average for processing time so we can
-            // debounce processing if it is slow
-            // https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
+            /* Compute a cumulative moving average for processing time so we can
+            debounce processing if it is slow
+            https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average */
             const timeTaken = performance.now() - startTime;
             averageProcessingTime =
               (timeTaken + numProcessingTimeSamples * averageProcessingTime) /

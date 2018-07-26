@@ -121,7 +121,8 @@ function render(root, { warnings, cpuTimeOffset }) {
     }
   });
 
-  // option elements don't actually get the change event, their parent select does
+  /* option elements don't actually get the change event, their parent select
+  does */
   timestampUnitsSelect.on("change", function() {
     const opt = this.selectedOptions[0];
     timestampDivisorStore.dispatch(() => opt.value);

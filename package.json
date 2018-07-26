@@ -21,8 +21,6 @@
   "license": "UNLICENSED",
   "dependencies": {
     "ajv": "^6.5.2",
-    "bootstrap-colorpicker": "^2.5.3",
-    "chi-squared": "^1.1.0",
     "d3": "^5.5.0",
     "d3-svg-legend": "^2.25.6",
     "electron": "^2.0.5",
@@ -33,7 +31,7 @@
     "pretty-ms": "^3.2.0",
     "progress": "^2.0.0",
     "progress-stream": "^2.0.0",
-    "stream-json": "^1.1.0",
+    "stream-json": "^1.1.1",
     "tempfile": "^2.0.0",
     "yargs": "^12.0.1"
   },

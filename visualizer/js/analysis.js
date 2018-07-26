@@ -67,7 +67,6 @@ function analyze(timeSlices, getFunctionName, threshold) {
           otherUnselectedCount
         );
 
-      console.log(`${cur.probability} and ${threshold}`);
       if (cur.probability >= threshold && cur.observed >= cur.expected) {
         cur.conclusion = "Unusually prevalent";
       } else if (cur.probability >= threshold && cur.observed < cur.expected) {
@@ -107,17 +106,19 @@ function analyze(timeSlices, getFunctionName, threshold) {
  * factors from the numerator and denominator, and alternates between division
  * and multiplication to prevent overflowing or underflowing.
  *
- * The wikipedia page for Fisher's Exact Test shows the following expanded form:
- *   p = (a+b)! * (c+d)! * (a+c)! * (b+d)! / (a! * b! * c! * d! * (a + b + c + d)!)
- * However, additional cancellation is possible. The first factor in the numerator
- * shares the sub-product of b! with the b! term in the denominator. Each numerator
- * term can cancel one of the factorial terms in the denominator, leaving:
- *   p = product(1+b to a+b) * product(c+1 to c+d)h * product(a+1 to a+c) * product(1+d to b+d) / (a + b + c + d)!
- *
- * The loop in this function performs a multiplication step in one of the five terms
- * of this simplified expression. If the running tally is above 1, it favors the
- * denominator term.
- */
+ * The Wikipedia page for Fisher's exact test shows the following expanded form:
+ *   p = (a+b)! * (c+d)! * (a+c)! * (b+d)! /
+ *       (a! * b! * c! * d! * (a + b + c + d)!)
+ * However, additional cancellation is possible. The first factor in the
+ * numerator shares the sub-product of b! with the b! term in the denominator.
+ * Each numerator term can cancel one of the factorial terms in the denominator,
+ * leaving:
+ *   p = product(1+b to a+b) * product(c+1 to c+d)h * product(a+1 to a+c) *
+ *       product(1+d to b+d) / (a + b + c + d)!
+ * The loop in this function performs a multiplication step in one of the five
+ * terms of this simplified expression. If the running tally is above 1, it
+ * favors the denominator term. */
+
 function fast_exact_test(a, b, c, d) {
   let a_plus_b_fact_pos = b + 1;
   let c_plus_d_fact_pos = c + 1;
