@@ -16,9 +16,13 @@ message Timeslice {
 
 message StackFrame {
   Section section = 1;
+  // function symbol, optional
   string symbol = 2;
+  // the name of the file based on the shared objects
+  // optional, only set if section is not kernel or guest kernel
   string file_name = 3;
   // base address of file, upgrades to 64-bit address
+  // optional, only set if section is not kernel or guest kernel
   uint64 file_base = 4;
   // line number, optional
   uint64 line = 5;
