@@ -195,6 +195,14 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
+        id: "overallPower",
+        yAxisLabelText: "Overall Power",
+        yFormat: d3.format(".2s"),
+        getDependentVariable: d => d.events["periodOverall"] || 0,
+        flattenThreads: true
+      },
+      {
+        presetsRequired: ["rapl"],
         id: "cpuPower",
         yAxisLabelText: "CPU Power",
         yFormat: d3.format(".2s"),
@@ -207,14 +215,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
         yAxisLabelText: "Memory Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodMemory"] || 0,
-        flattenThreads: true
-      },
-      {
-        presetsRequired: ["rapl"],
-        id: "overallPower",
-        yAxisLabelText: "Overall Power",
-        yFormat: d3.format(".2s"),
-        getDependentVariable: d => d.events["periodOverall"] || 0,
         flattenThreads: true
       },
       {
