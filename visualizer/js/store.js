@@ -27,7 +27,8 @@ class Store {
    * subscribed and immediately after state is changed with dispatch.
    *
    * @param onStateChange Callback to be passed the value of the state.
-   * @return A subscription object with an unsubscribe method to remove the listener.
+   * @return A subscription object with an unsubscribe method to remove the
+   *         listener.
    */
   subscribe(onStateChange) {
     return {
@@ -42,8 +43,10 @@ class Store {
    * same propertyName, the old subscription will be unsubscribed so that only
    * one subscription is ever present.
    *
-   * @param selection A d3 selection of a single element where the subscription will be attached.
-   * @param propertyName A string or object with toString where the subscription will be stored.
+   * @param selection A d3 selection of a single element where the subscription
+   *                  will be attached.
+   * @param propertyName A string or object with toString where the subscription
+   *                     will be stored.
    * @param onStateChange The callback to be passed to Store.subscribe.
    */
   subscribeUnique(selection, propertyName, onStateChange) {
