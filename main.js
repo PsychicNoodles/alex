@@ -18,11 +18,6 @@ process.on("unhandledRejection", err => {
   throw err;
 });
 
-const dateString = new Date()
-  .toISOString()
-  .replace(/:/g, "-")
-  .replace(/\.\d{3}/, "");
-
 yargs
   .command(
     "list",
@@ -58,15 +53,15 @@ yargs
         .describe("in", "The file to pipe into the stdin of <executable>.")
         .option("out", {
           description: "The file to pipe the stdout of <executable> into.",
-          default: path.join(__dirname, `/out-${dateString}.log`)
+          default: "out-$timestamp.log"
         })
         .option("err", {
           description: "The file to pipe the stderr of <executable> into.",
-          default: path.join(__dirname, `/err-${dateString}.log`)
+          default: "err-$timestamp.log"
         })
         .option("result", {
           description: "The file to pipe the performance results into.",
-          default: path.join(__dirname, `/result-${dateString}.json`)
+          default: "result-$timestamp.json"
         })
         .option("visualize", {
           description: "Where to visualize the results.",
@@ -87,12 +82,22 @@ yargs
           "$0 collect --in my-input-file.in -p cache -- ./my-program --arg1 arg2"
         ),
     argv => {
+      const timestampString = new Date()
+        .toISOString()
+        .replace(/:/g, "-")
+        .replace(/\.\d{3}/, "");
+      const normalizeFileName = fileName =>
+        path.resolve(
+          process.cwd(),
+          fileName.replace("$timestamp", timestampString)
+        );
+
       collect({
         ...argv,
-        inFile: argv.in,
-        outFile: argv.out,
-        errFile: argv.err,
-        resultOption: argv.result,
+        inFile: path.resolve(process.cwd(), argv.in),
+        outFile: normalizeFileName(argv.out),
+        errFile: normalizeFileName(argv.err),
+        resultOption: normalizeFileName(argv.result),
         events: argv.events || [],
         visualizeOption: argv.visualize,
         // Manually parse this out, since positional args can't handle "--xxx" args
