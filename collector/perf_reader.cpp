@@ -562,10 +562,7 @@ bool process_sample_record(
     stack_frame->set_section(callchain_enum(callchain_section));
 
     string sym_name_str;
-    const char *sym_name = nullptr, *file_name = nullptr,
-               *function_name = nullptr;
-    char *demangled_name = nullptr;
-    void *file_base = nullptr;
+    const char *sym_name = nullptr;
     DEBUG("looking up symbol for inst ptr " << ptr_fmt((void *)inst_ptr));
     if (callchain_section == PERF_CONTEXT_USER) {
       DEBUG("looking up user stack frame");
@@ -573,8 +570,8 @@ bool process_sample_record(
       // Lookup the name of the function given the function
       // pointer
       if (dladdr(reinterpret_cast<void *>(inst_ptr), &info) != 0) {
-        file_name = info.dli_fname;
-        file_base = info.dli_fbase;
+        stack_frame->set_file_name(info.dli_fname);
+        stack_frame->set_file_base(reinterpret_cast<uint64_t>(info.dli_fbase));
       } else {
         DEBUG("could not look up user stack frame");
       }
@@ -585,8 +582,6 @@ bool process_sample_record(
         const auto &ks = kernel_syms.at(addr);
         sym_name_str = ks.sym;
         sym_name = sym_name_str.c_str();
-        file_name = "(kernel)";
-        file_base = nullptr;
       }
     }
 
@@ -635,12 +630,13 @@ bool process_sample_record(
     if (sym_name != nullptr) {
       DEBUG("demangling symbol name");
       int demangle_status;
-      demangled_name =
+      char *demangled_name =
           abi::__cxa_demangle(sym_name, nullptr, nullptr, &demangle_status);
       if (demangle_status == 0) {
-        function_name = demangled_name;
+        stack_frame->set_symbol(demangled_name);
+        free(demangled_name);  // NOLINT
       } else {
-        function_name = sym_name;
+        stack_frame->set_symbol(sym_name);
 
         if (demangle_status == -1) {
           PARENT_SHUTDOWN_MSG(INTERNAL_ERROR,
@@ -653,13 +649,6 @@ bool process_sample_record(
         }
       }
     }
-
-    stack_frame->set_symbol(function_name);
-    stack_frame->set_file_name(file_name);
-    stack_frame->set_file_base(reinterpret_cast<uint64_t>(file_base));
-
-    free(demangled_name);  // NOLINT
-    // Get space for line
 
     if (line != -1) {
       stack_frame->set_line(line);
