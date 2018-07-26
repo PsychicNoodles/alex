@@ -25,9 +25,9 @@ using execvp_fn_t = int (*)(const char *, char *const *);
 
 using execv_fn_t = int (*)(const char *, char *const *);
 using execvpe_fn_t = int (*)(const char *, char *const *, char *const *);
-// using exit_fn_t = void (*)(int);
-// using _Exit_fn_t = void (*)(int);
-// using _exit_fn_t = void (*)(int);
+using exit_fn_t = void (*)(int);
+using _Exit_fn_t = void (*)(int);
+using _exit_fn_t = void (*)(int);
 
 extern pthread_create_fn_t real_pthread_create;
 extern fork_fn_t real_fork;
@@ -35,9 +35,9 @@ extern execve_fn_t real_execve;
 extern execvp_fn_t real_execvp;
 extern execv_fn_t real_execv;
 extern execvpe_fn_t real_execvpe;
-// extern exit_fn_t real_exit;
-// extern _exit_fn_t real__exit;
-// extern _Exit_fn_t real__Exit;
+extern exit_fn_t real_exit;
+extern _exit_fn_t real__exit;
+extern _Exit_fn_t real__Exit;
 
 namespace alex {
 
