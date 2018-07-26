@@ -30,6 +30,7 @@ function render(
   }
 ) {
   root.classed("chart", true);
+  root.attr("id", yAxisLabelText);
 
   const svg = root.select("svg.chart__svg").empty()
     ? root
