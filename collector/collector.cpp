@@ -31,6 +31,8 @@ namespace alex {
 using std::ifstream;
 using std::istringstream;
 using std::map;
+using std::ofstream;
+using std::ostringstream;
 using std::string;
 using std::unordered_set;
 
@@ -157,8 +159,9 @@ int setup_sigterm_handler() {
   // closed by mmap_loader constructor
   int fd = open(const_cast<char *>(file), O_RDONLY);
   if (fd < 0) {
-    SHUTDOWN_PERROR(global->subject_pid, nullptr, DEBUG_SYMBOLS_FILE_ERROR,
-                    "cannot open executable (" << file << ")");
+    ostringstream s;
+    s << "cannot open executable (" << file << "): " << strerror(errno);
+    shutdown(global->subject_pid, DEBUG_SYMBOLS_FILE_ERROR, s.str());
   }
 
   ::elf::elf ef(elf::create_mmap_loader(fd));
@@ -243,11 +246,11 @@ static int collector_main(int argc, char **argv, char **env) {
 
     string env_res = getenv_safe("COLLECTOR_RESULT_FILE", "result.txt");
     DEBUG("result file " << env_res);
-    auto result_file = fopen(env_res.c_str(), "w");
+    ofstream result_file(env_res);
 
     close(sockets[1]);
 
-    if (result_file == nullptr) {
+    if (result_file.fail()) {
       SHUTDOWN_PERROR(subject_pid, result_file, INTERNAL_ERROR,
                       "couldn't open result file");
     }
@@ -266,8 +269,8 @@ static int collector_main(int argc, char **argv, char **env) {
 
     DEBUG("setting up collector");
     bg_reading rapl_reading{nullptr}, wattsup_reading{nullptr};
-    setup_collect_perf_data(sigterm_fd, sockets[0], wu_fd, result_file, argv[0],
-                            &rapl_reading, &wattsup_reading);
+    setup_collect_perf_data(sigterm_fd, sockets[0], wu_fd, &result_file,
+                            argv[0], &rapl_reading, &wattsup_reading);
 
     DEBUG("result file opened, sending ready (SIGUSR2) signal to child");
 
@@ -292,7 +295,7 @@ static int collector_main(int argc, char **argv, char **env) {
     if (wattsup_enabled && wu_fd != -1) {
       wu_shutdown(wu_fd);
     }
-    fclose(result_file);
+    result_file.close();
     close(sockets[0]);
   } else {
     exit(INTERNAL_ERROR);
