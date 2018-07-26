@@ -88,10 +88,12 @@ ipcRenderer.on("result", async (event, resultFile) => {
   const spectrum = d3.interpolateWarm;
   const sdRange = 3;
 
-  if (processedData.length === 0) {
+  if (processedData.length <= 10) {
     alert(
-      result.timeslices.length === 0
-        ? "No data in result file.  Perhaps the program terminated too quickly."
+      result.timeslices.length <= 10
+        ? result.timeslices.length === 0
+          ? "No data in result file.  Perhaps the program terminated too quickly."
+          : "Too little data in result file. Perhaps the program terminated too quickly."
         : "No usable data in result file."
     );
     window.close();
