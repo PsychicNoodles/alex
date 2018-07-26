@@ -431,6 +431,11 @@ async function collect({
             process.stdin,
             process.stdout
           );
+          // list();
+          // console.log("log")
+          // console.error("error")
+          visualize(resultFile);
+
           readline_interface.question(
             "Would you like to see a visualization of the results ([yes]/no)? ",
             answer => {
