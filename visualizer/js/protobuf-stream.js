@@ -75,6 +75,8 @@ function parser() {
         } catch (err) {
           callback(err);
         }
+      } else {
+        callback();
       }
     }
   );
