@@ -459,6 +459,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
             const FUNCTION_NAME_SEPARATOR = "//";
 
             const startTime = performance.now();
+            performance.mark("analysis start");
             const { functions } = analyze(
               processedData
                 .map(timeslice => {
@@ -492,6 +493,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
                   : stackFrames[0].symName,
               document.getElementById("confidence-level-input").value // TODO: modify this value via UI
             );
+            performance.mark("analysis end");
+            performance.measure("analysis", "analysis start", "analysis end");
 
             // Compute a cumulative moving average for processing time so we can
             // debounce processing if it is slow

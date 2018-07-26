@@ -22,6 +22,7 @@ function analyze(timeSlices, getFunctionName, threshold) {
     functions: []
   };
 
+  performance.mark("functions map build start");
   const functionsMap = new Map();
   for (const timeSlice of timeSlices) {
     const functionName = getFunctionName(timeSlice.stackFrames);
@@ -47,11 +48,18 @@ function analyze(timeSlices, getFunctionName, threshold) {
       functionEntry.unselectedCount++;
     }
   }
+  performance.mark("functions map build end");
+  performance.measure(
+    "functions map build",
+    "functions map build start",
+    "functions map build end"
+  );
 
   outputData.functions = [...functionsMap.values()];
 
+  performance.mark("functions analysis start");
   if (outputData.selectedTotal !== 0 && outputData.unselectedTotal !== 0) {
-    outputData.functions.forEach(cur => {
+    for (const cur of outputData.functions) {
       const curTotal = cur.observed + cur.unselectedCount;
       cur.expected = (curTotal * outputData.selectedTotal) / timeSlices.length;
 
@@ -60,7 +68,7 @@ function analyze(timeSlices, getFunctionName, threshold) {
         outputData.unselectedTotal - cur.unselectedCount;
       cur.probability =
         1 -
-        fast_exact_test(
+        fastExactTest(
           cur.observed,
           otherObserved,
           cur.unselectedCount,
@@ -84,9 +92,16 @@ function analyze(timeSlices, getFunctionName, threshold) {
           cur.expected
         )}, probability ${cur.probability}`
       ); */
-    });
+    }
   }
+  performance.mark("functions analysis end");
+  performance.measure(
+    "functions analysis",
+    "functions analysis start",
+    "functions analysis end"
+  );
 
+  performance.mark("functions sort start");
   outputData.functions.sort((a, b) => {
     const sort1 = b.probability - a.probability;
     const sort2 = b.observed - a.observed;
@@ -99,6 +114,13 @@ function analyze(timeSlices, getFunctionName, threshold) {
       return sort3;
     }
   });
+  performance.mark("functions sort end");
+  performance.measure(
+    "functions sort",
+    "functions sort start",
+    "functions sort end"
+  );
+
   return outputData;
 }
 
@@ -118,7 +140,7 @@ function analyze(timeSlices, getFunctionName, threshold) {
  * of this simplified expression. If the running tally is above 1, it favors the
  * denominator term.
  */
-function fast_exact_test(a, b, c, d) {
+function fastExactTest(a, b, c, d) {
   let a_plus_b_fact_pos = b + 1;
   let c_plus_d_fact_pos = c + 1;
   let a_plus_c_fact_pos = a + 1;
