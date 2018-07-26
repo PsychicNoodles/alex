@@ -2,7 +2,6 @@
 #include <dlfcn.h>
 #include <elf.h>
 #include <fcntl.h>
-#include <google/protobuf/arena.h>
 #include <link.h>
 #include <linux/perf_event.h>
 #include <linux/version.h>
@@ -47,7 +46,6 @@
 
 namespace alex {
 
-using google::protobuf::Arena;
 using std::make_pair;
 using std::make_tuple;
 using std::map;
@@ -124,9 +122,6 @@ union base_record {
 
 // output file for data collection results
 ofstream *result_file;
-
-// protobuf arena
-Arena arena;
 
 // map between cpu cycles fd (the only fd in a thread that is sampled) and its
 // related information/fds
