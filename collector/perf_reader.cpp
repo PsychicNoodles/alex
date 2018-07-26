@@ -151,7 +151,7 @@ FILE *get_result_file() { return result_file; }
 void add_fd_to_epoll(int fd) {
   DEBUG("adding " << fd << " to epoll " << sample_epfd);
   // only listen for read events in non-edge mode
-  epoll_event evt = {EPOLLIN, {.fd = fd}};
+  epoll_event evt = {EPOLLIN | EPOLLET, {.fd = fd}};
   if (epoll_ctl(sample_epfd, EPOLL_CTL_ADD, fd, &evt) == -1) {
     PARENT_SHUTDOWN_PERROR(INTERNAL_ERROR, "error adding perf fd " << fd);
   }
