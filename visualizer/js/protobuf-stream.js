@@ -64,7 +64,7 @@ function parser() {
       buf = reader.buf.slice(reader.pos);
       callback();
     },
-    callback => {
+    function(callback) {
       if (dataSize !== null) {
         // try reading last item, even though there's supposedly not enough data
         try {
