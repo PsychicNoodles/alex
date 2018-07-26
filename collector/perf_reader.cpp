@@ -655,6 +655,8 @@ bool process_sample_record(
     }
   }
 
+  timeslice_message.SerializeToOstream(result_file);
+
   return false;
 }
 
@@ -721,7 +723,7 @@ void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
       DEBUG("couldn't determine type of warning for " << record_type << "!");
     }
 
-    warning_message.SerializePartialToOstream(result_file);
+    warning_message.SerializeToOstream(result_file);
     warning_message.Clear();
   }
 }
