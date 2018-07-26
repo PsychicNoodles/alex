@@ -174,6 +174,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     const charts = [
       {
         presetsRequired: ["cache"],
+        id: "cacheMissRate",
         yAxisLabelText: "Cache Miss Rate",
         yFormat: d3.format(".0%"),
         getDependentVariable: d =>
@@ -184,6 +185,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["cpu"],
+        id: "instructionsPerCycle",
         yAxisLabelText: "Instructions Per Cycle",
         yFormat: d3.format(".3"),
         getDependentVariable: d =>
@@ -193,6 +195,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
+        id: "cpuPower",
         yAxisLabelText: "CPU Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodCpu"] || 0,
@@ -200,6 +203,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
+        id: "memoryPower",
         yAxisLabelText: "Memory Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodMemory"] || 0,
@@ -207,6 +211,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
+        id: "overallPower",
         yAxisLabelText: "Overall Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodOverall"] || 0,
@@ -214,6 +219,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["wattsup"],
+        id: "wattsupPower",
         yAxisLabelText: "Wattsup Power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup),
@@ -317,48 +323,45 @@ ipcRenderer.on("result", async (event, resultFile) => {
             hiddenCharts,
             { fullFilteredData, sourceFilteredData }
           ]) => {
-            const visibleCharts = chartsWithYScales
-              .filter(chart => !hiddenCharts.includes(chart))
+            const chartsWithPlotData = chartsWithYScales
               .map(chartParams => {
-                const { flattenThreads } = chartParams;
+                const {
+                  yAxisLabelText,
+                  getDependentVariable,
+                  flattenThreads
+                } = chartParams;
+
                 const filteredData = flattenThreads
                   ? sourceFilteredData
                   : fullFilteredData;
+
+                const plotData = computeRenderableData({
+                  data: filteredData,
+                  xScale,
+                  yScale: currentYScales[yAxisLabelText],
+                  getIndependentVariable,
+                  getDependentVariable
+                });
+
+                const densityMaxLocal =
+                  Math.max(d3.max(plotData, d => d.densityAvg), 5) || 0;
+
                 return {
                   ...chartParams,
-                  filteredData
+                  densityMaxLocal,
+                  plotData
                 };
-              });
+              })
+              .filter(chartParams => chartParams.plotData.length > 0);
 
-            const chartsWithPlotData = visibleCharts.map(chartParams => {
-              const {
-                yAxisLabelText,
-                getDependentVariable,
-                filteredData
-              } = chartParams;
-
-              const plotData = computeRenderableData({
-                data: filteredData,
-                xScale,
-                yScale: currentYScales[yAxisLabelText],
-                getIndependentVariable,
-                getDependentVariable
-              });
-
-              const densityMaxLocal =
-                Math.max(d3.max(plotData, d => d.densityAvg), 5) || 0;
-
-              return {
-                ...chartParams,
-                densityMaxLocal,
-                plotData
-              };
-            });
+            const visibleCharts = chartsWithPlotData.filter(
+              chart => !hiddenCharts.includes(chart.id)
+            );
 
             const chartsDataSelection = d3
               .select("#charts")
               .selectAll("div")
-              .data(chartsWithPlotData);
+              .data(visibleCharts);
 
             chartsDataSelection
               .enter()
@@ -404,7 +407,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
             chartsDataSelection.exit().remove();
 
             d3.select("#charts-select").call(chartsSelect.render, {
-              chartsWithYScales
+              visibleCharts
             });
           }
         )
