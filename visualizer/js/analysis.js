@@ -1,5 +1,3 @@
-const fisher = require("fishertest");
-
 /**
  * Run analyses of data.
  * Fisher's exact test null hypothesis: the given function and other functions
@@ -62,14 +60,13 @@ function analyze(timeSlices, getFunctionName, threshold) {
         outputData.unselectedTotal - cur.unselectedCount;
       cur.probability =
         1 -
-        fisher(
+        fast_exact_test(
           cur.observed,
           otherObserved,
           cur.unselectedCount,
           otherUnselectedCount
         );
 
-      console.log(`${cur.probability} and ${threshold}`);
       if (cur.probability >= threshold && cur.observed >= cur.expected) {
         cur.conclusion = "Unusually prevalent";
       } else if (cur.probability >= threshold && cur.observed < cur.expected) {
@@ -102,6 +99,49 @@ function analyze(timeSlices, getFunctionName, threshold) {
     }
   });
   return outputData;
+}
+
+/**
+ * This is a fast implementation of Fisher's exact test. It cancels common
+ * factors from the numerator and denominator, and alternates between division
+ * and multiplication to prevent overflowing or underflowing.
+ *
+ * The Wikipedia page for Fisher's exact test shows the following expanded form:
+ *   p = (a+b)! * (c+d)! * (a+c)! * (b+d)! /
+ *       (a! * b! * c! * d! * (a + b + c + d)!)
+ * However, additional cancellation is possible. The first factor in the
+ * numerator shares the sub-product of b! with the b! term in the denominator.
+ * Each numerator term can cancel one of the factorial terms in the denominator,
+ * leaving:
+ *   p = product(1+b to a+b) * product(c+1 to c+d)h * product(a+1 to a+c) *
+ *       product(1+d to b+d) / (a + b + c + d)!
+ * The loop in this function performs a multiplication step in one of the five
+ * terms of this simplified expression. If the running tally is above 1, it
+ * favors the denominator term. */
+
+function fast_exact_test(a, b, c, d) {
+  let a_plus_b_fact_pos = b + 1;
+  let c_plus_d_fact_pos = c + 1;
+  let a_plus_c_fact_pos = a + 1;
+  let b_plus_d_fact_pos = d + 1;
+  let n_fact_pos = 1;
+
+  const n = a + b + c + d;
+
+  let result = 1;
+  let done = false;
+
+  while (!done) {
+    if (result > 1 && n_fact_pos <= n) result /= n_fact_pos++;
+    else if (a_plus_b_fact_pos <= a + b) result *= a_plus_b_fact_pos++;
+    else if (c_plus_d_fact_pos <= c + d) result *= c_plus_d_fact_pos++;
+    else if (a_plus_c_fact_pos <= a + c) result *= a_plus_c_fact_pos++;
+    else if (b_plus_d_fact_pos <= b + d) result *= b_plus_d_fact_pos++;
+    else if (n_fact_pos <= n) result /= n_fact_pos++;
+    else done = true;
+  }
+
+  return result;
 }
 
 module.exports = { analyze };

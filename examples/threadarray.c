@@ -1,6 +1,8 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 #define NTHREADS 8
 void *calculate_sum(void *);
@@ -17,12 +19,15 @@ void *calculate_sum(void *args) {
   long *loops = (long *)malloc(sizeof(long));
   *loops = 0;
   for (int i = 0; i <= N - 1; i++) {
-    if (i % NTHREADS != threadindex) continue;
+    if (i % NTHREADS != threadindex)
+      continue;
+    fprintf(stderr, "checkpoint\n");
     for (int j = 0; j <= M - 1; j++) {
       int sum = 0;
       for (int k = i - 1; k <= i + 1; k++) {
         for (int h = j - 1; h <= j + 1; h++) {
-          if (k < 0 || h < 0) continue;
+          if (k < 0 || h < 0)
+            continue;
           sum += dimensional_array[h][j];
         }
       }
@@ -30,6 +35,8 @@ void *calculate_sum(void *args) {
       (*loops)++;
     }
   }
+
+  fprintf(stderr, "threadarray: already finished THREAD\n");
 
   return loops;
 }
@@ -63,12 +70,15 @@ int main(void) {
   }
 
   fprintf(stderr, "threadarray: joining threads\n");
-  for (j = 0; j < NTHREADS; j++) {
-    fprintf(stderr, "threadarray: joining thread %d\n", j);
+  for (int j = 0; j < NTHREADS; j++) {
+    fprintf(stderr, "threadarray: joining thread %ld\n", syscall(SYS_gettid));
     long loops;
-    pthread_join(thread_id[j], (void *)&loops);
+    int ret = pthread_join(thread_id[j], (void *)&loops);
     fprintf(stderr, "threadarray: joined thread %d with result %ld\n", j,
             loops);
+    if (ret != 0) {
+      perror("threadarray: failed joining");
+    }
   }
 
   printf("\n\n\n");

@@ -41,6 +41,7 @@ void *__imposter(void *arg) {
   delete d;
 
   DEBUG(tid << ": setting up perf events");
+
   setup_perf_events(tid, &info);
   DEBUG(tid << ": registering fd " << info.cpu_clock_fd
             << " with collector for bookkeeping");
@@ -74,9 +75,9 @@ execve_fn_t real_execve;
 execvp_fn_t real_execvp;
 execv_fn_t real_execv;
 execvpe_fn_t real_execvpe;
-// exit_fn_t real_exit;
-// _exit_fn_t real__exit;
-// _Exit_fn_t real__Exit;
+exit_fn_t real_exit;
+_exit_fn_t real__exit;
+_Exit_fn_t real__Exit;
 
 // redefining these libc functions upsets the linter
 
@@ -109,6 +110,7 @@ pid_t fork(void) {
   return pid;
 }
 
+// have warning about non-return types
 // // NOLINTNEXTLINE
 // void exit(int status) {
 //   pid_t tid = gettid();
