@@ -26,4 +26,4 @@ cclean:
 run-example: node_modules collector examples
 	npm run example
 
-.PHONY: all collector examples clean run-example
+.PHONY: all collector collector-tidy protos examples clean run-example
