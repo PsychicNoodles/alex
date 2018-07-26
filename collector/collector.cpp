@@ -246,7 +246,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
     string env_res = getenv_safe("COLLECTOR_RESULT_FILE", "result.bin");
     DEBUG("result file " << env_res);
-    ofstream result_file(env_res);
+    ofstream result_file(env_res, std::ios::binary);
 
     close(sockets[1]);
 

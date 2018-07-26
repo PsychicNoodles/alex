@@ -2,6 +2,9 @@
 #include <dlfcn.h>
 #include <elf.h>
 #include <fcntl.h>
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/io/zero_copy_stream_impl.h>
+#include <google/protobuf/message.h>
 #include <link.h>
 #include <linux/perf_event.h>
 #include <linux/version.h>
@@ -46,6 +49,9 @@
 
 namespace alex {
 
+using google::protobuf::Message;
+using google::protobuf::io::CodedOutputStream;
+using google::protobuf::io::OstreamOutputStream;
 using std::make_pair;
 using std::make_tuple;
 using std::map;
@@ -147,6 +153,28 @@ int get_record_size(int record_type) {
 }
 
 ofstream *get_result_file() { return result_file; }
+
+// https://github.com/google/protobuf/blob/master/src/google/protobuf/util/delimited_message_util.cc
+bool serialize_delimited(const Message &msg) {
+  int size = msg.ByteSize();
+  OstreamOutputStream ostream(result_file);
+  CodedOutputStream coded(&ostream);
+  coded.WriteVarint32(size);
+  uint8_t *buffer = coded.GetDirectBufferForNBytesAndAdvance(size);
+  if (buffer != nullptr) {
+    // Optimization: The message fits in one buffer, so use the faster
+    // direct-to-array serialization path.
+    msg.SerializeWithCachedSizesToArray(buffer);
+  } else {
+    // Slightly-slower path when the message is multiple buffers.
+    msg.SerializeWithCachedSizes(&coded);
+    if (coded.HadError()) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 /*
  * Adds a file descriptor to the global epoll
@@ -650,7 +678,7 @@ bool process_sample_record(
     }
   }
 
-  timeslice_message.SerializeToOstream(result_file);
+  serialize_delimited(timeslice_message);
 
   return false;
 }
@@ -718,7 +746,7 @@ void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
       DEBUG("couldn't determine type of warning for " << record_type << "!");
     }
 
-    warning_message.SerializeToOstream(result_file);
+    serialize_delimited(warning_message);
     warning_message.Clear();
   }
 }
@@ -753,7 +781,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
 
   set_preset_events(header_message.mutable_presets());
 
-  header_message.SerializeToOstream(result_file);
+  serialize_delimited(header_message);
 
   // setting up RAPL energy reading
   if (preset_enabled("rapl")) {
