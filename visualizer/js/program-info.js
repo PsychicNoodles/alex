@@ -19,11 +19,12 @@ function render(root, header) {
     .append("li");
 
   eachListElement
-    .append("p")
+    .append("span")
     .attr("class", "title")
-    .text(d => `${d.title}:\n`);
+    .text(d => `${d.title}:`);
+
   eachListElement
-    .append("p")
+    .append("span")
     .attr("class", "value")
     .text(d => d.value);
 }
