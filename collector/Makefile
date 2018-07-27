@@ -30,9 +30,9 @@ PRELOAD_VAR  := LD_PRELOAD
 CXXLIB       := $(CXX) -shared -fPIC -Wl,-soname,interposer.so
 endif
 
-.PHONY: all pedantic nolog minlog clean tidy tidy-fix collector list-presets
+.PHONY: all pedantic nolog minlog clean tidy tidy-fix collector list-presets protobuf-print
 
-all: collector list-presets
+all: collector list-presets protobuf-print
 
 pedantic: WARN = -Werror
 pedantic: all
@@ -68,3 +68,8 @@ build/list-presets: $(EVENT_SOURCES) $(PROTOS_SOURCES) | build
 	$(CXX) $(CFLAGS) $(DEBUG) $(WARN) -g -o $@ $^ $(EVENT_LDFLAGS)
 
 list-presets: build/list-presets
+
+build/protobuf-print: protobuf-print.cpp $(PROTOS_SOURCES) | build
+	$(CXX) $(CFLAGS) -g -o $@ $^ $(COLLECTOR_LDFLAGS)
+
+protobuf-print: build/protobuf-print
