@@ -17,6 +17,7 @@ const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
 const warningList = require("./warning-list");
 const stats = require("./stats");
+const programInfo = require("./program-info");
 const brushes = require("./brushes");
 const sourceSelect = require("./source-select");
 const threadSelect = require("./thread-select");
@@ -120,6 +121,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
     d3.select("#stats").call(stats.render, {
       processedData
     });
+
+    d3.select("#program-info").call(programInfo.render, result.header);
 
     d3.select("#table-select").call(tableSelect.render);
 
