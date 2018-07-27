@@ -84,7 +84,7 @@ set<string> str_split_set(const string& str, const string& delim) {
 }
 
 void shutdown(pid_t pid, FILE* result_file, error code, const char* msg) {
-  DEBUG("error: " << msg);
+  DEBUG_CRITICAL("error: " << msg);
   kill(pid, SIGKILL);
   std::clog.flush();
   if (brackets.empty()) {

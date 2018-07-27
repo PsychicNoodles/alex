@@ -547,7 +547,7 @@ void dump_tree(const ::dwarf::die& d, int depth,
       }
     }
   } catch (::dwarf::format_error& e) {
-    DEBUG("Ignoring dwarf format error " << e.what());
+    DEBUG_CRITICAL("Ignoring dwarf format error " << e.what());
   }
 
   for (const auto& child : d) {
@@ -576,7 +576,7 @@ bool memory_map::process_file(
       break;
 
     default:
-      DEBUG("unsupported ELF file type");
+      DEBUG_CRITICAL("unsupported ELF file type");
   }
 
   // Read the ::dwarf information from the chosen file
@@ -631,8 +631,8 @@ bool memory_map::process_file(
                         load_address, *sym_table);
 
       } catch (::dwarf::format_error& e) {
-        DEBUG("ignoring dwarf format error when reading line table: "
-              << e.what());
+        DEBUG_CRITICAL("ignoring dwarf format error when reading line table: "
+                       << e.what());
       }
     }  // if needProcess
   }
@@ -643,7 +643,7 @@ bool memory_map::process_file(
 shared_ptr<line> memory_map::find_line(const string& name) {
   string::size_type colon_pos = name.find_first_of(':');
   if (colon_pos == string::npos) {
-    DEBUG("could not identify file name in input " << name);
+    DEBUG_CRITICAL("could not identify file name in input " << name);
     return shared_ptr<line>();
   }
 
@@ -671,7 +671,7 @@ shared_ptr<line> memory_map::find_line(uintptr_t addr) {
   if (iter != _ranges.end()) {
     return iter->second;
   }
-  DEBUG("cannot find lines");
+  DEBUG_CRITICAL("cannot find lines");
   return shared_ptr<line>();
 }
 

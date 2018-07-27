@@ -53,7 +53,8 @@ void *__imposter(void *arg) {
   DEBUG(tid << ": starting routine");
   void *ret = routine(arguments);
 
-  DEBUG(tid << ": finished routine, unregistering fd " << info.cpu_clock_fd);
+  DEBUG_CRITICAL(tid << ": finished routine, unregistering fd "
+                     << info.cpu_clock_fd);
   close_fds();
   unregister_perf_fds(perf_register_sock);
   DEBUG(tid << ": exiting");
@@ -99,8 +100,8 @@ pid_t fork(void) {
     pid_t tid = gettid();
     DEBUG(tid << ": setting up PROCESS perf events with PID");
     setup_perf_events(tid, &info);
-    DEBUG(tid << ": registering PROCESS fd " << info.cpu_clock_fd
-              << " with collector for bookkeeping");
+    DEBUG_CRITICAL(tid << ": registering PROCESS fd " << info.cpu_clock_fd
+                       << " with collector for bookkeeping");
     if (!register_perf_fds(perf_register_sock, &info)) {
       SHUTDOWN_PERROR(tid, nullptr, INTERNAL_ERROR,
                       "failed to send PROCESS new thread's fd");

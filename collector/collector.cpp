@@ -66,7 +66,7 @@ void setup_global_vars() {
   DEBUG("period is " << period);
 
   if (period < MIN_PERIOD) {
-    DEBUG("period is smaller than " << MIN_PERIOD);
+    DEBUG_CRITICAL("period is smaller than " << MIN_PERIOD);
     exit(PARAM_ERROR);
   }
 
@@ -166,7 +166,7 @@ int setup_sigterm_handler() {
 }
 
 static int collector_main(int argc, char **argv, char **env) {
-  DEBUG("Version: " << VERSION);
+  DEBUG_CRITICAL("Version: " << VERSION);
 
   DEBUG(argc - 1 << " args...");
   for (int i = 0; i < argc; i++) {
@@ -198,8 +198,8 @@ static int collector_main(int argc, char **argv, char **env) {
 
   pid_t subject_pid = real_fork();
   if (subject_pid == 0) {
-    DEBUG("in child process, waiting for parent to be ready (pid: " << getpid()
-                                                                    << ")");
+    DEBUG_CRITICAL("in child process, waiting for parent to be ready (pid: "
+                   << getpid() << ")");
 
     close(sockets[0]);
     set_perf_register_sock(sockets[1]);
@@ -212,10 +212,10 @@ static int collector_main(int argc, char **argv, char **env) {
       // wait for parent
     }
 
-    DEBUG("received parent ready signal, starting child/real main");
+    DEBUG_CRITICAL("received parent ready signal, starting child/real main");
     result = subject_main_fn(argc, argv, env);
 
-    DEBUG("finished in child, killing parent");
+    DEBUG_CRITICAL("finished in child, killing parent");
     if (kill(global->collector_pid, SIGTERM)) {
       perror("couldn't kill collector process");
       exit(INTERNAL_ERROR);
@@ -287,7 +287,7 @@ static int collector_main(int argc, char **argv, char **env) {
         collect_perf_data(kernel_syms, sigterm_fd, sockets[0], &rapl_reading,
                           &wattsup_reading, sym_map, ranges);
 
-    DEBUG("finished collector, closing file");
+    DEBUG_CRITICAL("finished collector, closing file");
 
     if (wattsup_enabled && wu_fd != -1) {
       wu_shutdown(wu_fd);

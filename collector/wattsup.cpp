@@ -86,7 +86,7 @@ int open_device(const char* device_name) {
   }
 
   if (!S_ISCHR(s.st_mode)) {
-    DEBUG("wattsup device is not a TTY character device");
+    DEBUG_CRITICAL("wattsup device is not a TTY character device");
     return -1;
   }
 
@@ -228,7 +228,7 @@ int wu_setup(const char* device_name) {
   DEBUG("enabling wattsup log");
   ret = wu_start_external_log(wu_fd, 1);
   if (ret) {
-    DEBUG("error enabling logging");
+    DEBUG_CRITICAL("error enabling logging");
     return -1;
   }
 
@@ -236,7 +236,7 @@ int wu_setup(const char* device_name) {
 }
 
 void wu_shutdown(int wu_fd) {
-  DEBUG("shutting down wattsup");
+  DEBUG_CRITICAL("shutting down wattsup");
   wu_stop_external_log(wu_fd);
   close(wu_fd);
 }

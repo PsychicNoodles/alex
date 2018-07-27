@@ -21,7 +21,6 @@ void *calculate_sum(void *args) {
   for (int i = 0; i <= N - 1; i++) {
     if (i % NTHREADS != threadindex)
       continue;
-    fprintf(stderr, "checkpoint\n");
     for (int j = 0; j <= M - 1; j++) {
       int sum = 0;
       for (int k = i - 1; k <= i + 1; k++) {

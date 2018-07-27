@@ -304,7 +304,7 @@ bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
     int fd = evlist[i].data.fd;
     // check if it's sigterm or request to register thread
     if (fd == sigt_fd) {
-      DEBUG("received sigterm, stopping");
+      DEBUG_CRITICAL("received sigterm, stopping");
       *done = true;
       // don't check the other fds, jump back to epolling
       return true;
@@ -515,7 +515,7 @@ bool process_sample_record(
       DEBUG("RAPL result found, writing out");
       void *raw_result = get_result(rapl_reading);
       if (raw_result == nullptr) {
-        DEBUG("RAPL result was null");
+        DEBUG_CRITICAL("RAPL result was null");
       } else {
         map<string, uint64_t> *nrg =
             (static_cast<map<string, uint64_t> *>(raw_result));
@@ -528,7 +528,7 @@ bool process_sample_record(
         restart_reading(rapl_reading);
       }
     } else {
-      DEBUG("no RAPL result available");
+      DEBUG_CRITICAL("no RAPL result available");
     }
   }
 
@@ -539,17 +539,17 @@ bool process_sample_record(
       DEBUG("wattsup result found, writing out");
       void *raw_result = get_result(wattsup_reading);
       if (raw_result == nullptr) {
-        DEBUG("wattsup result was null");
+        DEBUG_CRITICAL("wattsup result was null");
       } else {
         double *ret = (static_cast<double *>(raw_result));
         fprintf(result_file, ",");
         fprintf(result_file, R"("wattsup": %1lf)", *ret);
         delete ret;
-        DEBUG("restarting wattsup energy readings");
+        DEBUG_CRITICAL("restarting wattsup energy readings");
         restart_reading(wattsup_reading);
       }
     } else {
-      DEBUG("no wattsup result available");
+      DEBUG_CRITICAL("no wattsup result available");
     }
   }
 
@@ -826,7 +826,8 @@ void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
         )");
       delete_brackets(1);
     } else {
-      DEBUG("couldn't determine type of warning for " << record_type << "!");
+      DEBUG_CRITICAL("couldn't determine type of warning for " << record_type
+                                                               << "!");
       fprintf(result_file, R"|(
       {
        "type": "(null)"
@@ -909,7 +910,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
                   nullptr);
     DEBUG("rapl reading in tid " << rapl_reading->thread);
   } else {
-    DEBUG("RAPL preset not enabled");
+    DEBUG_CRITICAL("RAPL preset not enabled");
   }
 
   // setting up wattsup energy reading
@@ -928,9 +929,9 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
     DEBUG("wattsup fd is " << wu_fd);
   } else {
     if (preset_enabled("wattsup")) {
-      DEBUG("wattsup preset not enabled");
+      DEBUG_CRITICAL("wattsup preset not enabled");
     } else {
-      DEBUG("wattsup couldn't open device, skipping setup");
+      DEBUG_CRITICAL("wattsup couldn't open device, skipping setup");
     }
   }
 }
@@ -954,7 +955,7 @@ int collect_perf_data(
   restart_reading(rapl_reading);
   restart_reading(wattsup_reading);
 
-  DEBUG("entering epoll ready loop");
+  DEBUG_CRITICAL("entering epoll ready loop");
   while (!done) {
     auto evlist = new epoll_event[sample_fd_count];
     DEBUG("epolling for results or new threads");
@@ -968,15 +969,15 @@ int collect_perf_data(
 
     curr_ts = time_ms();
     if (curr_ts - last_ts > EPOLL_TIME_DIFF_MAX) {
-      DEBUG("significant time between epoll_waits: "
-            << curr_ts - last_ts << " (since finish " << curr_ts - finish_ts
-            << ")");
+      DEBUG_CRITICAL("significant time between epoll_waits: "
+                     << curr_ts - last_ts << " (since finish "
+                     << curr_ts - finish_ts << ")");
     }
     last_ts = curr_ts;
 
     if (ready_fds == 0) {
-      DEBUG("no sample fds were ready within the timeout ("
-            << SAMPLE_EPOLL_TIMEOUT << ")");
+      DEBUG_CRITICAL("no sample fds were ready within the timeout ("
+                     << SAMPLE_EPOLL_TIMEOUT << ")");
     } else {
       DEBUG("" << ready_fds << " sample fds were ready");
 
@@ -996,8 +997,8 @@ int collect_perf_data(
 
           if (!has_next_record(&info.sample_buf)) {
             sample_period_skips++;
-            DEBUG("SKIPPED SAMPLE PERIOD (" << sample_period_skips
-                                            << " in a row)");
+            DEBUG_CRITICAL("SKIPPED SAMPLE PERIOD (" << sample_period_skips
+                                                     << " in a row)");
             if (sample_period_skips >= MAX_SAMPLE_PERIOD_SKIPS) {
               PARENT_SHUTDOWN_MSG(
                   INTERNAL_ERROR,
@@ -1028,9 +1029,9 @@ int collect_perf_data(
               // structs generally have different contents
               record_size = get_record_size(record_type);
               if (record_size == -1) {
-                DEBUG("record type is not supported ("
-                      << record_type_str(record_type) << " " << record_type
-                      << ")");
+                DEBUG_CRITICAL("record type is not supported ("
+                               << record_type_str(record_type) << " "
+                               << record_type << ")");
               } else {
                 DEBUG("record type is " << record_type << " "
                                         << record_type_str(record_type)
@@ -1060,14 +1061,14 @@ int collect_perf_data(
                                        record_size, data_start, data_end);
                   process_lost_record(local_result.lost, &warnings);
                 } else {
-                  DEBUG("record type was not recognized ("
-                        << record_type_str(record_type) << " " << record_type
-                        << ")");
+                  DEBUG_CRITICAL("record type was not recognized ("
+                                 << record_type_str(record_type) << " "
+                                 << record_type << ")");
                 }
               }
             }
             if (i == MAX_RECORD_READS) {
-              DEBUG("limit reached, clearing remaining samples");
+              DEBUG_CRITICAL("limit reached, clearing remaining samples");
               clear_records(&info.sample_buf);
             } else {
               DEBUG("read through all records");
