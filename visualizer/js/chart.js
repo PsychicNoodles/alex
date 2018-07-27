@@ -15,6 +15,7 @@ function render(
     getDependentVariable,
     xAxisLabelText,
     yAxisLabelText,
+    chartId,
     xScale,
     yScale,
     brush,
@@ -30,7 +31,7 @@ function render(
   }
 ) {
   root.classed("chart", true);
-  root.attr("id", yAxisLabelText);
+  root.attr("id", chartId);
 
   const svg = root.select("svg.chart__svg").empty()
     ? root

@@ -213,6 +213,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       {
         presetsRequired: ["cache"],
         yAxisLabelText: "L3 Cache Miss Rate",
+        chartId: "l3-cache-miss-rate",
         yFormat: d3.format(".0%"),
         getDependentVariable: d =>
           getEventCount(d, presets.cache.misses) /
@@ -223,6 +224,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       {
         presetsRequired: ["cpu"],
         yAxisLabelText: "Instructions Per Cycle",
+        chartId: "instructions-per-cycle",
         yFormat: d3.format(".3"),
         getDependentVariable: d =>
           getEventCount(d, presets.cpu.instructions) /
@@ -232,6 +234,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       {
         presetsRequired: ["rapl"],
         yAxisLabelText: "Overall Power",
+        chartId: "overall-power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodOverall"] || 0,
         flattenThreads: true
@@ -239,6 +242,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       {
         presetsRequired: ["rapl"],
         yAxisLabelText: "CPU Power",
+        chartId: "cpu-power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodCpu"] || 0,
         flattenThreads: true
@@ -246,6 +250,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       {
         presetsRequired: ["rapl"],
         yAxisLabelText: "Memory Power",
+        chartId: "memory-power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodMemory"] || 0,
         flattenThreads: true
@@ -253,6 +258,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       {
         presetsRequired: ["wattsup"],
         yAxisLabelText: "Wattsup Power",
+        chartId: "wattsup-power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup),
         flattenThreads: true
@@ -394,6 +400,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
               .each(function({
                 getDependentVariable,
                 yAxisLabelText,
+                chartId,
                 yFormat,
                 yScale,
                 densityMaxLocal,
@@ -405,6 +412,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                   getDependentVariable,
                   xAxisLabelText,
                   yAxisLabelText,
+                  chartId,
                   xScale,
                   yScale,
                   brush,
@@ -439,12 +447,12 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
     chartsSelect.hiddenChartsStore.stream.pipe(
       stream.subscribe(hiddenCharts => {
-        d3.selectAll(".chart").classed("chart--hidden", false);
-        for (const yAxisLabelText of hiddenCharts) {
-          document
-            .getElementById(yAxisLabelText)
-            .classList.add("chart--hidden");
-        }
+        d3.selectAll(".chart")
+          .classed("chart--hidden", false)
+          .filter(function() {
+            return hiddenCharts.includes(d3.select(this).attr("id"));
+          })
+          .classed("chart--hidden", true);
       })
     );
 
