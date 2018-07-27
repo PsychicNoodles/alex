@@ -74,7 +74,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     protobufMessageStream
       .once("data", d => {
         // should always be a header, but verify anyway
-        if (d.$type === Header) resolve(d);
+        if (d instanceof Header) resolve(d);
       })
       .on("error", reject)
   );
@@ -82,7 +82,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     const timeslices = [];
     return protobufMessageStream
       .on("data", d => {
-        if (d.$type === Timeslice) timeslices.push(d);
+        if (d instanceof Timeslice) timeslices.push(d);
       })
       .on("end", () => resolve(timeslices))
       .on("error", reject);
@@ -91,7 +91,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     const warnings = [];
     protobufMessageStream
       .on("data", d => {
-        if (d.$type === Warning) warnings.push(d);
+        if (d instanceof Warning) warnings.push(d);
       })
       .on("end", () => resolve(warnings))
       .on("error", reject);
