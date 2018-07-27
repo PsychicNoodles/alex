@@ -64,7 +64,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
           }
         )
       )
-      .pipe(protobufStream());
+      .pipe(protobufStream.parser());
   } catch (err) {
     alert(`Couldn't load result file: ${err.message}`);
     window.close();
