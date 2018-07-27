@@ -1,12 +1,8 @@
-const protobuf = require("protobufjs");
-const jsonDescriptor = require("./protos.json");
+const { Reader } = require("protobufjs");
+const { Header, Timeslice, Warning } = require("./protos").alex;
 
 const { Buffer } = require("buffer");
 const through2 = require("through2");
-
-const { Header, Timeslice, Warning } = protobuf.Root.fromJSON(
-  jsonDescriptor
-).nested.alex;
 
 function parser() {
   let buf;
@@ -41,7 +37,7 @@ function parser() {
 
   return through2.obj(
     function(chunk, _, callback) {
-      const reader = protobuf.Reader.create(
+      const reader = Reader.create(
         buf === undefined ? Buffer.from(chunk) : Buffer.concat([buf, chunk])
       );
       // while the reader contains the next delimiter number (and we need a new one) or contains enough data for the next message
@@ -68,10 +64,7 @@ function parser() {
       if (dataSize !== null) {
         // try reading last item, even though there's supposedly not enough data
         try {
-          callback(
-            null,
-            readMessage.call(this, protobuf.Reader.create(buf), callback)
-          );
+          callback(null, readMessage.call(this, Reader.create(buf), callback));
         } catch (err) {
           callback(err);
         }

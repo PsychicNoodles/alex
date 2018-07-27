@@ -419,4 +419,4 @@ run-alex.sh
 
 # protoc build output
 collector/protos
-visualizer/js/protos.json
+visualizer/js/protos.js
