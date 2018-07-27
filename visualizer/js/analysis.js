@@ -1,3 +1,6 @@
+const stream = require("./stream");
+const { Scheduler } = require("./scheduler");
+
 /**
  * Run analyses of data.
  * Fisher's exact test null hypothesis: the given function and other functions
@@ -12,7 +15,7 @@
  * @param {number} params.threshold
  *    A probability -- any value above this will be considered significant
  *    enough to be highlighted in analysis.
- * @returns Results of the analysis.
+ * @returns {stream.Stream} Results of the analysis.
  */
 function analyze({ timeSlices, isSelected, getFunctionName, threshold }) {
   if (!(threshold >= 0) || !(threshold <= 100)) {
@@ -25,106 +28,141 @@ function analyze({ timeSlices, isSelected, getFunctionName, threshold }) {
     functions: []
   };
 
+  const scheduler = new Scheduler();
+
   performance.mark("functions map build start");
   const functionsMap = new Map();
-  for (const timeSlice of timeSlices) {
-    const functionName = getFunctionName(timeSlice);
-    if (!functionsMap.has(functionName)) {
-      functionsMap.set(functionName, {
-        name: functionName,
-        time: 0,
-        observed: 0,
-        unselectedCount: 0,
-        expected: 0,
-        probability: 0,
-        conclusion: ""
-      });
-    }
+  const CHUNK_SIZE = 10000;
+  const chunkPromises = [];
+  for (let i = 0; i < timeSlices.length + CHUNK_SIZE; i += CHUNK_SIZE) {
+    chunkPromises.push(
+      scheduler.schedule(() => {
+        for (let j = i; j < i + CHUNK_SIZE && j < timeSlices.length; j++) {
+          const timeSlice = timeSlices[j];
+          const functionName = getFunctionName(timeSlice);
+          if (!functionsMap.has(functionName)) {
+            functionsMap.set(functionName, {
+              name: functionName,
+              time: 0,
+              observed: 0,
+              unselectedCount: 0,
+              expected: 0,
+              probability: 0,
+              conclusion: ""
+            });
+          }
 
-    const functionEntry = functionsMap.get(functionName);
-    if (isSelected(timeSlice)) {
-      outputData.selectedTotal++;
-      functionEntry.time += timeSlice.numCPUTimerTicks;
-      functionEntry.observed++;
-    } else {
-      outputData.unselectedTotal++;
-      functionEntry.unselectedCount++;
-    }
+          const functionEntry = functionsMap.get(functionName);
+          if (isSelected(timeSlice)) {
+            outputData.selectedTotal++;
+            functionEntry.time += timeSlice.numCPUTimerTicks;
+            functionEntry.observed++;
+          } else {
+            outputData.unselectedTotal++;
+            functionEntry.unselectedCount++;
+          }
+        }
+      })
+    );
   }
-  performance.mark("functions map build end");
-  performance.measure(
-    "functions map build",
-    "functions map build start",
-    "functions map build end"
-  );
 
-  outputData.functions = [...functionsMap.values()];
-
-  performance.mark("functions analysis start");
-  if (outputData.selectedTotal !== 0 && outputData.unselectedTotal !== 0) {
-    for (const cur of outputData.functions) {
-      const curTotal = cur.observed + cur.unselectedCount;
-      cur.expected = (curTotal * outputData.selectedTotal) / timeSlices.length;
-
-      const otherObserved = outputData.selectedTotal - cur.observed;
-      const otherUnselectedCount =
-        outputData.unselectedTotal - cur.unselectedCount;
-      cur.probability =
-        1 -
-        fastExactTest(
-          cur.observed,
-          otherObserved,
-          cur.unselectedCount,
-          otherUnselectedCount
+  return stream
+    .fromPromise(Promise.all(chunkPromises), () => {
+      scheduler.clearSchedule();
+    })
+    .pipe(
+      stream.tap(() => {
+        performance.mark("functions map build end");
+        performance.measure(
+          "functions map build",
+          "functions map build start",
+          "functions map build end"
         );
+      })
+    )
+    .pipe(
+      stream.tap(() => {
+        performance.mark("functions analysis start");
+      })
+    )
+    .pipe(
+      stream.map(() => {
+        outputData.functions = [...functionsMap.values()];
 
-      console.log(`${cur.probability} and ${threshold}`);
-      if (cur.probability >= threshold && cur.observed >= cur.expected) {
-        cur.conclusion = "Unusually prevalent";
-      } else if (cur.probability >= threshold && cur.observed < cur.expected) {
-        cur.conclusion = "Unusually absent";
-      } else {
-        cur.conclusion = "Insignificant";
-      }
+        if (
+          outputData.selectedTotal !== 0 &&
+          outputData.unselectedTotal !== 0
+        ) {
+          outputData.functions.forEach(cur => {
+            const curTotal = cur.observed + cur.unselectedCount;
+            cur.expected =
+              (curTotal * outputData.selectedTotal) / timeSlices.length;
 
-      /* console.log(`1A: ${cur.observed}, 1B: ${otherObserved}`);
+            const otherObserved = outputData.selectedTotal - cur.observed;
+            const otherUnselectedCount =
+              outputData.unselectedTotal - cur.unselectedCount;
+            cur.probability =
+              1 -
+              fastExactTest(
+                cur.observed,
+                otherObserved,
+                cur.unselectedCount,
+                otherUnselectedCount
+              );
+
+            console.log(`${cur.probability} and ${threshold}`);
+            if (cur.probability >= threshold && cur.observed >= cur.expected) {
+              cur.conclusion = "Unusually prevalent";
+            } else if (
+              cur.probability >= threshold &&
+              cur.observed < cur.expected
+            ) {
+              cur.conclusion = "Unusually absent";
+            } else {
+              cur.conclusion = "Insignificant";
+            }
+
+            /* console.log(`1A: ${cur.observed}, 1B: ${otherObserved}`);
       console.log(`2A: ${cur.unselectedCount}, 2B: ${otherUnselectedCount}`); */
 
-      /* console.log(
+            /* console.log(
         `Saw ${cur.observed} of ${cur.name}, expected ~${Math.round(
           cur.expected
         )}, probability ${cur.probability}`
       ); */
-    }
-  }
-  performance.mark("functions analysis end");
-  performance.measure(
-    "functions analysis",
-    "functions analysis start",
-    "functions analysis end"
-  );
+          });
+        }
 
-  performance.mark("functions sort start");
-  outputData.functions.sort((a, b) => {
-    const sort1 = b.probability - a.probability;
-    const sort2 = b.observed - a.observed;
-    const sort3 = b.time - a.time;
-    if (sort1 !== 0) {
-      return sort1;
-    } else if (sort2 !== 0) {
-      return sort2;
-    } else {
-      return sort3;
-    }
-  });
-  performance.mark("functions sort end");
-  performance.measure(
-    "functions sort",
-    "functions sort start",
-    "functions sort end"
-  );
+        performance.mark("functions analysis end");
+        performance.measure(
+          "functions analysis",
+          "functions analysis start",
+          "functions analysis end"
+        );
 
-  return outputData;
+        performance.mark("functions sort start");
+        outputData.functions.sort((a, b) => {
+          const sort1 = b.probability - a.probability;
+          const sort2 = b.observed - a.observed;
+          const sort3 = b.time - a.time;
+          if (sort1 !== 0) {
+            return sort1;
+          } else if (sort2 !== 0) {
+            return sort2;
+          } else {
+            return sort3;
+          }
+        });
+        performance.mark("functions sort end");
+        performance.measure(
+          "functions sort",
+          "functions sort start",
+          "functions sort end"
+        );
+
+        return outputData;
+      })
+    );
 }
 
 /**

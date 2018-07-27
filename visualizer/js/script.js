@@ -447,20 +447,13 @@ ipcRenderer.on("result", async (event, resultFile) => {
         )
       )
       .pipe(
-        stream.debounce(
-          () =>
-            // If it takes longer a few frames to process, then debounce.
-            averageProcessingTime < 40 ? stream.empty : stream.fromTimeout(100)
-        )
-      )
-      .pipe(
-        stream.map(
+        stream.debounceMap(
           ({ hiddenSources, hiddenThreads, selections, selectedFunction }) => {
             const FUNCTION_NAME_SEPARATOR = "//";
 
             const startTime = performance.now();
             performance.mark("analysis start");
-            const { functions } = analyze({
+            return analyze({
               timeSlices: processedData
                 .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
                 .filter(timeslice =>
@@ -513,26 +506,36 @@ ipcRenderer.on("result", async (event, resultFile) => {
                     }
                   },
               threshold: document.getElementById("confidence-level-input").value // TODO: modify this value via UI
-            });
-            performance.mark("analysis end");
-            performance.measure("analysis", "analysis start", "analysis end");
+            })
+              .pipe(
+                stream.tap(() => {
+                  performance.mark("analysis end");
+                  performance.measure(
+                    "analysis",
+                    "analysis start",
+                    "analysis end"
+                  );
 
-            // Compute a cumulative moving average for processing time so we can
-            // debounce processing if it is slow
-            // https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
-            const timeTaken = performance.now() - startTime;
-            averageProcessingTime =
-              (timeTaken + numProcessingTimeSamples * averageProcessingTime) /
-              (numProcessingTimeSamples + 1);
-            numProcessingTimeSamples++;
-
-            return {
-              functions: functions.map(func => ({
-                ...func,
-                displayNames: func.name.split(FUNCTION_NAME_SEPARATOR)
-              })),
-              selectedFunction
-            };
+                  // Compute a cumulative moving average for processing time so we can
+                  // debounce processing if it is slow
+                  // https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
+                  const timeTaken = performance.now() - startTime;
+                  averageProcessingTime =
+                    (timeTaken +
+                      numProcessingTimeSamples * averageProcessingTime) /
+                    (numProcessingTimeSamples + 1);
+                  numProcessingTimeSamples++;
+                })
+              )
+              .pipe(
+                stream.map(({ functions }) => ({
+                  functions: functions.map(func => ({
+                    ...func,
+                    displayNames: func.name.split(FUNCTION_NAME_SEPARATOR)
+                  })),
+                  selectedFunction
+                }))
+              );
           }
         )
       )
