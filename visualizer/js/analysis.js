@@ -22,22 +22,28 @@ function analyze({ timeSlices, isSelected, getFunctionName, threshold }) {
     return;
   }
   threshold /= 100;
-  const outputData = {
-    selectedTotal: 0,
-    unselectedTotal: 0,
-    functions: []
-  };
 
-  const scheduler = new Scheduler();
+  const functionsMap = new Map();
+  let selectedTotal = 0;
+  let unselectedTotal = 0;
+
+  const mapBuildScheduler = new Scheduler();
+  const MAP_BUILD_CHUNK_SIZE = 10000;
+  const mapBuildChunkPromises = [];
 
   performance.mark("functions map build start");
-  const functionsMap = new Map();
-  const CHUNK_SIZE = 10000;
-  const chunkPromises = [];
-  for (let i = 0; i < timeSlices.length + CHUNK_SIZE; i += CHUNK_SIZE) {
-    chunkPromises.push(
-      scheduler.schedule(() => {
-        for (let j = i; j < i + CHUNK_SIZE && j < timeSlices.length; j++) {
+  for (
+    let i = 0;
+    i < timeSlices.length + MAP_BUILD_CHUNK_SIZE;
+    i += MAP_BUILD_CHUNK_SIZE
+  ) {
+    mapBuildChunkPromises.push(
+      mapBuildScheduler.schedule(() => {
+        for (
+          let j = i;
+          j < i + MAP_BUILD_CHUNK_SIZE && j < timeSlices.length;
+          j++
+        ) {
           const timeSlice = timeSlices[j];
           const functionName = getFunctionName(timeSlice);
           if (!functionsMap.has(functionName)) {
@@ -54,11 +60,11 @@ function analyze({ timeSlices, isSelected, getFunctionName, threshold }) {
 
           const functionEntry = functionsMap.get(functionName);
           if (isSelected(timeSlice)) {
-            outputData.selectedTotal++;
+            selectedTotal++;
             functionEntry.time += timeSlice.numCPUTimerTicks;
             functionEntry.observed++;
           } else {
-            outputData.unselectedTotal++;
+            unselectedTotal++;
             functionEntry.unselectedCount++;
           }
         }
@@ -67,9 +73,14 @@ function analyze({ timeSlices, isSelected, getFunctionName, threshold }) {
   }
 
   return stream
-    .fromPromise(Promise.all(chunkPromises), () => {
-      scheduler.clearSchedule();
-    })
+    .fromPromise(
+      Promise.all(mapBuildChunkPromises).then(() => ({
+        selectedTotal,
+        unselectedTotal,
+        functions: [...functionsMap.values()]
+      })),
+      mapBuildScheduler.clearSchedule
+    )
     .pipe(
       stream.tap(() => {
         performance.mark("functions map build end");
@@ -78,61 +89,60 @@ function analyze({ timeSlices, isSelected, getFunctionName, threshold }) {
           "functions map build start",
           "functions map build end"
         );
-      })
-    )
-    .pipe(
-      stream.tap(() => {
+
         performance.mark("functions analysis start");
       })
     )
     .pipe(
-      stream.map(() => {
-        outputData.functions = [...functionsMap.values()];
+      stream.mergeMap(({ selectedTotal, unselectedTotal, functions }) => {
+        if (selectedTotal !== 0 && unselectedTotal !== 0) {
+          const functionTestScheduler = new Scheduler();
 
-        if (
-          outputData.selectedTotal !== 0 &&
-          outputData.unselectedTotal !== 0
-        ) {
-          outputData.functions.forEach(cur => {
-            const curTotal = cur.observed + cur.unselectedCount;
-            cur.expected =
-              (curTotal * outputData.selectedTotal) / timeSlices.length;
+          return stream.fromPromise(
+            Promise.all(
+              functions.map(func =>
+                functionTestScheduler.schedule(() => {
+                  const curTotal = func.observed + func.unselectedCount;
+                  const expected =
+                    (curTotal * selectedTotal) / timeSlices.length;
 
-            const otherObserved = outputData.selectedTotal - cur.observed;
-            const otherUnselectedCount =
-              outputData.unselectedTotal - cur.unselectedCount;
-            cur.probability =
-              1 -
-              fastExactTest(
-                cur.observed,
-                otherObserved,
-                cur.unselectedCount,
-                otherUnselectedCount
-              );
+                  const otherObserved = selectedTotal - func.observed;
+                  const otherUnselectedCount =
+                    unselectedTotal - func.unselectedCount;
+                  const probability =
+                    1 -
+                    fastExactTest(
+                      func.observed,
+                      otherObserved,
+                      func.unselectedCount,
+                      otherUnselectedCount
+                    );
 
-            console.log(`${cur.probability} and ${threshold}`);
-            if (cur.probability >= threshold && cur.observed >= cur.expected) {
-              cur.conclusion = "Unusually prevalent";
-            } else if (
-              cur.probability >= threshold &&
-              cur.observed < cur.expected
-            ) {
-              cur.conclusion = "Unusually absent";
-            } else {
-              cur.conclusion = "Insignificant";
-            }
+                  const conclusion =
+                    probability >= threshold && func.observed >= expected
+                      ? "Unusually prevalent"
+                      : probability >= threshold && func.observed < expected
+                        ? "Unusually absent"
+                        : "Insignificant";
 
-            /* console.log(`1A: ${cur.observed}, 1B: ${otherObserved}`);
-      console.log(`2A: ${cur.unselectedCount}, 2B: ${otherUnselectedCount}`); */
-
-            /* console.log(
-        `Saw ${cur.observed} of ${cur.name}, expected ~${Math.round(
-          cur.expected
-        )}, probability ${cur.probability}`
-      ); */
-          });
+                  return {
+                    ...func,
+                    expected,
+                    probability,
+                    conclusion
+                  };
+                })
+              )
+            ),
+            functionTestScheduler.clearSchedule
+          );
+        } else {
+          return stream.fromValue(functions);
         }
-
+      })
+    )
+    .pipe(
+      stream.tap(() => {
         performance.mark("functions analysis end");
         performance.measure(
           "functions analysis",
@@ -141,26 +151,26 @@ function analyze({ timeSlices, isSelected, getFunctionName, threshold }) {
         );
 
         performance.mark("functions sort start");
-        outputData.functions.sort((a, b) => {
-          const sort1 = b.probability - a.probability;
-          const sort2 = b.observed - a.observed;
-          const sort3 = b.time - a.time;
-          if (sort1 !== 0) {
-            return sort1;
-          } else if (sort2 !== 0) {
-            return sort2;
-          } else {
-            return sort3;
-          }
-        });
+      })
+    )
+    .pipe(
+      stream.map(functions =>
+        [...functions].sort(
+          (a, b) =>
+            b.probability - a.probability ||
+            b.observed - a.observed ||
+            b.time - a.time
+        )
+      )
+    )
+    .pipe(
+      stream.tap(() => {
         performance.mark("functions sort end");
         performance.measure(
           "functions sort",
           "functions sort start",
           "functions sort end"
         );
-
-        return outputData;
       })
     );
 }
@@ -182,11 +192,11 @@ function analyze({ timeSlices, isSelected, getFunctionName, threshold }) {
  * denominator term.
  */
 function fastExactTest(a, b, c, d) {
-  let a_plus_b_fact_pos = b + 1;
-  let c_plus_d_fact_pos = c + 1;
-  let a_plus_c_fact_pos = a + 1;
-  let b_plus_d_fact_pos = d + 1;
-  let n_fact_pos = 1;
+  let aPlusBFactPos = b + 1;
+  let cPlusDFactPos = c + 1;
+  let aPlusCFactPos = a + 1;
+  let bPlusDFactPos = d + 1;
+  let nFactPos = 1;
 
   const n = a + b + c + d;
 
@@ -194,12 +204,12 @@ function fastExactTest(a, b, c, d) {
   let done = false;
 
   while (!done) {
-    if (result > 1 && n_fact_pos <= n) result /= n_fact_pos++;
-    else if (a_plus_b_fact_pos <= a + b) result *= a_plus_b_fact_pos++;
-    else if (c_plus_d_fact_pos <= c + d) result *= c_plus_d_fact_pos++;
-    else if (a_plus_c_fact_pos <= a + c) result *= a_plus_c_fact_pos++;
-    else if (b_plus_d_fact_pos <= b + d) result *= b_plus_d_fact_pos++;
-    else if (n_fact_pos <= n) result /= n_fact_pos++;
+    if (result > 1 && nFactPos <= n) result /= nFactPos++;
+    else if (aPlusBFactPos <= a + b) result *= aPlusBFactPos++;
+    else if (cPlusDFactPos <= c + d) result *= cPlusDFactPos++;
+    else if (aPlusCFactPos <= a + c) result *= aPlusCFactPos++;
+    else if (bPlusDFactPos <= b + d) result *= bPlusDFactPos++;
+    else if (nFactPos <= n) result /= nFactPos++;
     else done = true;
   }
 

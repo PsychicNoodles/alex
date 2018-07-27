@@ -178,6 +178,17 @@ function fromPromise(promise, cancel = () => {}) {
 }
 
 /**
+ * @param {any} value
+ */
+function fromValue(value) {
+  return fromStreamable(onData => {
+    onData(value);
+    onData(done);
+    return () => {};
+  });
+}
+
+/**
  * Like Array.map but operates on a stream.
  * @param {function(any): any} transformData
  *    A function that accepts an element of the stream and returns the
@@ -345,7 +356,7 @@ function mergeMap(project) {
             }
           });
 
-          if (endedSynchronously) {
+          if (!endedSynchronously) {
             innerOffDataFunctions.add(innerOffData);
           }
         }
@@ -448,6 +459,7 @@ module.exports = {
   fromTimeout,
   fromDOMEvent,
   fromPromise,
+  fromValue,
   empty,
   never,
   map,

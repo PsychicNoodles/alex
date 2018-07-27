@@ -528,7 +528,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 })
               )
               .pipe(
-                stream.map(({ functions }) => ({
+                stream.map(functions => ({
                   functions: functions.map(func => ({
                     ...func,
                     displayNames: func.name.split(FUNCTION_NAME_SEPARATOR)
