@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package alex;
+
+message Warning {
+  // optional
+  SampleId sample_id = 1;
+  // "polymorphism", a warning is one of these types
+  oneof warning {
+    Throttle throttle = 2;
+    Lost lost = 3;
+  }
+}
+
+// additional data added if sample_id_all is set in perf_event_open attrs
+// see perf_event_open's description of struct sample_id
+message SampleId {
+  uint32 pid = 1;
+  uint32 tid = 2;
+  uint64 time = 3;
+  uint64 stream_id = 4;
+  uint64 id = 5;
+}
+
+// for both throttle and unthrottle
+message Throttle {
+  Type type = 1;
+  uint64 time = 2;
+  // the new period
+  uint64 period = 3;
+  // duplicate of field in sampleId if it's set
+  uint64 stream_id = 4;
+  // duplicate of field in sampleId if it's set
+  uint64 id = 5;
+
+  enum Type {
+    THROTTLE = 0;
+    UNTHROTTLE = 1;
+  }
+}
+
+message Lost {
+  uint64 lost = 1;
+  // duplicate of field in sampleId if it's set
+  uint64 id = 2;
+}

@@ -1,4 +1,4 @@
-all: node_modules collector examples
+all: node_modules protos collector examples
 
 node_modules: package.json
 	npm install
@@ -9,11 +9,15 @@ collector:
 collector-tidy:
 	$(MAKE) -C collector tidy
 
+protos:
+	$(MAKE) -C protos
+
 examples:
 	$(MAKE) -C examples
 
 clean: cclean
 	$(RM) -rf node_modules
+	$(MAKE) -C protos clean
 
 cclean:
 	$(MAKE) -C collector clean
@@ -22,4 +26,4 @@ cclean:
 run-example: node_modules collector examples
 	npm run example
 
-.PHONY: all collector examples clean run-example
+.PHONY: all collector collector-tidy protos examples clean run-example

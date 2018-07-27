@@ -9,9 +9,7 @@ const path = require("path");
 const ProgressBar = require("progress");
 const { promisify } = require("util");
 const progressStream = require("progress-stream");
-const { parser: streamJSONParser } = require("stream-json");
-const { stringer: streamJSONStringer } = require("stream-json/Stringer");
-const StreamJSONAssembler = require("stream-json/Assembler");
+const protobufStream = require("./visualizer/js/protobuf-stream");
 const prettyMS = require("pretty-ms");
 
 process.on("unhandledRejection", err => {
@@ -63,7 +61,7 @@ yargs
           description: "The file to pipe the performance results into.",
           default: path.join(
             __dirname,
-            `/result-${new Date().toISOString()}.json`
+            `/result-${new Date().toISOString()}.bin`
           )
         })
         .option("visualize", {
@@ -371,8 +369,8 @@ async function collect({
           }
         );
 
-        await new Promise((resolve, reject) => {
-          const tokenStream = fs
+        await new Promise((resolve, reject) =>
+          fs
             .createReadStream(rawResultFile)
             .pipe(
               progressStream(
@@ -382,37 +380,12 @@ async function collect({
                 }
               )
             )
-            .pipe(streamJSONParser())
-            .on("error", reject);
-
-          const LARGE_FILE_SIZE = 0x10000000; // 256 MB
-          if (resultFileSize > LARGE_FILE_SIZE) {
-            // If it is a large file, don't stringify it all at once.
-            tokenStream
-              .pipe(streamJSONStringer())
-              .on("error", reject)
-              .pipe(fs.createWriteStream(resultFile))
-              .on("finish", resolve)
-              .on("error", reject);
-          } else {
-            // If it isn't huge, we can afford to load it into memory and stringify it
-            StreamJSONAssembler.connectTo(tokenStream)
-              .on("done", ({ current }) => {
-                fs.writeFile(
-                  resultFile,
-                  JSON.stringify(current, null, 2),
-                  err => {
-                    if (err) {
-                      reject(err);
-                    } else {
-                      resolve();
-                    }
-                  }
-                );
-              })
-              .on("error", reject);
-          }
-        });
+            .pipe(protobufStream.parser())
+            .on("end", resolve)
+            .on("error", reject)
+            .resume()
+        );
+        fs.copyFileSync(rawResultFile, resultFile);
         resultsProcessed = true;
       } catch (err) {
         console.error(`Couldn't process result file: ${err.message}`);
@@ -434,7 +407,6 @@ async function collect({
           // list();
           // console.log("log")
           // console.error("error")
-          visualize(resultFile);
 
           readline_interface.question(
             "Would you like to see a visualization of the results ([yes]/no)? ",

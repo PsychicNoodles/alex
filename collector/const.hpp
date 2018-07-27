@@ -3,6 +3,7 @@
 
 #include <linux/perf_event.h>
 #include <cinttypes>
+#include "protos/timeslice.pb.h"
 
 namespace alex {
 
@@ -31,6 +32,7 @@ enum error : int {
 
 bool is_callchain_marker(perf_callchain_context instruction_pointers);
 const char* callchain_str(perf_callchain_context callchain);
+StackFrame_Section callchain_enum(perf_callchain_context callchain);
 
 #define SAMPLE_ID_ALL true  // whether sample_id_all should be set
 #ifndef SAMPLE_MAX_STACK    // can be set by make command

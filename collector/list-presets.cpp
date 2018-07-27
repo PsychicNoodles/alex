@@ -29,7 +29,7 @@ bool event_is_available(string event_name) {
   int pfm_result =
       setup_pfm_os_event(&attr, const_cast<char *>(event_name.c_str()));
   if (pfm_result != PFM_SUCCESS) {
-    DEBUG("pfm encoding error: " << pfm_strerror(pfm_result));
+    DEBUG_CRITICAL("pfm encoding error: " << pfm_strerror(pfm_result));
     return false;
   }
   return true;

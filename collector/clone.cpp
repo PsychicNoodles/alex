@@ -41,18 +41,20 @@ void *__imposter(void *arg) {
   delete d;
 
   DEBUG(tid << ": setting up perf events");
+
   setup_perf_events(tid, &info);
   DEBUG(tid << ": registering fd " << info.cpu_clock_fd
             << " with collector for bookkeeping");
   if (!register_perf_fds(perf_register_sock, &info)) {
-    SHUTDOWN_PERROR(global->collector_pid, nullptr, INTERNAL_ERROR,
-                    "failed to send new thread's fd");
+    shutdown(global->collector_pid, INTERNAL_ERROR,
+             "failed to send new thread's fd");
   }
 
   DEBUG(tid << ": starting routine");
   void *ret = routine(arguments);
 
-  DEBUG(tid << ": finished routine, unregistering fd " << info.cpu_clock_fd);
+  DEBUG_CRITICAL(tid << ": finished routine, unregistering fd "
+                     << info.cpu_clock_fd);
   close_fds();
   unregister_perf_fds(perf_register_sock);
   DEBUG(tid << ": exiting");
@@ -74,9 +76,9 @@ execve_fn_t real_execve;
 execvp_fn_t real_execvp;
 execv_fn_t real_execv;
 execvpe_fn_t real_execvpe;
-// exit_fn_t real_exit;
-// _exit_fn_t real__exit;
-// _Exit_fn_t real__Exit;
+exit_fn_t real_exit;
+_exit_fn_t real__exit;
+_Exit_fn_t real__Exit;
 
 // redefining these libc functions upsets the linter
 
@@ -98,11 +100,10 @@ pid_t fork(void) {
     pid_t tid = gettid();
     DEBUG(tid << ": setting up PROCESS perf events with PID");
     setup_perf_events(tid, &info);
-    DEBUG(tid << ": registering PROCESS fd " << info.cpu_clock_fd
-              << " with collector for bookkeeping");
+    DEBUG_CRITICAL(tid << ": registering PROCESS fd " << info.cpu_clock_fd
+                       << " with collector for bookkeeping");
     if (!register_perf_fds(perf_register_sock, &info)) {
-      SHUTDOWN_PERROR(tid, nullptr, INTERNAL_ERROR,
-                      "failed to send PROCESS new thread's fd");
+      shutdown(tid, INTERNAL_ERROR, "failed to new process's thread's fd");
     }
   } else if (pid > 0) {
     DEBUG("CHILD PID IS " << getpid());
@@ -110,6 +111,7 @@ pid_t fork(void) {
   return pid;
 }
 
+// have warning about non-return types
 // // NOLINTNEXTLINE
 // void exit(int status) {
 //   pid_t tid = gettid();

@@ -21,6 +21,7 @@ using std::unordered_map;
 #else
 #define DEBUG_LOC() ""
 #endif
+
 #define DEBUG_HELPER(x)                   \
   do {                                    \
     std::ostringstream s;                 \

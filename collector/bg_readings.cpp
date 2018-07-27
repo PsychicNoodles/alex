@@ -29,11 +29,13 @@ void *reading_fn_wrapper(void *raw_args) {
             << ", acquiring lock");
     lock.lock();
     if (!reading->running) {
-      DEBUG(t << ": received notifiction to stop while function was running");
+      DEBUG_CRITICAL(
+          t << ": received notification to stop while function was running");
       lock.unlock();
     } else {
       if (reading->ready) {
-        DEBUG(t << ": ready was set to true while waiting for the lock");
+        DEBUG_CRITICAL(
+            t << ": ready was set to true while waiting for the lock");
         reading->ready = false;
       } else {
         DEBUG(t << ": waiting for ready signal");
@@ -44,7 +46,7 @@ void *reading_fn_wrapper(void *raw_args) {
       if (reading->running) {
         DEBUG(t << ": received notification to continue");
       } else {
-        DEBUG(t << ": received notification to stop");
+        DEBUG_CRITICAL(t << ": received notification to stop");
       }
     }
   }
@@ -79,7 +81,8 @@ bool setup_reading(bg_reading *reading, void *(reading_fn)(void *),
 
 void restart_reading(bg_reading *reading) {
   if (reading->ready) {
-    DEBUG("background tid " << reading->thread << " was already running");
+    DEBUG_CRITICAL("background tid " << reading->thread
+                                     << " was already running");
     return;
   }
   DEBUG("restarting reading for tid " << reading->thread);
@@ -91,7 +94,8 @@ void restart_reading(bg_reading *reading) {
 
 void stop_reading(bg_reading *reading) {
   if (!reading->running) {
-    DEBUG("background tid " << reading->thread << " was already stopped!");
+    DEBUG_CRITICAL("background tid " << reading->thread
+                                     << " was already stopped!");
     return;
   }
   DEBUG("stopping reading for tid " << reading->thread);
@@ -109,8 +113,8 @@ bool has_result(bg_reading *reading) {
 
 void *get_result(bg_reading *reading) {
   if (!reading->running) {
-    DEBUG("background tid " << reading->thread
-                            << " was not running, cannot get result!");
+    DEBUG_CRITICAL("background tid " << reading->thread
+                                     << " was not running, cannot get result!");
     return nullptr;
   }
   void *ret = reading->result;
