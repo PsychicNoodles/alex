@@ -10,9 +10,6 @@ const ProgressBar = require("progress");
 const { promisify } = require("util");
 const progressStream = require("progress-stream");
 const protobufStream = require("./visualizer/js/protobuf-stream");
-const { parser: streamJSONParser } = require("stream-json");
-const { stringer: streamJSONStringer } = require("stream-json/Stringer");
-const StreamJSONAssembler = require("stream-json/Assembler");
 const prettyMS = require("pretty-ms");
 
 process.on("unhandledRejection", err => {
