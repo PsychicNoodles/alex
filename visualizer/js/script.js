@@ -8,7 +8,7 @@ const { promisify } = require("util");
 
 const {
   processData,
-  computeRenderableData,
+
   getEventCount,
   sdDomain
 } = require("./process-data");
@@ -44,7 +44,7 @@ loadingProgressStore.subscribe(({ percentage, progressBarIsVisible }) => {
 });
 
 const progressBarHiddenPromise = new Promise(resolve =>
-  loadingProgressStore.subscribe(({ _, progressBarIsVisible }) => {
+  loadingProgressStore.subscribe(({ progressBarIsVisible }) => {
     if (!progressBarIsVisible) resolve();
   })
 );

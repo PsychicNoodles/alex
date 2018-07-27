@@ -27,3 +27,8 @@
 #info .value {
   display: block;
 }
+
+#program-info {
+  width: 200px;
+  word-wrap: break-word;
+}

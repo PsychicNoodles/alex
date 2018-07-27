@@ -63,9 +63,6 @@ function computeRenderableData({
       const density = children.length;
       const funcInfo = children.reduce((curFuncInfo, timeslice) => {
         const symName = timeslice.stackFrames[0].symName;
-        if (symName === "BZ2_blockSort") {
-          let a;
-        }
         const count = curFuncInfo[symName]
           ? curFuncInfo[symName] + 1 / density
           : 1 / density;
