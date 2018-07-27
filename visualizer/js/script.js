@@ -507,16 +507,16 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 .filter(
                   timeslice =>
                     selectedFunction
-                      ? timeslice.stackFrames[0].symName === selectedFunction
+                      ? timeslice.stackFrames[0].symbol === selectedFunction
                       : true
                 ),
               stackFrames =>
                 selectedFunction
                   ? stackFrames
-                      .map(frame => frame.symName)
+                      .map(frame => frame.symbol)
                       .reverse()
                       .join(FUNCTION_NAME_SEPARATOR)
-                  : stackFrames[0].symName,
+                  : stackFrames[0].symbol,
               document.getElementById("confidence-level-input").value
             );
 
@@ -532,7 +532,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
             return {
               functions: functions.map(func => ({
                 ...func,
-                displayNames: func.name.split(FUNCTION_NAME_SEPARATOR)
+                displayNames:
+                  func.name === undefined
+                    ? []
+                    : func.name.split(FUNCTION_NAME_SEPARATOR)
               })),
               selectedFunction
             };

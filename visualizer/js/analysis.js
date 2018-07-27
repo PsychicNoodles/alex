@@ -40,7 +40,7 @@ function analyze(timeSlices, getFunctionName, threshold) {
     const functionEntry = functionsMap.get(functionName);
     if (timeSlice.selected) {
       outputData.selectedTotal++;
-      functionEntry.time += timeSlice.numCPUTimerTicks;
+      functionEntry.time += timeSlice.numCpuTimerTicks;
       functionEntry.observed++;
     } else {
       outputData.unselectedTotal++;
