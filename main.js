@@ -386,8 +386,9 @@ async function collect({
             .pipe(protobufStream.parser())
             .on("end", resolve)
             .on("error", reject)
+            .resume()
         );
-        fs.renameSync(rawResultFile, resultFile);
+        fs.copyFileSync(rawResultFile, resultFile);
         resultsProcessed = true;
       } catch (err) {
         console.error(`Couldn't process result file: ${err.message}`);
