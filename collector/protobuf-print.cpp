@@ -56,6 +56,9 @@ int main(int argc, char **argv) {
 
   while (true) {
     if (!input.ReadVarint32(&size)) {
+      if (!input.ExpectAtEnd()) {
+        return 0;
+      }
       cerr << "failed to parse timeslice, couldn't read delimiter" << endl;
       return 3;
     }
@@ -77,6 +80,9 @@ int main(int argc, char **argv) {
 
   while (true) {
     if (!input.ReadVarint32(&size)) {
+      if (!input.ExpectAtEnd()) {
+        return 0;
+      }
       cerr << "failed to parse warning, couldn't read delimiter" << endl;
       return 4;
     }
