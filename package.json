@@ -13,7 +13,8 @@
     "eslint:fix": "eslint --fix .",
     "clean:outfiles": "rm -f out-* err-* result-*",
     "example": "npm run clean:outfiles && node . collect --in examples/inputs/matrix-500x500.in -- examples/build/matrixmultiplier",
-    "collect": "node . collect"
+    "collect": "node . collect",
+    "protobuf-print": "./collector/build/protobuf-print"
   },
   "bin": {
     "alex": "main.js"
