@@ -23,8 +23,9 @@ function analyze(timeSlices, getFunctionName, threshold) {
   };
 
   const functionsMap = new Map();
-  for (const timeSlice of timeSlices) {
-    const functionName = getFunctionName(timeSlice.stackFrames);
+  const length = timeSlices.length;
+  for (let i = 0; i < length; i++) {
+    const functionName = getFunctionName(timeSlices[i].stackFrames);
     if (!functionsMap.has(functionName)) {
       functionsMap.set(functionName, {
         name: functionName,
@@ -38,9 +39,9 @@ function analyze(timeSlices, getFunctionName, threshold) {
     }
 
     const functionEntry = functionsMap.get(functionName);
-    if (timeSlice.selected) {
+    if (timeSlices[i].selected) {
       outputData.selectedTotal++;
-      functionEntry.time += timeSlice.numCPUTimerTicks;
+      functionEntry.time += timeSlices[i].numCPUTimerTicks;
       functionEntry.observed++;
     } else {
       outputData.unselectedTotal++;
