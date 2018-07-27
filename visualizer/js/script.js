@@ -43,6 +43,12 @@ loadingProgressStore.subscribe(({ percentage, progressBarIsVisible }) => {
   });
 });
 
+const progressBarHiddenPromise = new Promise(resolve =>
+  loadingProgressStore.subscribe(({ _, progressBarIsVisible }) => {
+    if (!progressBarIsVisible) resolve();
+  })
+);
+
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", async (event, resultFile) => {
   let protobufMessageStream;
@@ -105,8 +111,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
     }
   );
 
-  headerPromise.then(header =>
-    d3.select("#program-info").call(programInfo.render, header)
+  progressBarHiddenPromise.then(() =>
+    headerPromise.then(header =>
+      d3.select("#program-info").call(programInfo.render, header)
+    )
   );
   const processedData = await Promise.all([
     timeslicesPromise,
