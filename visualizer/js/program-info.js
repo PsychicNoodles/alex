@@ -1,4 +1,9 @@
 function render(root, header) {
+  const data = [
+    { title: "Program Name", value: header.programName },
+    { title: "Program Version", value: header.programVersion }
+  ];
+
   if (root.select("h3").empty()) {
     root.append("h3").text("Program Info");
   }
@@ -7,12 +12,19 @@ function render(root, header) {
     ? root.append("ul")
     : root.select("ul");
 
-  const listElements = list
-    .selectAll("li")
-    .data(header => [
-      { key: "Program Name", value: header.programName },
-      { key: "Program Version", value: header.programVersion }
-    ])
-    .attr("textContent", datum => datum.key);
+  const eachListElement = list
+    .selectAll("li") // even if they're imaginary at this point
+    .data(data)
+    .enter() // for each of these data
+    .append("li");
+
+  eachListElement
+    .append("p")
+    .attr("class", "title")
+    .text(d => `${d.title}:\n`);
+  eachListElement
+    .append("p")
+    .attr("class", "value")
+    .text(d => d.value);
 }
 module.exports = { render };

@@ -1,13 +1,16 @@
-#stats ul {
+#stats ul,
+#program-info ul {
   list-style: none;
   padding: 0;
 }
 
-#stats li {
+#stats li,
+#program-info li {
   margin-bottom: 10px;
 }
 
-#stats .title {
+#stats .title,
+#program-info .title {
   font-weight: bold;
 }
 
