@@ -68,6 +68,9 @@ button:disabled {
   grid-area: charts;
   overflow: auto;
   padding: 0.25em;
+
+  /* Hack to force element onto its own layer to speed up scrolling. */
+  transform: translateZ(0);
 }
 
 #info {
@@ -113,6 +116,9 @@ button:disabled {
 #tables-wrapper {
   overflow: auto;
   flex: 1;
+
+  /* Hack to force element onto its own layer to speed up scrolling. */
+  transform: translateZ(0);
 }
 
 @media (max-width: 750px) {
