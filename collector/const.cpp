@@ -23,6 +23,25 @@ const char* callchain_str(perf_callchain_context callchain) {
   }
 }
 
+StackFrame_Section callchain_enum(perf_callchain_context callchain) {
+  switch (callchain) {
+    case PERF_CONTEXT_HV:
+      return StackFrame_Section_HYPERVISOR;
+    case PERF_CONTEXT_KERNEL:
+      return StackFrame_Section_KERNEL;
+    case PERF_CONTEXT_USER:
+      return StackFrame_Section_USER;
+    case PERF_CONTEXT_GUEST:
+      return StackFrame_Section_GUEST;
+    case PERF_CONTEXT_GUEST_KERNEL:
+      return StackFrame_Section_GUEST_KERNEL;
+    case PERF_CONTEXT_GUEST_USER:
+      return StackFrame_Section_GUEST_USER;
+    default:
+      return StackFrame_Section_HYPERVISOR;  // default 0 value
+  }
+}
+
 bool is_callchain_marker(perf_callchain_context instruction_pointers) {
   return instruction_pointers == PERF_CONTEXT_HV ||
          instruction_pointers == PERF_CONTEXT_KERNEL ||

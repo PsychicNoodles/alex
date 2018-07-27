@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package alex;
+
+message Header {
+  string program_name = 1;
+  string program_version = 2;
+  // extra events
+  repeated string events = 3;
+  // map of presets to abstract events and low level event names
+  // unfortunately, protobuf doesn't support a map of a map, so we need to do some finagling
+  map<string, PresetEvents> presets = 4;
+}
+
+// a map of a preset's event name (ie. misses) to the low level event names (ie. "MEM_LOAD_RETIRED.L3_MISS")
+message PresetEvents {
+  map<string, EventList> events = 1;
+}
+
+// a list of low level event names
+message EventList {
+  repeated string events = 1;
+}

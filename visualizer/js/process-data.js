@@ -3,7 +3,7 @@ const d3 = require("d3");
 function processData(data) {
   data.map((d, i, arr) => {
     if (i > 0) {
-      d.cpuTimeElapsed = d.numCPUTimerTicks / 1000000;
+      d.cpuTimeElapsed = d.numCpuTimerTicks / 1000000;
       const a = arr[i - 1].events.core;
       d.events.periodCpu = (d.events.core - a) / d.cpuTimeElapsed;
       const b = arr[i - 1].events.dram;
@@ -28,7 +28,7 @@ function processData(data) {
     .map(timeslice => ({
       ...timeslice,
       stackFrames: timeslice.stackFrames.filter(
-        frame => frame.symName !== "(null)"
+        frame => frame.symbol !== "(null)"
       )
     }))
     .filter(timeslice => timeslice.stackFrames.length);

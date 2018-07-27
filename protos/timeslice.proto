@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package alex;
+
+message Timeslice {
+  // high precision CPU timer when sample was taken
+  uint64 cpu_time = 1;
+  // number of times CPU timer ticked since last sample
+  uint64 num_cpu_timer_ticks = 2;
+  uint32 pid = 3;
+  uint32 tid = 4;
+  // map of event names and counter values
+  map<string, uint64> events = 5;
+  repeated StackFrame stack_frames = 6;
+}
+
+message StackFrame {
+  Section section = 1;
+  // function symbol, optional
+  string symbol = 2;
+  // the name of the file based on the shared objects
+  // optional, only set if section is not kernel or guest kernel
+  string file_name = 3;
+  // base address of file, upgrades to 64-bit address
+  // optional, only set if section is not kernel or guest kernel
+  uint64 file_base = 4;
+  // line number, optional
+  uint64 line = 5;
+  // full (absolute) path of the file, optional
+  string full_location = 6;
+
+  enum Section {
+    HYPERVISOR = 0;
+    KERNEL = 1;
+    USER = 2;
+    GUEST = 3;
+    GUEST_KERNEL = 4;
+    GUEST_USER = 5;
+  }
+}
