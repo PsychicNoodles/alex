@@ -332,6 +332,7 @@ void handle_perf_unregister(perf_fd_info *info) {
 bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
                         int socket, bool *done) {
   // check for high priority fds
+  bool had_priority_fd = false;
   for (int i = 0; i < ready_fds; i++) {
     int fd = evlist[i].data.fd;
     // check if it's sigterm or request to register thread
@@ -369,10 +370,10 @@ bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
       }
       DEBUG("exhausted requests");
       // re-poll for data
-      return true;
+      had_priority_fd = true;
     }
   }
-  return false;
+  return had_priority_fd;
 }
 
 /*
