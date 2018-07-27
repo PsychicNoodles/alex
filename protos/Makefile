@@ -8,11 +8,10 @@ JS_WRAPPER = default
 
 .PHONY: all build cpp js clean
 
-all: cpp js
+all: build cpp js
 
 build: $(SOURCES)
 	@mkdir -p $(CPP_OUT)
-	
 
 cpp: $(SOURCES)
 	$(PROTOC) --cpp_out=$(CPP_OUT) $^
