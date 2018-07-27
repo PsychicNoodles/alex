@@ -14,9 +14,7 @@ sampler_result setup_monitoring(perf_buffer *result, perf_event_attr *attr,
     perror("setup_monitoring: perf_event_open");
     return SAMPLER_MONITOR_ERROR;
   }
-
   result->fd = fd;
-
   return SAMPLER_MONITOR_SUCCESS;
 }
 

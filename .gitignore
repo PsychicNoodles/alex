@@ -416,3 +416,7 @@ $RECYCLE.BIN/
 result-*
 matrix_file*
 run-alex.sh
+
+# protoc build output
+collector/protos
+visualizer/js/protos.js

@@ -31,8 +31,9 @@
     "pretty-ms": "^3.2.0",
     "progress": "^2.0.0",
     "progress-stream": "^2.0.0",
-    "stream-json": "^1.1.1",
+    "protobufjs": "~6.8.8",
     "tempfile": "^2.0.0",
+    "through2": "^2.0.3",
     "yargs": "^12.0.1"
   },
   "devDependencies": {

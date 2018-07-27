@@ -60,14 +60,14 @@ int recv_perf_fds(int socket, perf_fd_info *info,
         DEBUG("found perf info for fd " << info->cpu_clock_fd);
         return cmd;
       }
-      DEBUG("couldn't find perf info for thread " << tid);
+      DEBUG_CRITICAL("couldn't find perf info for thread " << tid);
 
     } else {
-      DEBUG("received invalid socket cmd");
+      DEBUG_CRITICAL("received invalid socket cmd");
       return cmd;
     }
   } else if (n_recv == 0) {
-    DEBUG("socket was closed");
+    DEBUG_CRITICAL("socket was closed");
     return 0;
   }
   return -1;

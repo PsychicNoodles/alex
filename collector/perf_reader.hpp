@@ -2,7 +2,7 @@
 #define COLLECTOR_READER
 
 #include <sys/types.h>
-#include <cstdio>
+#include <fstream>
 #include <libelfin/dwarf/dwarf++.hh>
 #include <libelfin/elf/elf++.hh>
 #include <map>
@@ -21,6 +21,7 @@
 namespace alex {
 
 using std::map;
+using std::ofstream;
 using std::unordered_map;
 
 struct kernel_sym {
@@ -35,18 +36,18 @@ struct addr_sym {
   char* sym_name;
 };
 
-FILE* get_result_file();
+ofstream* get_result_file();
 
 #define PARENT_SHUTDOWN_MSG(code, msg) \
-  SHUTDOWN_MSG(global->subject_pid, get_result_file(), code, msg)
+  SHUTDOWN_MSG(global->subject_pid, *get_result_file(), code, msg)
 #define PARENT_SHUTDOWN_ERRMSG(code, title, desc) \
-  SHUTDOWN_ERRMSG(global->subject_pid, get_result_file(), code, title, desc)
+  SHUTDOWN_ERRMSG(global->subject_pid, *get_result_file(), code, title, desc)
 #define PARENT_SHUTDOWN_PERROR(code, title) \
-  SHUTDOWN_PERROR(global->subject_pid, get_result_file(), code, title)
+  SHUTDOWN_PERROR(global->subject_pid, *get_result_file(), code, title)
 
 void setup_perf_events(pid_t target, perf_fd_info* info);
 void setup_collect_perf_data(int sigt_fd, int socket, const int& wu_fd,
-                             FILE* res_file, char* program_name,
+                             ofstream* res_file, char* program_name,
                              bg_reading* rapl_reading,
                              bg_reading* wattsup_reading);
 int collect_perf_data(
