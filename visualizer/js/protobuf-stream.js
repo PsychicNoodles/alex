@@ -4,6 +4,19 @@ const { Header, Timeslice, Warning } = require("./protos").alex;
 const { Buffer } = require("buffer");
 const through2 = require("through2");
 
+function processMessage(msg) {
+  if (msg instanceof Header) {
+    // flatten the nested map shenanigans
+    for (const preset in msg.presets) {
+      msg.presets[preset] = msg.presets[preset].events;
+      for (const event in msg.presets[preset]) {
+        msg.presets[preset][event] = msg.presets[preset][event].events;
+      }
+    }
+  }
+  return msg;
+}
+
 function parser() {
   let buf;
   let dataSize = null;
@@ -13,17 +26,17 @@ function parser() {
 
   function readMessage(reader, callback) {
     if (!finishedHeader) {
-      this.push(Header.decode(reader, dataSize));
+      this.push(processMessage(Header.decode(reader, dataSize)));
       finishedHeader = true;
     } else if (!finishedTimeslices) {
       try {
-        this.push(Timeslice.decode(reader, dataSize));
+        this.push(processMessage(Timeslice.decode(reader, dataSize)));
       } catch (err) {
         // check if we're onto warnings now
         try {
           // reset pos back to before invalid read
           reader.pos = lastPos;
-          this.push(Warning.decode(reader, dataSize));
+          this.push(processMessage(Warning.decode(reader, dataSize)));
           finishedTimeslices = true;
         } catch (err) {
           // nope, data must be malformed then
@@ -31,7 +44,7 @@ function parser() {
         }
       }
     } else {
-      this.push(Warning.decode(reader, dataSize));
+      this.push(processMessage(Warning.decode(reader, dataSize)));
     }
   }
 

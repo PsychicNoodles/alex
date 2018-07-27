@@ -6,7 +6,7 @@ message Timeslice {
   // high precision CPU timer when sample was taken
   uint64 cpu_time = 1;
   // number of times CPU timer ticked since last sample
-  uint64 num_CPU_timer_ticks = 2;
+  uint64 num_cpu_timer_ticks = 2;
   uint32 pid = 3;
   uint32 tid = 4;
   // map of event names and counter values
