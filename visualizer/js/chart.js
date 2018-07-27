@@ -4,6 +4,8 @@ const plot = require("./plot");
 const brushes = require("./brushes");
 const warnings = require("./warnings");
 const legend = require("./legend");
+const { computeRenderableData } = require("./process-data");
+const stream = require("./stream");
 
 const WIDTH = 500;
 const HEIGHT = 250;
@@ -17,17 +19,15 @@ function render(
     yAxisLabelText,
     xScale,
     yScale,
-    brush,
     yFormat,
-    plotData,
-    densityMax,
+    filteredData,
     spectrum,
     cpuTimeOffset,
     warningRecords,
     warningsDistinct,
-    currentYScale,
-    onYScaleDomainChange,
-    processedData
+    currentYScaleStore,
+    processedData,
+    selectedFunction
   }
 ) {
   root.classed("chart", true);
@@ -40,6 +40,7 @@ function render(
         .attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`)
     : root.select("svg.chart__svg");
 
+  //warnings
   if (root.select("g.warning-lines").empty()) {
     svg.append("g").call(warnings.renderLines, {
       xScale,
@@ -49,6 +50,32 @@ function render(
     });
   }
 
+  //brushes
+  if (root.select("g.brushes").empty()) {
+    svg.append("g").call(brushes.render);
+  }
+
+  //xaxis
+  const xAxis = root.select("g.chart__axis--x").empty()
+    ? svg
+        .append("g")
+        .attr("class", "chart__axis chart__axis--x")
+        .attr("transform", `translate(0, ${HEIGHT})`)
+    : svg.select("g.chart__axis--x");
+
+  xAxis.call(d3.axisBottom(xScale).tickFormat(d3.format(".2s")));
+
+  xAxis.select(".chart__axis-label--x").empty()
+    ? xAxis
+        .append("text")
+        .attr("class", "chart__axis-label chart__axis-label--x")
+        .attr("text-anchor", "middle")
+        .attr("x", WIDTH / 2)
+        .attr("y", 50)
+        .text(xAxisLabelText)
+    : svg.select("chart__axis-label--x");
+
+  //still in progress still in progress still in progress
   if (yAxisLabelText === "L3 Cache Miss Rate") {
     const hitExtent = d3
       .extent(processedData, d => d.events["MEM_LOAD_RETIRED.L3_HIT"])
@@ -82,118 +109,116 @@ function render(
           .style("stroke-opacity", 0.5)
       : svg.select("svg.bg");
   }
+  //ignore this part if you are not xinya
 
   const chartPlot = root.select("g.plot").empty()
     ? svg.append("g")
     : svg.select("g.plot");
 
-  chartPlot.call(plot.render, {
-    data: plotData,
-    xGetter: d => xScale(getIndependentVariable(d)),
-    yGetter: d => currentYScale(getDependentVariable(d)),
-    densityMax,
-    spectrum
-  });
+  currentYScaleStore.stream.pipe(
+    stream.subscribeUnique(root, "currentYscaleStore", currentYScale => {
+      const plotData = computeRenderableData({
+        data: filteredData,
+        xScale,
+        yScale: currentYScale,
+        getIndependentVariable,
+        getDependentVariable,
+        selectedFunction
+      });
 
-  if (root.select("g.brushes").empty()) {
-    svg.append("g").call(brushes.render);
-  }
+      const densityMax = Math.max(d3.max(plotData, d => d.densityAvg), 5) || 0;
 
-  const xAxis = root.select("g.chart__axis--x").empty()
-    ? svg
-        .append("g")
-        .attr("class", "chart__axis chart__axis--x")
-        .attr("transform", `translate(0, ${HEIGHT})`)
-    : svg.select("g.chart__axis--x");
+      chartPlot.call(plot.render, {
+        data: plotData,
+        xGetter: d => xScale(getIndependentVariable(d)),
+        yGetter: d => currentYScale(getDependentVariable(d)),
+        densityMax,
+        spectrum
+      });
 
-  xAxis.call(d3.axisBottom(xScale).tickFormat(d3.format(".2s")));
+      //yAxis
+      const yAxis = root.select("g.chart__axis--y").empty()
+        ? svg.append("g").attr("class", "chart__axis chart__axis--y")
+        : svg.select("g.chart__axis--y");
 
-  xAxis.select(".chart__axis-label--x").empty()
-    ? xAxis
-        .append("text")
-        .attr("class", "chart__axis-label chart__axis-label--x")
-        .attr("text-anchor", "middle")
-        .attr("x", WIDTH / 2)
-        .attr("y", 50)
-        .text(xAxisLabelText)
-    : svg.select("chart__axis-label--x");
+      yAxis.call(d3.axisLeft(currentYScale).tickFormat(yFormat));
 
-  //yAxis
-  const yAxis = root.select("g.chart__axis--y").empty()
-    ? svg.append("g").attr("class", "chart__axis chart__axis--y")
-    : svg.select("g.chart__axis--y");
+      yAxis.select(".chart__axis-label--y").empty()
+        ? yAxis
+            .append("text")
+            .attr("class", "chart__axis-label chart__axis-label--y")
+            .attr("text-anchor", "middle")
+            .attr("y", -40)
+            .attr("x", -(HEIGHT / 2))
+            .attr("transform", "rotate(-90)")
+            .text(yAxisLabelText)
+        : yAxis.select(".chart__axis-label--y").text(yAxisLabelText);
 
-  yAxis.call(d3.axisLeft(currentYScale).tickFormat(yFormat));
+      //side bar
+      const sideBar = root.select("g.chart__sideBar").empty()
+        ? svg
+            .append("g")
+            .attr("class", "chart__sideBar")
+            .attr("transform", `translate(${WIDTH * 1.01}, 0)`)
+        : svg.select("g.chart__sideBar");
 
-  yAxis.select(".chart__axis-label--y").empty()
-    ? yAxis
-        .append("text")
-        .attr("class", "chart__axis-label chart__axis-label--y")
-        .attr("text-anchor", "middle")
-        .attr("y", -40)
-        .attr("x", -(HEIGHT / 2))
-        .attr("transform", "rotate(-90)")
-        .text(yAxisLabelText)
-    : yAxis.select(".chart__axis-label--y").text(yAxisLabelText);
+      const sideBarPlot = sideBar.select("g.plot").empty()
+        ? sideBar.append("g")
+        : sideBar.select("g.plot");
 
-  //side bar
-  const sideBar = root.select("g.chart__sideBar").empty()
-    ? svg
-        .append("g")
-        .attr("class", "chart__sideBar")
-        .attr("transform", `translate(${WIDTH * 1.01}, 0)`)
-    : svg.select("g.chart__sideBar");
+      sideBarPlot.call(plot.render, {
+        data: plotData,
+        xGetter: d => xScale(getIndependentVariable(d) * 0.075),
+        yGetter: d => yScale(getDependentVariable(d)),
+        densityMax,
+        spectrum
+      });
 
-  const sideBarPlot = sideBar.select("g.plot").empty()
-    ? sideBar.append("g")
-    : sideBar.select("g.plot");
+      //brush
+      const brush = d3.brushY().extent([[0, 0], [WIDTH * 0.075, HEIGHT]]);
+      brush.on("end", brushed);
 
-  sideBarPlot.call(plot.render, {
-    data: plotData,
-    // hiddenThreadsStore,
-    xGetter: d => xScale(getIndependentVariable(d) * 0.075),
-    yGetter: d => yScale(getDependentVariable(d)),
-    densityMax,
-    spectrum
-  });
+      const sideBarBrush = sideBar.select("g.sideBar-brush").empty()
+        ? sideBar
+            .append("g")
+            .attr("class", "sideBar-brush")
+            .call(brush)
+            .call(brush.move, currentYScale.domain().map(d => yScale(d)))
+        : sideBar.select("g.sideBar-brush");
 
-  //legend
-  const chartLegend = root.select("g.chart__legend").empty()
-    ? svg
-        .append("g")
-        .attr("class", "chart__legend")
-        .attr("transform", `translate(${WIDTH * 0.7}, ${HEIGHT + 1.1})`)
-    : svg.select("g.chart__legend");
+      sideBarBrush
+        .selectAll(".handle")
+        .attr("fill", "#666")
+        .attr("fill-opacity", 0.8);
 
-  chartLegend.call(legend.render, {
-    densityMax,
-    spectrum
-  });
+      function brushed() {
+        const s = d3.event.selection || yScale.range();
+        const newDomain = s.map(yScale.invert, yScale).map(n => n.toFixed(7));
+        const oldDomain = currentYScale.domain().map(n => n.toFixed(8));
+        if (oldDomain[0] !== newDomain[0] || oldDomain[1] !== newDomain[1]) {
+          currentYScaleStore.dispatch(() =>
+            d3
+              .scaleLinear()
+              .domain(newDomain)
+              .range(yScale.range())
+          );
+        }
+      }
 
-  //brush
-  brush.on("end", brushed);
+      //legend
+      const chartLegend = root.select("g.chart__legend").empty()
+        ? svg
+            .append("g")
+            .attr("class", "chart__legend")
+            .attr("transform", `translate(${WIDTH * 0.7}, ${HEIGHT + 1.1})`)
+        : svg.select("g.chart__legend");
 
-  const sideBarBrush = sideBar.select("g.sideBar-brush").empty()
-    ? sideBar
-        .append("g")
-        .attr("class", "sideBar-brush")
-        .call(brush)
-        .call(brush.move, currentYScale.domain().map(d => yScale(d)))
-    : sideBar.select("g.sideBar-brush");
-
-  sideBarBrush
-    .selectAll(".handle")
-    .attr("fill", "#666")
-    .attr("fill-opacity", 0.8);
-
-  function brushed() {
-    const s = d3.event.selection || yScale.range();
-    const newDomain = s.map(yScale.invert, yScale).map(n => n.toFixed(8));
-    const oldDomain = currentYScale.domain().map(n => n.toFixed(8));
-    if (oldDomain[0] !== newDomain[0] || oldDomain[1] !== newDomain[1]) {
-      onYScaleDomainChange(newDomain);
-    }
-  }
+      chartLegend.call(legend.render, {
+        densityMax,
+        spectrum
+      });
+    })
+  );
 }
 
 module.exports = { render, WIDTH, HEIGHT };

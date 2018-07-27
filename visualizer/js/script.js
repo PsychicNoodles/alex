@@ -223,6 +223,11 @@ ipcRenderer.on("result", async (event, resultFile) => {
       presetsRequired.every(presetName => presetName in presets)
     );
 
+    //render the side bar to choose which charts to render
+    d3.select("#charts-select").call(chartsSelect.render, {
+      charts
+    });
+
     //combine yScales (x2), brush and and a chart file ????? into a new var and make a array of them
     const chartsWithYScales = charts.map(chartParams => {
       const { getDependentVariable } = chartParams;
@@ -232,14 +237,9 @@ ipcRenderer.on("result", async (event, resultFile) => {
         .domain(d3.extent(normalData, getDependentVariable).reverse())
         .range([0, chart.HEIGHT]);
 
-      const brush = d3
-        .brushY()
-        .extent([[0, 0], [chart.WIDTH * 0.075, chart.HEIGHT]]);
-
       return {
         ...chartParams,
         yScale,
-        brush,
         chart
       };
     });
@@ -290,62 +290,54 @@ ipcRenderer.on("result", async (event, resultFile) => {
       })
     );
 
-    const currentYScalesStore = new Store(
-      chartsWithYScales.reduce((currentYScales, chartParams) => {
+    const currentYScaleStores = chartsWithYScales.reduce(
+      (currentYScales, chartParams) => {
         const { yAxisLabelText, yScale, getDependentVariable } = chartParams;
 
         return {
           ...currentYScales,
-          [yAxisLabelText]: d3
-            .scaleLinear()
-            .domain(
-              sdDomain(processedData, getDependentVariable, sdRange, yScale)
-            )
-            .range(yScale.range())
+          [yAxisLabelText]: new Store(
+            d3
+              .scaleLinear()
+              .domain(
+                sdDomain(processedData, getDependentVariable, sdRange, yScale)
+              )
+              .range(yScale.range())
+          )
         };
-      }, {})
+      },
+      {}
     );
 
+    const currentSelectedFunctionStore = new Store(null);
     stream
-      .fromStreamables([currentYScalesStore.stream, filteredDataStream])
+      .fromStreamables([
+        filteredDataStream,
+        currentSelectedFunctionStore.stream
+      ])
       .pipe(
         stream.subscribe(
-          ([currentYScales, { fullFilteredData, sourceFilteredData }]) => {
-            const chartsWithPlotData = chartsWithYScales
-              .map(chartParams => {
-                const {
-                  yAxisLabelText,
-                  getDependentVariable,
-                  flattenThreads
-                } = chartParams;
+          ([{ fullFilteredData, sourceFilteredData }, selectedFunction]) => {
+            const chartsWithFilteredData = chartsWithYScales.map(
+              chartParams => {
+                const { flattenThreads } = chartParams;
 
                 const filteredData = flattenThreads
                   ? sourceFilteredData
                   : fullFilteredData;
 
-                const plotData = computeRenderableData({
-                  data: filteredData,
-                  xScale,
-                  yScale: currentYScales[yAxisLabelText],
-                  getIndependentVariable,
-                  getDependentVariable
-                });
-
-                const densityMaxLocal =
-                  Math.max(d3.max(plotData, d => d.densityAvg), 5) || 0;
-
                 return {
                   ...chartParams,
-                  densityMaxLocal,
-                  plotData
+                  filteredData
                 };
-              })
-              .filter(chartParams => chartParams.plotData.length > 0);
+              }
+            );
+            // .filter(chartParams => chartParams.filteredData.length > 0);
 
             const chartsDataSelection = d3
               .select("#charts")
               .selectAll("div")
-              .data(chartsWithPlotData);
+              .data(chartsWithFilteredData);
 
             chartsDataSelection
               .enter()
@@ -356,9 +348,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 yAxisLabelText,
                 yFormat,
                 yScale,
-                densityMaxLocal,
-                brush,
-                plotData
+                filteredData
               }) {
                 d3.select(this).call(chart.render, {
                   getIndependentVariable,
@@ -367,33 +357,19 @@ ipcRenderer.on("result", async (event, resultFile) => {
                   yAxisLabelText,
                   xScale,
                   yScale,
-                  brush,
                   yFormat,
-                  plotData,
-                  densityMax: densityMaxLocal,
+                  filteredData,
                   spectrum,
                   cpuTimeOffset,
                   warningRecords,
                   warningsDistinct,
-                  currentYScale: currentYScales[yAxisLabelText],
-                  onYScaleDomainChange: newDomain => {
-                    currentYScalesStore.dispatch(currentYScales => ({
-                      ...currentYScales,
-                      [yAxisLabelText]: d3
-                        .scaleLinear()
-                        .domain(newDomain)
-                        .range(yScale.range())
-                    }));
-                  },
-                  processedData
+                  currentYScaleStore: currentYScaleStores[yAxisLabelText],
+                  processedData,
+                  selectedFunction
                 });
               });
 
-            chartsDataSelection.exit().remove();
-
-            d3.select("#charts-select").call(chartsSelect.render, {
-              chartsWithPlotData
-            });
+            // chartsDataSelection.exit().remove();
           }
         )
       );
@@ -408,8 +384,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
         }
       })
     );
-
-    const currentSelectedFunctionStore = new Store(null);
 
     let averageProcessingTime = 0;
     let numProcessingTimeSamples = 0;
@@ -482,6 +456,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                       ? timeslice.stackFrames[0].symName === selectedFunction
                       : true
                 ),
+
               stackFrames =>
                 selectedFunction
                   ? stackFrames
@@ -531,6 +506,13 @@ ipcRenderer.on("result", async (event, resultFile) => {
           });
         })
       );
+
+    currentSelectedFunctionStore.stream.pipe(
+      stream.subscribe(selectedFunction => {
+        console.log(selectedFunction);
+        // d3.select("#charts").selectAll(".chart").select(".chart__svg").select(".plot").select(".circles").selectAll("circle").style("opacity",0.25);
+      })
+    );
 
     tableSelect.selectedTableStore.stream
       .pipe(stream.map(table => table.id))

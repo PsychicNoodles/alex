@@ -5,7 +5,7 @@ const { Store } = require("./store");
 const hiddenChartsSubscription = d3.local();
 const hiddenChartsStore = new Store([]);
 
-function render(root, { chartsWithPlotData }) {
+function render(root, { charts }) {
   if (root.select("h3").empty()) {
     root.append("h3").text("Charts");
   }
@@ -16,7 +16,7 @@ function render(root, { chartsWithPlotData }) {
   const checkboxes = chartsListSelection
     .attr("class", "list")
     .selectAll("label")
-    .data(chartsWithPlotData)
+    .data(charts)
     .enter()
     .append("label")
     .attr("class", "list__chart-item");
