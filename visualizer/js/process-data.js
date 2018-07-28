@@ -27,9 +27,7 @@ function processData(data) {
     )
     .map(timeslice => ({
       ...timeslice,
-      stackFrames: timeslice.stackFrames.filter(
-        frame => frame.symbol !== "(null)"
-      )
+      stackFrames: timeslice.stackFrames.filter(frame => frame.symbol)
     }))
     .filter(timeslice => timeslice.stackFrames.length);
 }
@@ -62,14 +60,15 @@ function computeRenderableData({
       const children = getLeafChildren(node);
       const density = children.length;
       const funcInfo = children.reduce((curFuncInfo, timeslice) => {
-        const symName = timeslice.stackFrames[0].symName;
-        const count = curFuncInfo[symName]
-          ? curFuncInfo[symName] + 1 / density
+        const symbol = timeslice.stackFrames[0].symbol;
+
+        const count = curFuncInfo[symbol]
+          ? curFuncInfo[symbol] + 1 / density
           : 1 / density;
 
         return {
           ...curFuncInfo,
-          [symName]: count
+          [symbol]: count
         };
       }, {});
 

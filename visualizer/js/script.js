@@ -356,6 +356,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       .pipe(
         stream.subscribe(
           ([{ fullFilteredData, sourceFilteredData }, selectedFunction]) => {
+            console.log(selectedFunction);
             const chartsWithFilteredData = chartsWithYScales.map(
               chartParams => {
                 const { flattenThreads } = chartParams;
@@ -515,13 +516,12 @@ ipcRenderer.on("result", async (event, resultFile) => {
             numProcessingTimeSamples++;
 
             return {
-              functions: functions.map(func => ({
-                ...func,
-                displayNames:
-                  func.name === undefined
-                    ? []
-                    : func.name.split(FUNCTION_NAME_SEPARATOR)
-              })),
+              functions: functions
+                .filter(func => func.symbol !== undefined)
+                .map(func => ({
+                  ...func,
+                  displayNames: func.name.split(FUNCTION_NAME_SEPARATOR)
+                })),
               selectedFunction
             };
           }
