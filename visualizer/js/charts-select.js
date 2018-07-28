@@ -32,18 +32,18 @@ function render(root, { charts }) {
       checkboxes.merge(checkboxes).each(function(chart) {
         d3.select(this)
           .select("input")
-          .property("checked", !hiddenCharts.includes(chart.yAxisLabelText))
+          .property("checked", !hiddenCharts.includes(chart.chartId))
           .on("change", function() {
             if (this.checked) {
               hiddenChartsStore.dispatch(hiddenCharts =>
                 hiddenCharts.filter(
-                  hiddenChartId => hiddenChartId !== chart.yAxisLabelText
+                  hiddenChartId => hiddenChartId !== chart.chartId
                 )
               );
             } else {
               hiddenChartsStore.dispatch(hiddenCharts => [
                 ...hiddenCharts,
-                chart.yAxisLabelText
+                chart.chartId
               ]);
             }
           });
