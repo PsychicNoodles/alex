@@ -28,7 +28,7 @@ function analyze({ timeSlices, isSelected, getFunctionName, threshold }) {
   let unselectedTotal = 0;
 
   const mapBuildScheduler = new Scheduler();
-  const MAP_BUILD_CHUNK_SIZE = 10000;
+  const MAP_BUILD_CHUNK_SIZE = 1000;
   const mapBuildChunkPromises = [];
 
   performance.mark("functions map build start");
