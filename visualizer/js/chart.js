@@ -28,7 +28,7 @@ function render(
     warningsDistinct,
     currentYScaleStore,
     processedData,
-    selectedFunction
+    selectedFunctionStream
   }
 ) {
   root.classed("chart", true);
@@ -116,109 +116,133 @@ function render(
     ? svg.append("g")
     : svg.select("g.plot");
 
-  currentYScaleStore.stream.pipe(
-    stream.subscribeUnique(root, "currentYscaleStore", currentYScale => {
-      const plotData = computeRenderableData({
+  const plotDataStream = currentYScaleStore.stream.pipe(
+    stream.map(currentYScale =>
+      computeRenderableData({
         data: filteredData,
         xScale,
         yScale: currentYScale,
         getIndependentVariable,
-        getDependentVariable,
-        selectedFunction
-      });
+        getDependentVariable
+      })
+    )
+  );
+  stream.fromStreamables([currentYScaleStore.stream, plotDataStream]).pipe(
+    stream.subscribeUnique(
+      root,
+      "currentYscaleStore",
+      ([currentYScale, plotData]) => {
+        const densityMax =
+          Math.max(d3.max(plotData, d => d.densityAvg), 5) || 0;
 
-      const densityMax = Math.max(d3.max(plotData, d => d.densityAvg), 5) || 0;
+        chartPlot.call(plot.render, {
+          data: plotData,
+          xGetter: d => xScale(getIndependentVariable(d)),
+          yGetter: d => currentYScale(getDependentVariable(d)),
+          densityMax,
+          spectrum
+        });
 
-      chartPlot.call(plot.render, {
-        data: plotData,
-        xGetter: d => xScale(getIndependentVariable(d)),
-        yGetter: d => currentYScale(getDependentVariable(d)),
-        densityMax,
-        spectrum
-      });
+        //yAxis
+        const yAxis = root.select("g.chart__axis--y").empty()
+          ? svg.append("g").attr("class", "chart__axis chart__axis--y")
+          : svg.select("g.chart__axis--y");
 
-      //yAxis
-      const yAxis = root.select("g.chart__axis--y").empty()
-        ? svg.append("g").attr("class", "chart__axis chart__axis--y")
-        : svg.select("g.chart__axis--y");
+        yAxis.call(d3.axisLeft(currentYScale).tickFormat(yFormat));
 
-      yAxis.call(d3.axisLeft(currentYScale).tickFormat(yFormat));
+        yAxis.select(".chart__axis-label--y").empty()
+          ? yAxis
+              .append("text")
+              .attr("class", "chart__axis-label chart__axis-label--y")
+              .attr("text-anchor", "middle")
+              .attr("y", -40)
+              .attr("x", -(HEIGHT / 2))
+              .attr("transform", "rotate(-90)")
+              .text(yAxisLabelText)
+          : yAxis.select(".chart__axis-label--y").text(yAxisLabelText);
 
-      yAxis.select(".chart__axis-label--y").empty()
-        ? yAxis
-            .append("text")
-            .attr("class", "chart__axis-label chart__axis-label--y")
-            .attr("text-anchor", "middle")
-            .attr("y", -40)
-            .attr("x", -(HEIGHT / 2))
-            .attr("transform", "rotate(-90)")
-            .text(yAxisLabelText)
-        : yAxis.select(".chart__axis-label--y").text(yAxisLabelText);
+        //side bar
+        const sideBar = root.select("g.chart__sideBar").empty()
+          ? svg
+              .append("g")
+              .attr("class", "chart__sideBar")
+              .attr("transform", `translate(${WIDTH * 1.01}, 0)`)
+          : svg.select("g.chart__sideBar");
 
-      //side bar
-      const sideBar = root.select("g.chart__sideBar").empty()
-        ? svg
-            .append("g")
-            .attr("class", "chart__sideBar")
-            .attr("transform", `translate(${WIDTH * 1.01}, 0)`)
-        : svg.select("g.chart__sideBar");
+        const sideBarPlot = sideBar.select("g.plot").empty()
+          ? sideBar.append("g")
+          : sideBar.select("g.plot");
 
-      const sideBarPlot = sideBar.select("g.plot").empty()
-        ? sideBar.append("g")
-        : sideBar.select("g.plot");
+        sideBarPlot.call(plot.render, {
+          data: plotData,
+          xGetter: d => xScale(getIndependentVariable(d) * 0.075),
+          yGetter: d => yScale(getDependentVariable(d)),
+          densityMax,
+          spectrum
+        });
 
-      sideBarPlot.call(plot.render, {
-        data: plotData,
-        xGetter: d => xScale(getIndependentVariable(d) * 0.075),
-        yGetter: d => yScale(getDependentVariable(d)),
-        densityMax,
-        spectrum
-      });
+        //brush
+        const brush = d3.brushY().extent([[0, 0], [WIDTH * 0.075, HEIGHT]]);
+        brush.on("end", brushed);
 
-      //brush
-      const brush = d3.brushY().extent([[0, 0], [WIDTH * 0.075, HEIGHT]]);
-      brush.on("end", brushed);
+        const sideBarBrush = sideBar.select("g.sideBar-brush").empty()
+          ? sideBar
+              .append("g")
+              .attr("class", "sideBar-brush")
+              .call(brush)
+              .call(brush.move, currentYScale.domain().map(d => yScale(d)))
+          : sideBar.select("g.sideBar-brush");
 
-      const sideBarBrush = sideBar.select("g.sideBar-brush").empty()
-        ? sideBar
-            .append("g")
-            .attr("class", "sideBar-brush")
-            .call(brush)
-            .call(brush.move, currentYScale.domain().map(d => yScale(d)))
-        : sideBar.select("g.sideBar-brush");
+        sideBarBrush
+          .selectAll(".handle")
+          .attr("fill", "#666")
+          .attr("fill-opacity", 0.8);
 
-      sideBarBrush
-        .selectAll(".handle")
-        .attr("fill", "#666")
-        .attr("fill-opacity", 0.8);
-
-      function brushed() {
-        const s = d3.event.selection || yScale.range();
-        const newDomain = s.map(yScale.invert, yScale).map(n => n.toFixed(7));
-        const oldDomain = currentYScale.domain().map(n => n.toFixed(8));
-        if (oldDomain[0] !== newDomain[0] || oldDomain[1] !== newDomain[1]) {
-          currentYScaleStore.dispatch(() =>
-            d3
-              .scaleLinear()
-              .domain(newDomain)
-              .range(yScale.range())
-          );
+        function brushed() {
+          const s = d3.event.selection || yScale.range();
+          const newDomain = s.map(yScale.invert, yScale).map(n => n.toFixed(7));
+          const oldDomain = currentYScale.domain().map(n => n.toFixed(8));
+          if (oldDomain[0] !== newDomain[0] || oldDomain[1] !== newDomain[1]) {
+            currentYScaleStore.dispatch(() =>
+              d3
+                .scaleLinear()
+                .domain(newDomain)
+                .range(yScale.range())
+            );
+          }
         }
+
+        //legend
+        const chartLegend = root.select("g.chart__legend").empty()
+          ? svg
+              .append("g")
+              .attr("class", "chart__legend")
+              .attr("transform", `translate(${WIDTH * 0.7}, ${HEIGHT + 1.1})`)
+          : svg.select("g.chart__legend");
+
+        chartLegend.call(legend.render, {
+          densityMax,
+          spectrum
+        });
       }
+    )
+  );
 
-      //legend
-      const chartLegend = root.select("g.chart__legend").empty()
-        ? svg
-            .append("g")
-            .attr("class", "chart__legend")
-            .attr("transform", `translate(${WIDTH * 0.7}, ${HEIGHT + 1.1})`)
-        : svg.select("g.chart__legend");
-
-      chartLegend.call(legend.render, {
-        densityMax,
-        spectrum
-      });
-    })
+  stream.fromStreamables([plotDataStream, selectedFunctionStream]).pipe(
+    stream.subscribeUnique(
+      root,
+      "plotAndFunction",
+      ([plotData, selectedFunction]) => {
+        chartPlot
+          .selectAll("circle")
+          .data(plotData)
+          .style(
+            "opacity",
+            d =>
+              selectedFunction === null ? 1 : d.funcInfo[selectedFunction] || 0
+          );
+      }
+    )
   );
 }
 

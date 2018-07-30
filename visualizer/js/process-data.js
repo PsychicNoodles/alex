@@ -72,8 +72,8 @@ function computeRenderableData({
         };
       }, {});
 
-      const opacity =
-        selectedFunction === null ? 1 : funcInfo[selectedFunction] || 0;
+      // const opacity = 1
+      // selectedFunction === null ? 1 : funcInfo[selectedFunction] || 0;
       const representativeElement =
         children[Math.floor(Math.random() * children.length)];
       renderableData.push({
@@ -81,8 +81,7 @@ function computeRenderableData({
         x: overallQuadtree.x()(representativeElement),
         y: overallQuadtree.y()(representativeElement),
         density,
-        funcInfo,
-        opacity
+        funcInfo
       });
 
       return true; // Don't visit any children
