@@ -295,10 +295,4 @@ __attribute__((constructor)) void init() {
     dlerror();
     exit(2);
   }
-
-  real_execl = reinterpret_cast<execl_fn_t>(dlsym(RTLD_NEXT, "execl"));
-  if (real_execl == nullptr) {
-    dlerror();
-    exit(2);
-  }
 }
