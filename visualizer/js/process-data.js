@@ -44,8 +44,7 @@ function computeRenderableData({
   xScale,
   yScale,
   getIndependentVariable,
-  getDependentVariable,
-  selectedFunction
+  getDependentVariable
 }) {
   // Group together points less than 1 pixel apart into renderableData
   const renderableData = [];

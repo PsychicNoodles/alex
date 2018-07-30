@@ -344,7 +344,6 @@ function subscribeUnique(selection, propertyName, onData, onDone = undefined) {
     if (oldSubscription) {
       oldSubscription.unsubscribe();
     }
-
     selection.property(propertyName, {
       unsubscribe: fromStreamable(streamable).pipe(subscribe(onData, onDone))
     });
