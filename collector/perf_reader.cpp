@@ -629,8 +629,7 @@ bool process_sample_record(
       }
     }
 
-    size_t fullLocationSize = 256;
-    auto line = -1;
+    size_t line = -1;
 
     // Get the line full location
     DEBUG("looking up line location");
@@ -640,12 +639,8 @@ bool process_sample_record(
       if (upper_range->first.contains(pc)) {
         DEBUG("line is " << upper_range->second);
         line = upper_range->second.get()->get_line();
-        char fullLocation[fullLocationSize];
-        snprintf(fullLocation, fullLocationSize, "%s:%d",
-                 const_cast<char *>(
-                     upper_range->second.get()->get_file()->get_name().c_str()),
-                 line);
-        stack_frame->set_full_location(fullLocation);
+        stack_frame->set_full_location(
+            upper_range->second.get()->get_file()->get_name().c_str());
       } else {
         DEBUG("cannot find line location");
       }
