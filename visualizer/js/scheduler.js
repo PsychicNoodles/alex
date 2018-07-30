@@ -1,18 +1,38 @@
 let frameStartTime = 0;
+const runningQueues = [];
+
 requestAnimationFrame(onFrame);
 function onFrame() {
   frameStartTime = Date.now();
+
+  let isFirstCycle = true;
+  while (isFirstCycle || runningQueues.some(queue => queue._hasTimeForMore())) {
+    for (let i = 0; i !== runningQueues.length; i++) {
+      const scheduler = runningQueues[i];
+      if (scheduler._hasMoreWork()) {
+        if (isFirstCycle || scheduler._hasTimeForMore()) {
+          scheduler._doNextJob();
+        }
+      } else {
+        runningQueues.splice(i, 1);
+        i--;
+      }
+    }
+
+    isFirstCycle = false;
+  }
+
   requestAnimationFrame(onFrame);
 }
 
 /**
  * Object to execute a sequence of small jobs in a non-blocking fashion.
  *
- * Jobs are represented as "thunks" or functions of type () => any. For best
+ * Jobs are represented as "thunks" or functions of type `() => any`. For best
  * performance, all jobs given to a particular scheduler should take roughly
  * the same amount of time.
  */
-class Scheduler {
+class JobQueue {
   /**
    * @param {number} maxWorkPerFrame
    *    Maximum amount of time in ms that the scheduler should keep doing work
@@ -30,7 +50,7 @@ class Scheduler {
     /**
      * Cancel all scheduled work.
      */
-    this.clearSchedule = () => {
+    this.clear = () => {
       cancelAnimationFrame(this._deferredWorkTimeout);
       this._jobQueue = [];
       this._deferredWorkTimeout = null;
@@ -42,7 +62,7 @@ class Scheduler {
    * @param {() => any} job Some small piece of work to do.
    * @returns {Promise<any>} The result of the work.
    */
-  schedule(job) {
+  add(job) {
     return new Promise((resolve, reject) => {
       const doJob = () => {
         try {
@@ -56,7 +76,7 @@ class Scheduler {
         doJob();
       } else {
         this._jobQueue.push(doJob);
-        this._deferQueuedWork();
+        runningQueues.push(this);
       }
     });
   }
@@ -72,25 +92,10 @@ class Scheduler {
     );
   }
 
-  _deferQueuedWork() {
-    if (this._hasMoreWork()) {
-      cancelAnimationFrame(this._deferredWorkTimeout);
-      this._deferredWorkTimeout = requestAnimationFrame(() => {
-        do {
-          if (this._hasMoreWork()) {
-            console.log(
-              "doing work with remaining time:",
-              this.maxWorkPerFrame - (Date.now() - frameStartTime)
-            );
-            const doNextJob = this._jobQueue.shift();
-            doNextJob();
-          }
-        } while (this._hasMoreWork() && this._hasTimeForMore());
-
-        this._deferQueuedWork();
-      });
-    }
+  _doNextJob() {
+    const nextJob = this._jobQueue.shift();
+    nextJob();
   }
 }
 
-module.exports = { Scheduler };
+module.exports = { JobQueue };

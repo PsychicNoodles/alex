@@ -1,5 +1,5 @@
 const stream = require("./stream");
-const { Scheduler } = require("./scheduler");
+const scheduler = require("./scheduler");
 
 /**
  * Run analyses of data.
@@ -27,7 +27,7 @@ function analyze({ timeSlices, isSelected, getFunctionName, threshold }) {
   let selectedTotal = 0;
   let unselectedTotal = 0;
 
-  const mapBuildScheduler = new Scheduler();
+  const mapBuildJobs = new scheduler.JobQueue();
   const MAP_BUILD_CHUNK_SIZE = 1000;
   const mapBuildChunkPromises = [];
 
@@ -38,7 +38,7 @@ function analyze({ timeSlices, isSelected, getFunctionName, threshold }) {
     i += MAP_BUILD_CHUNK_SIZE
   ) {
     mapBuildChunkPromises.push(
-      mapBuildScheduler.schedule(() => {
+      mapBuildJobs.add(() => {
         for (
           let j = i;
           j < i + MAP_BUILD_CHUNK_SIZE && j < timeSlices.length;
@@ -79,7 +79,7 @@ function analyze({ timeSlices, isSelected, getFunctionName, threshold }) {
         unselectedTotal,
         functions: [...functionsMap.values()]
       })),
-      mapBuildScheduler.clearSchedule
+      mapBuildJobs.clear
     )
     .pipe(
       stream.tap(() => {
@@ -96,12 +96,12 @@ function analyze({ timeSlices, isSelected, getFunctionName, threshold }) {
     .pipe(
       stream.mergeMap(({ selectedTotal, unselectedTotal, functions }) => {
         if (selectedTotal !== 0 && unselectedTotal !== 0) {
-          const functionTestScheduler = new Scheduler();
+          const functionTestJobs = new scheduler.JobQueue();
 
           return stream.fromPromise(
             Promise.all(
               functions.map(func =>
-                functionTestScheduler.schedule(() => {
+                functionTestJobs.add(() => {
                   const curTotal = func.observed + func.unselectedCount;
                   const expected =
                     (curTotal * selectedTotal) / timeSlices.length;
@@ -134,7 +134,7 @@ function analyze({ timeSlices, isSelected, getFunctionName, threshold }) {
                 })
               )
             ),
-            functionTestScheduler.clearSchedule
+            functionTestJobs.clear
           );
         } else {
           return stream.fromValue(functions);
