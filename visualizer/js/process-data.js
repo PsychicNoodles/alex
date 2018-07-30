@@ -4,12 +4,18 @@ function processData(data) {
   data.map((d, i, arr) => {
     if (i > 0) {
       d.cpuTimeElapsed = d.numCpuTimerTicks / 1000000;
-      const a = arr[i - 1].events.core;
-      d.events.periodCpu = (d.events.core - a) / d.cpuTimeElapsed;
-      const b = arr[i - 1].events.dram;
-      d.events.periodMemory = (d.events.dram - b) / d.cpuTimeElapsed;
-      const c = arr[i - 1].events["package-0"];
-      d.events.periodOverall = (d.events["package-0"] - c) / d.cpuTimeElapsed;
+      const a = d.events.core - arr[i - 1].events.core;
+      if (a >= 0) {
+        d.events.periodCpu = a / d.cpuTimeElapsed;
+      }
+      const b = d.events.dram - arr[i - 1].events.dram;
+      if (b >= 0) {
+        d.events.periodMemory = b / d.cpuTimeElapsed;
+      }
+      const c = d.events["package-0"] - arr[i - 1].events["package-0"];
+      if (c >= 0) {
+        d.events.periodOverall = c / d.cpuTimeElapsed;
+      }
     } else {
       d.events.periodCpu = 0;
       d.events.periodMemory = 0;
