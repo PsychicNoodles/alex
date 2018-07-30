@@ -114,7 +114,8 @@ function analyze({
                 functionTestJobs.add(() => {
                   const curTotal = func.observed + func.unselectedCount;
                   const expected =
-                    (curTotal * selectedTotal) / timeSlices.length;
+                    (curTotal * selectedTotal) /
+                    (selectedTotal + unselectedTotal);
 
                   const otherObserved = selectedTotal - func.observed;
                   const otherUnselectedCount =
