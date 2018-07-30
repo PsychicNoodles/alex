@@ -246,7 +246,7 @@ void setup_perf_events(pid_t target, perf_fd_info *info) {
       DEBUG("event: " << global->events[i]);
     }
     for (int i = 0; i < global->events_size; i++) {
-      char *event = global->events[i];
+      const char *event = global->events[i];
       DEBUG("setting up event: " << event);
       perf_event_attr attr{};
       memset(&attr, 0, sizeof(perf_event_attr));
@@ -398,7 +398,7 @@ uint64_t lookup_kernel_addr(map<uint64_t, kernel_sym> kernel_syms,
 int adjust_period(int record_type) {
   if (record_type == PERF_RECORD_THROTTLE) {
     DEBUG("throttle event detected, increasing period");
-    global->period = (global->period) * PERIOD_ADJUST_SCALE;
+    set_period(global->period * PERIOD_ADJUST_SCALE);
   } else {
     if ((global->period) / PERIOD_ADJUST_SCALE <= MIN_PERIOD) {
       DEBUG(
@@ -408,7 +408,7 @@ int adjust_period(int record_type) {
       return 0;
     }
     DEBUG("unthrottle event detected, decreasing period");
-    global->period = (global->period) / PERIOD_ADJUST_SCALE;
+    set_period(global->period / PERIOD_ADJUST_SCALE);
   }
 
   DEBUG("new period is " << global->period);
@@ -512,7 +512,7 @@ bool process_sample_record(
 
   auto event_map = timeslice_message.mutable_events();
   for (int i = 0; i < global->events_size; i++) {
-    char *event = global->events[i];
+    const char *event = global->events[i];
 
     uint64_t count = 0;
     DEBUG("reading from fd " << info.event_fds.at(event));

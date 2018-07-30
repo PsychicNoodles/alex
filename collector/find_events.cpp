@@ -59,7 +59,7 @@ map<string, vector<string>> build_preset(const string& preset) {
 
 void set_preset_events(Map<string, PresetEvents>* preset_map) {
   for (int i = 0; i < global->presets_size; i++) {
-    char* preset = global->presets[i];
+    const char* preset = global->presets[i];
     map<string, vector<string>> events = build_preset(preset);
     PresetEvents pe_message;
     Map<string, EventList>* pe_events = pe_message.mutable_events();
