@@ -345,7 +345,8 @@ void memory_map::build(const unordered_set<string>& source_scope,
         DEBUG("Unable to locate debug information for " << f.first);
       }
     } catch (const system_error& e) {
-      DEBUG("Processing file \"" << f.first << "\" failed: " << e.what());
+      DEBUG_CRITICAL("Processing file \"" << f.first
+                                          << "\" failed: " << e.what());
     }
     //}
   }
@@ -401,18 +402,22 @@ void memory_map::add_range(const std::string& filename, size_t line_no,
 void memory_map::process_inlines(
     const ::dwarf::die& d, const ::dwarf::line_table& table,
     const unordered_set<string>& source_scope, uintptr_t load_address,
-    const std::map<interval, string, cmpByInterval>& sym_table) {
+    std::map<interval, string, cmpByInterval>& sym_table) {
   if (!d.valid()) {
     return;
   }
 
   try {
     if (d.tag == ::dwarf::DW_TAG::inlined_subroutine) {
-      string name;
-      ::dwarf::value name_val = find_attribute(d, ::dwarf::DW_AT::name);
+      ::dwarf::value origin =
+          find_attribute(d, ::dwarf::DW_AT::abstract_origin);
+      string sym_name;
 
-      if (name_val.valid()) {
-        name = name_val.as_string();
+      auto entry = origin.as_reference();
+      ::dwarf::value real_name = find_attribute(entry, ::dwarf::DW_AT::name);
+
+      if (real_name.valid()) {
+        sym_name = real_name.as_string();
       }
 
       string decl_file;
@@ -426,6 +431,37 @@ void memory_map::process_inlines(
       if (d.has(::dwarf::DW_AT::call_file) && table.valid()) {
         call_file =
             table.get_file(d[::dwarf::DW_AT::call_file].as_uconstant())->path;
+
+        if (!call_file.empty()) {
+          if (d.has(::dwarf::DW_AT::low_pc) && d.has(::dwarf::DW_AT::high_pc)) {
+            ::dwarf::value low_pc_val =
+                find_attribute(d, ::dwarf::DW_AT::low_pc);
+            ::dwarf::value high_pc_val =
+                find_attribute(d, ::dwarf::DW_AT::high_pc);
+
+            if (low_pc_val.valid() && high_pc_val.valid()) {
+              uint64_t low_pc = 0;
+              uint64_t high_pc = 0;
+
+              if (low_pc_val.get_type() == ::dwarf::value::type::address) {
+                low_pc = low_pc_val.as_address();
+              } else if (low_pc_val.get_type() ==
+                         ::dwarf::value::type::uconstant) {
+                low_pc = low_pc_val.as_uconstant();
+              } else if (low_pc_val.get_type() ==
+                         ::dwarf::value::type::sconstant) {
+                low_pc = low_pc_val.as_sconstant();
+              }
+
+              high_pc = high_pc_val.as_sconstant();
+              if (high_pc != 0 && low_pc != 0) {
+                sym_table.insert(pair<interval, string>(
+                    (interval(low_pc, low_pc + high_pc) + load_address),
+                    sym_name));
+              }
+            }
+          }
+        }
       }
 
       size_t call_line = 0;
@@ -433,7 +469,8 @@ void memory_map::process_inlines(
         call_line = d[::dwarf::DW_AT::call_line].as_uconstant();
       }
 
-      // If the call location is in scope but the function is not, add an entry
+      // If the call location is in scope but the function is not, add an
+      // entry
       if (!decl_file.empty() && !call_file.empty()) {
         if (!in_scope(decl_file, source_scope) &&
             in_scope(call_file, source_scope)) {
@@ -444,6 +481,8 @@ void memory_map::process_inlines(
             for (auto r : ranges_val.as_rangelist()) {
               add_range(call_file, call_line,
                         interval(r.low, r.high) + load_address);
+              sym_table.insert(pair<interval, string>(
+                  (interval(r.low, r.low + r.high) + load_address), sym_name));
             }
           } else {
             // Must just be one range. Add it
@@ -477,6 +516,9 @@ void memory_map::process_inlines(
 
               add_range(call_file, call_line,
                         interval(low_pc, high_pc) + load_address);
+              sym_table.insert(pair<interval, string>(
+                  (interval(low_pc, low_pc + high_pc) + load_address),
+                  sym_name));
             }
           }
         }

@@ -622,6 +622,7 @@ bool process_sample_record(
         --upper_sym;
         if (upper_sym->first.contains(pc)) {
           sym_name = const_cast<char *>(upper_sym->second.c_str());
+          ;
         } else {
           DEBUG("cannot find function symbol");
           sym_name = nullptr;
