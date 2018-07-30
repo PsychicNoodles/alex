@@ -6,8 +6,10 @@ const scheduler = require("./scheduler");
  * Fisher's exact test null hypothesis: the given function and other functions
  * are equally likely to be in the selection region.
  * @param {Object} params
- * @param {any[]} params.timeSlices All timeslices to include in the analysis.
- * @param {(timeslice: any) => boolean} params.isSelected
+ * @param {any[]} params.timeSlices All timeslices in the dataset.
+ * @param {(timeslice: any) => boolean} params.isVisible
+ *    Check if a timeslice should be included in the analysis.
+ * @param {(timeslice: any) => boolean} params.isBrushSelected
  *    Check if a timeslice is selected.
  * @param {(timeslice: any) => string} params.getFunctionName
  *    Get a unique name for a function. All timeslices that resolve to the same
@@ -17,7 +19,13 @@ const scheduler = require("./scheduler");
  *    enough to be highlighted in analysis.
  * @returns {stream.Stream} Results of the analysis.
  */
-function analyze({ timeSlices, isSelected, getFunctionName, threshold }) {
+function analyze({
+  timeSlices,
+  isVisible,
+  isBrushSelected,
+  getFunctionName,
+  threshold
+}) {
   if (!(threshold >= 0) || !(threshold <= 100)) {
     return;
   }
@@ -45,27 +53,29 @@ function analyze({ timeSlices, isSelected, getFunctionName, threshold }) {
           j++
         ) {
           const timeSlice = timeSlices[j];
-          const functionName = getFunctionName(timeSlice);
-          if (!functionsMap.has(functionName)) {
-            functionsMap.set(functionName, {
-              name: functionName,
-              time: 0,
-              observed: 0,
-              unselectedCount: 0,
-              expected: 0,
-              probability: 0,
-              conclusion: ""
-            });
-          }
+          if (isVisible(timeSlice)) {
+            const functionName = getFunctionName(timeSlice);
+            if (!functionsMap.has(functionName)) {
+              functionsMap.set(functionName, {
+                name: functionName,
+                time: 0,
+                observed: 0,
+                unselectedCount: 0,
+                expected: 0,
+                probability: 0,
+                conclusion: ""
+              });
+            }
 
-          const functionEntry = functionsMap.get(functionName);
-          if (isSelected(timeSlice)) {
-            selectedTotal++;
-            functionEntry.time += timeSlice.numCPUTimerTicks;
-            functionEntry.observed++;
-          } else {
-            unselectedTotal++;
-            functionEntry.unselectedCount++;
+            const functionEntry = functionsMap.get(functionName);
+            if (isBrushSelected(timeSlice)) {
+              selectedTotal++;
+              functionEntry.time += timeSlice.numCPUTimerTicks;
+              functionEntry.observed++;
+            } else {
+              unselectedTotal++;
+              functionEntry.unselectedCount++;
+            }
           }
         }
       })

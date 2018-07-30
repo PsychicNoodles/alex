@@ -454,20 +454,16 @@ ipcRenderer.on("result", async (event, resultFile) => {
             const startTime = performance.now();
             performance.mark("analysis start");
             return analyze({
-              timeSlices: processedData
-                .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
-                .filter(timeslice =>
-                  timeslice.stackFrames.some(
-                    frame => !hiddenSources.includes(frame.fileName)
-                  )
-                )
-                .filter(
-                  timeslice =>
-                    selectedFunction
-                      ? timeslice.stackFrames[0].symName === selectedFunction
-                      : true
-                ),
-              isSelected:
+              timeSlices: processedData,
+              isVisible: timeslice =>
+                !hiddenThreads.includes(timeslice.tid) &&
+                timeslice.stackFrames.some(
+                  frame => !hiddenSources.includes(frame.fileName)
+                ) &&
+                (selectedFunction
+                  ? timeslice.stackFrames[0].symName === selectedFunction
+                  : true),
+              isBrushSelected:
                 selections.length === 0
                   ? () => true
                   : timeslice => {
