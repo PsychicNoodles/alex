@@ -1,4 +1,6 @@
 let frameStartTime = 0;
+
+/** @type {JobQueue[]} */
 const runningQueues = [];
 
 requestAnimationFrame(onFrame);
