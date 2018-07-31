@@ -227,8 +227,8 @@ async function collect({
     process.exit(1);
   }
 
-  const rawResultFile = tempFile(".json");
-  const resultFile = resultOption || tempFile(".json");
+  const rawResultFile = tempFile(".bin");
+  const resultFile = resultOption || tempFile(".bin");
 
   const allPresetInfo = await getAllPresetInfo();
   const presetsSet = new Set([
