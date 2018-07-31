@@ -138,7 +138,9 @@ function fromStreamables(streamables) {
     const lastValues = streamables.map(() => unset);
     const offDataFunctions = streamables.map((streamable, i) =>
       streamable(data => {
-        lastValues[i] = data;
+        if (data !== done) {
+          lastValues[i] = data;
+        }
 
         if (lastValues.every(value => value !== unset)) {
           onData([...lastValues]);
@@ -344,7 +346,6 @@ function subscribeUnique(selection, propertyName, onData, onDone = undefined) {
     if (oldSubscription) {
       oldSubscription.unsubscribe();
     }
-
     selection.property(propertyName, {
       unsubscribe: fromStreamable(streamable).pipe(subscribe(onData, onDone))
     });

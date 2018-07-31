@@ -1,9 +1,11 @@
 #include "shared.hpp"
 
 #include <sys/mman.h>
+#include <csignal>
 #include <cstring>
 
 #include "debug.hpp"
+#include "perf_reader.hpp"
 
 namespace alex {
 
@@ -71,6 +73,28 @@ void debug_global_var() {
                           << ", presets " << presets << ", subject_pid "
                           << global->subject_pid << ", collector_pid "
                           << global->collector_pid);
+}
+
+bool preset_enabled(const char *name) {
+  for (int i = 0; i < global->presets_size; i++) {
+    if (strcmp(name, global->presets[i]) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void shutdown(pid_t pid, ofstream *result_file, error code, const string &msg) {
+  write_warnings();
+  result_file->close();
+  shutdown(pid, code, msg);
+}
+
+void shutdown(pid_t pid, error code, const string &msg) {
+  DEBUG_CRITICAL("error: " << msg);
+  kill(pid, SIGKILL);
+  std::clog.flush();
+  exit(code);
 }
 
 }  // namespace alex

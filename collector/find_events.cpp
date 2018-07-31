@@ -57,23 +57,4 @@ map<string, vector<string>> build_preset(const string& preset) {
   return events;
 }
 
-void set_preset_events(Map<string, PresetEvents>* preset_map) {
-  for (int i = 0; i < global->presets_size; i++) {
-    const char* preset = global->presets[i];
-    map<string, vector<string>> events = build_preset(preset);
-    PresetEvents pe_message;
-    Map<string, EventList>* pe_events = pe_message.mutable_events();
-
-    for (auto event : events) {
-      EventList event_list;
-      for (const auto& sub_event : event.second) {
-        event_list.add_events(sub_event);
-      }
-      (*pe_events)[event.first] = event_list;
-    }
-
-    (*preset_map)[preset] = pe_message;
-  }
-}
-
 }  // namespace alex

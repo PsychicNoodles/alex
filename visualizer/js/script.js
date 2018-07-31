@@ -354,71 +354,68 @@ ipcRenderer.on("result", async (event, resultFile) => {
     );
 
     const currentSelectedFunctionStore = new Store(null);
-    stream
-      .fromStreamables([
-        filteredDataStream,
-        currentSelectedFunctionStore.stream
-      ])
-      .pipe(
-        stream.subscribe(
-          ([{ fullFilteredData, sourceFilteredData }, selectedFunction]) => {
-            const chartsWithFilteredData = chartsWithYScales.map(
-              chartParams => {
-                const { flattenThreads } = chartParams;
+    stream.fromStreamables([filteredDataStream]).pipe(
+      stream.subscribe(([{ fullFilteredData, sourceFilteredData }]) => {
+        const chartsWithFilteredData = chartsWithYScales.map(chartParams => {
+          const { chartId, getDependentVariable, flattenThreads } = chartParams;
 
-                const filteredData = flattenThreads
-                  ? sourceFilteredData
-                  : fullFilteredData;
+          const selectionFilteredData = flattenThreads
+            ? sourceFilteredData
+            : fullFilteredData;
 
-                return {
-                  ...chartParams,
-                  filteredData
-                };
-              }
-            );
-            // .filter(chartParams => chartParams.filteredData.length > 0);
+          const filteredData =
+            chartId === "overall-power" ||
+            chartId === "cpu-power" ||
+            chartId === "memory-power"
+              ? selectionFilteredData.filter(d => getDependentVariable(d) !== 0)
+              : selectionFilteredData;
 
-            const chartsDataSelection = d3
-              .select("#charts")
-              .selectAll("div")
-              .data(chartsWithFilteredData);
+          return {
+            ...chartParams,
+            filteredData
+          };
+        });
+        // .filter(chartParams => chartParams.filteredData.length > 0);
 
-            chartsDataSelection
-              .enter()
-              .append("div")
-              .merge(chartsDataSelection)
-              .each(function({
-                getDependentVariable,
-                yAxisLabelText,
-                chartId,
-                yFormat,
-                yScale,
-                filteredData
-              }) {
-                d3.select(this).call(chart.render, {
-                  getIndependentVariable,
-                  getDependentVariable,
-                  xAxisLabelText,
-                  yAxisLabelText,
-                  chartId,
-                  xScale,
-                  yScale,
-                  yFormat,
-                  filteredData,
-                  spectrum,
-                  cpuTimeOffset,
-                  warningRecords,
-                  warningsDistinct,
-                  currentYScaleStore: currentYScaleStores[yAxisLabelText],
-                  processedData,
-                  selectedFunction
-                });
-              });
+        const chartsDataSelection = d3
+          .select("#charts")
+          .selectAll("div")
+          .data(chartsWithFilteredData);
 
-            // chartsDataSelection.exit().remove();
-          }
-        )
-      );
+        chartsDataSelection
+          .enter()
+          .append("div")
+          .merge(chartsDataSelection)
+          .each(function({
+            //seem like we need to seperate out the calculation of the plotdata and make plotdata a field of chartsWithFilteredData, we can create the div first, and then for each div(root), subscribeunique a storestream and inside the subscribefunc, we add plotdata as a field to charts, then return charts and do the next thing
+            getDependentVariable,
+            yAxisLabelText,
+            chartId,
+            yFormat,
+            yScale,
+            filteredData
+          }) {
+            d3.select(this).call(chart.render, {
+              getIndependentVariable,
+              getDependentVariable,
+              xAxisLabelText,
+              yAxisLabelText,
+              chartId,
+              xScale,
+              yScale,
+              yFormat,
+              filteredData,
+              spectrum,
+              cpuTimeOffset,
+              warningRecords,
+              warningsDistinct,
+              currentYScaleStore: currentYScaleStores[yAxisLabelText],
+              processedData,
+              selectedFunctionStream: currentSelectedFunctionStore.stream
+            });
+          });
+      })
+    );
 
     chartsSelect.hiddenChartsStore.stream.pipe(
       stream.subscribe(hiddenCharts => {
@@ -523,13 +520,12 @@ ipcRenderer.on("result", async (event, resultFile) => {
             numProcessingTimeSamples++;
 
             return {
-              functions: functions.map(func => ({
-                ...func,
-                displayNames:
-                  func.name === undefined
-                    ? []
-                    : func.name.split(FUNCTION_NAME_SEPARATOR)
-              })),
+              functions: functions
+                .filter(func => func.name !== undefined)
+                .map(func => ({
+                  ...func,
+                  displayNames: func.name.split(FUNCTION_NAME_SEPARATOR)
+                })),
               selectedFunction
             };
           }
@@ -555,13 +551,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
           });
         })
       );
-
-    currentSelectedFunctionStore.stream.pipe(
-      stream.subscribe(selectedFunction => {
-        console.log(selectedFunction);
-        // d3.select("#charts").selectAll(".chart").select(".chart__svg").select(".plot").select(".circles").selectAll("circle").style("opacity",0.25);
-      })
-    );
 
     tableSelect.selectedTableStore.stream
       .pipe(stream.map(table => table.id))

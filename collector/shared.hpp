@@ -2,12 +2,16 @@
 #define COLLECTOR_SHARED
 
 #include <cinttypes>
+#include <iostream>
 #include <set>
 #include <string>
 #include <vector>
 
+#include "const.hpp"
+
 namespace alex {
 
+using std::ofstream;
 using std::set;
 using std::string;
 using std::vector;
@@ -45,6 +49,14 @@ void set_period(uint64_t period);
 size_t num_perf_fds();
 
 void debug_global_var();
+
+bool preset_enabled(const char *name);
+
+// kills pid, writes warnings and closes result_file, prints msg to stderr, and
+// exits with code
+void shutdown(pid_t pid, ofstream *result_file, error code, const string &msg);
+// kills pid, prints msg to stderr, and exits with code
+void shutdown(pid_t pid, error code, const string &msg);
 
 }  // namespace alex
 

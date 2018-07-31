@@ -1,5 +1,5 @@
 const { Reader } = require("protobufjs");
-const { Header, Timeslice, Warning } = require("./protos").alex;
+const { Header, Timeslice, StackFrame, Warning } = require("./protos").alex;
 
 const { Buffer } = require("buffer");
 const through2 = require("through2");
@@ -88,4 +88,4 @@ function parser() {
   );
 }
 
-module.exports = { parser, Header, Timeslice, Warning };
+module.exports = { parser, Header, Timeslice, StackFrame, Warning };
