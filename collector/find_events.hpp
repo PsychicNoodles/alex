@@ -22,7 +22,6 @@ struct preset_info {
 map<string, preset_info> get_all_preset_info();
 set<string> get_all_presets();
 map<string, vector<string>> build_preset(const string& preset);
-void set_preset_events(Map<string, PresetEvents>* preset_map);
 
 }  // namespace alex
 

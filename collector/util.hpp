@@ -10,7 +10,6 @@
 
 namespace alex {
 
-using std::ofstream;
 using std::set;
 using std::string;
 using std::vector;
@@ -21,11 +20,8 @@ string ptr_fmt(uintptr_t ptr);
 char* int_to_hex(uint64_t i);
 vector<string> str_split_vec(const string& str, const string& delim);
 set<string> str_split_set(const string& str, const string& delim);
-void shutdown(pid_t pid, ofstream* result_file, error code, const string& msg);
-void shutdown(pid_t pid, error code, const string& msg);
 pid_t gettid();
 bool preset_enabled(const char* name);
-
 string getenv_safe(const char* var, const char* fallback = "");
 
 #define SHUTDOWN_MSG(pid, result_file, code, msg) \

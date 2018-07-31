@@ -133,6 +133,9 @@ ofstream *result_file;
 // related information/fds
 map<int, perf_fd_info> perf_info_mappings;
 
+// a list of warnings (ie. throttle/unthrottle, lost)
+vector<tuple<int, base_record, int64_t>> warnings;
+
 // the epoll fd used in the collector
 int sample_epfd = epoll_create1(0);
 // a count of the number of fds added to the epoll
@@ -702,7 +705,7 @@ void write_sample_id(SampleId *sample_id_message,
   sample_id_message->set_id(sample_id.id);
 }
 
-void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
+void write_warnings() {
   Warning warning_message;
   for (auto &t : warnings) {
     int record_type;
@@ -751,6 +754,25 @@ void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
 
     serialize_delimited(warning_message);
     warning_message.Clear();
+  }
+}
+
+void set_preset_events(Map<string, PresetEvents> *preset_map) {
+  for (int i = 0; i < global->presets_size; i++) {
+    const char *preset = global->presets[i];
+    map<string, vector<string>> events = build_preset(preset);
+    PresetEvents pe_message;
+    Map<string, EventList> *pe_events = pe_message.mutable_events();
+
+    for (auto event : events) {
+      EventList event_list;
+      for (const auto &sub_event : event.second) {
+        event_list.add_events(sub_event);
+      }
+      (*pe_events)[event.first] = event_list;
+    }
+
+    (*preset_map)[preset] = pe_message;
   }
 }
 
@@ -834,7 +856,6 @@ int collect_perf_data(
     const std::map<interval, std::shared_ptr<line>, cmpByInterval> &ranges) {
   bool done = false;
   int sample_period_skips = 0;
-  vector<tuple<int, base_record, int64_t>> warnings;
 
   size_t last_ts = time_ms(), finish_ts = last_ts, curr_ts = 0;
 
@@ -971,7 +992,7 @@ int collect_perf_data(
   stop_reading(wattsup_reading);
 
   DEBUG("writing warnings");
-  write_warnings(warnings);
+  write_warnings();
 
   return 0;
 }

@@ -1,15 +1,11 @@
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <unistd.h>
-#include <csignal>
 #include <cstdlib>
-#include <cstring>
-#include <iostream>
 #include <set>
 
 #include "const.hpp"
 #include "debug.hpp"
-#include "shared.hpp"
 #include "util.hpp"
 
 namespace alex {
@@ -78,28 +74,7 @@ set<string> str_split_set(const string& str, const string& delim) {
   return split;
 }
 
-void shutdown(pid_t pid, ofstream* result_file, error code, const string& msg) {
-  result_file->close();
-  shutdown(pid, code, msg);
-}
-
-void shutdown(pid_t pid, error code, const string& msg) {
-  DEBUG_CRITICAL("error: " << msg);
-  kill(pid, SIGKILL);
-  std::clog.flush();
-  exit(code);
-}
-
 pid_t gettid() { return syscall(SYS_gettid); }
-
-bool preset_enabled(const char* name) {
-  for (int i = 0; i < global->presets_size; i++) {
-    if (strcmp(name, global->presets[i]) == 0) {
-      return true;
-    }
-  }
-  return false;
-}
 
 string getenv_safe(const char* var, const char* fallback) {
   const char* value = getenv(var);
