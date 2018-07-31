@@ -357,11 +357,18 @@ ipcRenderer.on("result", async (event, resultFile) => {
     stream.fromStreamables([filteredDataStream]).pipe(
       stream.subscribe(([{ fullFilteredData, sourceFilteredData }]) => {
         const chartsWithFilteredData = chartsWithYScales.map(chartParams => {
-          const { flattenThreads } = chartParams;
+          const { chartId, getDependentVariable, flattenThreads } = chartParams;
 
-          const filteredData = flattenThreads
+          const selectionFilteredData = flattenThreads
             ? sourceFilteredData
             : fullFilteredData;
+
+          const filteredData =
+            chartId === "overall-power" ||
+            chartId === "cpu-power" ||
+            chartId === "memory-power"
+              ? selectionFilteredData.filter(d => getDependentVariable(d) !== 0)
+              : selectionFilteredData;
 
           return {
             ...chartParams,

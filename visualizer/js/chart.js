@@ -34,6 +34,8 @@ function render(
   root.classed("chart", true);
   root.attr("id", chartId);
 
+  console.log(yAxisLabelText, yScale.domain());
+
   const svg = root.select("svg.chart__svg").empty()
     ? root
         .append("svg")
