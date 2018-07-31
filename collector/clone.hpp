@@ -25,6 +25,8 @@ using execvp_fn_t = int (*)(const char *, char *const *);
 
 using execv_fn_t = int (*)(const char *, char *const *);
 using execvpe_fn_t = int (*)(const char *, char *const *, char *const *);
+using execl_fn_t = int (*)(const char *, const char *, ...);
+
 using exit_fn_t = void (*)(int);
 using _Exit_fn_t = void (*)(int);
 using _exit_fn_t = void (*)(int);
@@ -35,6 +37,8 @@ extern execve_fn_t real_execve;
 extern execvp_fn_t real_execvp;
 extern execv_fn_t real_execv;
 extern execvpe_fn_t real_execvpe;
+extern execl_fn_t real_execl;
+
 extern exit_fn_t real_exit;
 extern _exit_fn_t real__exit;
 extern _Exit_fn_t real__Exit;
