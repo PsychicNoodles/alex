@@ -519,12 +519,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
               (numProcessingTimeSamples + 1);
             numProcessingTimeSamples++;
 
-            const temp = functions
-              .filter(func => func.name !== undefined)
-              .map(func => ({
-                ...func,
-                displayNames: func.name.split(FUNCTION_NAME_SEPARATOR)
-              }));
             return {
               functions: functions
                 .filter(func => func.name !== undefined)
@@ -557,12 +551,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
           });
         })
       );
-
-    currentSelectedFunctionStore.stream.pipe(
-      stream.subscribe(selectedFunction => {
-        console.log(selectedFunction);
-      })
-    );
 
     tableSelect.selectedTableStore.stream
       .pipe(stream.map(table => table.id))

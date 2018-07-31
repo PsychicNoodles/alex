@@ -34,8 +34,6 @@ function render(
   root.classed("chart", true);
   root.attr("id", chartId);
 
-  console.log(yAxisLabelText, yScale.domain());
-
   const svg = root.select("svg.chart__svg").empty()
     ? root
         .append("svg")
@@ -134,6 +132,7 @@ function render(
       root,
       "currentYscaleStore",
       ([currentYScale, plotData]) => {
+        console.log(chartId, "curYScaleSubs");
         const densityMax =
           Math.max(d3.max(plotData, d => d.densityAvg), 5) || 0;
 
@@ -203,7 +202,7 @@ function render(
         function brushed() {
           const s = d3.event.selection || yScale.range();
           const newDomain = s.map(yScale.invert, yScale).map(n => n.toFixed(7));
-          const oldDomain = currentYScale.domain().map(n => n.toFixed(8));
+          const oldDomain = currentYScale.domain().map(n => n.toFixed(7));
           if (oldDomain[0] !== newDomain[0] || oldDomain[1] !== newDomain[1]) {
             currentYScaleStore.dispatch(() =>
               d3
