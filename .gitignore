@@ -416,6 +416,7 @@ $RECYCLE.BIN/
 result-*
 matrix_file*
 run-alex.sh
+file-result*
 
 # protoc build output
 collector/protos
