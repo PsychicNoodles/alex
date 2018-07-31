@@ -79,39 +79,39 @@ function render(
     : svg.select("chart__axis-label--x");
 
   //still in progress still in progress still in progress
-  if (yAxisLabelText === "L3 Cache Miss Rate") {
-    const hitExtent = d3
-      .extent(processedData, d => d.events["MEM_LOAD_RETIRED.L3_HIT"])
-      .reverse();
-    const missExtent = d3
-      .extent(processedData, d => d.events["MEM_LOAD_RETIRED.L3_MISS"])
-      .reverse();
-    const hitScale = d3
-      .scaleLinear()
-      .domain(hitExtent)
-      .range([0, 125]);
-    const missScale = d3
-      .scaleLinear()
-      .domain(missExtent)
-      .range([250, 125]);
+  // if (yAxisLabelText === "L3 Cache Miss Rate") {
+  //   const hitExtent = d3
+  //     .extent(processedData, d => d.events["MEM_LOAD_RETIRED.L3_HIT"])
+  //     .reverse();
+  //   const missExtent = d3
+  //     .extent(processedData, d => d.events["MEM_LOAD_RETIRED.L3_MISS"])
+  //     .reverse();
+  //   const hitScale = d3
+  //     .scaleLinear()
+  //     .domain(hitExtent)
+  //     .range([0, 125]);
+  //   const missScale = d3
+  //     .scaleLinear()
+  //     .domain(missExtent)
+  //     .range([250, 125]);
 
-    root.select("svg.bg").empty()
-      ? svg
-          .append("svg")
-          .selectAll(".line")
-          .data(processedData)
-          .enter()
-          .append("line")
-          .attr("class", "line")
-          .attr("x1", d => xScale(getIndependentVariable(d)))
-          .attr("x2", d => xScale(getIndependentVariable(d)))
-          .attr("y1", d => hitScale(d.events["MEM_LOAD_RETIRED.L3_HIT"]))
-          .attr("y2", d => missScale(d.events["MEM_LOAD_RETIRED.L3_MISS"]))
-          .style("stroke-width", 0.5)
-          .style("stroke", "green")
-          .style("stroke-opacity", 0.5)
-      : svg.select("svg.bg");
-  }
+  //   root.select("svg.bg").empty()
+  //     ? svg
+  //         .append("svg")
+  //         .selectAll(".line")
+  //         .data(processedData)
+  //         .enter()
+  //         .append("line")
+  //         .attr("class", "line")
+  //         .attr("x1", d => xScale(getIndependentVariable(d)))
+  //         .attr("x2", d => xScale(getIndependentVariable(d)))
+  //         .attr("y1", d => hitScale(d.events["MEM_LOAD_RETIRED.L3_HIT"]))
+  //         .attr("y2", d => missScale(d.events["MEM_LOAD_RETIRED.L3_MISS"]))
+  //         .style("stroke-width", 0.5)
+  //         .style("stroke", "green")
+  //         .style("stroke-opacity", 0.5)
+  //     : svg.select("svg.bg");
+  // }
   //ignore this part if you are not xinya
 
   const chartPlot = root.select("g.plot").empty()

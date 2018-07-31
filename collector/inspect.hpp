@@ -192,11 +192,10 @@ class memory_map {
                     std::map<interval, string, cmpByInterval>* sym_table);
 
   /// Add entries for all inlined calls
-  void process_inlines(
-      const ::dwarf::die& d, const ::dwarf::line_table& table,
-      const std::unordered_set<std::string>& source_scope,
-      uintptr_t load_address,
-      const std::map<interval, string, cmpByInterval>& sym_table);
+  void process_inlines(const ::dwarf::die& d, const ::dwarf::line_table& table,
+                       const std::unordered_set<std::string>& source_scope,
+                       uintptr_t load_address,
+                       std::map<interval, string, cmpByInterval>& sym_table);
 
   std::map<std::string, std::shared_ptr<file>> _files;
   std::map<interval, std::shared_ptr<line>, cmpByInterval> _ranges;
