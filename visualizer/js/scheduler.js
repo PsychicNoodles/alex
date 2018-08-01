@@ -1,23 +1,24 @@
 let frameStartTime = 0;
 
-/** @type {JobQueue[]} */
-const runningQueues = [];
+/** @type {Set<JobQueue>} */
+const runningQueues = new Set();
 
 requestAnimationFrame(onFrame);
 function onFrame() {
   frameStartTime = Date.now();
 
   let isFirstCycle = true;
-  while (isFirstCycle || runningQueues.some(queue => queue._hasTimeForMore())) {
-    for (let i = 0; i !== runningQueues.length; i++) {
-      const scheduler = runningQueues[i];
-      if (scheduler._hasMoreWork()) {
-        if (isFirstCycle || scheduler._hasTimeForMore()) {
-          scheduler._doNextJob();
+  while (
+    isFirstCycle ||
+    [...runningQueues].some(queue => queue._hasTimeForMore())
+  ) {
+    for (const queue of runningQueues) {
+      if (queue._hasMoreWork()) {
+        if (isFirstCycle || queue._hasTimeForMore()) {
+          queue._doNextJob();
         }
       } else {
-        runningQueues.splice(i, 1);
-        i--;
+        runningQueues.delete(queue);
       }
     }
 
@@ -78,7 +79,7 @@ class JobQueue {
         doJob();
       } else {
         this._jobQueue.push(doJob);
-        runningQueues.push(this);
+        runningQueues.add(this);
       }
     });
   }
