@@ -479,7 +479,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 // Avoiding Array#some because closures cause allocations and GC
                 let hasUnHiddenFrame = false;
                 for (const frame of timeslice.stackFrames) {
-                  if (!hiddenSources.includes(frame)) {
+                  if (!hiddenSources.includes(frame.fileName)) {
                     hasUnHiddenFrame = true;
                     break;
                   }
