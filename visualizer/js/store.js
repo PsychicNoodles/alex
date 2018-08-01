@@ -9,10 +9,11 @@ class Store {
   constructor(initialState) {
     this._state = initialState;
     this._listeners = new Set();
+    this._isFiringListener = false;
 
     this.stream = stream.fromStreamable(onStateChange => {
       this._listeners.add(onStateChange);
-      onStateChange(this._state);
+      this._fireListener(onStateChange);
 
       return () => {
         this._listeners.delete(onStateChange);
@@ -69,10 +70,27 @@ class Store {
     if (!isEqual(newState, this._state)) {
       this._state = newState;
       for (const listener of this._listeners) {
-        requestAnimationFrame(() => {
-          listener(this._state);
-        });
+        this._fireListener(listener);
       }
+    }
+  }
+
+  /**
+   * @param {(state: any) => void} listener
+   */
+  _fireListener(listener) {
+    if (this._isFiringListener) {
+      throw new Error(
+        "Cannot call Store#dispatch synchronously in a subscribe function.  " +
+          "Consider using window.requestAnimationFrame."
+      );
+    }
+
+    try {
+      this._isFiringListener = true;
+      listener(this._state);
+    } finally {
+      this._isFiringListener = false;
     }
   }
 }
