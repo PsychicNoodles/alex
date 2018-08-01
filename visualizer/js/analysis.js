@@ -1,5 +1,4 @@
 const stream = require("./stream");
-const scheduler = require("./scheduler");
 
 /**
  * Run analyses of data.
@@ -35,9 +34,8 @@ function analyze({
   let selectedTotal = 0;
   let unselectedTotal = 0;
 
-  const mapBuildJobs = new scheduler.JobQueue();
   const MAP_BUILD_CHUNK_SIZE = 1000;
-  const mapBuildChunkPromises = [];
+  const mapBuildChunkStreams = [];
 
   performance.mark("functions map build start");
   for (
@@ -45,8 +43,8 @@ function analyze({
     i < timeSlices.length + MAP_BUILD_CHUNK_SIZE;
     i += MAP_BUILD_CHUNK_SIZE
   ) {
-    mapBuildChunkPromises.push(
-      mapBuildJobs.add(() => {
+    mapBuildChunkStreams.push(
+      createMicroJobStream(() => {
         for (
           let j = i;
           j < i + MAP_BUILD_CHUNK_SIZE && j < timeSlices.length;
@@ -83,13 +81,14 @@ function analyze({
   }
 
   return stream
-    .fromPromise(
-      Promise.all(mapBuildChunkPromises).then(() => ({
+    .fromStreamables(mapBuildChunkStreams)
+    .pipe(stream.take(1))
+    .pipe(
+      stream.map(() => ({
         selectedTotal,
         unselectedTotal,
         functions: [...functionsMap.values()]
-      })),
-      mapBuildJobs.clear
+      }))
     )
     .pipe(
       stream.tap(() => {
@@ -106,12 +105,10 @@ function analyze({
     .pipe(
       stream.mergeMap(({ selectedTotal, unselectedTotal, functions }) => {
         if (selectedTotal !== 0 && unselectedTotal !== 0) {
-          const functionTestJobs = new scheduler.JobQueue();
-
-          return stream.fromPromise(
-            Promise.all(
+          return stream
+            .fromStreamables(
               functions.map(func =>
-                functionTestJobs.add(() => {
+                createMicroJobStream(() => {
                   const curTotal = func.observed + func.unselectedCount;
                   const expected =
                     (curTotal * selectedTotal) /
@@ -144,9 +141,8 @@ function analyze({
                   };
                 })
               )
-            ),
-            functionTestJobs.clear
-          );
+            )
+            .pipe(stream.take(1));
         } else {
           return stream.fromValue(functions);
         }
@@ -184,6 +180,30 @@ function analyze({
         );
       })
     );
+}
+
+/**
+ * Create a stream that will add `job` to the event queue.
+ *
+ * Subscribing to the stream will queue up `job`. The stream will emit the
+ * return value of `job`, and then immediately finish. Unsubscribe from the
+ * stream to cancel `job`.
+ *
+ * @param {() => any} job
+ *    A fairly small piece of work that should take less than a few milliseconds.
+ */
+function createMicroJobStream(job) {
+  return stream.fromStreamable(onData => {
+    const timeout = setTimeout(() => {
+      const result = job();
+      onData(result);
+      onData(stream.done);
+    });
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  });
 }
 
 /**
