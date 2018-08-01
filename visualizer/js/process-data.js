@@ -1,6 +1,12 @@
 const d3 = require("d3");
+const { Header, Timeslice, StackFrame, Warning } = require("./protobuf-stream");
 
 function processData(data) {
+  const sectionsMap = new Map();
+  for (const section in StackFrame.Section) {
+    sectionsMap.set(StackFrame.Section[section], section);
+  }
+
   data.map((d, i, arr) => {
     if (i > 0) {
       d.cpuTimeElapsed = d.numCpuTimerTicks / 1000000;
@@ -33,9 +39,14 @@ function processData(data) {
     )
     .map(timeslice => ({
       ...timeslice,
-      stackFrames: timeslice.stackFrames.filter(
-        frame => frame.symbol !== "(null)"
-      )
+      stackFrames: timeslice.stackFrames
+        .filter(frame => frame.symbol)
+        .map(
+          frame =>
+            frame.fileName
+              ? frame
+              : { ...frame, fileName: sectionsMap.get(frame.section) }
+        )
     }))
     .filter(timeslice => timeslice.stackFrames.length);
 }
@@ -52,8 +63,7 @@ function computeRenderableData({
   xScale,
   yScale,
   getIndependentVariable,
-  getDependentVariable,
-  selectedFunction
+  getDependentVariable
 }) {
   // Group together points less than 1 pixel apart into renderableData
   const renderableData = [];
@@ -64,23 +74,22 @@ function computeRenderableData({
   );
   overallQuadtree.visit((node, x0, y0, x1, y1) => {
     const area = (x1 - x0) * (y1 - y0);
-    if ((node.length && area <= 1) || !node.length) {
+    if ((node.length && area <= 2) || !node.length) {
       const children = getLeafChildren(node);
       const density = children.length;
       const funcInfo = children.reduce((curFuncInfo, timeslice) => {
-        const symName = timeslice.stackFrames[0].symName;
-        const count = curFuncInfo[symName]
-          ? curFuncInfo[symName] + 1 / density
+        const symbol = timeslice.stackFrames[0].symbol;
+
+        const count = curFuncInfo[symbol]
+          ? curFuncInfo[symbol] + 1 / density
           : 1 / density;
 
         return {
           ...curFuncInfo,
-          [symName]: count
+          [symbol]: count
         };
       }, {});
 
-      const opacity =
-        selectedFunction === null ? 1 : funcInfo[selectedFunction] || 0;
       const representativeElement =
         children[Math.floor(Math.random() * children.length)];
       renderableData.push({
@@ -88,8 +97,7 @@ function computeRenderableData({
         x: overallQuadtree.x()(representativeElement),
         y: overallQuadtree.y()(representativeElement),
         density,
-        funcInfo,
-        opacity
+        funcInfo
       });
 
       return true; // Don't visit any children

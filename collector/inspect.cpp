@@ -332,8 +332,9 @@ bool in_scope(const string& name, const unordered_set<string>& scope) {
   return false;
 }
 
-void memory_map::build(const unordered_set<string>& source_scope,
-                       std::map<interval, string, cmpByInterval>* sym_table) {
+void memory_map::build(
+    const unordered_set<string>& source_scope,
+    std::map<interval, std::pair<string, string>, cmpByInterval>* sym_table) {
   size_t in_scope_count = 0;
   for (const auto& f : get_loaded_files()) {
     // if (in_scope(f.first, binary_scope)) {
@@ -402,7 +403,7 @@ void memory_map::add_range(const std::string& filename, size_t line_no,
 void memory_map::process_inlines(
     const ::dwarf::die& d, const ::dwarf::line_table& table,
     const unordered_set<string>& source_scope, uintptr_t load_address,
-    std::map<interval, string, cmpByInterval>& sym_table) {
+    std::map<interval, pair<string, string>, cmpByInterval>& sym_table) {
   if (!d.valid()) {
     return;
   }
@@ -454,10 +455,11 @@ void memory_map::process_inlines(
               }
 
               high_pc = high_pc_val.as_sconstant();
+              // TODO(builinh): find class of inline functions
               if (high_pc != 0 && low_pc != 0) {
-                sym_table.insert(pair<interval, string>(
+                sym_table.insert(pair<interval, pair<string, string>>(
                     (interval(low_pc, low_pc + high_pc) + load_address),
-                    sym_name));
+                    pair<string, string>(sym_name, "")));
               }
             }
           }
@@ -479,10 +481,12 @@ void memory_map::process_inlines(
           if (ranges_val.valid()) {
             // Add each range
             for (auto r : ranges_val.as_rangelist()) {
+              // NEED MORE TESTING
               add_range(call_file, call_line,
-                        interval(r.low, r.high) + load_address);
-              sym_table.insert(pair<interval, string>(
-                  (interval(r.low, r.low + r.high) + load_address), sym_name));
+                        interval(r.low, r.low + r.high) + load_address);
+              sym_table.insert(pair<interval, pair<string, string>>(
+                  (interval(r.low, r.low + r.high) + load_address),
+                  pair<string, string>(sym_name, "")));
             }
           } else {
             // Must just be one range. Add it
@@ -513,12 +517,13 @@ void memory_map::process_inlines(
                          ::dwarf::value::type::sconstant) {
                 high_pc = high_pc_val.as_sconstant();
               }
+              // NEED MORE TESTING
 
               add_range(call_file, call_line,
-                        interval(low_pc, high_pc) + load_address);
-              sym_table.insert(pair<interval, string>(
+                        interval(low_pc, low_pc + high_pc) + load_address);
+              sym_table.insert(pair<interval, pair<string, string>>(
                   (interval(low_pc, low_pc + high_pc) + load_address),
-                  sym_name));
+                  pair<string, string>(sym_name, "")));
             }
           }
         }
@@ -533,13 +538,26 @@ void memory_map::process_inlines(
   }
 }
 
-void dump_tree(const ::dwarf::die& d, int depth,
-               std::map<interval, string, cmpByInterval>* sym_table,
-               uintptr_t load_address, const ::dwarf::line_table& table,
-               const unordered_set<string>& source_scope) {
+void dump_tree(
+    const ::dwarf::die& d, int depth,
+    std::map<interval, std::pair<string, string>, cmpByInterval>* sym_table,
+    uintptr_t load_address, const ::dwarf::line_table& table,
+    const unordered_set<string>& source_scope, string* class_type) {
   if (!d.valid()) {
     return;
   }
+
+  try {
+    if (d.tag == ::dwarf::DW_TAG::class_type) {
+      auto class_val = find_attribute(d, ::dwarf::DW_AT::name);
+      if (class_val.valid()) {
+        *class_type = class_val.as_string();
+      }
+    }
+  } catch (::dwarf::format_error& e) {
+    DEBUG_CRITICAL("Ignoring dwarf class format error " << e.what());
+  }
+
   try {
     if (d.tag == ::dwarf::DW_TAG::subprogram) {
       string name;
@@ -580,8 +598,10 @@ void dump_tree(const ::dwarf::die& d, int depth,
 
               high_pc = high_pc_val.as_sconstant();
               if (high_pc != 0 && low_pc != 0) {
-                sym_table->insert(pair<interval, string>(
-                    (interval(low_pc, low_pc + high_pc) + load_address), name));
+                string real_class = *class_type;
+                sym_table->insert(pair<interval, pair<string, string>>(
+                    (interval(low_pc, low_pc + high_pc) + load_address),
+                    pair<string, string>(name, real_class)));
               }
             }
           }
@@ -593,14 +613,15 @@ void dump_tree(const ::dwarf::die& d, int depth,
   }
 
   for (const auto& child : d) {
-    dump_tree(child, depth + 1, sym_table, load_address, table, source_scope);
+    dump_tree(child, depth + 1, sym_table, load_address, table, source_scope,
+              class_type);
   }
 }
 
 bool memory_map::process_file(
     const string& name, uintptr_t load_address,
     const unordered_set<string>& source_scope,
-    std::map<interval, string, cmpByInterval>* sym_table) {
+    std::map<interval, pair<string, string>, cmpByInterval>* sym_table) {
   elf::elf f = locate_debug_executable(name);
   // If a debug version of the file could not be located, return false
   if (!f.valid()) {
@@ -627,7 +648,9 @@ bool memory_map::process_file(
   // Walk through the compilation units (source files) in the executable
   for (const auto& unit : d.compilation_units()) {
     auto& lineTable = unit.get_line_table();
-    dump_tree(unit.root(), 0, sym_table, load_address, lineTable, source_scope);
+    string class_type;
+    dump_tree(unit.root(), 0, sym_table, load_address, lineTable, source_scope,
+              &class_type);
     int fileIndex = 0;
     bool needProcess = false;
     // check if files using by lineTable are in source_scope

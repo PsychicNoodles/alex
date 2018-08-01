@@ -133,6 +133,9 @@ ofstream *result_file;
 // related information/fds
 map<int, perf_fd_info> perf_info_mappings;
 
+// a list of warnings (ie. throttle/unthrottle, lost)
+vector<tuple<int, base_record, int64_t>> warnings;
+
 // the epoll fd used in the collector
 int sample_epfd = epoll_create1(0);
 // a count of the number of fds added to the epoll
@@ -486,7 +489,7 @@ bool process_sample_record(
     bg_reading *rapl_reading, bg_reading *wattsup_reading,
     const map<uint64_t, kernel_sym> &kernel_syms,
     const map<interval, std::shared_ptr<line>, cmpByInterval> &ranges,
-    const map<interval, string, cmpByInterval> &sym_map) {
+    const map<interval, std::pair<string, string>, cmpByInterval> &sym_map) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
@@ -587,7 +590,6 @@ bool process_sample_record(
     stack_frame->set_section(callchain_enum(callchain_section));
 
     string sym_name_str;
-    const char *sym_name = nullptr;
     DEBUG("looking up symbol for inst ptr " << ptr_fmt((void *)inst_ptr));
     if (callchain_section == PERF_CONTEXT_USER) {
       DEBUG("looking up user stack frame");
@@ -606,7 +608,6 @@ bool process_sample_record(
       if (addr != -1) {
         const auto &ks = kernel_syms.at(addr);
         sym_name_str = ks.sym;
-        sym_name = sym_name_str.c_str();
       }
     }
 
@@ -615,17 +616,24 @@ bool process_sample_record(
     ::dwarf::taddr pc = inst_ptr - 1;
 
     // Get the sym name
-    if (sym_name == nullptr) {
+    if (sym_name_str.empty()) {
       DEBUG("looking up function symbol");
       auto upper_sym = sym_map.upper_bound(interval(pc, pc));
       if (upper_sym != sym_map.begin()) {
         --upper_sym;
         if (upper_sym->first.contains(pc)) {
-          sym_name = const_cast<char *>(upper_sym->second.c_str());
-          ;
+          if (!upper_sym->second.second.empty()) {
+            DEBUG("name is " << upper_sym->second.second
+                             << "::" << upper_sym->second.first);
+            sym_name_str =
+                upper_sym->second.second + "::" + upper_sym->second.first;
+
+          } else {
+            sym_name_str = upper_sym->second.first;
+          }
+
         } else {
           DEBUG("cannot find function symbol");
-          sym_name = nullptr;
         }
       }
     }
@@ -648,22 +656,22 @@ bool process_sample_record(
     }
 
     // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
-    if (sym_name != nullptr) {
+    if (!sym_name_str.empty()) {
       DEBUG("demangling symbol name");
       int demangle_status;
-      char *demangled_name =
-          abi::__cxa_demangle(sym_name, nullptr, nullptr, &demangle_status);
+      char *demangled_name = abi::__cxa_demangle(sym_name_str.c_str(), nullptr,
+                                                 nullptr, &demangle_status);
       if (demangle_status == 0) {
         stack_frame->set_symbol(demangled_name);
         free(demangled_name);  // NOLINT
       } else {
-        stack_frame->set_symbol(sym_name);
+        stack_frame->set_symbol(sym_name_str);
 
         if (demangle_status == -1) {
           PARENT_SHUTDOWN_MSG(INTERNAL_ERROR,
                               "demangling errored due to memory allocation");
         } else if (demangle_status == -2) {
-          DEBUG("could not demangle name " << sym_name);
+          DEBUG("could not demangle name " << sym_name_str);
         } else if (demangle_status == -3) {
           PARENT_SHUTDOWN_MSG(INTERNAL_ERROR,
                               "demangling errored due to invalid arguments");
@@ -702,7 +710,7 @@ void write_sample_id(SampleId *sample_id_message,
   sample_id_message->set_id(sample_id.id);
 }
 
-void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
+void write_warnings() {
   Warning warning_message;
   for (auto &t : warnings) {
     int record_type;
@@ -751,6 +759,25 @@ void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
 
     serialize_delimited(warning_message);
     warning_message.Clear();
+  }
+}
+
+void set_preset_events(Map<string, PresetEvents> *preset_map) {
+  for (int i = 0; i < global->presets_size; i++) {
+    const char *preset = global->presets[i];
+    map<string, vector<string>> events = build_preset(preset);
+    PresetEvents pe_message;
+    Map<string, EventList> *pe_events = pe_message.mutable_events();
+
+    for (auto event : events) {
+      EventList event_list;
+      for (const auto &sub_event : event.second) {
+        event_list.add_events(sub_event);
+      }
+      (*pe_events)[event.first] = event_list;
+    }
+
+    (*preset_map)[preset] = pe_message;
   }
 }
 
@@ -830,11 +857,10 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
 int collect_perf_data(
     const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd, int socket,
     bg_reading *rapl_reading, bg_reading *wattsup_reading,
-    const std::map<interval, string, cmpByInterval> &sym_map,
+    const std::map<interval, std::pair<string, string>, cmpByInterval> &sym_map,
     const std::map<interval, std::shared_ptr<line>, cmpByInterval> &ranges) {
   bool done = false;
   int sample_period_skips = 0;
-  vector<tuple<int, base_record, int64_t>> warnings;
 
   size_t last_ts = time_ms(), finish_ts = last_ts, curr_ts = 0;
 
@@ -971,7 +997,7 @@ int collect_perf_data(
   stop_reading(wattsup_reading);
 
   DEBUG("writing warnings");
-  write_warnings(warnings);
+  write_warnings();
 
   return 0;
 }

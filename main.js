@@ -208,6 +208,20 @@ async function list() {
   );
 }
 
+async function copyResult(resolve, reject, rawResultFile, progressBar) {
+  const { size: resultFileSize } = await promisify(fs.stat)(rawResultFile);
+  fs.createReadStream(rawResultFile)
+    .pipe(
+      progressStream({ length: resultFileSize, time: 100 }, ({ delta }) => {
+        if (progressBar) progressBar.tick(delta);
+      })
+    )
+    .pipe(protobufStream.parser())
+    .on("end", resolve)
+    .on("error", reject)
+    .resume();
+}
+
 async function collect({
   presets,
   events,
@@ -227,8 +241,8 @@ async function collect({
     process.exit(1);
   }
 
-  const rawResultFile = tempFile(".json");
-  const resultFile = resultOption || tempFile(".json");
+  const rawResultFile = tempFile(".bin");
+  const resultFile = resultOption || tempFile(".bin");
 
   const allPresetInfo = await getAllPresetInfo();
   const presetsSet = new Set([
@@ -286,6 +300,13 @@ async function collect({
       COLLECTOR_NOTIFY_START: "yes",
       LD_PRELOAD: path.join(__dirname, "./collector/build/collector.so")
     }
+  });
+
+  process.on("SIGINT", async () => {
+    await new Promise((resolve, reject) =>
+      copyResult(resolve, reject, rawResultFile)
+    );
+    process.exit();
   });
 
   collector.on("error", err => {
@@ -370,20 +391,7 @@ async function collect({
         );
 
         await new Promise((resolve, reject) =>
-          fs
-            .createReadStream(rawResultFile)
-            .pipe(
-              progressStream(
-                { length: resultFileSize, time: 100 },
-                ({ delta }) => {
-                  progressBar.tick(delta);
-                }
-              )
-            )
-            .pipe(protobufStream.parser())
-            .on("end", resolve)
-            .on("error", reject)
-            .resume()
+          copyResult(resolve, reject, rawResultFile, progressBar)
         );
         fs.copyFileSync(rawResultFile, resultFile);
         resultsProcessed = true;

@@ -22,8 +22,7 @@ function render(root, { data, densityMax, spectrum, xGetter, yGetter }) {
     .attr("cx", d => xGetter(d))
     .attr("cy", d => yGetter(d))
     .attr("r", 1)
-    .style("fill", d => spectrum(d.densityAvg / densityMax))
-    .style("opacity", d => d.opacity);
+    .style("fill", d => spectrum(d.densityAvg / densityMax));
 
   circles.exit().remove();
 }
