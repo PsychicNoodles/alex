@@ -123,6 +123,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
   const spectrum = d3.interpolateWarm;
   const sdRange = 3;
 
+  console.log(processedData);
+
   if (processedData.length <= 10) {
     const timeslicesLength = (await timeslicesPromise).length;
     alert(
@@ -219,6 +221,16 @@ ipcRenderer.on("result", async (event, resultFile) => {
           getEventCount(d, presets.cache.misses) /
             (getEventCount(d, presets.cache.hits) +
               getEventCount(d, presets.cache.misses)) || 0,
+        flattenThreads: false
+      },
+      {
+        presetsRequired: ["branches"],
+        yAxisLabelText: "Branch Predictor Miss Rate",
+        chartId: "branch-predictor-miss-rate",
+        yFormat: d3.format(".0%"),
+        getDependentVariable: d =>
+          getEventCount(d, presets.branches.branchMisses) /
+            getEventCount(d, presets.branches.branches) || 0,
         flattenThreads: false
       },
       {
