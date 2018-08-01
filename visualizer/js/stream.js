@@ -445,10 +445,16 @@ function subscribe(onData, onDone = () => {}) {
  * same propertyName, the old subscription will be unsubscribed so that only
  * the latest subscription is ever present.
  *
- * @param {d3.Selection} selection A d3 selection of a single element where the subscription will be attached.
- * @param {string|{toString(): string}} propertyName A string or object with toString where the subscription will be stored.
- * @param {DataListener} onData The data callback to be passed to stream.subscribe.
- * @param {() => void} onDone The done callback to be passed to stream.subscribe.
+ * @param {d3.Selection} selection A d3 selection of a single element where the
+ *                                 subscription will be attached.
+ * @param {string|{toString(): string}} propertyName A string or object with
+ *                                                   toString where the
+ *                                                   subscription will be
+ *                                                   stored.
+ * @param {DataListener} onData The data callback to be passed to
+ *                              stream.subscribe.
+ * @param {() => void} onDone The done callback to be passed to
+ *                            stream.subscribe.
  * @returns {(streamable: Streamable) => void}
  */
 function subscribeUnique(selection, propertyName, onData, onDone = undefined) {
@@ -457,7 +463,6 @@ function subscribeUnique(selection, propertyName, onData, onDone = undefined) {
     if (oldSubscription) {
       oldSubscription.unsubscribe();
     }
-
     selection.property(propertyName, {
       unsubscribe: fromStreamable(streamable).pipe(subscribe(onData, onDone))
     });

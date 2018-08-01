@@ -13,7 +13,8 @@
     "eslint:fix": "eslint --fix .",
     "clean:outfiles": "rm -f out-* err-* result-*",
     "example": "npm run clean:outfiles && node . collect --in examples/inputs/matrix-500x500.in -- examples/build/matrixmultiplier",
-    "collect": "node . collect"
+    "collect": "node . collect",
+    "protobuf-print": "./collector/build/protobuf-print"
   },
   "bin": {
     "alex": "main.js"
@@ -21,20 +22,19 @@
   "license": "UNLICENSED",
   "dependencies": {
     "ajv": "^6.5.2",
-    "bootstrap-colorpicker": "^2.5.3",
-    "chi-squared": "^1.1.0",
     "d3": "^5.5.0",
     "d3-svg-legend": "^2.25.6",
     "electron": "^2.0.5",
     "husky": "^0.14.3",
     "lint-staged": "^7.2.0",
     "lodash": "^4.17.10",
-    "prettier": "^1.13.7",
+    "prettier": "^1.14.0",
     "pretty-ms": "^3.2.0",
     "progress": "^2.0.0",
     "progress-stream": "^2.0.0",
-    "stream-json": "^1.1.0",
+    "protobufjs": "~6.8.8",
     "tempfile": "^2.0.0",
+    "through2": "^2.0.3",
     "yargs": "^12.0.1"
   },
   "devDependencies": {

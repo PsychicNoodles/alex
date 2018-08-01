@@ -9,8 +9,8 @@ build/branch-predict: branch-predict.cpp | build
 build/cache: cache.c | build
 	clang -g -Wall -o build/cache cache.c
 
-build/fork: fork.c | build
-	clang -g -Wall -rdynamic -lpthread -o build/fork fork.c
+build/fork: fork.cpp | build
+	clang++ -g -Wall -rdynamic -lpthread -o build/fork fork.cpp
 
 build/power: power.c | build
 	clang -g -Wall -rdynamic -o build/power power.c

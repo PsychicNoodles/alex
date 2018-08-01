@@ -44,7 +44,7 @@ fix=""
 args=""
 warnings_as_errors=""
 file="${@: -1}"
-header_filter="-header-filter=$(dirname $file)/"
+header_filter="-header-filter=$(dirname $file)/*.hpp"
 quiet=false
 print_command=false
 

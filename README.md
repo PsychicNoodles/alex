@@ -27,6 +27,7 @@ Try `node . --help` to see usage information.
 - `npm run checkpreset` checks for available preset options
 - `npm run checkpreset:all` see all available options for preset settings
 - `dmesg` see what the USB serial port is detected at after plugging in the wattsup device
+- `npm run protobuf-print -- resultFile.bin` prints the result file in a human friendly format
 
 ## Data Collection
 

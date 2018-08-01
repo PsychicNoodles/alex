@@ -1,13 +1,15 @@
 #include "shared.hpp"
 
 #include <sys/mman.h>
+#include <csignal>
 #include <cstring>
 
 #include "debug.hpp"
+#include "perf_reader.hpp"
 
 namespace alex {
 
-global_vars *global;
+const global_vars *global;
 
 void *malloc_shared(size_t size) {
   return mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED,
@@ -17,32 +19,43 @@ void *malloc_shared(size_t size) {
 void init_global_vars(uint64_t period, pid_t collector_pid,
                       const vector<string> &events,
                       const set<string> &presets) {
-  global = static_cast<global_vars *>(malloc_shared(sizeof(global_vars)));
-  memcpy(&global->period, &period, sizeof(uint64_t));
-  global->subject_pid = 0;
-  memcpy(&global->collector_pid, &collector_pid, sizeof(pid_t));
-  global->events =
+  char **events_tmp =
       static_cast<char **>(malloc_shared(sizeof(char *) * events.size()));
-  global->events_size = events.size();
-  for (int i = 0; i < global->events_size; i++) {
-    global->events[i] =
+  for (int i = 0; i < events.size(); i++) {
+    events_tmp[i] =
         static_cast<char *>(malloc_shared(sizeof(char) * events.at(i).size()));
-    memcpy(static_cast<void *>(global->events[i]), events.at(i).c_str(),
+    memcpy(static_cast<void *>(events_tmp[i]), events.at(i).c_str(),
            events.at(i).size());
   }
-  global->presets =
+  char **presets_tmp =
       static_cast<char **>(malloc_shared(sizeof(char *) * presets.size()));
-  global->presets_size = presets.size();
   size_t i = 0;
   for (const auto &p : presets) {
-    global->presets[i] =
+    presets_tmp[i] =
         static_cast<char *>(malloc_shared(sizeof(char) * p.size()));
-    memcpy(static_cast<void *>(global->presets[i]), p.c_str(), p.size());
+    memcpy(static_cast<void *>(presets_tmp[i]), p.c_str(), p.size());
     i++;
   }
+
+  global_vars global_tmp = {.period = period,
+                            .events = events_tmp,
+                            .events_size = events.size(),
+                            .presets = presets_tmp,
+                            .presets_size = presets.size(),
+                            .subject_pid = 0,
+                            .collector_pid = collector_pid};
+
+  global = static_cast<global_vars *>(malloc_shared(sizeof(global_vars)));
+  memcpy(const_cast<global_vars *>(global), &global_tmp, sizeof(global_vars));
 }
 
-void set_subject_pid(pid_t subject_pid) { global->subject_pid = subject_pid; }
+void set_subject_pid(pid_t subject_pid) {
+  const_cast<global_vars *>(global)->subject_pid = subject_pid;
+}
+
+void set_period(uint64_t period) {
+  const_cast<global_vars *>(global)->period = period;
+}
 
 size_t num_perf_fds() { return 1 + global->events_size; }
 
@@ -60,6 +73,28 @@ void debug_global_var() {
                           << ", presets " << presets << ", subject_pid "
                           << global->subject_pid << ", collector_pid "
                           << global->collector_pid);
+}
+
+bool preset_enabled(const char *name) {
+  for (int i = 0; i < global->presets_size; i++) {
+    if (strcmp(name, global->presets[i]) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void shutdown(pid_t pid, ofstream *result_file, error code, const string &msg) {
+  write_warnings();
+  result_file->close();
+  shutdown(pid, code, msg);
+}
+
+void shutdown(pid_t pid, error code, const string &msg) {
+  DEBUG_CRITICAL("error: " << msg);
+  kill(pid, SIGKILL);
+  std::clog.flush();
+  exit(code);
 }
 
 }  // namespace alex

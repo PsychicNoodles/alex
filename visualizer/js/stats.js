@@ -1,12 +1,14 @@
 const d3 = require("d3");
 
-function calculateData(processedData) {
+function calculateData({ processedData, originalLength }) {
   const numTimeslices = processedData.length,
     startTime = numTimeslices > 0 ? processedData[0].cpuTime : 0,
-    endTime = numTimeslices > 0 ? processedData[numTimeslices - 1].cpuTime : 0;
+    endTime = numTimeslices > 0 ? processedData[numTimeslices - 1].cpuTime : 0,
+    percentage = (numTimeslices / originalLength) * 100;
 
   return [
     { name: "Timeslices", number: numTimeslices, isTime: false },
+    { name: "Percentage", number: percentage, isTime: false },
     { name: "CPU Time Elapsed", number: endTime - startTime, isTime: true },
     {
       name: "Average Timeslice Duration",
@@ -16,7 +18,7 @@ function calculateData(processedData) {
   ];
 }
 
-function render(root, { processedData }) {
+function render(root, { processedData, originalLength }) {
   if (root.select("h3").empty()) {
     root.append("h3").text("Stats");
   }
@@ -27,7 +29,7 @@ function render(root, { processedData }) {
 
   const statsDataSelection = statsSelection
     .selectAll("li")
-    .data(calculateData(processedData));
+    .data(calculateData({ processedData, originalLength }));
 
   const statsEnterSelection = statsDataSelection.enter().append("li");
 

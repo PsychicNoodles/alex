@@ -1,15 +1,27 @@
 const d3 = require("d3");
+const { Header, Timeslice, StackFrame, Warning } = require("./protobuf-stream");
 
 function processData(data) {
+  const sectionsMap = new Map();
+  for (const section in StackFrame.Section) {
+    sectionsMap.set(StackFrame.Section[section], section);
+  }
+
   data.map((d, i, arr) => {
     if (i > 0) {
-      d.cpuTimeElapsed = d.numCPUTimerTicks / 1000000;
-      const a = arr[i - 1].events.core;
-      d.events.periodCpu = (d.events.core - a) / d.cpuTimeElapsed;
-      const b = arr[i - 1].events.dram;
-      d.events.periodMemory = (d.events.dram - b) / d.cpuTimeElapsed;
-      const c = arr[i - 1].events["package-0"];
-      d.events.periodOverall = (d.events["package-0"] - c) / d.cpuTimeElapsed;
+      d.cpuTimeElapsed = d.numCpuTimerTicks / 1000000;
+      const a = d.events.core - arr[i - 1].events.core;
+      if (a >= 0) {
+        d.events.periodCpu = a / d.cpuTimeElapsed;
+      }
+      const b = d.events.dram - arr[i - 1].events.dram;
+      if (b >= 0) {
+        d.events.periodMemory = b / d.cpuTimeElapsed;
+      }
+      const c = d.events["package-0"] - arr[i - 1].events["package-0"];
+      if (c >= 0) {
+        d.events.periodOverall = c / d.cpuTimeElapsed;
+      }
     } else {
       d.events.periodCpu = 0;
       d.events.periodMemory = 0;
@@ -27,9 +39,14 @@ function processData(data) {
     )
     .map(timeslice => ({
       ...timeslice,
-      stackFrames: timeslice.stackFrames.filter(
-        frame => frame.symName !== "(null)"
-      )
+      stackFrames: timeslice.stackFrames
+        .filter(frame => frame.symbol)
+        .map(
+          frame =>
+            frame.fileName
+              ? frame
+              : { ...frame, fileName: sectionsMap.get(frame.section) }
+        )
     }))
     .filter(timeslice => timeslice.stackFrames.length);
 }
@@ -57,15 +74,30 @@ function computeRenderableData({
   );
   overallQuadtree.visit((node, x0, y0, x1, y1) => {
     const area = (x1 - x0) * (y1 - y0);
-    if ((node.length && area <= 1) || !node.length) {
+    if ((node.length && area <= 2) || !node.length) {
       const children = getLeafChildren(node);
+      const density = children.length;
+      const funcInfo = children.reduce((curFuncInfo, timeslice) => {
+        const symbol = timeslice.stackFrames[0].symbol;
+
+        const count = curFuncInfo[symbol]
+          ? curFuncInfo[symbol] + 1 / density
+          : 1 / density;
+
+        return {
+          ...curFuncInfo,
+          [symbol]: count
+        };
+      }, {});
+
       const representativeElement =
         children[Math.floor(Math.random() * children.length)];
       renderableData.push({
         ...representativeElement,
         x: overallQuadtree.x()(representativeElement),
         y: overallQuadtree.y()(representativeElement),
-        density: children.length
+        density,
+        funcInfo
       });
 
       return true; // Don't visit any children
@@ -126,8 +158,7 @@ function computeRenderableData({
 
     return {
       ...renderable,
-      densityAvg: totalDensity / count,
-      densityAvgPresent: totalDensity / count
+      densityAvg: totalDensity / count
     };
   });
 }

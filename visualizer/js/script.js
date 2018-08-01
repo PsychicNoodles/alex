@@ -2,13 +2,13 @@ const { ipcRenderer } = require("electron");
 const d3 = require("d3");
 const fs = require("fs");
 const progressStream = require("progress-stream");
-const streamJSON = require("stream-json");
-const JSONAssembler = require("stream-json/Assembler");
+const protobufStream = require("./protobuf-stream");
+const { Header, Timeslice, Warning } = protobufStream;
 const { promisify } = require("util");
 
 const {
   processData,
-  computeRenderableData,
+
   getEventCount,
   sdDomain
 } = require("./process-data");
@@ -17,6 +17,7 @@ const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
 const warningList = require("./warning-list");
 const stats = require("./stats");
+const programInfo = require("./program-info");
 const brushes = require("./brushes");
 const sourceSelect = require("./source-select");
 const threadSelect = require("./thread-select");
@@ -42,13 +43,19 @@ loadingProgressStore.subscribe(({ percentage, progressBarIsVisible }) => {
   });
 });
 
+const progressBarHiddenPromise = new Promise(resolve =>
+  loadingProgressStore.subscribe(({ progressBarIsVisible }) => {
+    if (!progressBarIsVisible) resolve();
+  })
+);
+
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", async (event, resultFile) => {
-  let result;
+  let protobufMessageStream;
   try {
     const { size: resultFileSize } = await promisify(fs.stat)(resultFile);
 
-    const jsonTokenStream = fs
+    protobufMessageStream = fs
       .createReadStream(resultFile)
       .pipe(
         progressStream(
@@ -64,34 +71,65 @@ ipcRenderer.on("result", async (event, resultFile) => {
           }
         )
       )
-      .pipe(streamJSON.parser());
-
-    const assembler = await new Promise((resolve, reject) =>
-      JSONAssembler.connectTo(jsonTokenStream.on("warning", reject))
-        .on("done", resolve)
-        .on("warning", reject)
-    );
-
-    result = assembler.current;
+      .pipe(protobufStream.parser());
   } catch (err) {
     alert(`Couldn't load result file: ${err.message}`);
     window.close();
   }
 
-  if (result.error) {
-    alert(result.error);
-    window.close();
-  }
+  const headerPromise = new Promise((resolve, reject) =>
+    protobufMessageStream
+      .once("data", d => {
+        // should always be a header, but verify anyway
+        if (d instanceof Header) resolve(d);
+      })
+      .on("error", reject)
+  );
+  const timeslicesPromise = new Promise((resolve, reject) => {
+    const timeslices = [];
+    return protobufMessageStream
+      .on("data", d => {
+        if (d instanceof Timeslice) timeslices.push(d);
+      })
+      .on("end", () => resolve(timeslices))
+      .on("error", reject);
+  });
+  const warningsPromise = new Promise((resolve, reject) => {
+    const warnings = [];
+    protobufMessageStream
+      .on("data", d => {
+        if (d instanceof Warning) warnings.push(d);
+      })
+      .on("end", () => resolve(warnings))
+      .on("error", reject);
+  });
 
-  d3.select("#title").text(result.header.programName);
-  const processedData = processData(result.timeslices, result.header);
+  Promise.all([headerPromise, timeslicesPromise, warningsPromise]).catch(
+    err => {
+      alert(err);
+      window.close();
+    }
+  );
+
+  progressBarHiddenPromise.then(() =>
+    headerPromise.then(header =>
+      d3.select("#program-info").call(programInfo.render, header)
+    )
+  );
+  const processedData = await Promise.all([
+    timeslicesPromise,
+    headerPromise
+  ]).then(([timeslices, header]) => processData(timeslices, header));
   const spectrum = d3.interpolateWarm;
   const sdRange = 3;
 
-  if (processedData.length === 0) {
+  const timeslicesLength = (await timeslicesPromise).length;
+  if (processedData.length <= 10) {
     alert(
-      result.timeslices.length === 0
-        ? "No data in result file.  Perhaps the program terminated too quickly."
+      timeslicesLength <= 10
+        ? timeslicesLength === 0
+          ? "No data in result file.  Perhaps the program terminated too quickly."
+          : "Too little data in result file. Perhaps the program terminated too quickly."
         : "No usable data in result file."
     );
     window.close();
@@ -118,7 +156,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
     //stats side bar
     d3.select("#stats").call(stats.render, {
-      processedData
+      processedData,
+      originalLength: timeslicesLength
     });
 
     d3.select("#table-select").call(tableSelect.render);
@@ -142,7 +181,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     });
 
     //warnings
-    const warningRecords = result.warning;
+    const warningRecords = await warningsPromise;
     const warningCountsMap = new Map();
     warningRecords.forEach(warning => {
       if (warningCountsMap.has(warning.type)) {
@@ -169,12 +208,13 @@ ipcRenderer.on("result", async (event, resultFile) => {
     });
 
     //charts charts charts
-    const { presets } = result.header;
+    const { presets } = await headerPromise;
     //make a array containing some information of each chart
     const charts = [
       {
         presetsRequired: ["cache"],
-        yAxisLabelText: "Cache Miss Rate",
+        yAxisLabelText: "L3 Cache Miss Rate",
+        chartId: "l3-cache-miss-rate",
         yFormat: d3.format(".0%"),
         getDependentVariable: d =>
           getEventCount(d, presets.cache.misses) /
@@ -183,8 +223,19 @@ ipcRenderer.on("result", async (event, resultFile) => {
         flattenThreads: false
       },
       {
+        presetsRequired: ["branches"],
+        yAxisLabelText: "Branch Predictor Miss Rate",
+        chartId: "branch-predictor-miss-rate",
+        yFormat: d3.format(".0%"),
+        getDependentVariable: d =>
+          getEventCount(d, presets.branches.branchMisses) /
+            getEventCount(d, presets.branches.branches) || 0,
+        flattenThreads: false
+      },
+      {
         presetsRequired: ["cpu"],
         yAxisLabelText: "Instructions Per Cycle",
+        chartId: "instructions-per-cycle",
         yFormat: d3.format(".3"),
         getDependentVariable: d =>
           getEventCount(d, presets.cpu.instructions) /
@@ -193,7 +244,16 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
+        yAxisLabelText: "Overall Power",
+        chartId: "overall-power",
+        yFormat: d3.format(".2s"),
+        getDependentVariable: d => d.events["periodOverall"] || 0,
+        flattenThreads: true
+      },
+      {
+        presetsRequired: ["rapl"],
         yAxisLabelText: "CPU Power",
+        chartId: "cpu-power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodCpu"] || 0,
         flattenThreads: true
@@ -201,20 +261,15 @@ ipcRenderer.on("result", async (event, resultFile) => {
       {
         presetsRequired: ["rapl"],
         yAxisLabelText: "Memory Power",
+        chartId: "memory-power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => d.events["periodMemory"] || 0,
         flattenThreads: true
       },
       {
-        presetsRequired: ["rapl"],
-        yAxisLabelText: "Overall Power",
-        yFormat: d3.format(".2s"),
-        getDependentVariable: d => d.events["periodOverall"] || 0,
-        flattenThreads: true
-      },
-      {
         presetsRequired: ["wattsup"],
         yAxisLabelText: "Wattsup Power",
+        chartId: "wattsup-power",
         yFormat: d3.format(".2s"),
         getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup),
         flattenThreads: true
@@ -222,6 +277,11 @@ ipcRenderer.on("result", async (event, resultFile) => {
     ].filter(({ presetsRequired }) =>
       presetsRequired.every(presetName => presetName in presets)
     );
+
+    //render the side bar to choose which charts to render
+    d3.select("#charts-select").call(chartsSelect.render, {
+      charts
+    });
 
     //combine yScales (x2), brush and and a chart file ????? into a new var and make a array of them
     const chartsWithYScales = charts.map(chartParams => {
@@ -232,14 +292,9 @@ ipcRenderer.on("result", async (event, resultFile) => {
         .domain(d3.extent(normalData, getDependentVariable).reverse())
         .range([0, chart.HEIGHT]);
 
-      const brush = d3
-        .brushY()
-        .extent([[0, 0], [chart.WIDTH * 0.075, chart.HEIGHT]]);
-
       return {
         ...chartParams,
         yScale,
-        brush,
         chart
       };
     });
@@ -255,14 +310,16 @@ ipcRenderer.on("result", async (event, resultFile) => {
           //first filter with source selection!
           const sourceFilteredData = processedData
             .filter((
-              timeslice //keep the timeslices which have at least one frame with its filename not in hiddenSources
+              timeslice
+              /* keep the timeslices which have at least one frame with its
+              filename not in hiddenSources */
             ) =>
               timeslice.stackFrames.some(
                 frame => !hiddenSources.includes(frame.fileName)
               )
             )
             .map(timeslice => ({
-              //and then remove those frames with a hiddensource
+              //and then remove those frames with a hiddenSource
               ...timeslice,
               stackFrames: timeslice.stackFrames.filter(
                 frame => !hiddenSources.includes(frame.fileName)
@@ -279,138 +336,99 @@ ipcRenderer.on("result", async (event, resultFile) => {
         })
       );
 
-    filteredDataStream.pipe(
-      stream.subscribe(({ fullFilteredData }) => {
-        //re-render stats side bar
-        d3.select("#stats").call(stats.render, {
-          processedData: fullFilteredData
-        });
-      })
-    );
-
-    const currentYScalesStore = new Store(
-      chartsWithYScales.reduce((currentYScales, chartParams) => {
+    const currentYScaleStores = chartsWithYScales.reduce(
+      (currentYScales, chartParams) => {
         const { yAxisLabelText, yScale, getDependentVariable } = chartParams;
 
         return {
           ...currentYScales,
-          [yAxisLabelText]: d3
-            .scaleLinear()
-            .domain(
-              sdDomain(processedData, getDependentVariable, sdRange, yScale)
-            )
-            .range(yScale.range())
+          [yAxisLabelText]: new Store(
+            d3
+              .scaleLinear()
+              .domain(
+                sdDomain(processedData, getDependentVariable, sdRange, yScale)
+              )
+              .range(yScale.range())
+          )
         };
-      }, {})
+      },
+      {}
     );
 
-    stream
-      .fromStreamables([
-        currentYScalesStore.stream,
-        chartsSelect.hiddenChartsStore.stream,
-        filteredDataStream
-      ])
-      .pipe(
-        stream.subscribe(
-          ([
-            currentYScales,
-            hiddenCharts,
-            { fullFilteredData, sourceFilteredData }
-          ]) => {
-            const visibleCharts = chartsWithYScales
-              .filter(chart => !hiddenCharts.includes(chart))
-              .map(chartParams => {
-                const { flattenThreads } = chartParams;
-                const filteredData = flattenThreads
-                  ? sourceFilteredData
-                  : fullFilteredData;
-                return {
-                  ...chartParams,
-                  filteredData
-                };
-              });
-
-            const chartsWithPlotData = visibleCharts.map(chartParams => {
-              const {
-                yAxisLabelText,
-                getDependentVariable,
-                filteredData
-              } = chartParams;
-
-              const plotData = computeRenderableData({
-                data: filteredData,
-                xScale,
-                yScale: currentYScales[yAxisLabelText],
-                getIndependentVariable,
-                getDependentVariable
-              });
-
-              const densityMaxLocal =
-                Math.max(d3.max(plotData, d => d.densityAvg), 5) || 0;
-
-              return {
-                ...chartParams,
-                densityMaxLocal,
-                plotData
-              };
-            });
-
-            const chartsDataSelection = d3
-              .select("#charts")
-              .selectAll("div")
-              .data(chartsWithPlotData);
-
-            chartsDataSelection
-              .enter()
-              .append("div")
-              .merge(chartsDataSelection)
-              .each(function({
-                getDependentVariable,
-                yAxisLabelText,
-                yFormat,
-                yScale,
-                densityMaxLocal,
-                brush,
-                plotData
-              }) {
-                d3.select(this).call(chart.render, {
-                  getIndependentVariable,
-                  getDependentVariable,
-                  xAxisLabelText,
-                  yAxisLabelText,
-                  xScale,
-                  yScale,
-                  brush,
-                  yFormat,
-                  plotData,
-                  densityMax: densityMaxLocal,
-                  spectrum,
-                  cpuTimeOffset,
-                  warningRecords,
-                  warningsDistinct,
-                  currentYScale: currentYScales[yAxisLabelText],
-                  onYScaleDomainChange: newDomain => {
-                    currentYScalesStore.dispatch(currentYScales => ({
-                      ...currentYScales,
-                      [yAxisLabelText]: d3
-                        .scaleLinear()
-                        .domain(newDomain)
-                        .range(yScale.range())
-                    }));
-                  }
-                });
-              });
-
-            chartsDataSelection.exit().remove();
-
-            d3.select("#charts-select").call(chartsSelect.render, {
-              chartsWithYScales
-            });
-          }
-        )
-      );
-
     const currentSelectedFunctionStore = new Store(null);
+    stream.fromStreamables([filteredDataStream]).pipe(
+      stream.subscribe(([{ fullFilteredData, sourceFilteredData }]) => {
+        const chartsWithFilteredData = chartsWithYScales.map(chartParams => {
+          const { chartId, getDependentVariable, flattenThreads } = chartParams;
+
+          const selectionFilteredData = flattenThreads
+            ? sourceFilteredData
+            : fullFilteredData;
+
+          const filteredData =
+            chartId === "overall-power" ||
+            chartId === "cpu-power" ||
+            chartId === "memory-power"
+              ? selectionFilteredData.filter(d => getDependentVariable(d) !== 0)
+              : selectionFilteredData;
+
+          return {
+            ...chartParams,
+            filteredData
+          };
+        });
+        // .filter(chartParams => chartParams.filteredData.length > 0);
+
+        const chartsDataSelection = d3
+          .select("#charts")
+          .selectAll("div")
+          .data(chartsWithFilteredData);
+
+        chartsDataSelection
+          .enter()
+          .append("div")
+          .merge(chartsDataSelection)
+          .each(function({
+            //seem like we need to seperate out the calculation of the plotdata and make plotdata a field of chartsWithFilteredData, we can create the div first, and then for each div(root), subscribeunique a storestream and inside the subscribefunc, we add plotdata as a field to charts, then return charts and do the next thing
+            getDependentVariable,
+            yAxisLabelText,
+            chartId,
+            yFormat,
+            yScale,
+            filteredData
+          }) {
+            d3.select(this).call(chart.render, {
+              getIndependentVariable,
+              getDependentVariable,
+              xAxisLabelText,
+              yAxisLabelText,
+              chartId,
+              xScale,
+              yScale,
+              yFormat,
+              filteredData,
+              spectrum,
+              cpuTimeOffset,
+              warningRecords,
+              warningsDistinct,
+              currentYScaleStore: currentYScaleStores[yAxisLabelText],
+              processedData,
+              selectedFunctionStream: currentSelectedFunctionStore.stream
+            });
+          });
+      })
+    );
+
+    chartsSelect.hiddenChartsStore.stream.pipe(
+      stream.subscribe(hiddenCharts => {
+        d3.selectAll(".chart")
+          .classed("chart--hidden", false)
+          .filter(function() {
+            return hiddenCharts.includes(d3.select(this).attr("id"));
+          })
+          .classed("chart--hidden", true);
+      })
+    );
 
     let averageProcessingTime = 0;
     let numProcessingTimeSamples = 0;
@@ -471,7 +489,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                   !hiddenThreads.includes(timeslice.tid) &&
                   hasUnHiddenFrame &&
                   (selectedFunction
-                    ? timeslice.stackFrames[0].symName === selectedFunction
+                    ? timeslice.stackFrames[0].symbol === selectedFunction
                     : true)
                 );
               },
@@ -500,7 +518,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                     ) {
                       const frame = timeslice.stackFrames[i];
                       if (!hiddenSources.includes(frame.fileName)) {
-                        name += frame.symName;
+                        name += frame.symbol;
                       }
                       if (i !== 0) {
                         name += FUNCTION_NAME_SEPARATOR;
@@ -512,7 +530,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 : timeslice => {
                     for (const frame of timeslice.stackFrames) {
                       if (!hiddenSources.includes(frame.fileName)) {
-                        return frame.symName;
+                        return frame.symbol;
                       }
                     }
                   },

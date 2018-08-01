@@ -1,7 +1,4 @@
-#include <cstring>
 #include <iostream>
-#include <map>
-#include <set>
 
 #include "debug.hpp"
 #include "find_events.hpp"
@@ -58,66 +55,6 @@ map<string, vector<string>> build_preset(const string& preset) {
     events.insert(pair<string, vector<string>>("wattsup", {"wattsup"}));
   }
   return events;
-}
-
-void print_preset_events(FILE* result_file) {
-  fprintf(result_file, R"(
-      "presets": {
-        )");
-  bool is_first_preset = true;
-  for (int i = 0; i < global->presets_size; i++) {
-    char* preset = global->presets[i];
-    if (is_first_preset) {
-      is_first_preset = false;
-    } else {
-      fprintf(result_file, ",");
-    }
-    map<string, vector<string>> events = build_preset(preset);
-    bool is_first = true;
-    fprintf(result_file, R"(
-                 "%s": {
-                   )",
-            preset);
-    for (auto event : events) {
-      if (is_first) {
-        fprintf(result_file, R"(
-                 "%s": [)",
-                event.first.c_str());
-
-        bool first_event = true;
-        for (const auto& sub_event : event.second) {
-          if (first_event) {
-            fprintf(result_file, R"("%s")", sub_event.c_str());
-            first_event = false;
-          } else {
-            fprintf(result_file, R"(,"%s")", sub_event.c_str());
-          }
-        }
-        fprintf(result_file, "]");
-        is_first = false;
-      } else {
-        fprintf(result_file, R"(,
-                      "%s": [)",
-                event.first.c_str());
-
-        bool first_event = true;
-        for (const auto& sub_event : event.second) {
-          if (first_event) {
-            fprintf(result_file, R"("%s")", sub_event.c_str());
-            first_event = false;
-          } else {
-            fprintf(result_file, R"(,"%s")", sub_event.c_str());
-          }
-        }
-        fprintf(result_file, "]");
-      }
-    }
-    fprintf(result_file, "}");
-  }
-
-  fprintf(result_file, R"(
-   }
-   )");
 }
 
 }  // namespace alex

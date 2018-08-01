@@ -41,22 +41,6 @@ button:disabled {
   border: 1px solid #ddd;
 }
 
-#header {
-  font-family: "Lucida Console", Monaco, monospace;
-  align-items: center;
-  border-bottom: 1px solid #999;
-  display: flex;
-  grid-area: header;
-  height: 40px;
-  justify-content: center;
-  margin: 0;
-}
-
-#title {
-  font-size: 20px;
-  margin: 15px;
-}
-
 #progress {
   position: absolute;
   top: 0;
@@ -76,19 +60,8 @@ button:disabled {
 #info {
   grid-area: info;
   overflow-y: auto;
-  overflow-x: hidden;
   border-left: 1px solid #999;
-  padding: 10px;
-}
-
-#legend {
-  width: 100px;
-}
-
-#stats {
-  width: 200px;
-  padding: 10px;
-  overflow: auto;
+  padding: 1em;
 }
 
 #table-bar {
@@ -129,10 +102,9 @@ button:disabled {
 
 @media (max-width: 1500px) {
   body {
-    grid-template-rows: auto 2fr 1fr;
+    grid-template-rows: 2fr 1fr;
     grid-template-columns: 1fr auto;
     grid-template-areas:
-      "header header"
       "charts info"
       "table-bar table-bar";
   }
@@ -144,11 +116,9 @@ button:disabled {
 
 @media (min-width: 1500px) {
   body {
-    grid-template-rows: auto auto;
+    grid-template-rows: auto;
     grid-template-columns: 700px auto 1fr;
-    grid-template-areas:
-      "header header header"
-      "charts info table-bar";
+    grid-template-areas: "charts info table-bar";
   }
 
   #table-bar {

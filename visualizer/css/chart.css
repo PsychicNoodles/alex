@@ -34,15 +34,12 @@ g.sideBar-brush {
   stroke-width: 0.5px;
 }
 
-/* g.sideBar-brush rect.overlay {
-  fill : #000;
-  fill-opacity : 0.15;
-  stroke : #fff;
-  shape-rendering : crispEdges
-} */
-
 .brush .extent {
   stroke: #fff;
   fill-opacity: 0.125;
   shape-rendering: crispEdges;
+}
+
+.chart--hidden {
+  display: none;
 }

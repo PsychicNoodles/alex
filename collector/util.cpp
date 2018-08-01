@@ -1,23 +1,14 @@
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <unistd.h>
-#include <csignal>
 #include <cstdlib>
-#include <cstring>
-#include <iostream>
 #include <set>
-#include <stack>
 
 #include "const.hpp"
 #include "debug.hpp"
-#include "shared.hpp"
 #include "util.hpp"
 
 namespace alex {
-
-using std::stack;
-
-stack<char> brackets;
 
 /*
  * Reports time since epoch in milliseconds.
@@ -83,37 +74,7 @@ set<string> str_split_set(const string& str, const string& delim) {
   return split;
 }
 
-void shutdown(pid_t pid, FILE* result_file, error code, const char* msg) {
-  DEBUG("error: " << msg);
-  kill(pid, SIGKILL);
-  std::clog.flush();
-  if (brackets.empty()) {
-    brackets.push('{');
-  }
-  if (result_file != nullptr) {
-    while (!brackets.empty()) {
-      fprintf(result_file, "%c", brackets.top());
-      brackets.pop();
-    }
-    fprintf(result_file, R"(, 
-  "error": "%s"
-  })",
-            msg);
-    fclose(result_file);
-  }
-  exit(code);
-}
-
 pid_t gettid() { return syscall(SYS_gettid); }
-
-bool preset_enabled(const char* name) {
-  for (int i = 0; i < global->presets_size; i++) {
-    if (strcmp(name, global->presets[i]) == 0) {
-      return true;
-    }
-  }
-  return false;
-}
 
 string getenv_safe(const char* var, const char* fallback) {
   const char* value = getenv(var);
@@ -122,21 +83,5 @@ string getenv_safe(const char* var, const char* fallback) {
   }
   return string(value);
 }
-
-void add_brackets(string new_brackets) {
-  DEBUG("adding " << new_brackets.size() << " brackets: " << new_brackets);
-  for (auto& c : new_brackets) {
-    brackets.push(c);
-  }
-}
-
-void delete_brackets(int num_brackets) {
-  DEBUG("removing " << num_brackets << " brackets");
-  for (int i = 0; i < num_brackets; i++) {
-    brackets.pop();
-  }
-}
-
-size_t count_brackets() { return brackets.size(); }
 
 }  // namespace alex

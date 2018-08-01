@@ -9,9 +9,7 @@ const path = require("path");
 const ProgressBar = require("progress");
 const { promisify } = require("util");
 const progressStream = require("progress-stream");
-const { parser: streamJSONParser } = require("stream-json");
-const { stringer: streamJSONStringer } = require("stream-json/Stringer");
-const StreamJSONAssembler = require("stream-json/Assembler");
+const protobufStream = require("./visualizer/js/protobuf-stream");
 const prettyMS = require("pretty-ms");
 
 process.on("unhandledRejection", err => {
@@ -61,7 +59,7 @@ yargs
         })
         .option("result", {
           description: "The file to pipe the performance results into.",
-          default: "result-$timestamp.json"
+          default: "result-$timestamp.bin"
         })
         .option("visualize", {
           description: "Where to visualize the results.",
@@ -217,6 +215,20 @@ async function list() {
   );
 }
 
+async function copyResult(resolve, reject, rawResultFile, progressBar) {
+  const { size: resultFileSize } = await promisify(fs.stat)(rawResultFile);
+  fs.createReadStream(rawResultFile)
+    .pipe(
+      progressStream({ length: resultFileSize, time: 100 }, ({ delta }) => {
+        if (progressBar) progressBar.tick(delta);
+      })
+    )
+    .pipe(protobufStream.parser())
+    .on("end", resolve)
+    .on("error", reject)
+    .resume();
+}
+
 async function collect({
   presets,
   events,
@@ -236,8 +248,8 @@ async function collect({
     process.exit(1);
   }
 
-  const rawResultFile = tempFile(".json");
-  const resultFile = resultOption || tempFile(".json");
+  const rawResultFile = tempFile(".bin");
+  const resultFile = resultOption || tempFile(".bin");
 
   const allPresetInfo = await getAllPresetInfo();
   const presetsSet = new Set([
@@ -295,6 +307,13 @@ async function collect({
       COLLECTOR_NOTIFY_START: "yes",
       LD_PRELOAD: path.join(__dirname, "./collector/build/collector.so")
     }
+  });
+
+  process.on("SIGINT", async () => {
+    await new Promise((resolve, reject) =>
+      copyResult(resolve, reject, rawResultFile)
+    );
+    process.exit();
   });
 
   collector.on("error", err => {
@@ -378,48 +397,10 @@ async function collect({
           }
         );
 
-        await new Promise((resolve, reject) => {
-          const tokenStream = fs
-            .createReadStream(rawResultFile)
-            .pipe(
-              progressStream(
-                { length: resultFileSize, time: 100 },
-                ({ delta }) => {
-                  progressBar.tick(delta);
-                }
-              )
-            )
-            .pipe(streamJSONParser())
-            .on("error", reject);
-
-          const LARGE_FILE_SIZE = 0x10000000; // 256 MB
-          if (resultFileSize > LARGE_FILE_SIZE) {
-            // If it is a large file, don't stringify it all at once.
-            tokenStream
-              .pipe(streamJSONStringer())
-              .on("error", reject)
-              .pipe(fs.createWriteStream(resultFile))
-              .on("finish", resolve)
-              .on("error", reject);
-          } else {
-            // If it isn't huge, we can afford to load it into memory and stringify it
-            StreamJSONAssembler.connectTo(tokenStream)
-              .on("done", ({ current }) => {
-                fs.writeFile(
-                  resultFile,
-                  JSON.stringify(current, null, 2),
-                  err => {
-                    if (err) {
-                      reject(err);
-                    } else {
-                      resolve();
-                    }
-                  }
-                );
-              })
-              .on("error", reject);
-          }
-        });
+        await new Promise((resolve, reject) =>
+          copyResult(resolve, reject, rawResultFile, progressBar)
+        );
+        fs.copyFileSync(rawResultFile, resultFile);
         resultsProcessed = true;
       } catch (err) {
         console.error(`Couldn't process result file: ${err.message}`);
@@ -438,6 +419,10 @@ async function collect({
             process.stdin,
             process.stdout
           );
+          // list();
+          // console.log("log")
+          // console.error("error")
+
           readline_interface.question(
             "Would you like to see a visualization of the results ([yes]/no)? ",
             answer => {

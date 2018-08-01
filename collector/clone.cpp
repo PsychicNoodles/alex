@@ -16,6 +16,49 @@
 #include "sockets.hpp"
 #include "util.hpp"
 
+#define ARGV_SIZE 64
+
+#define WRAP_NAME(name) __wrap_##name
+
+/*
+ *  Copy the execl() argument list of first_arg followed by arglist
+ *  into an argv array, including the terminating nullptr.  If envp is
+ *  non-nullptr, then there is an extra argument after nullptr.  va_start
+ *  and va_end are in the calling function.
+ *
+ *  Note: the caller passes an initial argv[] array, and we re-malloc
+ *  if it is too small.  Technically, this could leak memory, but only
+ *  on a series of failed exec()s, all with long argument lists.
+ */
+static void monitor_copy_va_args(char ***argv, char ***envp,
+                                 const char *first_arg, va_list arglist) {
+  int argc, size = ARGV_SIZE;
+  char *arg, **new_argv;
+
+  /*
+   * Include the terminating nullptr in the argv array.
+   */
+  (*argv)[0] = const_cast<char *>(first_arg);
+  argc = 1;
+  do {
+    arg = va_arg(arglist, char *);
+    if (argc >= size) {
+      size *= 2;
+      new_argv = new char *[size];
+      if (new_argv == nullptr) {
+        perror("malloc failed\n");
+      }
+      memcpy(new_argv, *argv, argc * sizeof(char *));
+      *argv = new_argv;
+    }
+    (*argv)[argc++] = arg;
+  } while (arg != nullptr);
+
+  if (envp != nullptr) {
+    *envp = va_arg(arglist, char **);
+  }
+}
+
 alex::perf_fd_info info;
 int perf_register_sock;
 
@@ -41,18 +84,20 @@ void *__imposter(void *arg) {
   delete d;
 
   DEBUG(tid << ": setting up perf events");
+
   setup_perf_events(tid, &info);
   DEBUG(tid << ": registering fd " << info.cpu_clock_fd
             << " with collector for bookkeeping");
   if (!register_perf_fds(perf_register_sock, &info)) {
-    SHUTDOWN_PERROR(global->collector_pid, nullptr, INTERNAL_ERROR,
-                    "failed to send new thread's fd");
+    shutdown(global->collector_pid, INTERNAL_ERROR,
+             "failed to send new thread's fd");
   }
 
   DEBUG(tid << ": starting routine");
   void *ret = routine(arguments);
 
-  DEBUG(tid << ": finished routine, unregistering fd " << info.cpu_clock_fd);
+  DEBUG_CRITICAL(tid << ": finished routine, unregistering fd "
+                     << info.cpu_clock_fd);
   close_fds();
   unregister_perf_fds(perf_register_sock);
   DEBUG(tid << ": exiting");
@@ -74,9 +119,10 @@ execve_fn_t real_execve;
 execvp_fn_t real_execvp;
 execv_fn_t real_execv;
 execvpe_fn_t real_execvpe;
-// exit_fn_t real_exit;
-// _exit_fn_t real__exit;
-// _Exit_fn_t real__Exit;
+exit_fn_t real_exit;
+_exit_fn_t real__exit;
+_Exit_fn_t real__Exit;
+execl_fn_t real_execl;
 
 // redefining these libc functions upsets the linter
 
@@ -98,47 +144,16 @@ pid_t fork(void) {
     pid_t tid = gettid();
     DEBUG(tid << ": setting up PROCESS perf events with PID");
     setup_perf_events(tid, &info);
-    DEBUG(tid << ": registering PROCESS fd " << info.cpu_clock_fd
-              << " with collector for bookkeeping");
+    DEBUG_CRITICAL(tid << ": registering PROCESS fd " << info.cpu_clock_fd
+                       << " with collector for bookkeeping");
     if (!register_perf_fds(perf_register_sock, &info)) {
-      SHUTDOWN_PERROR(tid, nullptr, INTERNAL_ERROR,
-                      "failed to send PROCESS new thread's fd");
+      shutdown(tid, INTERNAL_ERROR, "failed to new process's thread's fd");
     }
   } else if (pid > 0) {
     DEBUG("CHILD PID IS " << getpid());
   }
   return pid;
 }
-
-// // NOLINTNEXTLINE
-// void exit(int status) {
-//   pid_t tid = gettid();
-//   DEBUG(tid << ": finished PROCESS routine, unregistering fd "
-//             << info.cpu_clock_fd);
-//   unregister_perf_fds(perf_register_sock);
-//   DEBUG(tid << ": exiting PROCESS");
-//   real_exit(status);
-// }
-
-// // NOLINTNEXTLINE
-// void _Exit(int status) {
-//   pid_t tid = gettid();
-//   DEBUG(tid << ": finished PROCESS routine, unregistering fd "
-//             << info.cpu_clock_fd);
-//   unregister_perf_fds(perf_register_sock);
-//   DEBUG(tid << ": exiting PROCESS");
-//   real__Exit(status);
-// }
-
-// // NOLINTNEXTLINE
-// void _exit(int status) {
-//   pid_t tid = gettid();
-//   DEBUG(tid << ": finished PROCESS routine, unregistering fd "
-//             << info.cpu_clock_fd);
-//   unregister_perf_fds(perf_register_sock);
-//   DEBUG(tid << ": exiting PROCESS");
-//   real__exit(status);
-// }
 
 // NOLINTNEXTLINE
 int execve(const char *filename, char *const argv[], char *const envp[]) {
@@ -183,6 +198,67 @@ int execvpe(const char *file, char *const argv[], char *const envp[]) {
   return real_execvpe(file, argv, envp);
 }
 
+// NOLINTNEXTLINE
+int execl(const char *path, const char *arg, ...) {
+  DEBUG_CRITICAL("GET TO EXECL");
+  close_fds();
+  unregister_perf_fds(perf_register_sock);
+  if (unsetenv("LD_PRELOAD")) {
+    perror("clone.cpp: couldn't unset env");
+  }
+
+  DEBUG("AFTER UNSET");
+  char *buf[ARGV_SIZE];
+  char **argv = &buf[0];
+  va_list arglist;
+
+  va_start(arglist, arg);
+  monitor_copy_va_args(&argv, nullptr, arg, arglist);
+  va_end(arglist);
+
+  return real_execv(path, argv);
+}
+
+// NOLINTNEXTLINE
+int execle(const char *path, const char *arg, ...) {
+  DEBUG_CRITICAL("GET TO EXECLE");
+  close_fds();
+  unregister_perf_fds(perf_register_sock);
+  if (unsetenv("LD_PRELOAD")) {
+    perror("clone.cpp: couldn't unset env");
+  }
+  char *buf[ARGV_SIZE];
+  char **argv = &buf[0];
+  char **envp;
+  va_list arglist;
+
+  va_start(arglist, arg);
+  monitor_copy_va_args(&argv, &envp, arg, arglist);
+  va_end(arglist);
+
+  return real_execve(path, argv, envp);
+}
+
+// NOLINTNEXTLINE
+int execlp(const char *file, const char *arg, ...) {
+  DEBUG_CRITICAL("GET TO EXECLP");
+  close_fds();
+  unregister_perf_fds(perf_register_sock);
+  if (unsetenv("LD_PRELOAD")) {
+    perror("clone.cpp: couldn't unset env");
+  }
+
+  char *buf[ARGV_SIZE];
+  char **argv = &buf[0];
+  va_list arglist;
+
+  va_start(arglist, arg);
+  monitor_copy_va_args(&argv, nullptr, arg, arglist);
+  va_end(arglist);
+
+  return real_execvp(file, argv);
+}
+
 __attribute__((constructor)) void init() {
   real_pthread_create =
       reinterpret_cast<pthread_create_fn_t>(dlsym(RTLD_NEXT, "pthread_create"));
@@ -190,24 +266,6 @@ __attribute__((constructor)) void init() {
     dlerror();
     exit(2);
   }
-
-  // real_exit = reinterpret_cast<exit_fn_t>(dlsym(RTLD_NEXT, "exit"));
-  // if (real_exit == nullptr) {
-  //   dlerror();
-  //   exit(2);
-  // }
-
-  // real__Exit = reinterpret_cast<_Exit_fn_t>(dlsym(RTLD_NEXT, "_Exit"));
-  // if (real__Exit == nullptr) {
-  //   dlerror();
-  //   exit(2);
-  // }
-
-  // real__exit = reinterpret_cast<_exit_fn_t>(dlsym(RTLD_NEXT, "_exit"));
-  // if (real__exit == nullptr) {
-  //   dlerror();
-  //   exit(2);
-  // }
 
   real_fork = reinterpret_cast<fork_fn_t>(dlsym(RTLD_NEXT, "fork"));
   if (real_fork == nullptr) {

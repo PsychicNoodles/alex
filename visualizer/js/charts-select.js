@@ -5,7 +5,7 @@ const { Store } = require("./store");
 const hiddenChartsSubscription = d3.local();
 const hiddenChartsStore = new Store([]);
 
-function render(root, { chartsWithYScales }) {
+function render(root, { charts }) {
   if (root.select("h3").empty()) {
     root.append("h3").text("Charts");
   }
@@ -16,7 +16,7 @@ function render(root, { chartsWithYScales }) {
   const checkboxes = chartsListSelection
     .attr("class", "list")
     .selectAll("label")
-    .data(chartsWithYScales)
+    .data(charts)
     .enter()
     .append("label")
     .attr("class", "list__chart-item");
@@ -32,16 +32,18 @@ function render(root, { chartsWithYScales }) {
       checkboxes.merge(checkboxes).each(function(chart) {
         d3.select(this)
           .select("input")
-          .property("checked", !hiddenCharts.includes(chart))
+          .property("checked", !hiddenCharts.includes(chart.chartId))
           .on("change", function() {
             if (this.checked) {
               hiddenChartsStore.dispatch(hiddenCharts =>
-                hiddenCharts.filter(hiddenChart => hiddenChart !== chart)
+                hiddenCharts.filter(
+                  hiddenChartId => hiddenChartId !== chart.chartId
+                )
               );
             } else {
               hiddenChartsStore.dispatch(hiddenCharts => [
                 ...hiddenCharts,
-                chart
+                chart.chartId
               ]);
             }
           });

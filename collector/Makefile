@@ -9,9 +9,11 @@ endif
 CFLAGS := -DVERSION=\"$(GIT_VERSION)\" -I../../include --std=c++11 -DDEBUG_FNAME -Wall
 
 COLLECTOR_SOURCES := collector.cpp perf_reader.cpp const.cpp util.cpp debug.cpp perf_sampler.cpp clone.cpp rapl.cpp wattsup.cpp bg_readings.cpp ancillary.cpp find_events.cpp shared.cpp sockets.cpp inspect.cpp
-EVENT_SOURCES := list-presets.cpp debug.cpp wattsup.cpp rapl.cpp perf_sampler.cpp util.cpp shared.cpp find_events.cpp
+PROTOS_DIR := ./protos
+PROTOS_SOURCES := $(PROTOS_DIR)/header.pb.cc $(PROTOS_DIR)/timeslice.pb.cc $(PROTOS_DIR)/warning.pb.cc
+EVENT_SOURCES := list-presets.cpp debug.cpp wattsup.cpp rapl.cpp perf_sampler.cpp util.cpp find_events.cpp
 
-LDFLAGS := $(shell pkg-config --cflags --libs libelf++ libdwarf++)
+LDFLAGS := $(shell pkg-config --cflags --libs libelf++ libdwarf++) $(shell pkg-config --cflags --libs protobuf)
 COLLECTOR_LDFLAGS := $(LDFLAGS) -ldl -lpfm -pthread
 EVENT_LDFLAGS := $(LDFLAGS) -lpfm
 
@@ -28,9 +30,9 @@ PRELOAD_VAR  := LD_PRELOAD
 CXXLIB       := $(CXX) -shared -fPIC -Wl,-soname,interposer.so
 endif
 
-.PHONY: all pedantic nolog minlog clean tidy tidy-fix
+.PHONY: all pedantic nolog minlog clean tidy tidy-fix collector list-presets protobuf-print
 
-all: build/collector.$(SHLIB_SUFFIX) build/list-presets
+all: collector list-presets protobuf-print
 
 pedantic: WARN = -Werror
 pedantic: all
@@ -57,8 +59,17 @@ tidy-fix: tidy
 build:
 	mkdir -p build
 
-build/collector.$(SHLIB_SUFFIX): $(COLLECTOR_SOURCES) | build
+build/collector.$(SHLIB_SUFFIX): $(COLLECTOR_SOURCES) $(PROTOS_SOURCES) | build
 	$(CXXLIB) $(CFLAGS) $(PERF_SAMPLE_MAX_STACK_MACRO) $(DEBUG) $(WARN) -g -o $@ $^ $(COLLECTOR_LDFLAGS)
 
-build/list-presets: $(EVENT_SOURCES) | build
+collector: build/collector.$(SHLIB_SUFFIX)
+
+build/list-presets: $(EVENT_SOURCES) $(PROTOS_SOURCES) | build
 	$(CXX) $(CFLAGS) $(DEBUG) $(WARN) -g -o $@ $^ $(EVENT_LDFLAGS)
+
+list-presets: build/list-presets
+
+build/protobuf-print: protobuf-print.cpp $(PROTOS_SOURCES) | build
+	$(CXX) $(CFLAGS) -g -o $@ $^ $(COLLECTOR_LDFLAGS)
+
+protobuf-print: build/protobuf-print

@@ -2,6 +2,9 @@
 #include <dlfcn.h>
 #include <elf.h>
 #include <fcntl.h>
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/io/zero_copy_stream_impl.h>
+#include <google/protobuf/message.h>
 #include <link.h>
 #include <linux/perf_event.h>
 #include <linux/version.h>
@@ -29,6 +32,9 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include "protos/header.pb.h"
+#include "protos/timeslice.pb.h"
+#include "protos/warning.pb.h"
 
 #include "ancillary.hpp"
 #include "const.hpp"
@@ -43,6 +49,9 @@
 
 namespace alex {
 
+using google::protobuf::Message;
+using google::protobuf::io::CodedOutputStream;
+using google::protobuf::io::OstreamOutputStream;
 using std::make_pair;
 using std::make_tuple;
 using std::map;
@@ -118,11 +127,14 @@ union base_record {
 };
 
 // output file for data collection results
-FILE *result_file = nullptr;
+ofstream *result_file;
 
 // map between cpu cycles fd (the only fd in a thread that is sampled) and its
 // related information/fds
 map<int, perf_fd_info> perf_info_mappings;
+
+// a list of warnings (ie. throttle/unthrottle, lost)
+vector<tuple<int, base_record, int64_t>> warnings;
 
 // the epoll fd used in the collector
 int sample_epfd = epoll_create1(0);
@@ -143,7 +155,30 @@ int get_record_size(int record_type) {
   }
 }
 
-FILE *get_result_file() { return result_file; }
+ofstream *get_result_file() { return result_file; }
+
+// https://github.com/google/protobuf/blob/master/src/google/protobuf/util/delimited_message_util.cc
+bool serialize_delimited(const Message &msg) {
+  DEBUG("serializing " << msg.GetTypeName());
+  int size = msg.ByteSize();
+  OstreamOutputStream ostream(result_file);
+  CodedOutputStream coded(&ostream);
+  coded.WriteVarint32(size);
+  uint8_t *buffer = coded.GetDirectBufferForNBytesAndAdvance(size);
+  if (buffer != nullptr) {
+    // Optimization: The message fits in one buffer, so use the faster
+    // direct-to-array serialization path.
+    msg.SerializeWithCachedSizesToArray(buffer);
+  } else {
+    // Slightly-slower path when the message is multiple buffers.
+    msg.SerializeWithCachedSizes(&coded);
+    if (coded.HadError()) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 /*
  * Adds a file descriptor to the global epoll
@@ -151,7 +186,7 @@ FILE *get_result_file() { return result_file; }
 void add_fd_to_epoll(int fd) {
   DEBUG("adding " << fd << " to epoll " << sample_epfd);
   // only listen for read events in non-edge mode
-  epoll_event evt = {EPOLLIN, {.fd = fd}};
+  epoll_event evt = {EPOLLIN | EPOLLET, {.fd = fd}};
   if (epoll_ctl(sample_epfd, EPOLL_CTL_ADD, fd, &evt) == -1) {
     PARENT_SHUTDOWN_PERROR(INTERNAL_ERROR, "error adding perf fd " << fd);
   }
@@ -214,7 +249,7 @@ void setup_perf_events(pid_t target, perf_fd_info *info) {
       DEBUG("event: " << global->events[i]);
     }
     for (int i = 0; i < global->events_size; i++) {
-      char *event = global->events[i];
+      const char *event = global->events[i];
       DEBUG("setting up event: " << event);
       perf_event_attr attr{};
       memset(&attr, 0, sizeof(perf_event_attr));
@@ -300,11 +335,12 @@ void handle_perf_unregister(perf_fd_info *info) {
 bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
                         int socket, bool *done) {
   // check for high priority fds
+  bool had_priority_fd = false;
   for (int i = 0; i < ready_fds; i++) {
     int fd = evlist[i].data.fd;
     // check if it's sigterm or request to register thread
     if (fd == sigt_fd) {
-      DEBUG("received sigterm, stopping");
+      DEBUG_CRITICAL("received sigterm, stopping");
       *done = true;
       // don't check the other fds, jump back to epolling
       return true;
@@ -337,10 +373,10 @@ bool check_priority_fds(epoll_event evlist[], int ready_fds, int sigt_fd,
       }
       DEBUG("exhausted requests");
       // re-poll for data
-      return true;
+      had_priority_fd = true;
     }
   }
-  return false;
+  return had_priority_fd;
 }
 
 /*
@@ -365,7 +401,7 @@ uint64_t lookup_kernel_addr(map<uint64_t, kernel_sym> kernel_syms,
 int adjust_period(int record_type) {
   if (record_type == PERF_RECORD_THROTTLE) {
     DEBUG("throttle event detected, increasing period");
-    global->period = (global->period) * PERIOD_ADJUST_SCALE;
+    set_period(global->period * PERIOD_ADJUST_SCALE);
   } else {
     if ((global->period) / PERIOD_ADJUST_SCALE <= MIN_PERIOD) {
       DEBUG(
@@ -375,7 +411,7 @@ int adjust_period(int record_type) {
       return 0;
     }
     DEBUG("unthrottle event detected, decreasing period");
-    global->period = (global->period) / PERIOD_ADJUST_SCALE;
+    set_period(global->period / PERIOD_ADJUST_SCALE);
   }
 
   DEBUG("new period is " << global->period);
@@ -450,17 +486,23 @@ void process_throttle_record(
 
 bool process_sample_record(
     const sample_record &sample, const perf_fd_info &info,
-    bool is_first_timeslice, bool is_first_sample, bg_reading *rapl_reading,
-    bg_reading *wattsup_reading, const map<uint64_t, kernel_sym> &kernel_syms,
+    bg_reading *rapl_reading, bg_reading *wattsup_reading,
+    const map<uint64_t, kernel_sym> &kernel_syms,
     const map<interval, std::shared_ptr<line>, cmpByInterval> &ranges,
-    const map<interval, string, cmpByInterval> &sym_map) {
+    const map<interval, std::pair<string, string>, cmpByInterval> &sym_map) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
+  ssize_t count;
 
-  int64_t num_timer_ticks = 0;
+  uint64_t num_timer_ticks = 0;
   DEBUG("reading from fd " << info.cpu_clock_fd);
-  read(info.cpu_clock_fd, &num_timer_ticks, sizeof(num_timer_ticks));
+  if ((count = read(info.cpu_clock_fd, &num_timer_ticks,
+                    sizeof(num_timer_ticks))) != sizeof(num_timer_ticks)) {
+    PARENT_SHUTDOWN_PERROR(INTERNAL_ERROR, "count bytes "
+                                               << count << " != expected count "
+                                               << sizeof(num_timer_ticks));
+  }
   DEBUG("read in from fd " << info.cpu_clock_fd
                            << " num of cycles: " << num_timer_ticks);
   if (reset_monitoring(info.cpu_clock_fd) != SAMPLER_MONITOR_SUCCESS) {
@@ -468,44 +510,35 @@ bool process_sample_record(
                                             << info.cpu_clock_fd);
   }
 
-  if (!is_first_timeslice && is_first_sample) {
-    fprintf(result_file, ",");
-  }
+  Timeslice timeslice_message;
 
-  fprintf(result_file,
-          R"(
-                      {
-                        "cpuTime": %lu,
-                        "numCPUTimerTicks": %ld,
-                        "pid": %u,
-                        "tid": %u,
-                        "events": {
-                    )",
-          sample.time, num_timer_ticks, sample.pid, sample.tid);
-  add_brackets("}}");
+  timeslice_message.set_cpu_time(sample.time);
+  timeslice_message.set_num_cpu_timer_ticks(num_timer_ticks);
+  timeslice_message.set_pid(sample.pid);
+  timeslice_message.set_tid(sample.tid);
 
   DEBUG("reading from each fd");
 
-  bool is_first_event = true;
+  auto event_map = timeslice_message.mutable_events();
   for (int i = 0; i < global->events_size; i++) {
-    char *event = global->events[i];
-    // fprintf(result_file, "%s", event.c_str());
-    if (is_first_event) {
-      is_first_event = false;
-    } else {
-      fprintf(result_file, ",");
-    }
+    const char *event = global->events[i];
 
-    int64_t count = 0;
+    uint64_t result = 0;
     DEBUG("reading from fd " << info.event_fds.at(event));
-    read(info.event_fds.at(event), &count, sizeof(int64_t));
-    DEBUG("read in from fd " << info.event_fds.at(event) << " count " << count);
+    if ((count = read(info.event_fds.at(event), &result, sizeof(int64_t))) !=
+        sizeof(int64_t)) {
+      PARENT_SHUTDOWN_PERROR(
+          INTERNAL_ERROR,
+          "count bytes " << count << " != expected count " << sizeof(int64_t));
+    }
+    DEBUG("read in from fd " << info.event_fds.at(event) << " result "
+                             << result);
     if (reset_monitoring(info.event_fds.at(event)) != SAMPLER_MONITOR_SUCCESS) {
       PARENT_SHUTDOWN_MSG(INTERNAL_ERROR, "couldn't reset monitoring for "
                                               << info.event_fds.at(event));
     }
 
-    fprintf(result_file, R"("%s": %ld)", event, count);
+    (*event_map)[event] = result;
   }
 
   // rapl
@@ -515,20 +548,19 @@ bool process_sample_record(
       DEBUG("RAPL result found, writing out");
       void *raw_result = get_result(rapl_reading);
       if (raw_result == nullptr) {
-        DEBUG("RAPL result was null");
+        DEBUG_CRITICAL("RAPL result was null");
       } else {
         map<string, uint64_t> *nrg =
             (static_cast<map<string, uint64_t> *>(raw_result));
         for (auto &p : *nrg) {
-          fprintf(result_file, ",");
-          fprintf(result_file, R"("%s": %lu)", p.first.c_str(), p.second);
+          (*event_map)[p.first] = p.second;
         }
         delete nrg;
         DEBUG("restarting RAPL energy readings");
         restart_reading(rapl_reading);
       }
     } else {
-      DEBUG("no RAPL result available");
+      DEBUG_CRITICAL("no RAPL result available");
     }
   }
 
@@ -539,28 +571,19 @@ bool process_sample_record(
       DEBUG("wattsup result found, writing out");
       void *raw_result = get_result(wattsup_reading);
       if (raw_result == nullptr) {
-        DEBUG("wattsup result was null");
+        DEBUG_CRITICAL("wattsup result was null");
       } else {
         double *ret = (static_cast<double *>(raw_result));
-        fprintf(result_file, ",");
-        fprintf(result_file, R"("wattsup": %1lf)", *ret);
+        (*event_map)["wattsup"] = *ret;
         delete ret;
-        DEBUG("restarting wattsup energy readings");
+        DEBUG_CRITICAL("restarting wattsup energy readings");
         restart_reading(wattsup_reading);
       }
     } else {
-      DEBUG("no wattsup result available");
+      DEBUG_CRITICAL("no wattsup result available");
     }
   }
 
-  fprintf(result_file, R"(
-                  },
-                  "stackFrames": [
-                    )");
-  delete_brackets(1);
-  add_brackets("]");
-
-  bool is_first_stack = true;
   perf_callchain_context callchain_section = PERF_CONTEXT_KERNEL;
   DEBUG("looking up " << sample.num_instruction_pointers << " inst ptrs");
   for (uint64_t i = 0; i < sample.num_instruction_pointers; i++) {
@@ -574,25 +597,11 @@ bool process_sample_record(
                                     << "/" << sample.num_instruction_pointers
                                     << ")");
 
-    if (is_first_stack) {
-      is_first_stack = false;
-    } else {
-      fprintf(result_file, ",");
-    }
+    StackFrame *stack_frame = timeslice_message.add_stack_frames();
 
-    fprintf(result_file,
-            R"(
-                  { "address": "%p",
-                    "section": "%s",)",
-            reinterpret_cast<void *>(inst_ptr),
-            callchain_str(callchain_section));
-    add_brackets("}");
+    stack_frame->set_section(callchain_enum(callchain_section));
 
     string sym_name_str;
-    const char *sym_name = nullptr, *file_name = nullptr,
-               *function_name = nullptr;
-    char *demangled_name = nullptr;
-    void *file_base = nullptr, *sym_addr = nullptr;
     DEBUG("looking up symbol for inst ptr " << ptr_fmt((void *)inst_ptr));
     if (callchain_section == PERF_CONTEXT_USER) {
       DEBUG("looking up user stack frame");
@@ -600,9 +609,8 @@ bool process_sample_record(
       // Lookup the name of the function given the function
       // pointer
       if (dladdr(reinterpret_cast<void *>(inst_ptr), &info) != 0) {
-        file_name = info.dli_fname;
-        file_base = info.dli_fbase;
-        sym_addr = info.dli_saddr;
+        stack_frame->set_file_name(info.dli_fname);
+        stack_frame->set_file_base(reinterpret_cast<uint64_t>(info.dli_fbase));
       } else {
         DEBUG("could not look up user stack frame");
       }
@@ -612,10 +620,6 @@ bool process_sample_record(
       if (addr != -1) {
         const auto &ks = kernel_syms.at(addr);
         sym_name_str = ks.sym;
-        sym_name = sym_name_str.c_str();
-        file_name = "(kernel)";
-        file_base = nullptr;
-        sym_addr = reinterpret_cast<void *>(addr);
       }
     }
 
@@ -624,24 +628,29 @@ bool process_sample_record(
     ::dwarf::taddr pc = inst_ptr - 1;
 
     // Get the sym name
-    if (sym_name == nullptr) {
+    if (sym_name_str.empty()) {
       DEBUG("looking up function symbol");
       auto upper_sym = sym_map.upper_bound(interval(pc, pc));
       if (upper_sym != sym_map.begin()) {
         --upper_sym;
         if (upper_sym->first.contains(pc)) {
-          sym_name = const_cast<char *>(upper_sym->second.c_str());
+          if (!upper_sym->second.second.empty()) {
+            DEBUG("name is " << upper_sym->second.second
+                             << "::" << upper_sym->second.first);
+            sym_name_str =
+                upper_sym->second.second + "::" + upper_sym->second.first;
+
+          } else {
+            sym_name_str = upper_sym->second.first;
+          }
+
         } else {
           DEBUG("cannot find function symbol");
-          sym_name = nullptr;
         }
       }
     }
 
-    size_t fullLocationSize = 256;
-    char fullLocation[fullLocationSize];
-    snprintf(fullLocation, fullLocationSize, "(null)");
-    auto line = -1;
+    size_t line = -1;
 
     // Get the line full location
     DEBUG("looking up line location");
@@ -651,31 +660,30 @@ bool process_sample_record(
       if (upper_range->first.contains(pc)) {
         DEBUG("line is " << upper_range->second);
         line = upper_range->second.get()->get_line();
-        snprintf(fullLocation, fullLocationSize, "%s:%d",
-                 const_cast<char *>(
-                     upper_range->second.get()->get_file()->get_name().c_str()),
-                 line);
+        stack_frame->set_full_location(
+            upper_range->second.get()->get_file()->get_name().c_str());
       } else {
         DEBUG("cannot find line location");
       }
     }
 
     // https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
-    if (sym_name != nullptr) {
+    if (!sym_name_str.empty()) {
       DEBUG("demangling symbol name");
       int demangle_status;
-      demangled_name =
-          abi::__cxa_demangle(sym_name, nullptr, nullptr, &demangle_status);
+      char *demangled_name = abi::__cxa_demangle(sym_name_str.c_str(), nullptr,
+                                                 nullptr, &demangle_status);
       if (demangle_status == 0) {
-        function_name = demangled_name;
+        stack_frame->set_symbol(demangled_name);
+        free(demangled_name);  // NOLINT
       } else {
-        function_name = sym_name;
+        stack_frame->set_symbol(sym_name_str);
 
         if (demangle_status == -1) {
           PARENT_SHUTDOWN_MSG(INTERNAL_ERROR,
                               "demangling errored due to memory allocation");
         } else if (demangle_status == -2) {
-          DEBUG("could not demangle name " << sym_name);
+          DEBUG("could not demangle name " << sym_name_str);
         } else if (demangle_status == -3) {
           PARENT_SHUTDOWN_MSG(INTERNAL_ERROR,
                               "demangling errored due to invalid arguments");
@@ -683,31 +691,13 @@ bool process_sample_record(
       }
     }
 
-    fprintf(result_file,
-            R"(
-                        "symName": "%s",
-                        "fileName": "%s",
-                        "fileBase": "%p",
-                        "symAddr": "%p",
-                        "mangledName": "%s"
-                      )",
-            function_name, file_name, file_base, sym_addr, sym_name);
-    free(demangled_name);  // NOLINT
-    // Get space for line
-
-    fprintf(result_file,
-            R"(,
-                    "line": %d,
-                    "fullLocation": "%s" })",
-            line, fullLocation);
-    delete_brackets(1);
+    if (line != -1) {
+      stack_frame->set_line(line);
+    }
   }
 
-  fprintf(result_file, R"(
-                  ]
-                  }
-                  )");
-  delete_brackets(2);
+  serialize_delimited(timeslice_message);
+
   return false;
 }
 
@@ -723,127 +713,88 @@ void process_lost_record(const lost_record &lost,
  * stream_id, since the sample_id struct simply tries to provide the same
  * information across all supported record types.
  */
-void write_sample_id(const record_sample_id &sample_id) {
-  fprintf(result_file, R"(,
-       "pid": %u,
-       "tid": %u,
-       "time": %lu,
-       "stream_id": %lu,
-       "id": %lu)",
-          sample_id.pid, sample_id.tid, sample_id.time, sample_id.stream_id,
-          sample_id.id);
+void write_sample_id(SampleId *sample_id_message,
+                     const record_sample_id &sample_id) {
+  sample_id_message->set_pid(sample_id.pid);
+  sample_id_message->set_tid(sample_id.tid);
+  sample_id_message->set_time(sample_id.time);
+  sample_id_message->set_stream_id(sample_id.stream_id);
+  sample_id_message->set_id(sample_id.id);
 }
 
-void write_warnings(vector<tuple<int, base_record, int64_t>> warnings) {
-  fprintf(result_file, R"(
-    ],
-    "warning": [
-                )");
-  delete_brackets(1);
-  add_brackets("]");
-  bool is_first_element = true;
+void write_warnings() {
+  Warning warning_message;
   for (auto &t : warnings) {
     int record_type;
     base_record record{};
     int64_t extra;
     tie(record_type, record, extra) = t;
-    if (is_first_element) {
-      is_first_element = false;
-    } else {
-      fprintf(result_file, R"(
-      ,
-    )");
-    }
-    if (record_type == PERF_RECORD_THROTTLE) {
-      auto throttle = record.throttle;
-      uint64_t time = throttle.time;
-      fprintf(result_file, R"(
-      {
-       "type": "PERF_RECORD_THROTTLE",
-       "time": %lu,
-       "period": %ld)",
-              time, extra);
-      add_brackets("}");
-      if (SAMPLE_ID_ALL) {
-        write_sample_id(throttle.sample_id);
-      } else {
-        uint64_t id = throttle.id;
-        uint64_t stream_id = throttle.stream_id;
-        fprintf(result_file, R"(,
-       "id": %lu,
-       "stream_id": %lu)",
-                id, stream_id);
-      }
-      fprintf(result_file, R"(
-      }
-        )");
-      delete_brackets(1);
-    } else if (record_type == PERF_RECORD_UNTHROTTLE) {
-      auto throttle = record.throttle;
-      uint64_t time = throttle.time;
-      fprintf(result_file, R"(
-      {
-       "type": "PERF_RECORD_UNTHROTTLE",
-       "time": %lu,
-       "period": %ld)",
-              time, extra);
-      add_brackets("}");
-      if (SAMPLE_ID_ALL) {
-        write_sample_id(throttle.sample_id);
-      } else {
-        uint64_t id = throttle.id;
-        uint64_t stream_id = throttle.stream_id;
-        fprintf(result_file, R"(,
-       "id": %lu,
-       "stream_id": %lu)",
-                id, stream_id);
-      }
-      fprintf(result_file, R"(
-      }
-        )");
-      delete_brackets(1);
-    } else if (record_type == PERF_RECORD_LOST) {
-      auto lost = record.lost;
-      uint64_t num_lost = lost.lost;
-      fprintf(result_file, R"(
-      {
-       "type": "PERF_RECORD_LOST",)");
-      add_brackets("}");
-      if (!SAMPLE_ID_ALL) {
-        uint64_t id = lost.id;
-        fprintf(result_file, R"(
-       "id": %lu,)",
-                id);
-      }
-      fprintf(result_file, R"(
-       "lost": %lu)",
-              num_lost);
-      if (SAMPLE_ID_ALL) {
-        write_sample_id(lost.sample_id);
-      }
-      fprintf(result_file, R"(
-      }
-        )");
-      delete_brackets(1);
-    } else {
-      DEBUG("couldn't determine type of warning for " << record_type << "!");
-      fprintf(result_file, R"|(
-      {
-       "type": "(null)"
-      }
-    )|");
-    }
-  }
 
-  fprintf(result_file, R"(
-    ]
+    if (record_type == PERF_RECORD_THROTTLE ||
+        record_type == PERF_RECORD_UNTHROTTLE) {
+      DEBUG("writing " << (record_type == PERF_RECORD_THROTTLE ? "throttle"
+                                                               : "unthrottle")
+                       << " warning");
+      auto *throttle_message = new Throttle;
+      warning_message.set_allocated_throttle(throttle_message);
+      throttle_message->set_type(record_type == PERF_RECORD_THROTTLE
+                                     ? Throttle_Type_THROTTLE
+                                     : Throttle_Type_UNTHROTTLE);
+      auto throttle = record.throttle;
+
+      throttle_message->set_time(throttle.time);
+      throttle_message->set_period(extra);
+      if (SAMPLE_ID_ALL) {
+        auto *sample_id_message = new SampleId;
+        write_sample_id(sample_id_message, throttle.sample_id);
+        warning_message.set_allocated_sample_id(sample_id_message);
+      }
+      throttle_message->set_id(throttle.id);
+      throttle_message->set_stream_id(throttle.stream_id);
+    } else if (record_type == PERF_RECORD_LOST) {
+      DEBUG("writing lost warning");
+      auto *lost_message = new Lost;
+      warning_message.set_allocated_lost(lost_message);
+      auto lost = record.lost;
+
+      lost_message->set_lost(lost.lost);
+      lost_message->set_id(lost.id);
+      if (SAMPLE_ID_ALL) {
+        auto *sample_id_message = new SampleId;
+        write_sample_id(sample_id_message, lost.sample_id);
+        warning_message.set_allocated_sample_id(sample_id_message);
+      }
+    } else {
+      DEBUG_CRITICAL("couldn't determine type of warning for " << record_type
+                                                               << "!");
+    }
+
+    serialize_delimited(warning_message);
+    warning_message.Clear();
   }
-)");
-  delete_brackets(2);
+}
+
+void set_preset_events(Map<string, PresetEvents> *preset_map) {
+  for (int i = 0; i < global->presets_size; i++) {
+    const char *preset = global->presets[i];
+    map<string, vector<string>> events = build_preset(preset);
+    PresetEvents pe_message;
+    Map<string, EventList> *pe_events = pe_message.mutable_events();
+
+    for (auto event : events) {
+      EventList event_list;
+      for (const auto &sub_event : event.second) {
+        event_list.add_events(sub_event);
+      }
+      (*pe_events)[event.first] = event_list;
+    }
+
+    (*preset_map)[preset] = pe_message;
+  }
 }
 
 void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
-                             FILE *res_file, char *program_name,
+                             ofstream *res_file, char *program_name,
                              bg_reading *rapl_reading,
                              bg_reading *wattsup_reading) {
   result_file = res_file;
@@ -863,40 +814,16 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
 
   // write the header
   DEBUG("writing result header");
-  fprintf(result_file,
-          R"(
-            {
-              "header": {
-                "programName": "%s",
-                "programVersion": "%s",
-                "events": [
-          )",
-          program_name, VERSION);
-  add_brackets("}]");  // skip final bracket, since it's printed after error
-
+  Header header_message;
+  header_message.set_program_name(program_name);
+  header_message.set_program_version(VERSION);
   for (int i = 0; i < global->events_size; i++) {
-    if (i != 0) {
-      fprintf(result_file, ",");
-    }
-
-    fprintf(result_file, "\"%s\"", global->events[i]);
+    header_message.add_events(global->events[i]);
   }
 
-  fprintf(result_file,
-          R"(
-                ],
-          )");
-  delete_brackets(1);
+  set_preset_events(header_message.mutable_presets());
 
-  print_preset_events(result_file);
-
-  fprintf(result_file,
-          R"(
-            },
-              "timeslices": [
-          )");
-  delete_brackets(1);
-  add_brackets("]");
+  serialize_delimited(header_message);
 
   // setting up RAPL energy reading
   if (preset_enabled("rapl")) {
@@ -909,7 +836,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
                   nullptr);
     DEBUG("rapl reading in tid " << rapl_reading->thread);
   } else {
-    DEBUG("RAPL preset not enabled");
+    DEBUG_CRITICAL("RAPL preset not enabled");
   }
 
   // setting up wattsup energy reading
@@ -928,9 +855,9 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
     DEBUG("wattsup fd is " << wu_fd);
   } else {
     if (preset_enabled("wattsup")) {
-      DEBUG("wattsup preset not enabled");
+      DEBUG_CRITICAL("wattsup preset not enabled");
     } else {
-      DEBUG("wattsup couldn't open device, skipping setup");
+      DEBUG_CRITICAL("wattsup couldn't open device, skipping setup");
     }
   }
 }
@@ -942,19 +869,17 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
 int collect_perf_data(
     const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd, int socket,
     bg_reading *rapl_reading, bg_reading *wattsup_reading,
-    const std::map<interval, string, cmpByInterval> &sym_map,
+    const std::map<interval, std::pair<string, string>, cmpByInterval> &sym_map,
     const std::map<interval, std::shared_ptr<line>, cmpByInterval> &ranges) {
-  bool is_first_timeslice = true;
   bool done = false;
   int sample_period_skips = 0;
-  vector<tuple<int, base_record, int64_t>> warnings;
 
   size_t last_ts = time_ms(), finish_ts = last_ts, curr_ts = 0;
 
   restart_reading(rapl_reading);
   restart_reading(wattsup_reading);
 
-  DEBUG("entering epoll ready loop");
+  DEBUG_CRITICAL("entering epoll ready loop");
   while (!done) {
     auto evlist = new epoll_event[sample_fd_count];
     DEBUG("epolling for results or new threads");
@@ -968,15 +893,15 @@ int collect_perf_data(
 
     curr_ts = time_ms();
     if (curr_ts - last_ts > EPOLL_TIME_DIFF_MAX) {
-      DEBUG("significant time between epoll_waits: "
-            << curr_ts - last_ts << " (since finish " << curr_ts - finish_ts
-            << ")");
+      DEBUG_CRITICAL("significant time between epoll_waits: "
+                     << curr_ts - last_ts << " (since finish "
+                     << curr_ts - finish_ts << ")");
     }
     last_ts = curr_ts;
 
     if (ready_fds == 0) {
-      DEBUG("no sample fds were ready within the timeout ("
-            << SAMPLE_EPOLL_TIMEOUT << ")");
+      DEBUG_CRITICAL("no sample fds were ready within the timeout ("
+                     << SAMPLE_EPOLL_TIMEOUT << ")");
     } else {
       DEBUG("" << ready_fds << " sample fds were ready");
 
@@ -996,8 +921,8 @@ int collect_perf_data(
 
           if (!has_next_record(&info.sample_buf)) {
             sample_period_skips++;
-            DEBUG("SKIPPED SAMPLE PERIOD (" << sample_period_skips
-                                            << " in a row)");
+            DEBUG_CRITICAL("SKIPPED SAMPLE PERIOD (" << sample_period_skips
+                                                     << " in a row)");
             if (sample_period_skips >= MAX_SAMPLE_PERIOD_SKIPS) {
               PARENT_SHUTDOWN_MSG(
                   INTERNAL_ERROR,
@@ -1028,9 +953,9 @@ int collect_perf_data(
               // structs generally have different contents
               record_size = get_record_size(record_type);
               if (record_size == -1) {
-                DEBUG("record type is not supported ("
-                      << record_type_str(record_type) << " " << record_type
-                      << ")");
+                DEBUG_CRITICAL("record type is not supported ("
+                               << record_type_str(record_type) << " "
+                               << record_type << ")");
               } else {
                 DEBUG("record type is " << record_type << " "
                                         << record_type_str(record_type)
@@ -1049,9 +974,8 @@ int collect_perf_data(
                                          data_end);
                     // is reset to true if the timeslice was skipped, else false
                     is_first_sample = process_sample_record(
-                        local_result.sample, info, is_first_timeslice,
-                        is_first_sample, rapl_reading, wattsup_reading,
-                        kernel_syms, ranges, sym_map);
+                        local_result.sample, info, rapl_reading,
+                        wattsup_reading, kernel_syms, ranges, sym_map);
                   } else {
                     DEBUG("not first sample, skipping");
                   }
@@ -1060,21 +984,17 @@ int collect_perf_data(
                                        record_size, data_start, data_end);
                   process_lost_record(local_result.lost, &warnings);
                 } else {
-                  DEBUG("record type was not recognized ("
-                        << record_type_str(record_type) << " " << record_type
-                        << ")");
+                  DEBUG_CRITICAL("record type was not recognized ("
+                                 << record_type_str(record_type) << " "
+                                 << record_type << ")");
                 }
               }
             }
             if (i == MAX_RECORD_READS) {
-              DEBUG("limit reached, clearing remaining samples");
+              DEBUG_CRITICAL("limit reached, clearing remaining samples");
               clear_records(&info.sample_buf);
             } else {
               DEBUG("read through all records");
-            }
-
-            if (is_first_timeslice) {
-              is_first_timeslice = false;
             }
           }
         }
@@ -1089,7 +1009,7 @@ int collect_perf_data(
   stop_reading(wattsup_reading);
 
   DEBUG("writing warnings");
-  write_warnings(warnings);
+  write_warnings();
 
   return 0;
 }
