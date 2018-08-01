@@ -508,9 +508,10 @@ ipcRenderer.on("result", async (event, resultFile) => {
                     },
               getFunctionName: selectedFunction
                 ? timeslice => {
-                    // Use for loop over map >> reverse >> join to minimize
-                    // allocations
+                    // Use for loop instead of map >> filter >> reverse >> join
+                    // to minimize allocations
                     let name = "";
+                    let isFirst = true;
                     for (
                       let i = timeslice.stackFrames.length - 1;
                       i >= 0;
@@ -518,10 +519,13 @@ ipcRenderer.on("result", async (event, resultFile) => {
                     ) {
                       const frame = timeslice.stackFrames[i];
                       if (!hiddenSources.includes(frame.fileName)) {
+                        if (isFirst) {
+                          isFirst = false;
+                        } else {
+                          name += FUNCTION_NAME_SEPARATOR;
+                        }
+
                         name += frame.symbol;
-                      }
-                      if (i !== 0) {
-                        name += FUNCTION_NAME_SEPARATOR;
                       }
                     }
 
