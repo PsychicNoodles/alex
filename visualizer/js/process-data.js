@@ -1,5 +1,5 @@
 const d3 = require("d3");
-const { Header, Timeslice, StackFrame, Warning } = require("./protobuf-stream");
+const { StackFrame } = require("./protobuf-stream");
 
 function processData(data) {
   const sectionsMap = new Map();
