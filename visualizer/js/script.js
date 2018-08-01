@@ -455,19 +455,32 @@ ipcRenderer.on("result", async (event, resultFile) => {
             performance.mark("analysis start");
             return analyze({
               timeSlices: processedData,
-              isVisible: timeslice =>
-                !hiddenThreads.includes(timeslice.tid) &&
-                timeslice.stackFrames.some(
-                  frame => !hiddenSources.includes(frame.fileName)
-                ) &&
-                (selectedFunction
-                  ? timeslice.stackFrames[0].symName === selectedFunction
-                  : true),
+              // Pass in higher order function instead of Array#filter on
+              // processed data to avoid unnecessary allocations and GC
+              isVisible: timeslice => {
+                // Avoiding Array#some because closures cause allocations and GC
+                let hasUnHiddenFrame = false;
+                for (const frame of timeslice.stackFrames) {
+                  if (!hiddenSources.includes(frame)) {
+                    hasUnHiddenFrame = true;
+                    break;
+                  }
+                }
+
+                return (
+                  !hiddenThreads.includes(timeslice.tid) &&
+                  hasUnHiddenFrame &&
+                  (selectedFunction
+                    ? timeslice.stackFrames[0].symName === selectedFunction
+                    : true)
+                );
+              },
               isBrushSelected:
                 selections.length === 0
                   ? () => true
                   : timeslice => {
                       const x = xScale(getIndependentVariable(timeslice));
+                      // Again, avoiding Array#some for performance reasons
                       for (const { range } of selections) {
                         if (range[0] <= x && x <= range[1]) {
                           return true;
@@ -477,6 +490,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
                     },
               getFunctionName: selectedFunction
                 ? timeslice => {
+                    // Use for loop over map >> reverse >> join to minimize
+                    // allocations
                     let name = "";
                     for (
                       let i = timeslice.stackFrames.length - 1;
