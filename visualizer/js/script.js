@@ -478,8 +478,12 @@ ipcRenderer.on("result", async (event, resultFile) => {
               isVisible: timeslice => {
                 // Avoiding Array#some because closures cause allocations and GC
                 let hasUnHiddenFrame = false;
+                let endsWithSelectedFunction = false;
                 for (const frame of timeslice.stackFrames) {
                   if (!hiddenSources.includes(frame.fileName)) {
+                    if (selectedFunction && frame.symbol === selectedFunction) {
+                      endsWithSelectedFunction = true;
+                    }
                     hasUnHiddenFrame = true;
                     break;
                   }
@@ -488,9 +492,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 return (
                   !hiddenThreads.includes(timeslice.tid) &&
                   hasUnHiddenFrame &&
-                  (selectedFunction
-                    ? timeslice.stackFrames[0].symbol === selectedFunction
-                    : true)
+                  (!selectedFunction || endsWithSelectedFunction)
                 );
               },
               isBrushSelected:
