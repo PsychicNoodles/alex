@@ -60,6 +60,7 @@ function fromStreamable(streamable) {
   } else {
     const stream = onData => {
       let isDone = false;
+      let idleCallback = null;
 
       const offData = streamable(data => {
         if (!isDone) {
@@ -68,7 +69,7 @@ function fromStreamable(streamable) {
 
         if (data === done) {
           isDone = true;
-          requestIdleCallback(() => {
+          idleCallback = requestIdleCallback(() => {
             offData();
           });
         }
@@ -80,6 +81,7 @@ function fromStreamable(streamable) {
           onData(done);
           isDone = true;
         }
+        cancelIdleCallback(idleCallback);
       };
     };
 
@@ -134,28 +136,37 @@ function fromDOMEvent(element, eventType, options = undefined) {
 function fromStreamables(streamables) {
   const unset = Symbol("unset");
 
-  return fromStreamable(onData => {
-    const lastValues = streamables.map(() => unset);
-    const offDataFunctions = streamables.map((streamable, i) =>
-      streamable(data => {
-        lastValues[i] = data;
+  if (streamables.length > 0) {
+    return fromStreamable(onData => {
+      let numDone = 0;
+      const lastValues = streamables.map(() => unset);
+      const offDataFunctions = streamables.map((streamable, i) =>
+        fromStreamable(streamable)(data => {
+          if (data === done) {
+            numDone++;
 
-        if (lastValues.every(value => value !== unset)) {
-          onData([...lastValues]);
+            if (numDone === streamables.length) {
+              onData(done);
+            }
+          } else {
+            lastValues[i] = data;
+
+            if (lastValues.every(value => value !== unset)) {
+              onData([...lastValues]);
+            }
+          }
+        })
+      );
+
+      return () => {
+        for (const offData of offDataFunctions) {
+          offData();
         }
-
-        if (lastValues.every(value => value === done)) {
-          onData(done);
-        }
-      })
-    );
-
-    return () => {
-      for (const offData of offDataFunctions) {
-        offData();
-      }
-    };
-  });
+      };
+    });
+  } else {
+    return empty;
+  }
 }
 
 /**
