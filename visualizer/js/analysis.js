@@ -26,6 +26,7 @@ function analyze(timeSlices, getFunctionName, threshold) {
   const length = timeSlices.length;
   for (let i = 0; i < length; i++) {
     const functionName = getFunctionName(timeSlices[i].stackFrames);
+
     if (!functionsMap.has(functionName)) {
       functionsMap.set(functionName, {
         name: functionName,

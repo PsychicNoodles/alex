@@ -123,10 +123,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
   const spectrum = d3.interpolateWarm;
   const sdRange = 3;
 
-  console.log(processedData);
-
+  const timeslicesLength = (await timeslicesPromise).length;
   if (processedData.length <= 10) {
-    const timeslicesLength = (await timeslicesPromise).length;
     alert(
       timeslicesLength <= 10
         ? timeslicesLength === 0
@@ -158,7 +156,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
     //stats side bar
     d3.select("#stats").call(stats.render, {
-      processedData
+      processedData,
+      originalLength: timeslicesLength
     });
 
     d3.select("#table-select").call(tableSelect.render);
@@ -336,15 +335,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
           return { sourceFilteredData, fullFilteredData };
         })
       );
-
-    filteredDataStream.pipe(
-      stream.subscribe(({ fullFilteredData }) => {
-        // re-render stats side bar
-        d3.select("#stats").call(stats.render, {
-          processedData: fullFilteredData
-        });
-      })
-    );
 
     const currentYScaleStores = chartsWithYScales.reduce(
       (currentYScales, chartParams) => {
