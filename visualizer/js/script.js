@@ -223,6 +223,16 @@ ipcRenderer.on("result", async (event, resultFile) => {
         flattenThreads: false
       },
       {
+        presetsRequired: ["branches"],
+        yAxisLabelText: "Branch Predictor Miss Rate",
+        chartId: "branch-predictor-miss-rate",
+        yFormat: d3.format(".0%"),
+        getDependentVariable: d =>
+          getEventCount(d, presets.branches.branchMisses) /
+            getEventCount(d, presets.branches.branches) || 0,
+        flattenThreads: false
+      },
+      {
         presetsRequired: ["cpu"],
         yAxisLabelText: "Instructions Per Cycle",
         chartId: "instructions-per-cycle",
