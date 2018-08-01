@@ -455,7 +455,7 @@ void memory_map::process_inlines(
               }
 
               high_pc = high_pc_val.as_sconstant();
-              // TODO: find class of inline functions
+              // TODO(builinh): find class of inline functions
               if (high_pc != 0 && low_pc != 0) {
                 sym_table.insert(pair<interval, pair<string, string>>(
                     (interval(low_pc, low_pc + high_pc) + load_address),
@@ -542,7 +542,7 @@ void dump_tree(
     const ::dwarf::die& d, int depth,
     std::map<interval, std::pair<string, string>, cmpByInterval>* sym_table,
     uintptr_t load_address, const ::dwarf::line_table& table,
-    const unordered_set<string>& source_scope, string& class_type) {
+    const unordered_set<string>& source_scope, string* class_type) {
   if (!d.valid()) {
     return;
   }
@@ -551,7 +551,7 @@ void dump_tree(
     if (d.tag == ::dwarf::DW_TAG::class_type) {
       auto class_val = find_attribute(d, ::dwarf::DW_AT::name);
       if (class_val.valid()) {
-        class_type = class_val.as_string();
+        *class_type = class_val.as_string();
       }
     }
   } catch (::dwarf::format_error& e) {
@@ -598,9 +598,10 @@ void dump_tree(
 
               high_pc = high_pc_val.as_sconstant();
               if (high_pc != 0 && low_pc != 0) {
+                string real_class = *class_type;
                 sym_table->insert(pair<interval, pair<string, string>>(
                     (interval(low_pc, low_pc + high_pc) + load_address),
-                    pair<string, string>(name, class_type)));
+                    pair<string, string>(name, real_class)));
               }
             }
           }
@@ -649,7 +650,7 @@ bool memory_map::process_file(
     auto& lineTable = unit.get_line_table();
     string class_type;
     dump_tree(unit.root(), 0, sym_table, load_address, lineTable, source_scope,
-              class_type);
+              &class_type);
     int fileIndex = 0;
     bool needProcess = false;
     // check if files using by lineTable are in source_scope
