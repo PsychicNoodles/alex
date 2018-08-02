@@ -92,7 +92,7 @@ yargs
 
       collect({
         ...argv,
-        inFile: path.resolve(process.cwd(), argv.in),
+        inFile: argv.in ? path.resolve(process.cwd(), argv.in) : undefined,
         outFile: normalizeFileName(argv.out),
         errFile: normalizeFileName(argv.err),
         resultOption: normalizeFileName(argv.result),
