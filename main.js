@@ -12,11 +12,13 @@ process.on("unhandledRejection", err => {
   throw err;
 });
 
+const MIN_PERIOD = 100000;
+
 yargs
   .command(
     "list",
     "List available presets.",
-    yargs => yargs.check(validatePositionalArgs({ max: 1 })),
+    yargs => yargs.check(validateExtraPositionalArgs({ max: 1 })),
     list
   )
   .command(
@@ -42,19 +44,27 @@ yargs
         .option("events", {
           alias: "e",
           description: "A list of events to count.",
-          type: "array"
+          type: "array",
+          default: []
         })
-        .describe("in", "The file to pipe into the stdin of <executable>.")
+        .option("in", {
+          alias: "i",
+          description: "The file to pipe into the stdin of <executable>.",
+          type: "string"
+        })
         .option("out", {
           description: "The file to pipe the stdout of <executable> into.",
+          type: "string",
           default: "out-$timestamp.log"
         })
         .option("err", {
           description: "The file to pipe the stderr of <executable> into.",
+          type: "string",
           default: "err-$timestamp.log"
         })
         .option("result", {
           description: "The file to pipe the performance results into.",
+          type: "string",
           default: "result-$timestamp.bin"
         })
         .option("visualize", {
@@ -63,9 +73,18 @@ yargs
           default: "ask"
         })
         .option("period", {
-          description: "The period in CPU cycles",
+          description: `The period in CPU cycles.  Must be at least ${MIN_PERIOD}`,
           type: "number",
           default: 10000000
+        })
+        .check(argv => {
+          if (argv.period < MIN_PERIOD) {
+            throw new Error(
+              `Invalid period: ${argv.period}.  Must be at least ${MIN_PERIOD}.`
+            );
+          } else {
+            return true;
+          }
         })
         .option("wattsup-device", {
           description:
@@ -81,10 +100,12 @@ yargs
         .replace(/:/g, "-")
         .replace(/\.\d{3}/, "");
       const normalizeFileName = fileName =>
-        path.resolve(
-          process.cwd(),
-          fileName.replace("$timestamp", timestampString)
-        );
+        fileName
+          ? path.resolve(
+              process.cwd(),
+              fileName.replace("$timestamp", timestampString)
+            )
+          : undefined;
 
       collect({
         ...argv,
@@ -92,7 +113,8 @@ yargs
         outFile: normalizeFileName(argv.out),
         errFile: normalizeFileName(argv.err),
         resultOption: normalizeFileName(argv.result),
-        events: argv.events || [],
+        presets: argv.presets.filter(p => !!p),
+        events: argv.events.filter(e => !!e),
         visualizeOption: argv.visualize,
         // Manually parse this out, since positional args can't handle "--xxx" args
         executableArgs: process.argv.includes("--")
@@ -112,11 +134,12 @@ yargs
         })
         .option("heap-size", {
           description:
-            "The size of the JS heap in MB (increase if visualization freezes while loading large data)",
+            "The maximum size of the JS heap in MB.  Increase if " +
+            "visualization freezes while loading large data.",
           type: "number",
           default: 4096
         })
-        .check(validatePositionalArgs({ max: 1 })),
+        .check(validateExtraPositionalArgs({ max: 1 })),
     argv => {
       visualize(argv.file, argv.heapSize);
     }
@@ -128,18 +151,16 @@ yargs
   )
   .demandCommand(1, "Must specify a command.")
   .check((argv, aliases) => {
-    const validKeys = [
+    const validKeys = new Set([
       "$0",
       "_",
       ...Object.keys(aliases),
       ...Object.keys(aliases)
         .map(key => aliases[key])
         .reduce((a, b) => [...a, ...b])
-    ];
+    ]);
 
-    const invalidKeys = Object.keys(argv).filter(
-      key => !validKeys.includes(key)
-    );
+    const invalidKeys = Object.keys(argv).filter(key => !validKeys.has(key));
     if (invalidKeys.length > 0) {
       const firstInvalidArg =
         (invalidKeys[0].length === 1 ? "-" : "--") + invalidKeys[0];
@@ -151,7 +172,7 @@ yargs
   .help()
   .parse();
 
-function validatePositionalArgs({ max }) {
+function validateExtraPositionalArgs({ max }) {
   return argv => {
     if (argv._.length > max) {
       throw new Error(`Unknown argument: ${argv._[1]}`);
@@ -224,12 +245,6 @@ async function collect({
   visualizeOption,
   wattsupDevice
 }) {
-  const MIN_PERIOD = 100000;
-  if (period < MIN_PERIOD) {
-    console.error(`Period must be greater than ${MIN_PERIOD}.`);
-    process.exit(1);
-  }
-
   const resultFile = resultOption || tempFile(".bin");
 
   const allPresetInfo = await getAllPresetInfo();
