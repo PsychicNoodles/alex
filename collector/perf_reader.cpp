@@ -774,6 +774,17 @@ void write_warnings() {
   }
 }
 
+void serialize_footer() {
+  DEBUG("serializing footer");
+  OstreamOutputStream ostream(result_file);
+  CodedOutputStream coded(&ostream);
+  // mark end of timeslices
+  coded.WriteVarint32(0);
+
+  coded.WriteVarint32(warnings.size());
+  write_warnings();
+}
+
 void set_preset_events(Map<string, PresetEvents> *preset_map) {
   for (int i = 0; i < global->presets_size; i++) {
     const char *preset = global->presets[i];
@@ -1008,8 +1019,7 @@ int collect_perf_data(
   DEBUG("stopping wattsup reading thread");
   stop_reading(wattsup_reading);
 
-  DEBUG("writing warnings");
-  write_warnings();
+  serialize_footer();
 
   return 0;
 }
