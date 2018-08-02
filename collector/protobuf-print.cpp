@@ -37,6 +37,10 @@ int main(int argc, char **argv) {
   CodedInputStream input(&finput);
   FileOutputStream out(fileno(stdout));
 
+  // set the limit of the max result file input codedInputStream size to be
+  // 256MB
+  input.SetTotalBytesLimit(268435456, 0);
+
   uint32_t size;
   CodedInputStream::Limit limit;
   if (!input.ReadVarint32(&size)) {
