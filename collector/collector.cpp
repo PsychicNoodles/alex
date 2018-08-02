@@ -48,6 +48,16 @@ void ready_handler(int signum) {
   }
 }
 
+void sigint_handler(int signum) {
+  if (signum == SIGINT) {
+    if (get_result_file() != nullptr && get_result_file()->is_open()) {
+      // in the collector
+      SHUTDOWN_MSG(global->subject_pid, *get_result_file(), INTERRUPT,
+                   "interrupted");
+    }
+  }
+}
+
 void setup_global_vars() {
   DEBUG("setting up globals");
   // set up period
@@ -189,6 +199,12 @@ static int collector_main(int argc, char **argv, char **env) {
   sigemptyset(&ready_act.sa_mask);
   ready_act.sa_flags = 0;
   sigaction(SIGUSR2, &ready_act, nullptr);
+
+  struct sigaction sigint_act {};
+  sigint_act.sa_handler = sigint_handler;
+  sigemptyset(&sigint_act.sa_mask);
+  sigint_act.sa_flags = 0;
+  sigaction(SIGINT, &sigint_act, nullptr);
 
   int sockets[2];
   if (socketpair(PF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0, sockets) == -1) {

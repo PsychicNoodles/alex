@@ -163,7 +163,7 @@ bool serialize_delimited(const Message &msg) {
   int size = msg.ByteSize();
   OstreamOutputStream ostream(result_file);
   CodedOutputStream coded(&ostream);
-  coded.WriteVarint32(size);
+  coded.WriteLittleEndian32(size);
   uint8_t *buffer = coded.GetDirectBufferForNBytesAndAdvance(size);
   if (buffer != nullptr) {
     // Optimization: The message fits in one buffer, so use the faster
@@ -493,10 +493,16 @@ bool process_sample_record(
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
+  ssize_t count;
 
   uint64_t num_timer_ticks = 0;
   DEBUG("reading from fd " << info.cpu_clock_fd);
-  read(info.cpu_clock_fd, &num_timer_ticks, sizeof(num_timer_ticks));
+  if ((count = read(info.cpu_clock_fd, &num_timer_ticks,
+                    sizeof(num_timer_ticks))) != sizeof(num_timer_ticks)) {
+    PARENT_SHUTDOWN_PERROR(INTERNAL_ERROR, "count bytes "
+                                               << count << " != expected count "
+                                               << sizeof(num_timer_ticks));
+  }
   DEBUG("read in from fd " << info.cpu_clock_fd
                            << " num of cycles: " << num_timer_ticks);
   if (reset_monitoring(info.cpu_clock_fd) != SAMPLER_MONITOR_SUCCESS) {
@@ -517,16 +523,22 @@ bool process_sample_record(
   for (int i = 0; i < global->events_size; i++) {
     const char *event = global->events[i];
 
-    uint64_t count = 0;
+    uint64_t result = 0;
     DEBUG("reading from fd " << info.event_fds.at(event));
-    read(info.event_fds.at(event), &count, sizeof(int64_t));
-    DEBUG("read in from fd " << info.event_fds.at(event) << " count " << count);
+    if ((count = read(info.event_fds.at(event), &result, sizeof(int64_t))) !=
+        sizeof(int64_t)) {
+      PARENT_SHUTDOWN_PERROR(
+          INTERNAL_ERROR,
+          "count bytes " << count << " != expected count " << sizeof(int64_t));
+    }
+    DEBUG("read in from fd " << info.event_fds.at(event) << " result "
+                             << result);
     if (reset_monitoring(info.event_fds.at(event)) != SAMPLER_MONITOR_SUCCESS) {
       PARENT_SHUTDOWN_MSG(INTERNAL_ERROR, "couldn't reset monitoring for "
                                               << info.event_fds.at(event));
     }
 
-    (*event_map)[event] = count;
+    (*event_map)[event] = result;
   }
 
   // rapl
@@ -760,6 +772,17 @@ void write_warnings() {
     serialize_delimited(warning_message);
     warning_message.Clear();
   }
+}
+
+void serialize_footer() {
+  DEBUG("serializing footer");
+  OstreamOutputStream ostream(result_file);
+  CodedOutputStream coded(&ostream);
+  // mark end of timeslices
+  coded.WriteLittleEndian32(0);
+
+  coded.WriteLittleEndian32(warnings.size());
+  write_warnings();
 }
 
 void set_preset_events(Map<string, PresetEvents> *preset_map) {
@@ -996,8 +1019,7 @@ int collect_perf_data(
   DEBUG("stopping wattsup reading thread");
   stop_reading(wattsup_reading);
 
-  DEBUG("writing warnings");
-  write_warnings();
+  serialize_footer();
 
   return 0;
 }
