@@ -58,6 +58,17 @@ void shutdown(pid_t pid, ofstream *result_file, error code, const string &msg);
 // kills pid, prints msg to stderr, and exits with code
 void shutdown(pid_t pid, error code, const string &msg);
 
+#define SHUTDOWN_MSG(pid, result_file, code, msg) \
+  do {                                            \
+    std::ostringstream s;                         \
+    s << msg;                                     \
+    shutdown(pid, &result_file, code, s.str());   \
+  } while (0)
+#define SHUTDOWN_ERRMSG(pid, result_file, code, title, desc) \
+  SHUTDOWN_MSG(pid, result_file, code, title << ": " << desc)
+#define SHUTDOWN_PERROR(pid, result_file, code, title) \
+  SHUTDOWN_ERRMSG(pid, result_file, code, title, strerror(errno))
+
 }  // namespace alex
 
 #endif
