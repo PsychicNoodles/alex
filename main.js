@@ -71,7 +71,7 @@ yargs
           type: "number",
           default: 10000000
         })
-        .option("wattsupDevice", {
+        .option("wattsup-device", {
           description:
             'Use "dmesg" after plugging in the device to see what the USB serial port is detected at.',
           default: "ttyUSB0"
@@ -282,14 +282,14 @@ async function collect({
     startTime = Date.now();
     progressInterval = setInterval(() => {
       // Clear previous progress message
+      readline.clearLine(process.stdout, 0);
       readline.cursorTo(process.stdout, 0);
 
-      process.stdout.write(
-        `It's been ${prettyMS(Date.now() - startTime, {
-          verbose: true,
-          secDecimalDigits: 0
-        })}. Still going...`
-      );
+      const time = prettyMS(Math.max(Date.now() - startTime, 0), {
+        verbose: true,
+        secDecimalDigits: 0
+      });
+      process.stdout.write(`It's been ${time}. Still going...`);
     }, 1 * MS_PER_SEC);
   });
 
