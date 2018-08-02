@@ -204,6 +204,12 @@ class memory_map {
   std::map<interval, std::shared_ptr<line>, cmpByInterval> _ranges;
 };
 
+void dump_tree(
+    const ::dwarf::die& d,
+    std::map<interval, std::pair<string, string>, cmpByInterval>* sym_table,
+    uintptr_t load_address, const ::dwarf::line_table& table,
+    const std::unordered_set<string>& source_scope,
+    std::map<int, string>& class_map, int depth = 0);
 }  // namespace alex
 
 #endif

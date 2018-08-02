@@ -244,9 +244,9 @@ static int collector_main(int argc, char **argv, char **env) {
     std::map<interval, std::shared_ptr<line>, cmpByInterval> ranges =
         memory_map::get_instance().ranges();
 
-    // for (auto entry : sym_map) {
-    //   DEBUG("name is " << entry.second.second << "::" << entry.second.first);
-    // }
+    for (auto entry : sym_map) {
+      DEBUG("name is " << entry.second.second << "::" << entry.second.first);
+    }
 
     string env_res = getenv_safe("COLLECTOR_RESULT_FILE", "result.bin");
     DEBUG("result file " << env_res);

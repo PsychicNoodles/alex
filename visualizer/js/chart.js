@@ -110,7 +110,6 @@ function render(
   //         .style("stroke-opacity", 0.5)
   //     : svg.select("svg.bg");
   // }
-  //ignore this part if you are not xinya
 
   const chartPlot = root.select("g.plot").empty()
     ? svg.append("g")

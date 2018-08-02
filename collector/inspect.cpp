@@ -539,23 +539,30 @@ void memory_map::process_inlines(
 }
 
 void dump_tree(
-    const ::dwarf::die& d, int depth,
+    const ::dwarf::die& d,
     std::map<interval, std::pair<string, string>, cmpByInterval>* sym_table,
     uintptr_t load_address, const ::dwarf::line_table& table,
-    const unordered_set<string>& source_scope, string* class_type) {
-  if (!d.valid()) {
-    return;
+    const unordered_set<string>& source_scope, std::map<int, string>& class_map,
+    int depth) {
+  string class_type;
+
+  for (auto entry : class_map) {
+    DEBUG("ENTRY IS " << entry.first << " " << entry.second);
+    if (entry.first >= depth) {
+      DEBUG("GOT DELETED");
+      class_map.erase(entry.first);
+    }
   }
 
-  try {
-    if (d.tag == ::dwarf::DW_TAG::class_type) {
-      auto class_val = find_attribute(d, ::dwarf::DW_AT::name);
-      if (class_val.valid()) {
-        *class_type = class_val.as_string();
-      }
+  DEBUG("tag is " << to_string(d.tag) << " and depth is " << depth);
+
+  if (d.tag == ::dwarf::DW_TAG::class_type) {
+    auto class_val = find_attribute(d, ::dwarf::DW_AT::name);
+    if (class_val.valid()) {
+      class_type = class_val.as_string();
+      DEBUG("got a class type : " << class_type << " in depth " << depth);
+      class_map.insert(pair<int, string>(depth, class_type));
     }
-  } catch (::dwarf::format_error& e) {
-    DEBUG_CRITICAL("Ignoring dwarf class format error " << e.what());
   }
 
   try {
@@ -565,6 +572,7 @@ void dump_tree(
 
       if (name_val.valid()) {
         name = name_val.as_string();
+        DEBUG("GET A NAME AND NAME IS " << name);
       }
 
       string decl_file;
@@ -598,7 +606,12 @@ void dump_tree(
 
               high_pc = high_pc_val.as_sconstant();
               if (high_pc != 0 && low_pc != 0) {
-                string real_class = *class_type;
+                string real_class;
+                DEBUG("INSERTING NAME AND NAME IS " << name);
+                if (!class_map.empty()) {
+                  real_class = class_map.rbegin()->second;
+                  DEBUG("class when inserting is " << real_class);
+                }
                 sym_table->insert(pair<interval, pair<string, string>>(
                     (interval(low_pc, low_pc + high_pc) + load_address),
                     pair<string, string>(name, real_class)));
@@ -613,8 +626,8 @@ void dump_tree(
   }
 
   for (const auto& child : d) {
-    dump_tree(child, depth + 1, sym_table, load_address, table, source_scope,
-              class_type);
+    dump_tree(child, sym_table, load_address, table, source_scope, class_map,
+              depth + 1);
   }
 }
 
@@ -649,8 +662,10 @@ bool memory_map::process_file(
   for (const auto& unit : d.compilation_units()) {
     auto& lineTable = unit.get_line_table();
     string class_type;
-    dump_tree(unit.root(), 0, sym_table, load_address, lineTable, source_scope,
-              &class_type);
+    dump_tree(unit.root());
+    std::map<int, string> class_map;
+    dump_tree(unit.root(), sym_table, load_address, lineTable, source_scope,
+              class_map);
     int fileIndex = 0;
     bool needProcess = false;
     // check if files using by lineTable are in source_scope
