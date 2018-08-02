@@ -51,6 +51,11 @@ function render(
     });
   }
 
+  //chartPlot
+  const chartPlot = root.select("g.plot").empty()
+    ? svg.append("g")
+    : svg.select("g.plot");
+
   //brushes
   if (root.select("g.brushes").empty()) {
     svg.append("g").call(brushes.render);
@@ -112,10 +117,6 @@ function render(
       : svg.select("svg.bg");
   }
   //ignore this part if you are not xinya
-
-  const chartPlot = root.select("g.plot").empty()
-    ? svg.append("g")
-    : svg.select("g.plot");
 
   const plotDataStream = currentYScaleStore.stream.pipe(
     stream.map(currentYScale =>

@@ -226,7 +226,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["branches"],
         yAxisLabelText: "Branch Predictor Miss Rate",
         chartId: "branch-predictor-miss-rate",
-        yFormat: d3.format(".0%"),
+        yFormat: d3.format(".2%"),
         getDependentVariable: d =>
           getEventCount(d, presets.branches.branchMisses) /
             getEventCount(d, presets.branches.branches) || 0,
