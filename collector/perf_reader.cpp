@@ -163,7 +163,7 @@ bool serialize_delimited(const Message &msg) {
   int size = msg.ByteSize();
   OstreamOutputStream ostream(result_file);
   CodedOutputStream coded(&ostream);
-  coded.WriteVarint32(size);
+  coded.WriteLittleEndian32(size);
   uint8_t *buffer = coded.GetDirectBufferForNBytesAndAdvance(size);
   if (buffer != nullptr) {
     // Optimization: The message fits in one buffer, so use the faster
@@ -779,9 +779,9 @@ void serialize_footer() {
   OstreamOutputStream ostream(result_file);
   CodedOutputStream coded(&ostream);
   // mark end of timeslices
-  coded.WriteVarint32(0);
+  coded.WriteLittleEndian32(0);
 
-  coded.WriteVarint32(warnings.size());
+  coded.WriteLittleEndian32(warnings.size());
   write_warnings();
 }
 

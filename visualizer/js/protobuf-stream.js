@@ -49,11 +49,11 @@ function parser() {
       ) {
         if (dataSize === null) {
           // just started parsing or finished reading a message
-          dataSize = reader.uint32();
+          dataSize = reader.fixed32();
           // check for end of timeslices
           if (finishedHeader && !finishedTimeslices && dataSize === 0) {
             finishedTimeslices = true;
-            repeatedSize = reader.uint32();
+            repeatedSize = reader.fixed32();
           }
         } else {
           readMessage.call(this, reader);
