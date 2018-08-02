@@ -4,11 +4,13 @@
 #include <cinttypes>
 #include <cstdio>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include "protos/header.pb.h"
 #include "protos/timeslice.pb.h"
 #include "protos/warning.pb.h"
 
+using google::protobuf::Message;
 using google::protobuf::TextFormat;
 using google::protobuf::io::CodedInputStream;
 using google::protobuf::io::FileInputStream;
@@ -16,16 +18,48 @@ using google::protobuf::io::FileOutputStream;
 using std::cerr;
 using std::cout;
 using std::endl;
+using std::function;
 using std::ifstream;
 using std::ios;
+using std::string;
 
-int main(int argc, char **argv) {
+template <class T>
+void loop_print(CodedInputStream* input, FileOutputStream* out,
+                const string& type, int errnum,
+                function<bool(const T&)> is_valid) {
+  static uint32_t size;
+  CodedInputStream::Limit limit;
+  static_assert(std::is_base_of<Message, T>::value,
+                "loop_print called with a non-Message");
+  T msg;
+  while (true) {
+    if (!input->ReadVarint32(&size)) {
+      if (!input->ExpectAtEnd()) {
+        exit(0);
+      }
+      cerr << "failed to parse " << type << ", couldn't read delimiter" << endl;
+      exit(errnum);
+    }
+    limit = input->PushLimit(size);
+    if (msg.ParseFromCodedStream(input) && is_valid(msg)) {
+      cout << "===" << type << "===" << endl;
+      TextFormat::Print(msg, out);
+      out->Flush();
+      input->PopLimit(limit);
+    } else {
+      input->PopLimit(limit);
+      break;
+    }
+  }
+}
+
+int main(int argc, char** argv) {
   if (argc == 1) {
     cerr << "error: protobuf binary file required" << endl;
     return 1;
   }
 
-  FILE *input_file = fopen(argv[1], "rb");
+  FILE* input_file = fopen(argv[1], "rb");
 
   if (input_file == nullptr) {
     cerr << "failed to open " << argv[1] << endl;
@@ -58,53 +92,17 @@ int main(int argc, char **argv) {
   out.Flush();
   input.PopLimit(limit);
 
-  while (true) {
-    if (!input.ReadVarint32(&size)) {
-      if (!input.ExpectAtEnd()) {
-        return 0;
-      }
-      cerr << "failed to parse timeslice, couldn't read delimiter" << endl;
-      return 3;
-    }
-    limit = input.PushLimit(size);
-    alex::Timeslice ts;
-    if (ts.MergeFromCodedStream(&input)) {
-      cout << "===Timeslice===" << endl;
-      TextFormat::Print(ts, &out);
-      out.Flush();
-      input.PopLimit(limit);
-    } else {
-      if (!input.ExpectAtEnd()) {
-        input.PopLimit(limit);
-        break;
-      }
-      return 0;
-    }
+  if (!input.ExpectAtEnd()) {
+    loop_print<alex::Timeslice>(
+        &input, &out, "Timeslice", 3,
+        [](const alex::Timeslice& ts) { return ts.cpu_time() != 0; });
   }
 
-  while (true) {
-    if (!input.ReadVarint32(&size)) {
-      if (!input.ExpectAtEnd()) {
-        return 0;
-      }
-      cerr << "failed to parse warning, couldn't read delimiter" << endl;
-      return 4;
-    }
-    limit = input.PushLimit(size);
-    alex::Warning w;
-    if (w.MergeFromCodedStream(&input)) {
-      cout << "===Warning===" << endl;
-      TextFormat::Print(w, &out);
-      out.Flush();
-      input.PopLimit(limit);
-    } else {
-      if (!input.ExpectAtEnd()) {
-        input.PopLimit(limit);
-        break;
-      }
-      cerr << "unsure what the remaining data is" << endl;
-      return 4;
-    }
+  if (!input.ExpectAtEnd()) {
+    loop_print<alex::Warning>(&input, &out, "Warning", 4,
+                              [](const alex::Warning& w) {
+                                return w.warning_case() != w.WARNING_NOT_SET;
+                              });
   }
 
   finput.Close();
