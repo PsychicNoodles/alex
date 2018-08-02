@@ -56,11 +56,6 @@ function render(
     ? svg.append("g")
     : svg.select("g.plot");
 
-  //brushes
-  if (root.select("g.brushes").empty()) {
-    svg.append("g").call(brushes.render);
-  }
-
   //xaxis
   const xAxis = root.select("g.chart__axis--x").empty()
     ? svg
@@ -98,25 +93,30 @@ function render(
       .domain(missExtent)
       .range([250, 125]);
 
-    root.select("svg.bg").empty()
-      ? svg
-          .append("svg")
-          .classed("bg", true)
-          .selectAll(".line")
-          .data(processedData)
-          .enter()
-          .append("line")
-          .attr("class", "line")
-          .attr("x1", d => xScale(getIndependentVariable(d)))
-          .attr("x2", d => xScale(getIndependentVariable(d)))
-          .attr("y1", d => hitScale(d.events["MEM_LOAD_RETIRED.L3_HIT"]))
-          .attr("y2", d => missScale(d.events["MEM_LOAD_RETIRED.L3_MISS"]))
-          .style("stroke-width", 0.5)
-          .style("stroke", "green")
-          .style("stroke-opacity", 0.5)
-      : svg.select("svg.bg");
+    if (root.select("svg.bg").empty()) {
+      svg
+        .append("svg")
+        .classed("bg", true)
+        .selectAll(".line")
+        .data(processedData)
+        .enter()
+        .append("line")
+        .attr("class", "line")
+        .attr("x1", d => xScale(getIndependentVariable(d)))
+        .attr("x2", d => xScale(getIndependentVariable(d)))
+        .attr("y1", d => hitScale(d.events["MEM_LOAD_RETIRED.L3_HIT"]))
+        .attr("y2", d => missScale(d.events["MEM_LOAD_RETIRED.L3_MISS"]))
+        .style("stroke-width", 0.5)
+        .style("stroke", "green")
+        .style("stroke-opacity", 0.5);
+    }
   }
   //ignore this part if you are not xinya
+
+  //brushes
+  if (root.select("g.brushes").empty()) {
+    svg.append("g").call(brushes.render);
+  }
 
   const plotDataStream = currentYScaleStore.stream.pipe(
     stream.map(currentYScale =>
