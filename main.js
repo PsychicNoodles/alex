@@ -72,6 +72,11 @@ yargs
           choices: ["window", "no", "ask"],
           default: "ask"
         })
+        .option("show-timer", {
+          description: "Show a timer indicating the time spent collecting.",
+          type: "boolean",
+          default: true
+        })
         .option("period", {
           description: `The period in CPU cycles.  Must be at least ${MIN_PERIOD}`,
           type: "number",
@@ -243,6 +248,7 @@ async function collect({
   outFile,
   errFile,
   visualizeOption,
+  showTimer,
   wattsupDevice
 }) {
   const resultFile = resultOption || tempFile(".bin");
@@ -274,19 +280,21 @@ async function collect({
   process.on("SIGUSR2", () => {
     console.info("Collecting performance data...");
 
-    const MS_PER_SEC = 1000;
-    startTime = Date.now();
-    progressInterval = setInterval(() => {
-      // Clear previous progress message
-      readline.clearLine(process.stdout, 0);
-      readline.cursorTo(process.stdout, 0);
+    if (showTimer) {
+      const MS_PER_SEC = 1000;
+      startTime = Date.now();
+      progressInterval = setInterval(() => {
+        // Clear previous progress message
+        readline.clearLine(process.stdout, 0);
+        readline.cursorTo(process.stdout, 0);
 
-      const time = prettyMS(Math.max(Date.now() - startTime, 0), {
-        verbose: true,
-        secDecimalDigits: 0
-      });
-      process.stdout.write(`It's been ${time}. Still going...`);
-    }, 1 * MS_PER_SEC);
+        const time = prettyMS(Math.max(Date.now() - startTime, 0), {
+          verbose: true,
+          secDecimalDigits: 0
+        });
+        process.stdout.write(`It's been ${time}. Still going...`);
+      }, 1 * MS_PER_SEC);
+    }
   });
 
   console.info(
