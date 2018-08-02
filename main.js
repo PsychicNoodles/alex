@@ -12,7 +12,7 @@ process.on("unhandledRejection", err => {
   throw err;
 });
 
-const MIN_PERIOD = 100000;
+const MIN_PERIOD = 1000000;
 
 yargs
   .command(
