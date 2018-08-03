@@ -215,7 +215,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["cache"],
         yAxisLabelText: "L3 Cache Miss Rate",
         chartId: "l3-cache-miss-rate",
-        yFormat: d3.format(".0%"),
+        yFormat: "%",
         getDependentVariable: d =>
           getEventCount(d, presets.cache.misses) /
             (getEventCount(d, presets.cache.hits) +
@@ -226,7 +226,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["branches"],
         yAxisLabelText: "Branch Predictor Miss Rate",
         chartId: "branch-predictor-miss-rate",
-        yFormat: d3.format(".2%"),
+        yFormat: "%",
         getDependentVariable: d =>
           getEventCount(d, presets.branches.branchMisses) /
             getEventCount(d, presets.branches.branches) || 0,
@@ -236,7 +236,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["cpu"],
         yAxisLabelText: "Instructions Per Cycle",
         chartId: "instructions-per-cycle",
-        yFormat: d3.format(".3"),
+        yFormat: "",
         getDependentVariable: d =>
           getEventCount(d, presets.cpu.instructions) /
             getEventCount(d, presets.cpu.cpuCycles) || 0,
@@ -246,7 +246,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["rapl"],
         yAxisLabelText: "Overall Power",
         chartId: "overall-power",
-        yFormat: d3.format(".2s"),
+        yFormat: "s",
         getDependentVariable: d => d.events["periodOverall"] || 0,
         flattenThreads: true
       },
@@ -254,7 +254,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["rapl"],
         yAxisLabelText: "CPU Power",
         chartId: "cpu-power",
-        yFormat: d3.format(".2s"),
+        yFormat: "s",
         getDependentVariable: d => d.events["periodCpu"] || 0,
         flattenThreads: true
       },
@@ -262,7 +262,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["rapl"],
         yAxisLabelText: "Memory Power",
         chartId: "memory-power",
-        yFormat: d3.format(".2s"),
+        yFormat: "s",
         getDependentVariable: d => d.events["periodMemory"] || 0,
         flattenThreads: true
       },
@@ -270,7 +270,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["wattsup"],
         yAxisLabelText: "Wattsup Power",
         chartId: "wattsup-power",
-        yFormat: d3.format(".2s"),
+        yFormat: "",
         getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup),
         flattenThreads: true
       }
@@ -299,43 +299,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
       };
     });
 
-    //update with subscriptions
-    const filteredDataStream = stream
-      .fromStreamables([
-        sourceSelect.hiddenSourcesStore.stream,
-        threadSelect.hiddenThreadsStore.stream
-      ])
-      .pipe(
-        stream.map(([hiddenSources, hiddenThreads]) => {
-          //first filter with source selection!
-          const sourceFilteredData = processedData
-            .filter((
-              timeslice
-              /* keep the timeslices which have at least one frame with its
-              filename not in hiddenSources */
-            ) =>
-              timeslice.stackFrames.some(
-                frame => !hiddenSources.includes(frame.fileName)
-              )
-            )
-            .map(timeslice => ({
-              //and then remove those frames with a hiddenSource
-              ...timeslice,
-              stackFrames: timeslice.stackFrames.filter(
-                frame => !hiddenSources.includes(frame.fileName)
-              )
-            })); //make a new array
-
-          //then filter with thread selection
-          const fullFilteredData = sourceFilteredData.filter(
-            //keep whose tid is not in hiddenThreads
-            timeslice => !hiddenThreads.includes(timeslice.tid)
-          );
-
-          return { sourceFilteredData, fullFilteredData };
-        })
-      );
-
     const currentYScaleStores = chartsWithYScales.reduce(
       (currentYScales, chartParams) => {
         const { yAxisLabelText, yScale, getDependentVariable } = chartParams;
@@ -356,68 +319,102 @@ ipcRenderer.on("result", async (event, resultFile) => {
     );
 
     const currentSelectedFunctionStore = new Store(null);
-    stream.fromStreamables([filteredDataStream]).pipe(
-      stream.subscribe(([{ fullFilteredData, sourceFilteredData }]) => {
-        const chartsWithFilteredData = chartsWithYScales.map(chartParams => {
-          const { chartId, getDependentVariable, flattenThreads } = chartParams;
 
-          const selectionFilteredData = flattenThreads
-            ? sourceFilteredData
-            : fullFilteredData;
+    //update with subscriptions
+    stream
+      .fromStreamables([
+        sourceSelect.hiddenSourcesStore.stream,
+        threadSelect.hiddenThreadsStore.stream
+      ])
+      .pipe(
+        stream.map(([hiddenSources, hiddenThreads]) => {
+          //first filter with source selection!
+          const sourceFilteredData = processedData
+            .map(timeslice => ({
+              ...timeslice,
+              stackFrames: timeslice.stackFrames.filter(
+                frame => !hiddenSources.includes(frame.fileName)
+              )
+            }))
+            .filter(timeslice => timeslice.stackFrames.length > 0);
 
-          const filteredData =
-            chartId === "overall-power" ||
-            chartId === "cpu-power" ||
-            chartId === "memory-power"
-              ? selectionFilteredData.filter(d => getDependentVariable(d) !== 0)
-              : selectionFilteredData;
+          //then filter with thread selection
+          const fullFilteredData = sourceFilteredData.filter(
+            //keep whose tid is not in hiddenThreads
+            timeslice => !hiddenThreads.includes(timeslice.tid)
+          );
 
-          return {
-            ...chartParams,
-            filteredData
-          };
-        });
-        // .filter(chartParams => chartParams.filteredData.length > 0);
-
-        const chartsDataSelection = d3
-          .select("#charts")
-          .selectAll("div")
-          .data(chartsWithFilteredData);
-
-        chartsDataSelection
-          .enter()
-          .append("div")
-          .merge(chartsDataSelection)
-          .each(function({
-            //seem like we need to seperate out the calculation of the plotdata and make plotdata a field of chartsWithFilteredData, we can create the div first, and then for each div(root), subscribeunique a storestream and inside the subscribefunc, we add plotdata as a field to charts, then return charts and do the next thing
-            getDependentVariable,
-            yAxisLabelText,
-            chartId,
-            yFormat,
-            yScale,
-            filteredData
-          }) {
-            d3.select(this).call(chart.render, {
-              getIndependentVariable,
+          return { sourceFilteredData, fullFilteredData };
+        })
+      )
+      .pipe(
+        stream.subscribe(({ fullFilteredData, sourceFilteredData }) => {
+          const chartsWithFilteredData = chartsWithYScales.map(chartParams => {
+            const {
+              chartId,
               getDependentVariable,
-              xAxisLabelText,
+              flattenThreads
+            } = chartParams;
+
+            const selectionFilteredData = flattenThreads
+              ? sourceFilteredData
+              : fullFilteredData;
+
+            const filteredData =
+              chartId === "overall-power" ||
+              chartId === "cpu-power" ||
+              chartId === "memory-power"
+                ? selectionFilteredData.filter(
+                    d => getDependentVariable(d) !== 0
+                  )
+                : selectionFilteredData;
+
+            return {
+              ...chartParams,
+              filteredData
+            };
+          });
+          // .filter(chartParams => chartParams.filteredData.length > 0);
+
+          const chartsDataSelection = d3
+            .select("#charts")
+            .selectAll("div")
+            .data(chartsWithFilteredData);
+
+          chartsDataSelection
+            .enter()
+            .append("div")
+            .merge(chartsDataSelection)
+            .each(function({
+              //seem like we need to seperate out the calculation of the plotdata and make plotdata a field of chartsWithFilteredData, we can create the div first, and then for each div(root), subscribeunique a storestream and inside the subscribefunc, we add plotdata as a field to charts, then return charts and do the next thing
+              getDependentVariable,
               yAxisLabelText,
               chartId,
-              xScale,
-              yScale,
               yFormat,
-              filteredData,
-              spectrum,
-              cpuTimeOffset,
-              warningRecords,
-              warningsDistinct,
-              currentYScaleStore: currentYScaleStores[yAxisLabelText],
-              processedData,
-              selectedFunctionStream: currentSelectedFunctionStore.stream
+              yScale,
+              filteredData
+            }) {
+              d3.select(this).call(chart.render, {
+                getIndependentVariable,
+                getDependentVariable,
+                xAxisLabelText,
+                yAxisLabelText,
+                chartId,
+                xScale,
+                yScale,
+                yFormat,
+                filteredData,
+                spectrum,
+                cpuTimeOffset,
+                warningRecords,
+                warningsDistinct,
+                currentYScaleStore: currentYScaleStores[yAxisLabelText],
+                processedData,
+                selectedFunctionStream: currentSelectedFunctionStore.stream
+              });
             });
-          });
-      })
-    );
+        })
+      );
 
     chartsSelect.hiddenChartsStore.stream.pipe(
       stream.subscribe(hiddenCharts => {
