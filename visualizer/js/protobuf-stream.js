@@ -14,6 +14,9 @@ function processMessage(msg) {
       }
     }
   }
+  if (msg instanceof Warning && msg.time === undefined) {
+    console.log("bad warning", msg);
+  }
   return msg;
 }
 
@@ -31,6 +34,7 @@ function parser() {
     } else if (!finishedTimeslices) {
       this.push(processMessage(Timeslice.decode(reader, dataSize)));
     } else {
+      console.log("dataSize", dataSize);
       this.push(processMessage(Warning.decode(reader, dataSize)));
     }
   }
@@ -54,6 +58,7 @@ function parser() {
           if (finishedHeader && !finishedTimeslices && dataSize === 0) {
             finishedTimeslices = true;
             repeatedSize = reader.fixed32();
+            dataSize = null;
           }
         } else {
           readMessage.call(this, reader);
