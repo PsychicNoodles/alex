@@ -253,7 +253,7 @@ static int collector_main(int argc, char **argv, char **env) {
 
     // Get all the dwarf files for debug symbols
 
-    map<interval, std::pair<string, string>, cmpByInterval> sym_map;
+    map<interval, string, cmpByInterval> sym_map;
 
     memory_map::get_instance().build(source_scope, &sym_map);
 
