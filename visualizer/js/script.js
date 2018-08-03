@@ -426,9 +426,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
       })
     );
 
-    let averageProcessingTime = 0;
-    let numProcessingTimeSamples = 0;
-
     const confidenceThresholdInput = document.getElementById(
       "confidence-threshold-input"
     );
@@ -493,7 +490,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
           }) => {
             const FUNCTION_NAME_SEPARATOR = "//";
 
-            const startTime = performance.now();
             performance.mark("analysis start");
             return analyze({
               timeSlices: processedData,
@@ -574,16 +570,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
                     "analysis start",
                     "analysis end"
                   );
-
-                  // Compute a cumulative moving average for processing time so we can
-                  // debounce processing if it is slow
-                  // https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
-                  const timeTaken = performance.now() - startTime;
-                  averageProcessingTime =
-                    (timeTaken +
-                      numProcessingTimeSamples * averageProcessingTime) /
-                    (numProcessingTimeSamples + 1);
-                  numProcessingTimeSamples++;
                 })
               )
               .pipe(
