@@ -247,7 +247,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         yAxisLabelText: "Overall Power",
         chartId: "overall-power",
         yFormat: "s",
-        getDependentVariable: d => d.events["periodOverall"] || 0,
+        getDependentVariable: d => d.events.periodOverall,
         flattenThreads: true
       },
       {
@@ -255,7 +255,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         yAxisLabelText: "CPU Power",
         chartId: "cpu-power",
         yFormat: "s",
-        getDependentVariable: d => d.events["periodCpu"] || 0,
+        getDependentVariable: d => d.events.periodCpu,
         flattenThreads: true
       },
       {
@@ -263,7 +263,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         yAxisLabelText: "Memory Power",
         chartId: "memory-power",
         yFormat: "s",
-        getDependentVariable: d => d.events["periodMemory"] || 0,
+        getDependentVariable: d => d.events.periodMemory,
         flattenThreads: true
       },
       {
@@ -426,9 +426,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
       })
     );
 
-    let averageProcessingTime = 0;
-    let numProcessingTimeSamples = 0;
-
     const confidenceThresholdInput = document.getElementById(
       "confidence-threshold-input"
     );
@@ -493,7 +490,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
           }) => {
             const FUNCTION_NAME_SEPARATOR = "//";
 
-            const startTime = performance.now();
             performance.mark("analysis start");
             return analyze({
               timeSlices: processedData,
@@ -574,16 +570,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
                     "analysis start",
                     "analysis end"
                   );
-
-                  // Compute a cumulative moving average for processing time so we can
-                  // debounce processing if it is slow
-                  // https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
-                  const timeTaken = performance.now() - startTime;
-                  averageProcessingTime =
-                    (timeTaken +
-                      numProcessingTimeSamples * averageProcessingTime) /
-                    (numProcessingTimeSamples + 1);
-                  numProcessingTimeSamples++;
                 })
               )
               .pipe(
