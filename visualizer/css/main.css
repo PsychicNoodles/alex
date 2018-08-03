@@ -60,8 +60,8 @@ button:disabled {
 #info {
   grid-area: info;
   overflow-y: auto;
-  border-left: 1px solid #999;
   padding: 1em;
+  display: flex;
 }
 
 #table-bar {
@@ -114,8 +114,13 @@ button:disabled {
     grid-template-rows: 2fr 1fr;
     grid-template-columns: 1fr auto;
     grid-template-areas:
-      "charts info"
+      "charts    info"
       "table-bar table-bar";
+  }
+
+  #info {
+    flex-direction: column;
+    border-left: 1px solid #999;
   }
 
   #table-bar {
@@ -125,9 +130,17 @@ button:disabled {
 
 @media (min-width: 1500px) {
   body {
-    grid-template-rows: auto;
-    grid-template-columns: 700px auto 1fr;
-    grid-template-areas: "charts info table-bar";
+    grid-template-rows: 1fr auto;
+    grid-template-columns: 700px 1fr;
+    grid-template-areas:
+      "charts table-bar"
+      "info   table-bar";
+  }
+
+  #info {
+    flex-direction: row;
+    border-top: 1px solid #999;
+    max-height: 20vh;
   }
 
   #table-bar {

@@ -19,13 +19,12 @@
 }
 
 #info .title {
-  display: block;
   font-weight: bold;
   margin-bottom: 0.1em;
 }
 
-#info .value {
-  display: block;
+#info .title::after {
+  content: " ";
 }
 
 #program-info {
