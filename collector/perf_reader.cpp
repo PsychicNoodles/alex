@@ -489,7 +489,7 @@ bool process_sample_record(
     bg_reading *rapl_reading, bg_reading *wattsup_reading,
     const map<uint64_t, kernel_sym> &kernel_syms,
     const map<interval, std::shared_ptr<line>, cmpByInterval> &ranges,
-    const map<interval, std::pair<string, string>, cmpByInterval> &sym_map) {
+    const map<interval, string, cmpByInterval> &sym_map) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
   // too) because otherwise it's copied and can slow down the has_next_sample
   // loop, causing it to never return to epoll
@@ -634,16 +634,7 @@ bool process_sample_record(
       if (upper_sym != sym_map.begin()) {
         --upper_sym;
         if (upper_sym->first.contains(pc)) {
-          if (!upper_sym->second.second.empty()) {
-            DEBUG("name is " << upper_sym->second.second
-                             << "::" << upper_sym->second.first);
-            sym_name_str =
-                upper_sym->second.second + "::" + upper_sym->second.first;
-
-          } else {
-            sym_name_str = upper_sym->second.first;
-          }
-
+          sym_name_str = upper_sym->second;
         } else {
           DEBUG("cannot find function symbol");
         }
@@ -880,7 +871,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
 int collect_perf_data(
     const map<uint64_t, kernel_sym> &kernel_syms, int sigt_fd, int socket,
     bg_reading *rapl_reading, bg_reading *wattsup_reading,
-    const std::map<interval, std::pair<string, string>, cmpByInterval> &sym_map,
+    const std::map<interval, string, cmpByInterval> &sym_map,
     const std::map<interval, std::shared_ptr<line>, cmpByInterval> &ranges) {
   bool done = false;
   int sample_period_skips = 0;

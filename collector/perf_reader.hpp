@@ -53,7 +53,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int& wu_fd,
 int collect_perf_data(
     const map<uint64_t, kernel_sym>& kernel_syms, int sigt_fd, int socket,
     bg_reading* rapl_reading, bg_reading* wattsup_reading,
-    const std::map<interval, std::pair<string, string>, cmpByInterval>& sym_map,
+    const std::map<interval, string, cmpByInterval>& sym_map,
     const std::map<interval, std::shared_ptr<line>, cmpByInterval>& ranges);
 void serialize_footer();
 
