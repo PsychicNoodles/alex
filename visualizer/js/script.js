@@ -247,7 +247,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         yAxisLabelText: "Overall Power",
         chartId: "overall-power",
         yFormat: "s",
-        getDependentVariable: d => d.events["periodOverall"] || 0,
+        getDependentVariable: d => d.events.periodOverall,
         flattenThreads: true
       },
       {
@@ -255,7 +255,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         yAxisLabelText: "CPU Power",
         chartId: "cpu-power",
         yFormat: "s",
-        getDependentVariable: d => d.events["periodCpu"] || 0,
+        getDependentVariable: d => d.events.periodCpu,
         flattenThreads: true
       },
       {
@@ -263,7 +263,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         yAxisLabelText: "Memory Power",
         chartId: "memory-power",
         yFormat: "s",
-        getDependentVariable: d => d.events["periodMemory"] || 0,
+        getDependentVariable: d => d.events.periodMemory,
         flattenThreads: true
       },
       {
