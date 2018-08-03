@@ -445,7 +445,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
           );
         })
       )
-      .pipe(stream.map(value => Math.max(0, Math.min(value, 1))));
+      .pipe(stream.map(value => Math.max(0, Math.min(value, 1))))
+      .pipe(stream.dedup());
 
     stream
       .fromStreamables([

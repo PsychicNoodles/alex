@@ -34,6 +34,8 @@ const done = Symbol("stream.done");
 
 const isStream = Symbol("isStream");
 
+const unset = Symbol("unset");
+
 /**
  * Emits done immediately when subscribed to without emitting anything else.
  * @type {Stream}
@@ -134,8 +136,6 @@ function fromDOMEvent(element, eventType, options = undefined) {
  * @returns {Stream}
  */
 function fromStreamables(streamables) {
-  const unset = Symbol("unset");
-
   if (streamables.length > 0) {
     return fromStreamable(onData => {
       let numDone = 0;
@@ -237,8 +237,6 @@ function map(transformData) {
  * @returns {StreamTransform}
  */
 function filter(shouldKeep) {
-  const unset = Symbol("unset");
-
   return streamable => {
     let lastEmittedValue = unset;
     let shouldKeepLastEmitted;
@@ -415,6 +413,23 @@ function take(amount) {
 }
 
 /**
+ * Don't emit duplicate elements emitted immediately after the first in sequence.
+ * @param {?(a: any, b: any) => boolean} isEqual Defaults to a === comparison.
+ */
+function dedup(isEqual = (a, b) => a === b) {
+  return streamable =>
+    fromStreamable(onData => {
+      let lastValue = unset;
+      return streamable(data => {
+        if (!isEqual(lastValue, data)) {
+          lastValue = data;
+          onData(data);
+        }
+      });
+    });
+}
+
+/**
  * Add a callback for each value emitted once the stream is subscribed.
  * @param {DataListener} onData Called for each value emitted, but not `done`.
  * @returns {StreamTransform}
@@ -497,6 +512,7 @@ module.exports = {
   mergeMap,
   startWith,
   take,
+  dedup,
   tap,
   subscribe,
   subscribeUnique,
