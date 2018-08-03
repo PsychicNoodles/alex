@@ -215,7 +215,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["cache"],
         yAxisLabelText: "L3 Cache Miss Rate",
         chartId: "l3-cache-miss-rate",
-        yFormat: d3.format(".0%"),
+        yFormat: "%",
         getDependentVariable: d =>
           getEventCount(d, presets.cache.misses) /
             (getEventCount(d, presets.cache.hits) +
@@ -226,7 +226,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["branches"],
         yAxisLabelText: "Branch Predictor Miss Rate",
         chartId: "branch-predictor-miss-rate",
-        yFormat: d3.format(".0%"),
+        yFormat: "%",
         getDependentVariable: d =>
           getEventCount(d, presets.branches.branchMisses) /
             getEventCount(d, presets.branches.branches) || 0,
@@ -236,7 +236,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["cpu"],
         yAxisLabelText: "Instructions Per Cycle",
         chartId: "instructions-per-cycle",
-        yFormat: d3.format(".3"),
+        yFormat: "",
         getDependentVariable: d =>
           getEventCount(d, presets.cpu.instructions) /
             getEventCount(d, presets.cpu.cpuCycles) || 0,
@@ -246,7 +246,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["rapl"],
         yAxisLabelText: "Overall Power",
         chartId: "overall-power",
-        yFormat: d3.format(".2s"),
+        yFormat: "s",
         getDependentVariable: d => d.events["periodOverall"] || 0,
         flattenThreads: true
       },
@@ -254,7 +254,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["rapl"],
         yAxisLabelText: "CPU Power",
         chartId: "cpu-power",
-        yFormat: d3.format(".2s"),
+        yFormat: "s",
         getDependentVariable: d => d.events["periodCpu"] || 0,
         flattenThreads: true
       },
@@ -262,7 +262,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["rapl"],
         yAxisLabelText: "Memory Power",
         chartId: "memory-power",
-        yFormat: d3.format(".2s"),
+        yFormat: "s",
         getDependentVariable: d => d.events["periodMemory"] || 0,
         flattenThreads: true
       },
@@ -270,7 +270,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["wattsup"],
         yAxisLabelText: "Wattsup Power",
         chartId: "wattsup-power",
-        yFormat: d3.format(".2s"),
+        yFormat: "",
         getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup),
         flattenThreads: true
       }
