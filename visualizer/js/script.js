@@ -429,13 +429,32 @@ ipcRenderer.on("result", async (event, resultFile) => {
     let averageProcessingTime = 0;
     let numProcessingTimeSamples = 0;
 
+    const confidenceThresholdInput = document.getElementById(
+      "confidence-threshold-input"
+    );
+    const confidenceThresholdStream = stream
+      .fromDOMEvent(confidenceThresholdInput, "change")
+      .pipe(stream.map(event => event.currentTarget.value))
+      .pipe(stream.startWith(confidenceThresholdInput.value))
+      .pipe(stream.map(value => value / 100))
+      .pipe(
+        stream.tap(value => {
+          confidenceThresholdInput.classList.toggle(
+            "confidence-threshold-input--invalid",
+            value < 0 || value > 1
+          );
+        })
+      )
+      .pipe(stream.map(value => Math.max(0, Math.min(value, 1))));
+
     stream
       .fromStreamables([
         sourceSelect.hiddenSourcesStore.stream,
         threadSelect.hiddenThreadsStore.stream,
         brushes.selectionStore.stream,
         currentSelectedFunctionStore.stream,
-        tableSelect.selectedTableStore.stream
+        tableSelect.selectedTableStore.stream,
+        confidenceThresholdStream
       ])
       .pipe(
         stream.map(
@@ -444,13 +463,15 @@ ipcRenderer.on("result", async (event, resultFile) => {
             hiddenThreads,
             { selections },
             selectedFunction,
-            selectedTable
+            selectedTable,
+            confidenceThreshold
           ]) => ({
             hiddenSources,
             hiddenThreads,
             selections,
             selectedFunction,
-            selectedTable
+            selectedTable,
+            confidenceThreshold
           })
         )
       )
@@ -462,7 +483,13 @@ ipcRenderer.on("result", async (event, resultFile) => {
       )
       .pipe(
         stream.debounceMap(
-          ({ hiddenSources, hiddenThreads, selections, selectedFunction }) => {
+          ({
+            hiddenSources,
+            hiddenThreads,
+            selections,
+            selectedFunction,
+            confidenceThreshold
+          }) => {
             const FUNCTION_NAME_SEPARATOR = "//";
 
             const startTime = performance.now();
@@ -536,7 +563,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                       }
                     }
                   },
-              threshold: document.getElementById("confidence-level-input").value // TODO: modify this value via UI
+              confidenceThreshold
             })
               .pipe(
                 stream.tap(() => {

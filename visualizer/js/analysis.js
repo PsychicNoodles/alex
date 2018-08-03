@@ -13,9 +13,9 @@ const stream = require("./stream");
  * @param {(timeslice: any) => string} params.getFunctionName
  *    Get a unique name for a function. All timeslices that resolve to the same
  *    function name will be grouped together.
- * @param {number} params.threshold
- *    A probability -- any value above this will be considered significant
- *    enough to be highlighted in analysis.
+ * @param {number} params.confidenceThreshold
+ *    A probability from 0 to 1. Any value above this will be considered
+ *    significant enough to be highlighted in analysis.
  * @returns {stream.Stream} Results of the analysis.
  */
 function analyze({
@@ -23,13 +23,8 @@ function analyze({
   isVisible,
   isBrushSelected,
   getFunctionName,
-  threshold
+  confidenceThreshold
 }) {
-  if (!(threshold >= 0) || !(threshold <= 100)) {
-    return;
-  }
-  threshold /= 100;
-
   const functionsMap = new Map();
   let selectedTotal = 0;
   let unselectedTotal = 0;
@@ -127,9 +122,11 @@ function analyze({
                     );
 
                   const conclusion =
-                    probability >= threshold && func.observed >= expected
+                    probability >= confidenceThreshold &&
+                    func.observed >= expected
                       ? "Unusually prevalent"
-                      : probability >= threshold && func.observed < expected
+                      : probability >= confidenceThreshold &&
+                        func.observed < expected
                         ? "Unusually absent"
                         : "Insignificant";
 

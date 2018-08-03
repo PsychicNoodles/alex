@@ -383,6 +383,17 @@ function mergeMap(project) {
 }
 
 /**
+ * Emit `value` at the start of the stream before all others.
+ */
+function startWith(value) {
+  return streamable =>
+    fromStreamable(onData => {
+      onData(value);
+      return streamable(onData);
+    });
+}
+
+/**
  * Create a stream of the first `amount` events from the input stream.
  * @param {number} amount Number of events to take from the start of the stream.
  * @returns {StreamTransform}
@@ -484,6 +495,7 @@ module.exports = {
   debounceTime,
   debounceMap,
   mergeMap,
+  startWith,
   take,
   tap,
   subscribe,
