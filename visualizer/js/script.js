@@ -294,18 +294,17 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
       return {
         ...chartParams,
-        yScale,
-        chart
+        yScale
       };
     });
 
     const currentYScaleStores = chartsWithYScales.reduce(
       (currentYScales, chartParams) => {
-        const { yAxisLabelText, yScale, getDependentVariable } = chartParams;
+        const { chartId, yScale, getDependentVariable } = chartParams;
 
         return {
           ...currentYScales,
-          [yAxisLabelText]: new Store(
+          [chartId]: new Store(
             d3
               .scaleLinear()
               .domain(
@@ -408,7 +407,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 cpuTimeOffset,
                 warningRecords,
                 warningsDistinct,
-                currentYScaleStore: currentYScaleStores[yAxisLabelText],
+                currentYScaleStore: currentYScaleStores[chartId],
                 processedData,
                 selectedFunctionStream: currentSelectedFunctionStore.stream
               });
