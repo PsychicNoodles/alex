@@ -42,6 +42,7 @@ int recv_perf_fds(int socket, perf_fd_info *info,
       DEBUG("request to register " << n_recv << " new fds for tid " << tid);
       for (int i = 0; i < n_fds; i++) {
         DEBUG("recv fds[" << i << "]: " << ancil_fds[i]);
+        fds.push_back(ancil_fds[i]);
       }
       // copy perf fd info
       info->cpu_clock_fd = ancil_fds[0];

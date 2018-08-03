@@ -80,6 +80,14 @@ struct record_sample_id {
   uint64_t id;  // actually the id for the group leader
 };
 
+struct read_format {
+  uint64_t nr; /* The number of events */
+  struct {
+    uint64_t value; /* The value of the event */
+                    //  uint64_t id;        /* if PERF_FORMAT_ID */
+  } values[];
+};
+
 // contents of PERF_RECORD_SAMPLE buffer plus certain sample types
 struct sample_record {
 #if SAMPLE_ID_ALL
@@ -93,6 +101,12 @@ struct sample_record {
 #if SAMPLE_ID_ALL
   uint64_t stream_id;
 #endif
+  // PERF_SAMPLE_GROUP
+  read_format v;
+};
+
+// the second part of the PERF_RECORD_SAMPLE buffer
+struct sample_record_callchain {
   // PERF_SAMPLE_CALLCHAIN
   uint64_t num_instruction_pointers;
   uint64_t instruction_pointers[(SAMPLE_MAX_STACK + 2)];
@@ -134,7 +148,7 @@ ofstream *result_file;
 map<int, perf_fd_info> perf_info_mappings;
 
 // a list of warnings (ie. throttle/unthrottle, lost)
-vector<tuple<int, base_record, int64_t>> warnings;
+vector<Warning> warnings;
 
 // the epoll fd used in the collector
 int sample_epfd = epoll_create1(0);
@@ -144,7 +158,7 @@ size_t sample_fd_count = 0;
 int get_record_size(int record_type) {
   switch (record_type) {
     case PERF_RECORD_SAMPLE:
-      return sizeof(sample_record);
+      return (sizeof(sample_record) + sizeof(sample_record_callchain));
     case PERF_RECORD_THROTTLE:
     case PERF_RECORD_UNTHROTTLE:
       return sizeof(throttle_record);
@@ -230,6 +244,7 @@ void setup_perf_events(pid_t target, perf_fd_info *info) {
   cpu_clock_attr.sample_period = global->period;
   cpu_clock_attr.wakeup_events = 1;
   cpu_clock_attr.sample_id_all = SAMPLE_ID_ALL;
+  cpu_clock_attr.read_format = PERF_FORMAT_GROUP;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
   cpu_clock_attr.(SAMPLE_MAX_STACK + 2) = (SAMPLE_MAX_STACK + 2);
 #endif
@@ -424,9 +439,13 @@ int adjust_period(int record_type) {
   return 0;
 }
 
-void copy_record_to_stack(base_record *record, base_record *local,
-                          int record_type, int record_size,
-                          uintptr_t data_start, uintptr_t data_end) {
+/*
+ *It's possible that the perf memory holding the result overwrite the result
+ *while we process it, so we copy the result to our memory and change it
+ */
+void copy_record_to_stack(void *record, void *local, int record_type,
+                          int record_size, uintptr_t data_start,
+                          uintptr_t data_end) {
   DEBUG("copying record " << ptr_fmt(record) << " to stack " << ptr_fmt(local));
   auto record_ptr = reinterpret_cast<uintptr_t>(record),
        local_ptr = reinterpret_cast<uintptr_t>(local);
@@ -473,15 +492,31 @@ void copy_record_to_stack(base_record *record, base_record *local,
   }
 }
 
-void process_throttle_record(
-    const throttle_record &throttle, int record_type,
-    vector<tuple<int, base_record, int64_t>> *warnings) {
+void process_throttle_record(const throttle_record &throttle, int record_type,
+                             vector<Warning> *warnings) {
   if (adjust_period(record_type) == -1) {
     // should exit before this line anyway
     PARENT_SHUTDOWN_MSG(INTERNAL_ERROR, "failed to adjust period");
   }
-  warnings->emplace_back(make_tuple(
-      record_type, base_record{.throttle = throttle}, global->period));
+  Warning warning_message;
+  DEBUG("writing " << (record_type == PERF_RECORD_THROTTLE ? "throttle"
+                                                           : "unthrottle")
+                   << " warning");
+  auto *throttle_message = new Throttle;
+  warning_message.set_allocated_throttle(throttle_message);
+  throttle_message->set_type(record_type == PERF_RECORD_THROTTLE
+                                 ? Throttle_Type_THROTTLE
+                                 : Throttle_Type_UNTHROTTLE);
+  throttle_message->set_time(throttle.time);
+  throttle_message->set_period(global->period);
+  if (SAMPLE_ID_ALL) {
+    auto *sample_id_message = new SampleId;
+    write_sample_id(sample_id_message, throttle.sample_id);
+    warning_message.set_allocated_sample_id(sample_id_message);
+  }
+  throttle_message->set_id(throttle.id);
+  throttle_message->set_stream_id(throttle.stream_id);
+  warnings->emplace_back(warning_message);
 }
 
 bool process_sample_record(
@@ -523,22 +558,31 @@ bool process_sample_record(
   for (int i = 0; i < global->events_size; i++) {
     const char *event = global->events[i];
 
-    uint64_t result = 0;
-    DEBUG("reading from fd " << info.event_fds.at(event));
-    if ((count = read(info.event_fds.at(event), &result, sizeof(int64_t))) !=
-        sizeof(int64_t)) {
-      PARENT_SHUTDOWN_PERROR(
-          INTERNAL_ERROR,
-          "count bytes " << count << " != expected count " << sizeof(int64_t));
-    }
-    DEBUG("read in from fd " << info.event_fds.at(event) << " result "
-                             << result);
-    if (reset_monitoring(info.event_fds.at(event)) != SAMPLER_MONITOR_SUCCESS) {
-      PARENT_SHUTDOWN_MSG(INTERNAL_ERROR, "couldn't reset monitoring for "
-                                              << info.event_fds.at(event));
-    }
+    // uint64_t result = 0;
+    // DEBUG("reading from fd " << info.event_fds.at(event));
+    // if ((count = read(info.event_fds.at(event), &result, sizeof(int64_t))) !=
+    //     sizeof(int64_t)) {
+    //   PARENT_SHUTDOWN_PERROR(
+    //       INTERNAL_ERROR,
+    //       "count bytes " << count << " != expected count " <<
+    //       sizeof(int64_t));
+    // }
+    // DEBUG("read in from fd " << info.event_fds.at(event) << " result "
+    //                          << result);
+    // if (reset_monitoring(info.event_fds.at(event)) !=
+    // SAMPLER_MONITOR_SUCCESS) {
+    //   PARENT_SHUTDOWN_MSG(INTERNAL_ERROR, "couldn't reset monitoring for "
+    //                                           << info.event_fds.at(event));
+    // }
 
-    (*event_map)[event] = result;
+    (*event_map)[event] = sample.v.values[i].value;
+  }
+
+  // debug tid-fd
+  uint64_t results;
+  for (int i = 0; i < fds.size(); i++) {
+    read(fds[i], &results, sizeof(int64_t));
+    DEBUG("!!! fd: " << fds[i] << ", result: " << results);
   }
 
   // rapl
@@ -701,10 +745,19 @@ bool process_sample_record(
   return false;
 }
 
-void process_lost_record(const lost_record &lost,
-                         vector<tuple<int, base_record, int64_t>> *warnings) {
-  warnings->emplace_back(
-      make_tuple(PERF_RECORD_LOST, base_record{.lost = lost}, 0));
+void process_lost_record(const lost_record &lost, vector<Warning> *warnings) {
+  Warning warning_message;
+  DEBUG("writing lost warning");
+  auto *lost_message = new Lost;
+  warning_message.set_allocated_lost(lost_message);
+
+  lost_message->set_lost(lost.lost);
+  lost_message->set_id(lost.id);
+  if (SAMPLE_ID_ALL) {
+    auto *sample_id_message = new SampleId;
+    write_sample_id(sample_id_message, lost.sample_id);
+    warning_message.set_allocated_sample_id(sample_id_message);
+  }
 }
 
 /*
@@ -720,58 +773,6 @@ void write_sample_id(SampleId *sample_id_message,
   sample_id_message->set_time(sample_id.time);
   sample_id_message->set_stream_id(sample_id.stream_id);
   sample_id_message->set_id(sample_id.id);
-}
-
-void write_warnings() {
-  Warning warning_message;
-  for (auto &t : warnings) {
-    int record_type;
-    base_record record{};
-    int64_t extra;
-    tie(record_type, record, extra) = t;
-
-    if (record_type == PERF_RECORD_THROTTLE ||
-        record_type == PERF_RECORD_UNTHROTTLE) {
-      DEBUG("writing " << (record_type == PERF_RECORD_THROTTLE ? "throttle"
-                                                               : "unthrottle")
-                       << " warning");
-      auto *throttle_message = new Throttle;
-      warning_message.set_allocated_throttle(throttle_message);
-      throttle_message->set_type(record_type == PERF_RECORD_THROTTLE
-                                     ? Throttle_Type_THROTTLE
-                                     : Throttle_Type_UNTHROTTLE);
-      auto throttle = record.throttle;
-
-      throttle_message->set_time(throttle.time);
-      throttle_message->set_period(extra);
-      if (SAMPLE_ID_ALL) {
-        auto *sample_id_message = new SampleId;
-        write_sample_id(sample_id_message, throttle.sample_id);
-        warning_message.set_allocated_sample_id(sample_id_message);
-      }
-      throttle_message->set_id(throttle.id);
-      throttle_message->set_stream_id(throttle.stream_id);
-    } else if (record_type == PERF_RECORD_LOST) {
-      DEBUG("writing lost warning");
-      auto *lost_message = new Lost;
-      warning_message.set_allocated_lost(lost_message);
-      auto lost = record.lost;
-
-      lost_message->set_lost(lost.lost);
-      lost_message->set_id(lost.id);
-      if (SAMPLE_ID_ALL) {
-        auto *sample_id_message = new SampleId;
-        write_sample_id(sample_id_message, lost.sample_id);
-        warning_message.set_allocated_sample_id(sample_id_message);
-      }
-    } else {
-      DEBUG_CRITICAL("couldn't determine type of warning for " << record_type
-                                                               << "!");
-    }
-
-    serialize_delimited(warning_message);
-    warning_message.Clear();
-  }
 }
 
 void set_preset_events(Map<string, PresetEvents> *preset_map) {
@@ -944,10 +945,8 @@ int collect_perf_data(
                  i++) {
               DEBUG("getting next record");
               int record_type, record_size;
-              base_record *perf_result = reinterpret_cast<base_record *>(
-                              get_next_record(&info.sample_buf, &record_type,
-                                              &record_size)),
-                          local_result{};
+              void *perf_result = (get_next_record(&info.sample_buf,
+                                                   &record_type, &record_size));
 
               // record_size is not entirely accurate, since our version of the
               // structs generally have different contents
@@ -963,26 +962,34 @@ int collect_perf_data(
 
                 if (record_type == PERF_RECORD_THROTTLE ||
                     record_type == PERF_RECORD_UNTHROTTLE) {
-                  copy_record_to_stack(perf_result, &local_result, record_type,
-                                       record_size, data_start, data_end);
-                  process_throttle_record(local_result.throttle, record_type,
-                                          &warnings);
+                  throttle_record local_result{};
+                  copy_record_to_stack(perf_result, (void *)(&local_result),
+                                       record_type, record_size, data_start,
+                                       data_end);
+
+                  process_throttle_record(
+                      reinterpret_cast<throttle_record>(local_result),
+                      record_type, &warnings);
                 } else if (record_type == PERF_RECORD_SAMPLE) {
                   if (is_first_sample) {
-                    copy_record_to_stack(perf_result, &local_result,
+                    sample_record local_result{};
+                    copy_record_to_stack(perf_result, (void *)&local_result,
                                          record_type, record_size, data_start,
                                          data_end);
                     // is reset to true if the timeslice was skipped, else false
                     is_first_sample = process_sample_record(
-                        local_result.sample, info, rapl_reading,
-                        wattsup_reading, kernel_syms, ranges, sym_map);
+                        local_result, info, rapl_reading, wattsup_reading,
+                        kernel_syms, ranges, sym_map);
                   } else {
                     DEBUG("not first sample, skipping");
                   }
                 } else if (record_type == PERF_RECORD_LOST) {
-                  copy_record_to_stack(perf_result, &local_result, record_type,
-                                       record_size, data_start, data_end);
-                  process_lost_record(local_result.lost, &warnings);
+                  lost_record local_result{};
+                  copy_record_to_stack(perf_result, (void *)&local_result,
+                                       record_type, record_size, data_start,
+                                       data_end);
+                  process_lost_record(
+                      reinterpret_cast<lost_record>(local_result), &warnings);
                 } else {
                   DEBUG_CRITICAL("record type was not recognized ("
                                  << record_type_str(record_type) << " "
@@ -1009,7 +1016,9 @@ int collect_perf_data(
   stop_reading(wattsup_reading);
 
   DEBUG("writing warnings");
-  write_warnings();
+  for (auto &warning_message : warnings) {
+    serialize_delimited(warning_message);
+  }
 
   return 0;
 }

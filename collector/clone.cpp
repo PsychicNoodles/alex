@@ -77,7 +77,7 @@ void close_fds() {
 
 void *__imposter(void *arg) {
   pid_t tid = gettid();
-  DEBUG(tid << ": in imposter, pid " << getpid());
+  DEBUG("tid " << tid << ": in imposter, pid " << getpid());
   auto *d = static_cast<disguise_t *>(arg);
   routine_fn_t routine = d->victim;
   void *arguments = d->args;
