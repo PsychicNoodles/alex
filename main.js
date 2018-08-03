@@ -6,21 +6,19 @@ const fs = require("fs");
 const readline = require("readline");
 const tempFile = require("tempfile");
 const path = require("path");
-const ProgressBar = require("progress");
-const { promisify } = require("util");
-const progressStream = require("progress-stream");
-const protobufStream = require("./visualizer/js/protobuf-stream");
 const prettyMS = require("pretty-ms");
 
 process.on("unhandledRejection", err => {
   throw err;
 });
 
+const MIN_PERIOD = 1000000;
+
 yargs
   .command(
     "list",
     "List available presets.",
-    yargs => yargs.check(validatePositionalArgs({ max: 1 })),
+    yargs => yargs.check(validateExtraPositionalArgs({ max: 1 })),
     list
   )
   .command(
@@ -46,35 +44,54 @@ yargs
         .option("events", {
           alias: "e",
           description: "A list of events to count.",
-          type: "array"
+          type: "array",
+          default: []
         })
-        .describe("in", "The file to pipe into the stdin of <executable>.")
+        .option("in", {
+          alias: "i",
+          description: "The file to pipe into the stdin of <executable>.",
+          type: "string"
+        })
         .option("out", {
           description: "The file to pipe the stdout of <executable> into.",
-          default: path.join(__dirname, `/out-${new Date().toISOString()}.log`)
+          type: "string",
+          default: "out-$timestamp.log"
         })
         .option("err", {
           description: "The file to pipe the stderr of <executable> into.",
-          default: path.join(__dirname, `/err-${new Date().toISOString()}.log`)
+          type: "string",
+          default: "err-$timestamp.log"
         })
         .option("result", {
           description: "The file to pipe the performance results into.",
-          default: path.join(
-            __dirname,
-            `/result-${new Date().toISOString()}.bin`
-          )
+          type: "string",
+          default: "result-$timestamp.bin"
         })
         .option("visualize", {
           description: "Where to visualize the results.",
           choices: ["window", "no", "ask"],
           default: "ask"
         })
+        .option("show-timer", {
+          description: "Show a timer indicating the time spent collecting.",
+          type: "boolean",
+          default: true
+        })
         .option("period", {
-          description: "The period in CPU cycles",
+          description: `The period in CPU cycles.  Must be at least ${MIN_PERIOD}`,
           type: "number",
           default: 10000000
         })
-        .option("wattsupDevice", {
+        .check(argv => {
+          if (argv.period < MIN_PERIOD) {
+            throw new Error(
+              `Invalid period: ${argv.period}.  Must be at least ${MIN_PERIOD}.`
+            );
+          } else {
+            return true;
+          }
+        })
+        .option("wattsup-device", {
           description:
             'Use "dmesg" after plugging in the device to see what the USB serial port is detected at.',
           default: "ttyUSB0"
@@ -83,13 +100,26 @@ yargs
           "$0 collect --in my-input-file.in -p cache -- ./my-program --arg1 arg2"
         ),
     argv => {
+      const timestampString = new Date()
+        .toISOString()
+        .replace(/:/g, "-")
+        .replace(/\.\d{3}/, "");
+      const normalizeFileName = fileName =>
+        fileName
+          ? path.resolve(
+              process.cwd(),
+              fileName.replace("$timestamp", timestampString)
+            )
+          : undefined;
+
       collect({
         ...argv,
-        inFile: argv.in,
-        outFile: argv.out,
-        errFile: argv.err,
-        resultOption: argv.result,
-        events: argv.events || [],
+        inFile: argv.in ? path.resolve(process.cwd(), argv.in) : undefined,
+        outFile: normalizeFileName(argv.out),
+        errFile: normalizeFileName(argv.err),
+        resultOption: normalizeFileName(argv.result),
+        presets: argv.presets.filter(p => !!p),
+        events: argv.events.filter(e => !!e),
         visualizeOption: argv.visualize,
         // Manually parse this out, since positional args can't handle "--xxx" args
         executableArgs: process.argv.includes("--")
@@ -109,11 +139,12 @@ yargs
         })
         .option("heap-size", {
           description:
-            "The size of the JS heap in MB (increase if visualization freezes while loading large data)",
+            "The maximum size of the JS heap in MB.  Increase if " +
+            "visualization freezes while loading large data.",
           type: "number",
           default: 4096
         })
-        .check(validatePositionalArgs({ max: 1 })),
+        .check(validateExtraPositionalArgs({ max: 1 })),
     argv => {
       visualize(argv.file, argv.heapSize);
     }
@@ -125,18 +156,16 @@ yargs
   )
   .demandCommand(1, "Must specify a command.")
   .check((argv, aliases) => {
-    const validKeys = [
+    const validKeys = new Set([
       "$0",
       "_",
       ...Object.keys(aliases),
       ...Object.keys(aliases)
         .map(key => aliases[key])
         .reduce((a, b) => [...a, ...b])
-    ];
+    ]);
 
-    const invalidKeys = Object.keys(argv).filter(
-      key => !validKeys.includes(key)
-    );
+    const invalidKeys = Object.keys(argv).filter(key => !validKeys.has(key));
     if (invalidKeys.length > 0) {
       const firstInvalidArg =
         (invalidKeys[0].length === 1 ? "-" : "--") + invalidKeys[0];
@@ -148,7 +177,7 @@ yargs
   .help()
   .parse();
 
-function validatePositionalArgs({ max }) {
+function validateExtraPositionalArgs({ max }) {
   return argv => {
     if (argv._.length > max) {
       throw new Error(`Unknown argument: ${argv._[1]}`);
@@ -208,20 +237,6 @@ async function list() {
   );
 }
 
-async function copyResult(resolve, reject, rawResultFile, progressBar) {
-  const { size: resultFileSize } = await promisify(fs.stat)(rawResultFile);
-  fs.createReadStream(rawResultFile)
-    .pipe(
-      progressStream({ length: resultFileSize, time: 100 }, ({ delta }) => {
-        if (progressBar) progressBar.tick(delta);
-      })
-    )
-    .pipe(protobufStream.parser())
-    .on("end", resolve)
-    .on("error", reject)
-    .resume();
-}
-
 async function collect({
   presets,
   events,
@@ -233,15 +248,9 @@ async function collect({
   outFile,
   errFile,
   visualizeOption,
+  showTimer,
   wattsupDevice
 }) {
-  const MIN_PERIOD = 100000;
-  if (period < MIN_PERIOD) {
-    console.error(`Period must be greater than ${MIN_PERIOD}.`);
-    process.exit(1);
-  }
-
-  const rawResultFile = tempFile(".bin");
   const resultFile = resultOption || tempFile(".bin");
 
   const allPresetInfo = await getAllPresetInfo();
@@ -271,22 +280,28 @@ async function collect({
   process.on("SIGUSR2", () => {
     console.info("Collecting performance data...");
 
-    const MS_PER_SEC = 1000;
-    startTime = Date.now();
-    progressInterval = setInterval(() => {
-      // Clear previous progress message
-      readline.cursorTo(process.stdout, 0);
+    if (showTimer) {
+      const MS_PER_SEC = 1000;
+      startTime = Date.now();
+      progressInterval = setInterval(() => {
+        // Clear previous progress message
+        readline.clearLine(process.stdout, 0);
+        readline.cursorTo(process.stdout, 0);
 
-      process.stdout.write(
-        `It's been ${prettyMS(Date.now() - startTime, {
+        const time = prettyMS(Math.max(Date.now() - startTime, 0), {
           verbose: true,
           secDecimalDigits: 0
-        })}. Still going...`
-      );
-    }, 1 * MS_PER_SEC);
+        });
+        process.stdout.write(`It's been ${time}. Still going...`);
+      }, 1 * MS_PER_SEC);
+    }
   });
 
-  console.info("$ " + [executable, ...executableArgs].join(" "));
+  console.info(
+    "$ " +
+      [executable, ...executableArgs].join(" ") +
+      (inFile ? ` < ${inFile}` : "")
+  );
   console.info("Waiting for collection to start...");
 
   const collector = spawn(executable, executableArgs, {
@@ -295,18 +310,11 @@ async function collect({
       COLLECTOR_PERIOD: period,
       COLLECTOR_PRESETS: [...presetsSet].join(","),
       COLLECTOR_EVENTS: events.join(","),
-      COLLECTOR_RESULT_FILE: rawResultFile,
+      COLLECTOR_RESULT_FILE: resultFile,
       COLLECTOR_WATTSUP_DEVICE: wattsupDevice,
       COLLECTOR_NOTIFY_START: "yes",
       LD_PRELOAD: path.join(__dirname, "./collector/build/collector.so")
     }
-  });
-
-  process.on("SIGINT", async () => {
-    await new Promise((resolve, reject) =>
-      copyResult(resolve, reject, rawResultFile)
-    );
-    process.exit();
   });
 
   collector.on("error", err => {
@@ -350,12 +358,10 @@ async function collect({
     clearInterval(progressInterval);
 
     // Clear out progress message
+    readline.clearLine(process.stdout, 0);
     readline.cursorTo(process.stdout, 0);
-    console.info(
-      `Finished after collecting for ${prettyMS(Date.now() - startTime, {
-        verbose: true
-      })}.`
-    );
+    const timeSpent = prettyMS(Date.now() - startTime, { verbose: true });
+    console.info(`Finished after collecting for ${timeSpent}.`);
 
     const errorCodes = {
       1: "Internal error.",
@@ -371,66 +377,30 @@ async function collect({
       console.error(errorCodes[code]);
       console.error(`Check ${errFile || "error logs"} for details`);
     } else {
-      let resultsProcessed = false;
-      try {
-        const { size: resultFileSize } = await promisify(fs.stat)(
-          rawResultFile
-        );
-
-        if (!resultFileSize) {
-          throw new Error("Result file empty");
-        }
-
-        const progressBar = new ProgressBar(
-          "Processing Results [:bar] :percent",
-          {
-            complete: "#",
-            width: 20,
-            total: resultFileSize
-          }
-        );
-
-        await new Promise((resolve, reject) =>
-          copyResult(resolve, reject, rawResultFile, progressBar)
-        );
-        fs.copyFileSync(rawResultFile, resultFile);
-        resultsProcessed = true;
-      } catch (err) {
-        console.error(`Couldn't process result file: ${err.message}`);
-        fs.copyFileSync(rawResultFile, resultFile);
-      }
-
       if (resultOption) {
         console.info(`Results saved to ${resultFile}`);
       }
 
-      if (resultsProcessed) {
-        if (visualizeOption === "window") {
-          visualize(resultFile);
-        } else if (visualizeOption === "ask") {
-          const readline_interface = readline.createInterface(
-            process.stdin,
-            process.stdout
-          );
-          // list();
-          // console.log("log")
-          // console.error("error")
+      if (visualizeOption === "window") {
+        visualize(resultFile);
+      } else if (visualizeOption === "ask") {
+        const readlineInterface = readline.createInterface(
+          process.stdin,
+          process.stdout
+        );
 
-          readline_interface.question(
-            "Would you like to see a visualization of the results ([yes]/no)? ",
-            answer => {
-              if (answer !== "no") {
-                visualize(resultFile);
-              }
-
-              readline_interface.close();
+        readlineInterface.question(
+          "Would you like to see a visualization of the results ([yes]/no)? ",
+          answer => {
+            if (answer !== "no") {
+              visualize(resultFile);
             }
-          );
-        } else if (visualizeOption === "no") {
-          process.exit(0);
-        }
-      } else {
-        process.exit(1);
+
+            readlineInterface.close();
+          }
+        );
+      } else if (visualizeOption === "no") {
+        process.exit(0);
       }
     }
   });

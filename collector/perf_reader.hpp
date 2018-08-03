@@ -55,7 +55,7 @@ int collect_perf_data(
     bg_reading* rapl_reading, bg_reading* wattsup_reading,
     const std::map<interval, std::pair<string, string>, cmpByInterval>& sym_map,
     const std::map<interval, std::shared_ptr<line>, cmpByInterval>& ranges);
-void write_warnings();
+void serialize_footer();
 
 }  // namespace alex
 

@@ -24,17 +24,6 @@ pid_t gettid();
 bool preset_enabled(const char* name);
 string getenv_safe(const char* var, const char* fallback = "");
 
-#define SHUTDOWN_MSG(pid, result_file, code, msg) \
-  do {                                            \
-    std::ostringstream s;                         \
-    s << msg;                                     \
-    shutdown(pid, &result_file, code, s.str());   \
-  } while (0)
-#define SHUTDOWN_ERRMSG(pid, result_file, code, title, desc) \
-  SHUTDOWN_MSG(pid, result_file, code, title << ": " << desc)
-#define SHUTDOWN_PERROR(pid, result_file, code, title) \
-  SHUTDOWN_ERRMSG(pid, result_file, code, title, strerror(errno))
-
 }  // namespace alex
 
 #endif

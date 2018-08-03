@@ -60,6 +60,7 @@ function fromStreamable(streamable) {
   } else {
     const stream = onData => {
       let isDone = false;
+      let idleCallback = null;
 
       const offData = streamable(data => {
         if (!isDone) {
@@ -68,7 +69,7 @@ function fromStreamable(streamable) {
 
         if (data === done) {
           isDone = true;
-          requestIdleCallback(() => {
+          idleCallback = requestIdleCallback(() => {
             offData();
           });
         }
@@ -80,6 +81,7 @@ function fromStreamable(streamable) {
           onData(done);
           isDone = true;
         }
+        cancelIdleCallback(idleCallback);
       };
     };
 
@@ -134,29 +136,66 @@ function fromDOMEvent(element, eventType, options = undefined) {
 function fromStreamables(streamables) {
   const unset = Symbol("unset");
 
+  if (streamables.length > 0) {
+    return fromStreamable(onData => {
+      let numDone = 0;
+      const lastValues = streamables.map(() => unset);
+      const offDataFunctions = streamables.map((streamable, i) =>
+        fromStreamable(streamable)(data => {
+          if (data === done) {
+            numDone++;
+
+            if (numDone === streamables.length) {
+              onData(done);
+            }
+          } else {
+            lastValues[i] = data;
+
+            if (lastValues.every(value => value !== unset)) {
+              onData([...lastValues]);
+            }
+          }
+        })
+      );
+
+      return () => {
+        for (const offData of offDataFunctions) {
+          offData();
+        }
+      };
+    });
+  } else {
+    return empty;
+  }
+}
+
+/**
+ * @param {Promise} promise
+ */
+function fromPromise(promise, cancel = () => {}) {
   return fromStreamable(onData => {
-    const lastValues = streamables.map(() => unset);
-    const offDataFunctions = streamables.map((streamable, i) =>
-      streamable(data => {
-        if (data !== done) {
-          lastValues[i] = data;
-        }
-
-        if (lastValues.every(value => value !== unset)) {
-          onData([...lastValues]);
-        }
-
-        if (lastValues.every(value => value === done)) {
-          onData(done);
-        }
-      })
+    promise.then(
+      data => {
+        onData(data);
+        onData(done);
+      },
+      err => {
+        throw err;
+      }
     );
 
-    return () => {
-      for (const offData of offDataFunctions) {
-        offData();
-      }
-    };
+    return cancel;
+  });
+}
+
+/**
+ * @param {any} value
+ */
+function fromValue(value) {
+  return fromStreamable(onData => {
+    onData(value);
+    onData(done);
+    return () => {};
   });
 }
 
@@ -226,7 +265,7 @@ function filter(shouldKeep) {
  * Don't emit a value if another value is emitted before the timer stream ends.
  * @param {function(any): Streamable} durationSelector
  *    Will be called with each value and should return a stream that will be
- *    subscribed to whenever a value is received.
+ *    subscribed to whenever a value is received to await completion.
  * @returns {StreamTransform}
  */
 function debounce(durationSelector) {
@@ -263,6 +302,84 @@ function debounce(durationSelector) {
  */
 function debounceTime(duration) {
   return debounce(() => fromTimeout(duration));
+}
+
+/**
+ * Like debounce, but emits the results of the timer stream instead.
+ * @param {function(any): Streamable} project
+ *    Will be called with each value and should return a stream that will be
+ *    subscribed to whenever a value is received.
+ * @returns {StreamTransform}
+ */
+function debounceMap(project) {
+  return streamable =>
+    fromStreamable(onData => {
+      let cancel = () => {};
+      const offData = streamable(data => {
+        cancel();
+        cancel = fromStreamable(project(data))(timerData => {
+          if (timerData !== done) {
+            onData(timerData);
+          }
+        });
+      });
+
+      return () => {
+        cancel();
+        offData();
+      };
+    });
+}
+
+/**
+ * Like map, but subscribes to the result of `project` instead of emitting it.
+ * @param {function(any): Streamable} project
+ *    Will be called with each value and should return a stream that will be
+ *    subscribed to whenever a value is received.
+ * @returns {StreamTransform}
+ */
+function mergeMap(project) {
+  return streamable =>
+    fromStreamable(onData => {
+      let isDone = false;
+      const innerOffDataFunctions = new Set();
+      const offData = streamable(data => {
+        if (data === done) {
+          isDone = true;
+          if (innerOffDataFunctions.size === 0) {
+            onData(done);
+          }
+        } else {
+          let endedSynchronously = false;
+          let innerOffData = null;
+          innerOffData = fromStreamable(project(data))(innerData => {
+            if (innerData === done) {
+              if (innerOffData) {
+                innerOffDataFunctions.delete(innerOffData);
+              } else {
+                endedSynchronously = true;
+              }
+              if (isDone && innerOffDataFunctions.size === 0) {
+                onData(done);
+              }
+            } else {
+              onData(innerData);
+            }
+          });
+
+          if (!endedSynchronously) {
+            innerOffDataFunctions.add(innerOffData);
+          }
+        }
+      });
+
+      return () => {
+        for (const innerOffData of innerOffDataFunctions) {
+          innerOffData();
+        }
+        offData();
+      };
+    });
 }
 
 /**
@@ -357,12 +474,16 @@ module.exports = {
   fromStreamables,
   fromTimeout,
   fromDOMEvent,
+  fromPromise,
+  fromValue,
   empty,
   never,
   map,
   filter,
   debounce,
   debounceTime,
+  debounceMap,
+  mergeMap,
   take,
   tap,
   subscribe,
