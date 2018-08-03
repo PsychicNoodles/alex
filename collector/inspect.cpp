@@ -377,7 +377,6 @@ void memory_map::build(const unordered_set<string>& source_scope,
     }
 
     if (d.has(::dwarf::DW_AT::specification)) {
-      DEBUG("GET HERE FOR CALCULATE SUM");
       const ::dwarf::die child =
           d.resolve(::dwarf::DW_AT::specification).as_reference();
       ::dwarf::value v = find_attribute(child, attr);
@@ -556,7 +555,6 @@ void dump_tree(const ::dwarf::die& d,
 
         if (name_val.valid()) {
           name = name_val.as_string();
-          DEBUG("GET A NAME AND NAME IS " << name);
         }
       }
 
