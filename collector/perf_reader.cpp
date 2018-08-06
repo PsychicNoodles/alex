@@ -80,14 +80,6 @@ struct record_sample_id {
   uint64_t id;  // actually the id for the group leader
 };
 
-struct read_format {
-  uint64_t nr; /* The number of events */
-  struct {
-    uint64_t value; /* The value of the event */
-                    //  uint64_t id;        /* if PERF_FORMAT_ID */
-  } values[];
-};
-
 // contents of PERF_RECORD_SAMPLE buffer plus certain sample types
 struct sample_record {
 #if SAMPLE_ID_ALL
@@ -102,11 +94,7 @@ struct sample_record {
   uint64_t stream_id;
 #endif
   // PERF_SAMPLE_GROUP
-  read_format v;
-};
-
-// the second part of the PERF_RECORD_SAMPLE buffer
-struct sample_record_callchain {
+  // read_format v;
   // PERF_SAMPLE_CALLCHAIN
   uint64_t num_instruction_pointers;
   uint64_t instruction_pointers[(SAMPLE_MAX_STACK + 2)];
@@ -134,12 +122,6 @@ struct lost_record {
 #endif
 };
 
-union base_record {
-  sample_record sample;
-  throttle_record throttle;
-  lost_record lost;
-};
-
 // output file for data collection results
 ofstream *result_file;
 
@@ -158,7 +140,7 @@ size_t sample_fd_count = 0;
 int get_record_size(int record_type) {
   switch (record_type) {
     case PERF_RECORD_SAMPLE:
-      return (sizeof(sample_record) + sizeof(sample_record_callchain));
+      return sizeof(sample_record);  // + sizeof(sample_record_callchain));
     case PERF_RECORD_THROTTLE:
     case PERF_RECORD_UNTHROTTLE:
       return sizeof(throttle_record);
@@ -192,6 +174,12 @@ bool serialize_delimited(const Message &msg) {
   }
 
   return true;
+}
+
+void write_warnings() {
+  for (auto &warning_message : warnings) {
+    serialize_delimited(warning_message);
+  }
 }
 
 /*
@@ -244,7 +232,7 @@ void setup_perf_events(pid_t target, perf_fd_info *info) {
   cpu_clock_attr.sample_period = global->period;
   cpu_clock_attr.wakeup_events = 1;
   cpu_clock_attr.sample_id_all = SAMPLE_ID_ALL;
-  cpu_clock_attr.read_format = PERF_FORMAT_GROUP;
+  // cpu_clock_attr.read_format = PERF_FORMAT_GROUP;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
   cpu_clock_attr.(SAMPLE_MAX_STACK + 2) = (SAMPLE_MAX_STACK + 2);
 #endif
@@ -466,30 +454,24 @@ void copy_record_to_stack(void *record, void *local, int record_type,
                    << ptr_fmt(local_ptr + first_part_bytes));
   memcpy(reinterpret_cast<void *>(local_ptr + first_part_bytes),
          reinterpret_cast<void *>(second_part_start),
-         record_size - first_part_bytes);
-  // special cases
-  if (record_type == PERF_RECORD_SAMPLE) {
-    uint64_t inst_ptrs_src = second_part_start - first_part_bytes +
-                             record_size -
-                             (sizeof(uint64_t) * (SAMPLE_MAX_STACK + 2)),
-             inst_ptrs_dst = local_ptr + record_size -
-                             (sizeof(uint64_t) * (SAMPLE_MAX_STACK + 2));
-    DEBUG("copying " << local->sample.num_instruction_pointers
-                     << " inst ptrs from " << ptr_fmt(inst_ptrs_src) << " to "
-                     << ptr_fmt(inst_ptrs_dst));
-    if (local->sample.num_instruction_pointers > (SAMPLE_MAX_STACK + 2)) {
-      PARENT_SHUTDOWN_MSG(INTERNAL_ERROR,
-                          "number of inst ptrs "
-                              << local->sample.num_instruction_pointers
-                              << " exceeds the max stack size "
-                              << (SAMPLE_MAX_STACK + 2)
-                              << ", something went "
-                                 "wrong copying! (period might be too low)");
-    }
-    memcpy(reinterpret_cast<void *>(inst_ptrs_dst),
-           reinterpret_cast<void *>(inst_ptrs_src),
-           sizeof(uint64_t) * local->sample.num_instruction_pointers);
-  }
+         record_size - first_part_bytes);  // the size is accurate and for
+                                           // future improvement, just copy the
+                                           // valid inst ptrs. special cases
+}
+
+/*
+ * Writes the information from the sample_id struct to the result file.
+ * Warning entries may end up having duplicate key-values, particularly time and
+ * stream_id, since the sample_id struct simply tries to provide the same
+ * information across all supported record types.
+ */
+void write_sample_id(SampleId *sample_id_message,
+                     const record_sample_id &sample_id) {
+  sample_id_message->set_pid(sample_id.pid);
+  sample_id_message->set_tid(sample_id.tid);
+  sample_id_message->set_time(sample_id.time);
+  sample_id_message->set_stream_id(sample_id.stream_id);
+  sample_id_message->set_id(sample_id.id);
 }
 
 void process_throttle_record(const throttle_record &throttle, int record_type,
@@ -520,9 +502,9 @@ void process_throttle_record(const throttle_record &throttle, int record_type,
 }
 
 bool process_sample_record(
-    const sample_record &sample, const perf_fd_info &info,
-    bg_reading *rapl_reading, bg_reading *wattsup_reading,
-    const map<uint64_t, kernel_sym> &kernel_syms,
+    const sample_record &sample,  // const sample_record_callchain &callchain,
+    const perf_fd_info &info, bg_reading *rapl_reading,
+    bg_reading *wattsup_reading, const map<uint64_t, kernel_sym> &kernel_syms,
     const map<interval, std::shared_ptr<line>, cmpByInterval> &ranges,
     const map<interval, std::pair<string, string>, cmpByInterval> &sym_map) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
@@ -558,31 +540,22 @@ bool process_sample_record(
   for (int i = 0; i < global->events_size; i++) {
     const char *event = global->events[i];
 
-    // uint64_t result = 0;
-    // DEBUG("reading from fd " << info.event_fds.at(event));
-    // if ((count = read(info.event_fds.at(event), &result, sizeof(int64_t))) !=
-    //     sizeof(int64_t)) {
-    //   PARENT_SHUTDOWN_PERROR(
-    //       INTERNAL_ERROR,
-    //       "count bytes " << count << " != expected count " <<
-    //       sizeof(int64_t));
-    // }
-    // DEBUG("read in from fd " << info.event_fds.at(event) << " result "
-    //                          << result);
-    // if (reset_monitoring(info.event_fds.at(event)) !=
-    // SAMPLER_MONITOR_SUCCESS) {
-    //   PARENT_SHUTDOWN_MSG(INTERNAL_ERROR, "couldn't reset monitoring for "
-    //                                           << info.event_fds.at(event));
-    // }
+    uint64_t result = 0;
+    DEBUG("reading from fd " << info.event_fds.at(event));
+    if ((count = read(info.event_fds.at(event), &result, sizeof(int64_t))) !=
+        sizeof(int64_t)) {
+      PARENT_SHUTDOWN_PERROR(
+          INTERNAL_ERROR,
+          "count bytes " << count << " != expected count " << sizeof(int64_t));
+    }
+    DEBUG("read in from fd " << info.event_fds.at(event) << " result "
+                             << result);
+    if (reset_monitoring(info.event_fds.at(event)) != SAMPLER_MONITOR_SUCCESS) {
+      PARENT_SHUTDOWN_MSG(INTERNAL_ERROR, "couldn't reset monitoring for "
+                                              << info.event_fds.at(event));
+    }
 
-    (*event_map)[event] = sample.v.values[i].value;
-  }
-
-  // debug tid-fd
-  uint64_t results;
-  for (int i = 0; i < fds.size(); i++) {
-    read(fds[i], &results, sizeof(int64_t));
-    DEBUG("!!! fd: " << fds[i] << ", result: " << results);
+    (*event_map)[event] = result;
   }
 
   // rapl
@@ -758,21 +731,6 @@ void process_lost_record(const lost_record &lost, vector<Warning> *warnings) {
     write_sample_id(sample_id_message, lost.sample_id);
     warning_message.set_allocated_sample_id(sample_id_message);
   }
-}
-
-/*
- * Writes the information from the sample_id struct to the result file.
- * Warning entries may end up having duplicate key-values, particularly time and
- * stream_id, since the sample_id struct simply tries to provide the same
- * information across all supported record types.
- */
-void write_sample_id(SampleId *sample_id_message,
-                     const record_sample_id &sample_id) {
-  sample_id_message->set_pid(sample_id.pid);
-  sample_id_message->set_tid(sample_id.tid);
-  sample_id_message->set_time(sample_id.time);
-  sample_id_message->set_stream_id(sample_id.stream_id);
-  sample_id_message->set_id(sample_id.id);
 }
 
 void set_preset_events(Map<string, PresetEvents> *preset_map) {
@@ -967,18 +925,17 @@ int collect_perf_data(
                                        record_type, record_size, data_start,
                                        data_end);
 
-                  process_throttle_record(
-                      reinterpret_cast<throttle_record>(local_result),
-                      record_type, &warnings);
+                  process_throttle_record(local_result, record_type, &warnings);
                 } else if (record_type == PERF_RECORD_SAMPLE) {
                   if (is_first_sample) {
-                    sample_record local_result{};
-                    copy_record_to_stack(perf_result, (void *)&local_result,
+                    sample_record local_sample{};
+                    copy_record_to_stack(perf_result, (void *)&local_sample,
                                          record_type, record_size, data_start,
                                          data_end);
+
                     // is reset to true if the timeslice was skipped, else false
                     is_first_sample = process_sample_record(
-                        local_result, info, rapl_reading, wattsup_reading,
+                        local_sample, info, rapl_reading, wattsup_reading,
                         kernel_syms, ranges, sym_map);
                   } else {
                     DEBUG("not first sample, skipping");
@@ -988,8 +945,7 @@ int collect_perf_data(
                   copy_record_to_stack(perf_result, (void *)&local_result,
                                        record_type, record_size, data_start,
                                        data_end);
-                  process_lost_record(
-                      reinterpret_cast<lost_record>(local_result), &warnings);
+                  process_lost_record(local_result, &warnings);
                 } else {
                   DEBUG_CRITICAL("record type was not recognized ("
                                  << record_type_str(record_type) << " "
@@ -1016,9 +972,6 @@ int collect_perf_data(
   stop_reading(wattsup_reading);
 
   DEBUG("writing warnings");
-  for (auto &warning_message : warnings) {
-    serialize_delimited(warning_message);
-  }
 
   return 0;
 }

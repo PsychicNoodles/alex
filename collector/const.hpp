@@ -40,8 +40,7 @@ StackFrame_Section callchain_enum(perf_callchain_context callchain);
   127  // default value found in /proc/sys/kernel/perf_event_max_stacks
 #endif
 enum : uint32_t {
-  SAMPLE_TYPE = (PERF_SAMPLE_TIME | PERF_SAMPLE_CALLCHAIN | PERF_SAMPLE_TID |
-                 PERF_SAMPLE_READ),
+  SAMPLE_TYPE = (PERF_SAMPLE_TIME | PERF_SAMPLE_CALLCHAIN | PERF_SAMPLE_TID),
   SAMPLE_ID_ALL_TYPE = (PERF_SAMPLE_IDENTIFIER | PERF_SAMPLE_STREAM_ID),
   SAMPLE_TYPE_COMBINED = (SAMPLE_TYPE | SAMPLE_ID_ALL_TYPE)
 };
