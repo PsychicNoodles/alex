@@ -1,4 +1,5 @@
 const stream = require("./stream");
+const jsRegression = require("js-regression");
 
 /**
  * Run analyses of data.
@@ -14,7 +15,7 @@ const stream = require("./stream");
  *    Get a unique name for a function. All timeslices that resolve to the same
  *    function name will be grouped together.
  * @param {number} params.confidenceThreshold
- *    A probability from 0 to 1. Any value above this will be considered
+ *    A fisherProbability from 0 to 1. Any value above this will be considered
  *    significant enough to be highlighted in analysis.
  * @returns {stream.Stream} Results of the analysis.
  */
@@ -55,7 +56,8 @@ function analyze({
                 observed: 0,
                 unselectedCount: 0,
                 expected: 0,
-                probability: 0,
+                fisherProbability: 0,
+                logisticRegressionProbability: 0,
                 conclusion: ""
               });
             }
@@ -100,6 +102,34 @@ function analyze({
     .pipe(
       stream.mergeMap(({ selectedTotal, unselectedTotal, functions }) => {
         if (selectedTotal !== 0 && unselectedTotal !== 0) {
+          const logisticRegression = new jsRegression.LogisticRegression({
+            alpha: 0.005,
+            iterations: 1000,
+            lambda: 0.0
+          });
+          const trainingData = [];
+          /* Currently the best move is to loop through all timeslices a second
+          time; this is because the implementation of js-regression requires
+          that we know ahead of time all the independent variables (in this
+          case, each function). There's not much of a way out of this unless we
+          reimplement logistic regression very smartly to allow a non-array
+          input to it. */
+          timeSlices.forEach(timeSlice => {
+            const functionName = getFunctionName(timeSlice);
+            const row = [];
+            /* Set independent variables */
+            functionsMap.forEach(func => {
+              row.push(func.name === functionName ? 1.0 : 0.0);
+            });
+            /* Set dependent variable */
+            row.push(isBrushSelected(timeSlice) ? 1.0 : 0.0);
+            trainingData.push(row);
+          });
+          //console.log(trainingData);
+          const model = logisticRegression.fit(trainingData);
+          console.log(model);
+          console.log(functionsMap);
+
           return stream
             .fromStreamables(
               functions.map(func =>
@@ -112,7 +142,7 @@ function analyze({
                   const otherObserved = selectedTotal - func.observed;
                   const otherUnselectedCount =
                     unselectedTotal - func.unselectedCount;
-                  const probability =
+                  const fisherProbability =
                     1 -
                     fastExactTest(
                       func.observed,
@@ -122,10 +152,10 @@ function analyze({
                     );
 
                   const conclusion =
-                    probability >= confidenceThreshold &&
+                    fisherProbability >= confidenceThreshold &&
                     func.observed >= expected
                       ? "Unusually prevalent"
-                      : probability >= confidenceThreshold &&
+                      : fisherProbability >= confidenceThreshold &&
                         func.observed < expected
                         ? "Unusually absent"
                         : "Insignificant";
@@ -133,7 +163,7 @@ function analyze({
                   return {
                     ...func,
                     expected,
-                    probability,
+                    fisherProbability,
                     conclusion
                   };
                 })
@@ -161,7 +191,7 @@ function analyze({
       stream.map(functions =>
         [...functions].sort(
           (a, b) =>
-            b.probability - a.probability ||
+            b.fisherProbability - a.fisherProbability ||
             b.observed - a.observed ||
             b.time - a.time
         )

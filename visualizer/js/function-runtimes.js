@@ -35,7 +35,7 @@ function render(root, { functions, functionsAreSelectable, onFunctionSelect }) {
       name,
       displayNames,
       conclusion,
-      probability,
+      fisherProbability,
       expected,
       observed,
       time
@@ -46,7 +46,7 @@ function render(root, { functions, functionsAreSelectable, onFunctionSelect }) {
         .data([
           null,
           conclusion,
-          d3.format(".1%")(probability),
+          d3.format(".1%")(fisherProbability),
           expected.toFixed(0),
           observed,
           d3.format(".4s")(time)
