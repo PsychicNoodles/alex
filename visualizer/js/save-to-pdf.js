@@ -1,11 +1,18 @@
+const d3 = require("d3");
 const { remote } = require("electron");
 const { promisify } = require("util");
 const fs = require("fs");
 
 const stream = require("./stream");
 
-function createStateStream(eventStream) {
-  return eventStream
+const listenerSubscription = d3.local();
+
+/**
+ * @param {d3.Selection} root
+ */
+function render(root) {
+  stream
+    .fromDOMEvent(root.node(), "click")
     .pipe(
       stream.debounceMap(() => {
         const browserWindow = remote.getCurrentWindow();
@@ -59,22 +66,21 @@ function createStateStream(eventStream) {
           );
       })
     )
-    .pipe(stream.startWith({ isSaving: false, message: null }));
+    .pipe(stream.startWith({ isSaving: false, message: null }))
+    .pipe(
+      stream.subscribeUnique(
+        root,
+        listenerSubscription,
+        ({ isSaving, message }) => {
+          root
+            .classed("save-to-pdf", true)
+            .property("disabled", isSaving)
+            .classed("save-to-pdf--saving", isSaving)
+            .classed("save-to-pdf--ok", message ? message.ok : true)
+            .attr("data-message", message ? message.text : null);
+        }
+      )
+    );
 }
 
-/**
- * @param {d3.Selection} root
- * @param {Object} props
- * @param {boolean} props.isSaving
- * @param {{ok: boolean, message: string}} props.message
- */
-function render(root, { isSaving, message }) {
-  root
-    .classed("save-to-pdf", true)
-    .property("disabled", isSaving)
-    .classed("save-to-pdf--saving", isSaving)
-    .classed("save-to-pdf--ok", message ? message.ok : true)
-    .attr("data-message", message ? message.text : null);
-}
-
-module.exports = { createStateStream, render };
+module.exports = { render };

@@ -50,12 +50,7 @@ const progressBarHiddenPromise = new Promise(resolve =>
   })
 );
 
-const saveToPDFButton = document.querySelector("#save-to-pdf");
-saveToPDF.createStateStream(stream.fromDOMEvent(saveToPDFButton, "click")).pipe(
-  stream.subscribe(state => {
-    d3.select(saveToPDFButton).call(saveToPDF.render, state);
-  })
-);
+d3.select("#save-to-pdf").call(saveToPDF.render);
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", async (event, resultFile) => {
