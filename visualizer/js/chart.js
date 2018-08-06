@@ -10,6 +10,10 @@ const stream = require("./stream");
 const WIDTH = 500;
 const HEIGHT = 250;
 
+/**
+ * @param {d3.Selection} root
+ * @param {Object} props
+ */
 function render(
   root,
   {
@@ -116,6 +120,44 @@ function render(
   //brushes
   if (root.select("g.brushes").empty()) {
     svg.append("g").call(brushes.render);
+  }
+
+  if (root.select(".save-to-svg").empty()) {
+    root
+      .append("button")
+      .classed("save-to-svg", true)
+      .text("Save to SVG")
+      .on("click", () => {
+        /** @type {SVGElement} */
+        const LEFT_MARGIN = 100;
+        const RIGHT_MARGIN = 100;
+        const TOP_MARGIN = 20;
+        const BOTTOM_MARGIN = 100;
+
+        const viewX = -LEFT_MARGIN;
+        const viewY = -TOP_MARGIN;
+        const viewW = WIDTH + LEFT_MARGIN + RIGHT_MARGIN;
+        const viewH = HEIGHT + TOP_MARGIN + BOTTOM_MARGIN;
+
+        const svgNode = root
+          .select(".chart__svg")
+          .node()
+          .cloneNode(true);
+
+        svgNode.setAttribute("viewBox", `${viewX} ${viewY} ${viewW} ${viewH}`);
+
+        // White Background
+        const rect = document.createElement("rect");
+        rect.setAttribute("x", viewX);
+        rect.setAttribute("y", viewY);
+        rect.setAttribute("width", viewW);
+        rect.setAttribute("height", viewH);
+        rect.setAttribute("fill", "#FFFFFF");
+        svgNode.insertBefore(rect, svgNode.firstChild);
+
+        console.log(svgNode);
+        require("fs").writeFileSync("chart.svg", svgNode.outerHTML);
+      });
   }
 
   const plotDataStream = currentYScaleStore.stream.pipe(
