@@ -18,27 +18,28 @@
   <link rel="stylesheet" href="./css/source-select.css" />
   <link rel="stylesheet" href="./css/progress-bar.css" />
   <link rel="stylesheet" href="./css/warnings.css" />
+  <link rel="stylesheet" href="./css/save-to-pdf.css" />
 </head>
 
 <body>
   <div id="progress"></div>
-  <div id="charts">
-  </div>
   <aside id="info">
     <div id="program-info"></div>
     <div id="stats"></div>
     <div id="charts-select"></div>
   </aside>
+  <div id="charts"></div>
   <aside id="table-bar">
     <header id="table-bar-header">
       <button id="function-runtimes-back-button">◀</button>
       <button id="clear-brushes-button">Clear Selections</button>
+      <button id="save-to-pdf">Save As PDF</button>
       <div id="source-select"></div>
       <div id="thread-select"></div>
       <div id="warnings"></div>
       <div id="table-select"></div>
       <div id="confidence-level">Confidence Level:
-        <input id="confidence-level-input" max="100" min="0" step="0.1" type="number" value="95.0">%
+        <input id="confidence-threshold-input" max="100" min="0" step="0.1" type="number" value="95">%
       </div>
     </header>
     <div id="tables-wrapper">

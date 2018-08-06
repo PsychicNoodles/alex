@@ -6,7 +6,7 @@
 #info ul {
   list-style: none;
   padding: 0;
-  margin: 0 0 0 1em;
+  margin: 0 0 0 4px;
 }
 
 #info li {
@@ -14,18 +14,17 @@
   overflow-wrap: break-word;
 }
 
-#info li:last-child {
-  margin-bottom: 1em;
+#info > div {
+  margin-bottom: 0.5em;
 }
 
 #info .title {
-  display: block;
   font-weight: bold;
   margin-bottom: 0.1em;
 }
 
-#info .value {
-  display: block;
+#info .title::after {
+  content: " ";
 }
 
 #program-info {

@@ -6,12 +6,7 @@ const protobufStream = require("./protobuf-stream");
 const { Header, Timeslice, Warning } = protobufStream;
 const { promisify } = require("util");
 
-const {
-  processData,
-
-  getEventCount,
-  sdDomain
-} = require("./process-data");
+const { processData, getEventCount, sdDomain } = require("./process-data");
 const { analyze } = require("./analysis");
 const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
@@ -24,8 +19,9 @@ const threadSelect = require("./thread-select");
 const tableSelect = require("./table-select");
 const chartsSelect = require("./charts-select");
 const warnings = require("./warnings");
-const stream = require("./stream");
 const progressBar = require("./progress-bar");
+const saveToPDF = require("./save-to-pdf");
+const stream = require("./stream");
 const { Store } = require("./store");
 
 const loadingProgressStore = new Store({
@@ -48,6 +44,8 @@ const progressBarHiddenPromise = new Promise(resolve =>
     if (!progressBarIsVisible) resolve();
   })
 );
+
+d3.select("#save-to-pdf").call(saveToPDF.render);
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", async (event, resultFile) => {
@@ -111,15 +109,19 @@ ipcRenderer.on("result", async (event, resultFile) => {
     }
   );
 
-  progressBarHiddenPromise.then(() =>
-    headerPromise.then(header =>
+  headerPromise.then(header => programInfo.store.dispatch(() => header));
+
+  progressBarHiddenPromise
+    .then(() => headerPromise)
+    .then(header =>
       d3.select("#program-info").call(programInfo.render, header)
-    )
-  );
+    );
+
   const processedData = await Promise.all([
     timeslicesPromise,
     headerPromise
   ]).then(([timeslices, header]) => processData(timeslices, header));
+
   const spectrum = d3.interpolateWarm;
   const sdRange = 3;
 
@@ -215,7 +217,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["cache"],
         yAxisLabelText: "L3 Cache Miss Rate",
         chartId: "l3-cache-miss-rate",
-        yFormat: d3.format(".0%"),
+        yFormat: "%",
         getDependentVariable: d =>
           getEventCount(d, presets.cache.misses) /
             (getEventCount(d, presets.cache.hits) +
@@ -226,7 +228,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["branches"],
         yAxisLabelText: "Branch Predictor Miss Rate",
         chartId: "branch-predictor-miss-rate",
-        yFormat: d3.format(".0%"),
+        yFormat: "%",
         getDependentVariable: d =>
           getEventCount(d, presets.branches.branchMisses) /
             getEventCount(d, presets.branches.branches) || 0,
@@ -236,7 +238,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["cpu"],
         yAxisLabelText: "Instructions Per Cycle",
         chartId: "instructions-per-cycle",
-        yFormat: d3.format(".3"),
+        yFormat: "",
         getDependentVariable: d =>
           getEventCount(d, presets.cpu.instructions) /
             getEventCount(d, presets.cpu.cpuCycles) || 0,
@@ -246,31 +248,31 @@ ipcRenderer.on("result", async (event, resultFile) => {
         presetsRequired: ["rapl"],
         yAxisLabelText: "Overall Power",
         chartId: "overall-power",
-        yFormat: d3.format(".2s"),
-        getDependentVariable: d => d.events["periodOverall"] || 0,
+        yFormat: "s",
+        getDependentVariable: d => d.events.periodOverall,
         flattenThreads: true
       },
       {
         presetsRequired: ["rapl"],
         yAxisLabelText: "CPU Power",
         chartId: "cpu-power",
-        yFormat: d3.format(".2s"),
-        getDependentVariable: d => d.events["periodCpu"] || 0,
+        yFormat: "s",
+        getDependentVariable: d => d.events.periodCpu,
         flattenThreads: true
       },
       {
         presetsRequired: ["rapl"],
         yAxisLabelText: "Memory Power",
         chartId: "memory-power",
-        yFormat: d3.format(".2s"),
-        getDependentVariable: d => d.events["periodMemory"] || 0,
+        yFormat: "s",
+        getDependentVariable: d => d.events.periodMemory,
         flattenThreads: true
       },
       {
         presetsRequired: ["wattsup"],
         yAxisLabelText: "Wattsup Power",
         chartId: "wattsup-power",
-        yFormat: d3.format(".2s"),
+        yFormat: "",
         getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup),
         flattenThreads: true
       }
@@ -294,55 +296,17 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
       return {
         ...chartParams,
-        yScale,
-        chart
+        yScale
       };
     });
 
-    //update with subscriptions
-    const filteredDataStream = stream
-      .fromStreamables([
-        sourceSelect.hiddenSourcesStore.stream,
-        threadSelect.hiddenThreadsStore.stream
-      ])
-      .pipe(
-        stream.map(([hiddenSources, hiddenThreads]) => {
-          //first filter with source selection!
-          const sourceFilteredData = processedData
-            .filter((
-              timeslice
-              /* keep the timeslices which have at least one frame with its
-              filename not in hiddenSources */
-            ) =>
-              timeslice.stackFrames.some(
-                frame => !hiddenSources.includes(frame.fileName)
-              )
-            )
-            .map(timeslice => ({
-              //and then remove those frames with a hiddenSource
-              ...timeslice,
-              stackFrames: timeslice.stackFrames.filter(
-                frame => !hiddenSources.includes(frame.fileName)
-              )
-            })); //make a new array
-
-          //then filter with thread selection
-          const fullFilteredData = sourceFilteredData.filter(
-            //keep whose tid is not in hiddenThreads
-            timeslice => !hiddenThreads.includes(timeslice.tid)
-          );
-
-          return { sourceFilteredData, fullFilteredData };
-        })
-      );
-
     const currentYScaleStores = chartsWithYScales.reduce(
       (currentYScales, chartParams) => {
-        const { yAxisLabelText, yScale, getDependentVariable } = chartParams;
+        const { chartId, yScale, getDependentVariable } = chartParams;
 
         return {
           ...currentYScales,
-          [yAxisLabelText]: new Store(
+          [chartId]: new Store(
             d3
               .scaleLinear()
               .domain(
@@ -356,68 +320,102 @@ ipcRenderer.on("result", async (event, resultFile) => {
     );
 
     const currentSelectedFunctionStore = new Store(null);
-    stream.fromStreamables([filteredDataStream]).pipe(
-      stream.subscribe(([{ fullFilteredData, sourceFilteredData }]) => {
-        const chartsWithFilteredData = chartsWithYScales.map(chartParams => {
-          const { chartId, getDependentVariable, flattenThreads } = chartParams;
 
-          const selectionFilteredData = flattenThreads
-            ? sourceFilteredData
-            : fullFilteredData;
+    //update with subscriptions
+    stream
+      .fromStreamables([
+        sourceSelect.hiddenSourcesStore.stream,
+        threadSelect.hiddenThreadsStore.stream
+      ])
+      .pipe(
+        stream.map(([hiddenSources, hiddenThreads]) => {
+          //first filter with source selection!
+          const sourceFilteredData = processedData
+            .map(timeslice => ({
+              ...timeslice,
+              stackFrames: timeslice.stackFrames.filter(
+                frame => !hiddenSources.includes(frame.fileName)
+              )
+            }))
+            .filter(timeslice => timeslice.stackFrames.length > 0);
 
-          const filteredData =
-            chartId === "overall-power" ||
-            chartId === "cpu-power" ||
-            chartId === "memory-power"
-              ? selectionFilteredData.filter(d => getDependentVariable(d) !== 0)
-              : selectionFilteredData;
+          //then filter with thread selection
+          const fullFilteredData = sourceFilteredData.filter(
+            //keep whose tid is not in hiddenThreads
+            timeslice => !hiddenThreads.includes(timeslice.tid)
+          );
 
-          return {
-            ...chartParams,
-            filteredData
-          };
-        });
-        // .filter(chartParams => chartParams.filteredData.length > 0);
-
-        const chartsDataSelection = d3
-          .select("#charts")
-          .selectAll("div")
-          .data(chartsWithFilteredData);
-
-        chartsDataSelection
-          .enter()
-          .append("div")
-          .merge(chartsDataSelection)
-          .each(function({
-            //seem like we need to seperate out the calculation of the plotdata and make plotdata a field of chartsWithFilteredData, we can create the div first, and then for each div(root), subscribeunique a storestream and inside the subscribefunc, we add plotdata as a field to charts, then return charts and do the next thing
-            getDependentVariable,
-            yAxisLabelText,
-            chartId,
-            yFormat,
-            yScale,
-            filteredData
-          }) {
-            d3.select(this).call(chart.render, {
-              getIndependentVariable,
+          return { sourceFilteredData, fullFilteredData };
+        })
+      )
+      .pipe(
+        stream.subscribe(({ fullFilteredData, sourceFilteredData }) => {
+          const chartsWithFilteredData = chartsWithYScales.map(chartParams => {
+            const {
+              chartId,
               getDependentVariable,
-              xAxisLabelText,
+              flattenThreads
+            } = chartParams;
+
+            const selectionFilteredData = flattenThreads
+              ? sourceFilteredData
+              : fullFilteredData;
+
+            const filteredData =
+              chartId === "overall-power" ||
+              chartId === "cpu-power" ||
+              chartId === "memory-power"
+                ? selectionFilteredData.filter(
+                    d => getDependentVariable(d) !== 0
+                  )
+                : selectionFilteredData;
+
+            return {
+              ...chartParams,
+              filteredData
+            };
+          });
+          // .filter(chartParams => chartParams.filteredData.length > 0);
+
+          const chartsDataSelection = d3
+            .select("#charts")
+            .selectAll("div")
+            .data(chartsWithFilteredData);
+
+          chartsDataSelection
+            .enter()
+            .append("div")
+            .merge(chartsDataSelection)
+            .each(function({
+              //seem like we need to seperate out the calculation of the plotdata and make plotdata a field of chartsWithFilteredData, we can create the div first, and then for each div(root), subscribeunique a storestream and inside the subscribefunc, we add plotdata as a field to charts, then return charts and do the next thing
+              getDependentVariable,
               yAxisLabelText,
               chartId,
-              xScale,
-              yScale,
               yFormat,
-              filteredData,
-              spectrum,
-              cpuTimeOffset,
-              warningRecords,
-              warningsDistinct,
-              currentYScaleStore: currentYScaleStores[yAxisLabelText],
-              processedData,
-              selectedFunctionStream: currentSelectedFunctionStore.stream
+              yScale,
+              filteredData
+            }) {
+              d3.select(this).call(chart.render, {
+                getIndependentVariable,
+                getDependentVariable,
+                xAxisLabelText,
+                yAxisLabelText,
+                chartId,
+                xScale,
+                yScale,
+                yFormat,
+                filteredData,
+                spectrum,
+                cpuTimeOffset,
+                warningRecords,
+                warningsDistinct,
+                currentYScaleStore: currentYScaleStores[chartId],
+                processedData,
+                selectedFunctionStream: currentSelectedFunctionStore.stream
+              });
             });
-          });
-      })
-    );
+        })
+      );
 
     chartsSelect.hiddenChartsStore.stream.pipe(
       stream.subscribe(hiddenCharts => {
@@ -430,8 +428,24 @@ ipcRenderer.on("result", async (event, resultFile) => {
       })
     );
 
-    let averageProcessingTime = 0;
-    let numProcessingTimeSamples = 0;
+    const confidenceThresholdInput = document.getElementById(
+      "confidence-threshold-input"
+    );
+    const confidenceThresholdStream = stream
+      .fromDOMEvent(confidenceThresholdInput, "change")
+      .pipe(stream.map(event => event.currentTarget.value))
+      .pipe(stream.startWith(confidenceThresholdInput.value))
+      .pipe(stream.map(value => value / 100))
+      .pipe(
+        stream.tap(value => {
+          confidenceThresholdInput.classList.toggle(
+            "confidence-threshold-input--invalid",
+            value < 0 || value > 1
+          );
+        })
+      )
+      .pipe(stream.map(value => Math.max(0, Math.min(value, 1))))
+      .pipe(stream.dedup());
 
     stream
       .fromStreamables([
@@ -439,7 +453,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
         threadSelect.hiddenThreadsStore.stream,
         brushes.selectionStore.stream,
         currentSelectedFunctionStore.stream,
-        tableSelect.selectedTableStore.stream
+        tableSelect.selectedTableStore.stream,
+        confidenceThresholdStream
       ])
       .pipe(
         stream.map(
@@ -448,13 +463,15 @@ ipcRenderer.on("result", async (event, resultFile) => {
             hiddenThreads,
             { selections },
             selectedFunction,
-            selectedTable
+            selectedTable,
+            confidenceThreshold
           ]) => ({
             hiddenSources,
             hiddenThreads,
             selections,
             selectedFunction,
-            selectedTable
+            selectedTable,
+            confidenceThreshold
           })
         )
       )
@@ -465,71 +482,107 @@ ipcRenderer.on("result", async (event, resultFile) => {
         )
       )
       .pipe(
-        stream.debounce(
-          () =>
-            // If it takes longer a few frames to process, then debounce.
-            averageProcessingTime < 40 ? stream.empty : stream.fromTimeout(100)
-        )
-      )
-      .pipe(
-        stream.map(
-          ({ hiddenSources, hiddenThreads, selections, selectedFunction }) => {
+        stream.debounceMap(
+          ({
+            hiddenSources,
+            hiddenThreads,
+            selections,
+            selectedFunction,
+            confidenceThreshold
+          }) => {
             const FUNCTION_NAME_SEPARATOR = "//";
 
-            const startTime = performance.now();
-            const { functions } = analyze(
-              processedData
-                .map(timeslice => {
-                  const x = xScale(getIndependentVariable(timeslice));
-                  return {
-                    ...timeslice,
-                    selected:
-                      selections.length === 0 ||
-                      selections.some(
-                        ({ range }) => range[0] <= x && x <= range[1]
-                      ),
-                    stackFrames: timeslice.stackFrames.filter(
-                      frame => !hiddenSources.includes(frame.fileName)
-                    )
-                  };
+            performance.mark("analysis start");
+            return analyze({
+              timeSlices: processedData,
+              // Pass in higher order function instead of Array#filter on
+              // processed data to avoid unnecessary allocations and GC
+              isVisible: timeslice => {
+                // Avoiding Array#some because closures cause allocations and GC
+                let hasUnHiddenFrame = false;
+                let endsWithSelectedFunction = false;
+                for (const frame of timeslice.stackFrames) {
+                  if (!hiddenSources.includes(frame.fileName)) {
+                    if (selectedFunction && frame.symbol === selectedFunction) {
+                      endsWithSelectedFunction = true;
+                    }
+                    hasUnHiddenFrame = true;
+                    break;
+                  }
+                }
+
+                return (
+                  !hiddenThreads.includes(timeslice.tid) &&
+                  hasUnHiddenFrame &&
+                  (!selectedFunction || endsWithSelectedFunction)
+                );
+              },
+              isBrushSelected:
+                selections.length === 0
+                  ? () => true
+                  : timeslice => {
+                      const x = xScale(getIndependentVariable(timeslice));
+                      // Again, avoiding Array#some for performance reasons
+                      for (const { range } of selections) {
+                        if (range[0] <= x && x <= range[1]) {
+                          return true;
+                        }
+                      }
+                      return false;
+                    },
+              getFunctionName: selectedFunction
+                ? timeslice => {
+                    // Use for loop instead of map >> filter >> reverse >> join
+                    // to minimize allocations
+                    let name = "";
+                    let isFirst = true;
+                    for (
+                      let i = timeslice.stackFrames.length - 1;
+                      i >= 0;
+                      i--
+                    ) {
+                      const frame = timeslice.stackFrames[i];
+                      if (!hiddenSources.includes(frame.fileName)) {
+                        if (isFirst) {
+                          isFirst = false;
+                        } else {
+                          name += FUNCTION_NAME_SEPARATOR;
+                        }
+
+                        name += frame.symbol;
+                      }
+                    }
+
+                    return name;
+                  }
+                : timeslice => {
+                    for (const frame of timeslice.stackFrames) {
+                      if (!hiddenSources.includes(frame.fileName)) {
+                        return frame.symbol;
+                      }
+                    }
+                  },
+              confidenceThreshold
+            })
+              .pipe(
+                stream.tap(() => {
+                  performance.mark("analysis end");
+                  performance.measure(
+                    "analysis",
+                    "analysis start",
+                    "analysis end"
+                  );
                 })
-                .filter(timeslice => timeslice.stackFrames.length)
-                .filter(timeslice => !hiddenThreads.includes(timeslice.tid))
-                .filter(
-                  timeslice =>
-                    selectedFunction
-                      ? timeslice.stackFrames[0].symbol === selectedFunction
-                      : true
-                ),
-
-              stackFrames =>
-                selectedFunction
-                  ? stackFrames
-                      .map(frame => frame.symbol)
-                      .reverse()
-                      .join(FUNCTION_NAME_SEPARATOR)
-                  : stackFrames[0].symbol,
-              document.getElementById("confidence-level-input").value
-            );
-
-            /* Compute a cumulative moving average for processing time so we can
-            debounce processing if it is slow
-            https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average */
-            const timeTaken = performance.now() - startTime;
-            averageProcessingTime =
-              (timeTaken + numProcessingTimeSamples * averageProcessingTime) /
-              (numProcessingTimeSamples + 1);
-            numProcessingTimeSamples++;
-
-            return {
-              functions: functions
-                .filter(func => func.name !== undefined)
-                .map(func => ({
-                  ...func,
-                  displayNames: func.name.split(FUNCTION_NAME_SEPARATOR)
-                })),
-              selectedFunction
-            };
+              )
+              .pipe(
+                stream.map(functions => ({
+                  functions: functions.map(func => ({
+                    ...func,
+                    displayNames: func.name.split(FUNCTION_NAME_SEPARATOR)
+                  })),
+                  selectedFunction
+                }))
+              );
           }
         )
       )

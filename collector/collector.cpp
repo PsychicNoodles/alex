@@ -48,6 +48,16 @@ void ready_handler(int signum) {
   }
 }
 
+void sigint_handler(int signum) {
+  if (signum == SIGINT) {
+    if (get_result_file() != nullptr && get_result_file()->is_open()) {
+      // in the collector
+      SHUTDOWN_MSG(global->subject_pid, *get_result_file(), INTERRUPT,
+                   "interrupted");
+    }
+  }
+}
+
 void setup_global_vars() {
   DEBUG("setting up globals");
   // set up period
@@ -190,6 +200,12 @@ static int collector_main(int argc, char **argv, char **env) {
   ready_act.sa_flags = 0;
   sigaction(SIGUSR2, &ready_act, nullptr);
 
+  struct sigaction sigint_act {};
+  sigint_act.sa_handler = sigint_handler;
+  sigemptyset(&sigint_act.sa_mask);
+  sigint_act.sa_flags = 0;
+  sigaction(SIGINT, &sigint_act, nullptr);
+
   int sockets[2];
   if (socketpair(PF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0, sockets) == -1) {
     perror("setting up shared socket");
@@ -229,25 +245,6 @@ static int collector_main(int argc, char **argv, char **env) {
           << global->collector_pid << ")");
     set_subject_pid(subject_pid);
 
-    DEBUG("checking for debug symbols");
-
-    vector<string> source_scope_v = {"%%"};
-    unordered_set<string> source_scope(source_scope_v.begin(),
-                                       source_scope_v.end());
-
-    // Get all the dwarf files for debug symbols
-
-    map<interval, std::pair<string, string>, cmpByInterval> sym_map;
-
-    memory_map::get_instance().build(source_scope, &sym_map);
-
-    std::map<interval, std::shared_ptr<line>, cmpByInterval> ranges =
-        memory_map::get_instance().ranges();
-
-    // for (auto entry : sym_map) {
-    //   DEBUG("name is " << entry.second.second << "::" << entry.second.first);
-    // }
-
     string env_res = getenv_safe("COLLECTOR_RESULT_FILE", "result.bin");
     DEBUG("result file " << env_res);
     ofstream result_file(env_res, std::ios::binary);
@@ -258,6 +255,21 @@ static int collector_main(int argc, char **argv, char **env) {
       SHUTDOWN_PERROR(subject_pid, result_file, INTERNAL_ERROR,
                       "couldn't open result file");
     }
+
+    DEBUG("checking for debug symbols");
+
+    vector<string> source_scope_v = {"%%"};
+    unordered_set<string> source_scope(source_scope_v.begin(),
+                                       source_scope_v.end());
+
+    // Get all the dwarf files for debug symbols
+
+    map<interval, string, cmpByInterval> sym_map;
+
+    memory_map::get_instance().build(source_scope, &sym_map, argv[0]);
+
+    std::map<interval, std::shared_ptr<line>, cmpByInterval> ranges =
+        memory_map::get_instance().ranges();
 
     int sigterm_fd = setup_sigterm_handler();
 

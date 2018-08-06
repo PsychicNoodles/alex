@@ -87,7 +87,7 @@ bool preset_enabled(const char *name) {
 }
 
 void shutdown(pid_t pid, ofstream *result_file, error code, const string &msg) {
-  write_warnings();
+  serialize_footer();
   result_file->close();
   shutdown(pid, code, msg);
 }

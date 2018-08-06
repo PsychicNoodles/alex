@@ -157,9 +157,8 @@ class memory_map {
   /// Build a map from addresses to source lines by examining binaries that
   /// match the provided scope patterns, adding only source files matching the
   /// source scope patterns.
-  void build(
-      const std::unordered_set<std::string>& source_scope,
-      std::map<interval, std::pair<string, string>, cmpByInterval>* sym_table);
+  void build(const std::unordered_set<std::string>& source_scope,
+             std::map<interval, string, cmpByInterval>* sym_table, char* arg);
 
   std::shared_ptr<line> find_line(const std::string& name);
   std::shared_ptr<line> find_line(uintptr_t addr);
@@ -188,22 +187,26 @@ class memory_map {
 
   /// Find a debug version of provided file and add all of its in-scope lines to
   /// the map
-  bool process_file(
-      const std::string& name, uintptr_t load_address,
-      const std::unordered_set<std::string>& source_scope,
-      std::map<interval, std::pair<string, string>, cmpByInterval>* sym_table);
+  bool process_file(const std::string& name, uintptr_t load_address,
+                    const std::unordered_set<std::string>& source_scope,
+                    std::map<interval, string, cmpByInterval>* sym_table);
 
   /// Add entries for all inlined calls
-  void process_inlines(
-      const ::dwarf::die& d, const ::dwarf::line_table& table,
-      const std::unordered_set<std::string>& source_scope,
-      uintptr_t load_address,
-      std::map<interval, std::pair<string, string>, cmpByInterval>& sym_table);
+  void process_inlines(const ::dwarf::die& d, const ::dwarf::line_table& table,
+                       const std::unordered_set<std::string>& source_scope,
+                       uintptr_t load_address,
+                       std::map<interval, string, cmpByInterval>& sym_table);
 
   std::map<std::string, std::shared_ptr<file>> _files;
   std::map<interval, std::shared_ptr<line>, cmpByInterval> _ranges;
 };
 
+void dump_tree(
+    const ::dwarf::die& d,
+    std::map<interval, std::pair<string, string>, cmpByInterval>* sym_table,
+    uintptr_t load_address, const ::dwarf::line_table& table,
+    const std::unordered_set<string>& source_scope,
+    std::map<int, string>& class_map, int depth = 0);
 }  // namespace alex
 
 #endif

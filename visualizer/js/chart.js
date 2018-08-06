@@ -51,10 +51,10 @@ function render(
     });
   }
 
-  //brushes
-  if (root.select("g.brushes").empty()) {
-    svg.append("g").call(brushes.render);
-  }
+  //chartPlot
+  const chartPlot = root.select("g.plot").empty()
+    ? svg.append("g")
+    : svg.select("g.plot");
 
   //xaxis
   const xAxis = root.select("g.chart__axis--x").empty()
@@ -66,13 +66,13 @@ function render(
 
   xAxis.call(d3.axisBottom(xScale).tickFormat(d3.format(".2s")));
 
-  xAxis.select(".chart__axis-label--x").empty()
-    ? xAxis
+  root.select(".chart__axis-label--x").empty()
+    ? svg
         .append("text")
         .attr("class", "chart__axis-label chart__axis-label--x")
         .attr("text-anchor", "middle")
         .attr("x", WIDTH / 2)
-        .attr("y", 50)
+        .attr("y", HEIGHT + 50)
         .text(xAxisLabelText)
     : svg.select("chart__axis-label--x");
 
@@ -93,29 +93,30 @@ function render(
       .domain(missExtent)
       .range([250, 125]);
 
-    root.select("svg.bg").empty()
-      ? svg
-          .append("svg")
-          .classed("bg", true)
-          .selectAll(".line")
-          .data(processedData)
-          .enter()
-          .append("line")
-          .attr("class", "line")
-          .attr("x1", d => xScale(getIndependentVariable(d)))
-          .attr("x2", d => xScale(getIndependentVariable(d)))
-          .attr("y1", d => hitScale(d.events["MEM_LOAD_RETIRED.L3_HIT"]))
-          .attr("y2", d => missScale(d.events["MEM_LOAD_RETIRED.L3_MISS"]))
-          .style("stroke-width", 0.5)
-          .style("stroke", "green")
-          .style("stroke-opacity", 0.5)
-      : svg.select("svg.bg");
+    if (root.select("svg.bg").empty()) {
+      svg
+        .append("svg")
+        .classed("bg", true)
+        .selectAll(".line")
+        .data(processedData)
+        .enter()
+        .append("line")
+        .attr("class", "line")
+        .attr("x1", d => xScale(getIndependentVariable(d)))
+        .attr("x2", d => xScale(getIndependentVariable(d)))
+        .attr("y1", d => hitScale(d.events["MEM_LOAD_RETIRED.L3_HIT"]))
+        .attr("y2", d => missScale(d.events["MEM_LOAD_RETIRED.L3_MISS"]))
+        .style("stroke-width", 0.5)
+        .style("stroke", "green")
+        .style("stroke-opacity", 0.5);
+    }
   }
   //ignore this part if you are not xinya
 
-  const chartPlot = root.select("g.plot").empty()
-    ? svg.append("g")
-    : svg.select("g.plot");
+  //brushes
+  if (root.select("g.brushes").empty()) {
+    svg.append("g").call(brushes.render);
+  }
 
   const plotDataStream = currentYScaleStore.stream.pipe(
     stream.map(currentYScale =>
@@ -128,12 +129,12 @@ function render(
       })
     )
   );
+
   stream.fromStreamables([currentYScaleStore.stream, plotDataStream]).pipe(
     stream.subscribeUnique(
       root,
       "currentYscaleStore",
       ([currentYScale, plotData]) => {
-        console.log(chartId, "curYScaleSubs");
         const densityMax =
           Math.max(d3.max(plotData, d => d.densityAvg), 5) || 0;
 
@@ -150,18 +151,21 @@ function render(
           ? svg.append("g").attr("class", "chart__axis chart__axis--y")
           : svg.select("g.chart__axis--y");
 
-        yAxis.call(d3.axisLeft(currentYScale).tickFormat(yFormat));
+        yAxis.call(d3.axisLeft(currentYScale).tickArguments([10, yFormat]));
 
-        yAxis.select(".chart__axis-label--y").empty()
-          ? yAxis
+        root.select(".chart__axis-label--y").empty()
+          ? svg
               .append("text")
               .attr("class", "chart__axis-label chart__axis-label--y")
               .attr("text-anchor", "middle")
-              .attr("y", -40)
+              .attr("y", -1 * yAxis.node().getBBox().width - 10)
               .attr("x", -(HEIGHT / 2))
               .attr("transform", "rotate(-90)")
               .text(yAxisLabelText)
-          : yAxis.select(".chart__axis-label--y").text(yAxisLabelText);
+          : svg
+              .select(".chart__axis-label--y")
+              .text(yAxisLabelText)
+              .attr("y", -1 * yAxis.node().getBBox().width - 10);
 
         //side bar
         const sideBar = root.select("g.chart__sideBar").empty()

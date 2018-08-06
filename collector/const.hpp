@@ -27,7 +27,8 @@ enum error : int {
   DEBUG_SYMBOLS_FILE_ERROR,  // Problem with the debug symbols file
   ENV_ERROR,                 // Cannot get environment variable
   EVENT_ERROR,               // Cannot open event
-  PARAM_ERROR                // Period is too smalls
+  PARAM_ERROR,               // Period is too smalls
+  INTERRUPT = 255            // Interrupted by calling program/command line
 };
 
 bool is_callchain_marker(perf_callchain_context instruction_pointers);

@@ -1,7 +1,6 @@
-const d3 = require("d3");
-
 /**
  * Render the the scatter plot within the chart.
+ * @param {d3.Selection} root
  */
 function render(root, { data, densityMax, spectrum, xGetter, yGetter }) {
   root.classed("plot", true);

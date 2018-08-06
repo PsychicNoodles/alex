@@ -14,36 +14,27 @@ function processMessage(msg) {
       }
     }
   }
+  if (msg instanceof Warning && msg.time === undefined) {
+    console.log("bad warning", msg);
+  }
   return msg;
 }
 
 function parser() {
   let buf;
-  let dataSize = null;
+  let dataSize = null,
+    repeatedSize = null;
   let finishedHeader = false,
     finishedTimeslices = false;
-  let lastPos = 0;
 
-  function readMessage(reader, callback) {
+  function readMessage(reader) {
     if (!finishedHeader) {
       this.push(processMessage(Header.decode(reader, dataSize)));
       finishedHeader = true;
     } else if (!finishedTimeslices) {
-      try {
-        this.push(processMessage(Timeslice.decode(reader, dataSize)));
-      } catch (err) {
-        // check if we're onto warnings now
-        try {
-          // reset pos back to before invalid read
-          reader.pos = lastPos;
-          this.push(processMessage(Warning.decode(reader, dataSize)));
-          finishedTimeslices = true;
-        } catch (err) {
-          // nope, data must be malformed then
-          callback(err);
-        }
-      }
+      this.push(processMessage(Timeslice.decode(reader, dataSize)));
     } else {
+      console.log("dataSize", dataSize);
       this.push(processMessage(Warning.decode(reader, dataSize)));
     }
   }
@@ -55,18 +46,27 @@ function parser() {
       );
       // while the reader contains the next delimiter number (and we need a new one) or contains enough data for the next message
       while (
-        dataSize === null
+        (dataSize === null
           ? reader.len - reader.pos > 4
-          : reader.len - reader.pos >= dataSize
+          : reader.len - reader.pos >= dataSize) &&
+        (repeatedSize === null ? true : repeatedSize > 0)
       ) {
         if (dataSize === null) {
           // just started parsing or finished reading a message
-          dataSize = reader.uint32();
+          dataSize = reader.fixed32();
+          // check for end of timeslices
+          if (finishedHeader && !finishedTimeslices && dataSize === 0) {
+            finishedTimeslices = true;
+            repeatedSize = reader.fixed32();
+            dataSize = null;
+          }
         } else {
-          readMessage.call(this, reader, callback);
+          readMessage.call(this, reader);
+          if (repeatedSize !== null) {
+            repeatedSize--;
+          }
           dataSize = null;
         }
-        lastPos = reader.pos;
       }
 
       // save remaining buffer
@@ -77,7 +77,7 @@ function parser() {
       if (dataSize !== null) {
         // try reading last item, even though there's supposedly not enough data
         try {
-          callback(null, readMessage.call(this, Reader.create(buf), callback));
+          callback(null, readMessage.call(this, Reader.create(buf)));
         } catch (err) {
           callback(err);
         }

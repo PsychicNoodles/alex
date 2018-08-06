@@ -35,34 +35,22 @@ function render(root, { processedData, originalLength }) {
 
   statsEnterSelection.append("span").attr("class", "title");
 
-  statsEnterSelection
-    .filter(({ isTime }) => !isTime)
-    .append("span")
-    .attr("class", "value");
-
-  const statsTime = statsEnterSelection
-    .filter(({ isTime }) => isTime)
-    .append("abbr")
-    .attr("class", "value");
-
-  statsTime.append("span");
-
-  statsTime.append("span").text("Seconds");
+  statsEnterSelection.append("span").attr("class", "value");
 
   const statsMergeSelection = statsEnterSelection.merge(statsDataSelection);
 
-  statsMergeSelection
-    .select(".title")
-    .text(({ name }) => name + ":")
-    .append("br");
-
-  statsMergeSelection.select("span.value").text(({ number }) => number);
+  statsMergeSelection.select(".title").text(({ name }) => name + ":");
 
   statsMergeSelection
-    .select("abbr.value span")
-    .text(({ number }) => d3.format(".4s")(number / 1000000000))
-    .attr("title", ({ number }) => `${number} Nanoseconds`)
-    .append("br");
+    .select(".value")
+    .text(
+      ({ number, isTime }) =>
+        isTime ? d3.format(".4s")(number / 1000000000) + "s" : String(number)
+    )
+    .attr(
+      "title",
+      ({ number, isTime }) => (isTime ? `${number} Nanoseconds` : "")
+    );
 
   statsDataSelection.exit().remove();
 }
