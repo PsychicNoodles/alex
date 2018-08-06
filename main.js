@@ -11,6 +11,7 @@ const { promisify } = require("util");
 const progressStream = require("progress-stream");
 const protobufStream = require("./visualizer/js/protobuf-stream");
 const prettyMS = require("pretty-ms");
+const moment = require("moment");
 
 process.on("unhandledRejection", err => {
   throw err;
@@ -51,18 +52,15 @@ yargs
         .describe("in", "The file to pipe into the stdin of <executable>.")
         .option("out", {
           description: "The file to pipe the stdout of <executable> into.",
-          default: path.join(__dirname, `/out-${new Date().toISOString()}.log`)
+          default: path.join(__dirname, `/out-${moment().format()}.log`)
         })
         .option("err", {
           description: "The file to pipe the stderr of <executable> into.",
-          default: path.join(__dirname, `/err-${new Date().toISOString()}.log`)
+          default: path.join(__dirname, `/err-${moment().format()}.log`)
         })
         .option("result", {
           description: "The file to pipe the performance results into.",
-          default: path.join(
-            __dirname,
-            `/result-${new Date().toISOString()}.bin`
-          )
+          default: path.join(__dirname, `/result-${moment().format()}.bin`)
         })
         .option("visualize", {
           description: "Where to visualize the results.",
