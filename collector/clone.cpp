@@ -18,8 +18,6 @@
 
 #define ARGV_SIZE 64
 
-#define WRAP_NAME(name) __wrap_##name
-
 /*
  *  Copy the execl() argument list of first_arg followed by arglist
  *  into an argv array, including the terminating nullptr.  If envp is

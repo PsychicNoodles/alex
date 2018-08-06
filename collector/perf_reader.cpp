@@ -719,6 +719,7 @@ void write_warnings() {
     int record_type;
     base_record record{};
     int64_t extra;
+    DEBUG("inside write_warnings");
     tie(record_type, record, extra) = t;
 
     if (record_type == PERF_RECORD_THROTTLE ||
@@ -773,6 +774,7 @@ void serialize_footer() {
   coded.WriteLittleEndian32(0);
 
   coded.WriteLittleEndian32(warnings.size());
+
   write_warnings();
 }
 

@@ -333,7 +333,8 @@ bool in_scope(const string& name, const unordered_set<string>& scope) {
 }
 
 void memory_map::build(const unordered_set<string>& source_scope,
-                       std::map<interval, string, cmpByInterval>* sym_table) {
+                       std::map<interval, string, cmpByInterval>* sym_table,
+                       char* arg) {
   size_t in_scope_count = 0;
   for (const auto& f : get_loaded_files()) {
     // if (in_scope(f.first, binary_scope)) {
@@ -343,6 +344,12 @@ void memory_map::build(const unordered_set<string>& source_scope,
         in_scope_count++;
       } else {
         DEBUG("Unable to locate debug information for " << f.first);
+        string full_path = get_full_path(f.first);
+        if (full_path.compare(get_full_path(arg)) == 0) {
+          shutdown(
+              global->subject_pid, INTERNAL_ERROR,
+              "debug information was not found for main program executables");
+        }
       }
     } catch (const system_error& e) {
       DEBUG_CRITICAL("Processing file \"" << f.first
