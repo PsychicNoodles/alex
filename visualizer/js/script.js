@@ -109,15 +109,19 @@ ipcRenderer.on("result", async (event, resultFile) => {
     }
   );
 
-  progressBarHiddenPromise.then(() =>
-    headerPromise.then(header =>
+  headerPromise.then(header => programInfo.store.dispatch(() => header));
+
+  progressBarHiddenPromise
+    .then(() => headerPromise)
+    .then(header =>
       d3.select("#program-info").call(programInfo.render, header)
-    )
-  );
+    );
+
   const processedData = await Promise.all([
     timeslicesPromise,
     headerPromise
   ]).then(([timeslices, header]) => processData(timeslices, header));
+
   const spectrum = d3.interpolateWarm;
   const sdRange = 3;
 

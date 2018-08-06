@@ -418,6 +418,7 @@ matrix_file*
 run-alex.sh
 file-result*
 *.bin
+alex-*.pdf
 
 # protoc build output
 collector/protos

@@ -1,3 +1,10 @@
+const { Store } = require("./store");
+
+const store = new Store({
+  programName: "",
+  programVersion: ""
+});
+
 function render(root, header) {
   const data = [
     { title: "Program Name", value: header.programName },
@@ -28,4 +35,5 @@ function render(root, header) {
     .attr("class", "value")
     .text(d => d.value);
 }
-module.exports = { render };
+
+module.exports = { render, store };
