@@ -1,0 +1,43 @@
+.save-to-pdf {
+  position: relative;
+}
+
+.save-to-pdf::after {
+  box-sizing: border-box;
+  content: "";
+  position: absolute;
+  display: block;
+  left: -1px;
+  bottom: -1px;
+  top: -1px;
+  padding: 5px;
+  white-space: nowrap;
+  background: #ffe66e;
+  max-width: 400px;
+  min-width: calc(100% + 2px);
+  border: 1px solid #999;
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 200ms;
+}
+
+.save-to-pdf--ok::after,
+.save-to-pdf--saving::after {
+  background: #5fd28d;
+}
+
+.save-to-pdf--saving::after {
+  content: "Saving...";
+  color: #000;
+}
+
+.save-to-pdf[data-message]::after {
+  content: attr(data-message);
+}
+
+.save-to-pdf[data-message]::after,
+.save-to-pdf--saving::after {
+  opacity: 1;
+}

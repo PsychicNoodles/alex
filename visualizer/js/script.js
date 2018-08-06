@@ -24,8 +24,9 @@ const threadSelect = require("./thread-select");
 const tableSelect = require("./table-select");
 const chartsSelect = require("./charts-select");
 const warnings = require("./warnings");
-const stream = require("./stream");
 const progressBar = require("./progress-bar");
+const saveToPDF = require("./save-to-pdf");
+const stream = require("./stream");
 const { Store } = require("./store");
 
 const loadingProgressStore = new Store({
@@ -46,6 +47,13 @@ loadingProgressStore.subscribe(({ percentage, progressBarIsVisible }) => {
 const progressBarHiddenPromise = new Promise(resolve =>
   loadingProgressStore.subscribe(({ progressBarIsVisible }) => {
     if (!progressBarIsVisible) resolve();
+  })
+);
+
+const saveToPDFButton = document.querySelector("#save-to-pdf");
+saveToPDF.createStateStream(stream.fromDOMEvent(saveToPDFButton, "click")).pipe(
+  stream.subscribe(state => {
+    d3.select(saveToPDFButton).call(saveToPDF.render, state);
   })
 );
 

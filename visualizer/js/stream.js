@@ -189,6 +189,25 @@ function fromPromise(promise, cancel = () => {}) {
 }
 
 /**
+ * @param {() => Promise} asyncThunk
+ */
+function fromAsyncThunk(asyncThunk) {
+  return fromStreamable(onData => {
+    asyncThunk().then(
+      data => {
+        onData(data);
+        onData(done);
+      },
+      err => {
+        throw err;
+      }
+    );
+
+    return () => {};
+  });
+}
+
+/**
  * @param {any} value
  */
 function fromValue(value) {
@@ -381,6 +400,49 @@ function mergeMap(project) {
 }
 
 /**
+ * Like mergeMap, but only subscribes to the result of `project` once the previous stream ends.
+ * @param {function(any): Streamable} project
+ *    Will be called with each value and should return a stream that will be
+ *    subscribed to whenever a value is received.
+ * @returns {StreamTransform}
+ */
+function concatMap(project) {
+  return streamable =>
+    fromStreamable(onData => {
+      let isDone = false;
+      const queuedStreams = [];
+      return streamable(data => {
+        if (data === done) {
+          isDone = true;
+          if (queuedStreams.length === 0) {
+            onData(done);
+          }
+        } else {
+          const projectedStream = fromStreamable(project(data));
+
+          if (queuedStreams.length === 0) {
+            const innerOnData = innerData => {
+              if (innerData === done) {
+                if (queuedStreams.length > 0) {
+                  queuedStreams.shift()(innerOnData);
+                } else if (isDone) {
+                  onData(done);
+                }
+              } else {
+                onData(innerData);
+              }
+            };
+
+            projectedStream(innerOnData);
+          } else {
+            queuedStreams.push(projectedStream);
+          }
+        }
+      });
+    });
+}
+
+/**
  * Emit `value` at the start of the stream before all others.
  */
 function startWith(value) {
@@ -389,6 +451,22 @@ function startWith(value) {
       onData(value);
       return streamable(onData);
     });
+}
+
+/**
+ * Emit `value` at the end of the stream after all others right before done.
+ */
+function endWith(value) {
+  return streamable =>
+    fromStreamable(onData =>
+      streamable(data => {
+        if (data === done) {
+          onData(value);
+        }
+
+        onData(data);
+      })
+    );
 }
 
 /**
@@ -501,6 +579,7 @@ module.exports = {
   fromTimeout,
   fromDOMEvent,
   fromPromise,
+  fromAsyncThunk,
   fromValue,
   empty,
   never,
@@ -510,7 +589,9 @@ module.exports = {
   debounceTime,
   debounceMap,
   mergeMap,
+  concatMap,
   startWith,
+  endWith,
   take,
   dedup,
   tap,
