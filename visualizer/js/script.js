@@ -6,12 +6,7 @@ const protobufStream = require("./protobuf-stream");
 const { Header, Timeslice, Warning } = protobufStream;
 const { promisify } = require("util");
 
-const {
-  processData,
-
-  getEventCount,
-  sdDomain
-} = require("./process-data");
+const { processData, getEventCount, sdDomain } = require("./process-data");
 const { analyze } = require("./analysis");
 const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
