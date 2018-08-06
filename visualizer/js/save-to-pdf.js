@@ -37,26 +37,35 @@ function render(root) {
                       await writeFile(fileName, data);
                       return {
                         isSaving: false,
-                        message: { ok: true, text: `Saved to ${fileName}` }
+                        message: { ok: true, text: "Saved", duration: 2000 }
                       };
                     } catch (err) {
                       return {
                         isSaving: false,
-                        message: { ok: false, text: err.message }
+                        message: {
+                          ok: false,
+                          text: err.message,
+                          duration: 6000
+                        }
                       };
                     }
                   } else {
                     return { isSaving: false, message: null };
                   }
                 })
-                .pipe(stream.startWith({ isSaving: true, message: null }))
+                .pipe(
+                  stream.startWith({
+                    isSaving: true,
+                    message: { ok: true, text: "Saving...", duration: Infinity }
+                  })
+                )
             )
           )
           .pipe(
             stream.mergeMap(state => {
-              if (state.message) {
+              if (state.message && isFinite(state.message.duration)) {
                 return stream
-                  .fromTimeout(2000)
+                  .fromTimeout(state.message.duration)
                   .pipe(stream.startWith(state))
                   .pipe(stream.endWith({ ...state, message: null }));
               } else {
@@ -75,7 +84,6 @@ function render(root) {
           root
             .classed("save-to-pdf", true)
             .property("disabled", isSaving)
-            .classed("save-to-pdf--saving", isSaving)
             .classed("save-to-pdf--ok", message ? message.ok : true)
             .attr("data-message", message ? message.text : null);
         }

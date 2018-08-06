@@ -97,16 +97,23 @@ function fromStreamable(streamable) {
 
 /**
  * Creates a stream that waits a given duration and then emits done.
+ *
+ * If `duration` is Infinity, the stream will never emit done.
+ *
  * @param {number} duration Time in milliseconds before ending.
  * @returns {Stream}
  */
 function fromTimeout(duration) {
-  return fromStreamable(onData => {
-    const timeout = setTimeout(() => onData(done), duration);
-    return () => {
-      clearTimeout(timeout);
-    };
-  });
+  if (isFinite(duration)) {
+    return fromStreamable(onData => {
+      const timeout = setTimeout(() => onData(done), duration);
+      return () => {
+        clearTimeout(timeout);
+      };
+    });
+  } else {
+    return never;
+  }
 }
 
 /**
