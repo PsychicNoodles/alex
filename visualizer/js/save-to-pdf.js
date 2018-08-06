@@ -33,7 +33,10 @@ function render(root) {
                 .fromAsyncThunk(async () => {
                   if (fileName) {
                     try {
-                      const data = await printToPDF({});
+                      const data = await printToPDF({
+                        pageSize: "Letter",
+                        printBackground: true
+                      });
                       await writeFile(fileName, data);
                       return {
                         isSaving: false,
