@@ -1,4 +1,7 @@
 const d3 = require("d3");
+const fs = require("fs");
+const path = require("path");
+const { promisify } = require("util");
 
 const plot = require("./plot");
 const brushes = require("./brushes");
@@ -13,6 +16,11 @@ const HEIGHT = 250;
 
 const yScaleSubscription = d3.local();
 const plotAndFunctionSubscription = d3.local();
+
+const stylesFileContents = promisify(fs.readFile)(
+  path.join(__dirname, "../css/chart-svg.css"),
+  { encoding: "utf8" }
+);
 
 /**
  * @param {d3.Selection} root
@@ -160,6 +168,7 @@ function render(
           );
 
           const background = document.createElement("rect");
+          background.setAttribute("id", "chart-background");
           background.setAttribute("fill", "#ffffff");
           background.setAttribute("x", viewX);
           background.setAttribute("y", viewY);
@@ -167,7 +176,10 @@ function render(
           background.setAttribute("height", viewH);
           svgNode.insertBefore(background, svgNode.firstChild);
 
-          console.log(svgNode);
+          const styles = document.createElement("style");
+          styles.innerHTML = await stylesFileContents;
+          svgNode.appendChild(styles);
+
           return svgNode.outerHTML;
         }
       });

@@ -27,32 +27,3 @@ svg.chart__svg {
     position: relative !important;
   }
 }
-
-.chart__axis path,
-.chart__axis line {
-  fill: none;
-  stroke: #000;
-  shape-rendering: geometricPrecision;
-}
-
-.chart__axis text {
-  font-family: sans-serif;
-  font-size: 12px;
-  fill: #000;
-}
-
-g.sideBar-brush {
-  stroke: #000;
-  stroke-width: 0.5px;
-}
-
-.sideBar-brush .selection {
-  stroke: #000;
-  stroke-width: 0.5px;
-}
-
-.brush .extent {
-  stroke: #fff;
-  fill-opacity: 0.125;
-  shape-rendering: crispEdges;
-}
