@@ -1,8 +1,7 @@
 CXX := clang++
 TIDY_SCRIPT := ../tidy-check.sh
 
-GIT_VERSION := $(shell git ls-remote git://github.com/jszakmeister/trac-backlog.git refs/heads/master | \
->    cut -f 1)
+GIT_VERSION := $(shell git rev-parse HEAD | cut -c -10)
 PERF_SAMPLE_MAX_STACK_MACRO := $(shell cat /proc/sys/kernel/perf_event_max_stack 2>/dev/null)
 ifneq ($(PERF_SAMPLE_MAX_STACK_MACRO),) # if the file was found
 PERF_SAMPLE_MAX_STACK_MACRO := -DSAMPLE_MAX_STACK="$(PERF_SAMPLE_MAX_STACK_MACRO)"
