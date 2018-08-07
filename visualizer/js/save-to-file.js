@@ -28,7 +28,16 @@ function render(root, { fileType, filePrefix = "", generateFileData }) {
                   remote.getCurrentWindow(),
                   {
                     defaultPath: getDefaultFilename(filePrefix, fileType),
-                    filters: [{ extensions: [fileType] }]
+                    filters: [
+                      {
+                        name: `${fileType.toUpperCase()} Files`,
+                        extensions: [fileType]
+                      },
+                      {
+                        name: "All Files",
+                        extensions: ["*"]
+                      }
+                    ]
                   },
                   resolve
                 );
@@ -108,7 +117,7 @@ function getDefaultFilename(prefix, fileType) {
     : "";
   const dateString = new Date()
     .toISOString()
-    .replace(":", "-")
+    .replace(/:/g, "-")
     .replace(/\.\d{3}/, "");
 
   return `alex${programNamePrefix}${prefix}_${dateString}.${fileType}`;

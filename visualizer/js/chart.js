@@ -133,7 +133,7 @@ function render(
       .call(saveToFile.render, {
         fileType: "svg",
         filePrefix:
-          "-" + yAxisLabelText.toLocaleLowerCase().replace(/\s+/, "-"),
+          "-" + yAxisLabelText.toLocaleLowerCase().replace(/\s+/g, "-"),
         generateFileData: async () => {
           const LEFT_MARGIN = 100;
           const RIGHT_MARGIN = 100;
@@ -150,6 +150,7 @@ function render(
             .select(".chart__svg")
             .node()
             .cloneNode(true);
+          svgNode.setAttribute("xmlns", "http://www.w3.org/2000/svg");
           svgNode.setAttribute(
             "viewBox",
             `${viewX} ${viewY} ${viewW} ${viewH}`
