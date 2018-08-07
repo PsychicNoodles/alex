@@ -158,7 +158,7 @@ class memory_map {
   /// match the provided scope patterns, adding only source files matching the
   /// source scope patterns.
   void build(const std::unordered_set<std::string>& source_scope,
-             std::map<interval, string, cmpByInterval>* sym_table);
+             std::map<interval, string, cmpByInterval>* sym_table, char* arg);
 
   std::shared_ptr<line> find_line(const std::string& name);
   std::shared_ptr<line> find_line(uintptr_t addr);

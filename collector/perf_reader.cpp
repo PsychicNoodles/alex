@@ -93,6 +93,8 @@ struct sample_record {
 #if SAMPLE_ID_ALL
   uint64_t stream_id;
 #endif
+  // PERF_SAMPLE_GROUP
+  // read_format v;
   // PERF_SAMPLE_CALLCHAIN
   uint64_t num_instruction_pointers;
   uint64_t instruction_pointers[(SAMPLE_MAX_STACK + 2)];
@@ -120,12 +122,6 @@ struct lost_record {
 #endif
 };
 
-union base_record {
-  sample_record sample;
-  throttle_record throttle;
-  lost_record lost;
-};
-
 // output file for data collection results
 ofstream *result_file;
 
@@ -134,7 +130,7 @@ ofstream *result_file;
 map<int, perf_fd_info> perf_info_mappings;
 
 // a list of warnings (ie. throttle/unthrottle, lost)
-vector<tuple<int, base_record, int64_t>> warnings;
+vector<Warning> warnings;
 
 // the epoll fd used in the collector
 int sample_epfd = epoll_create1(0);
@@ -144,7 +140,7 @@ size_t sample_fd_count = 0;
 int get_record_size(int record_type) {
   switch (record_type) {
     case PERF_RECORD_SAMPLE:
-      return sizeof(sample_record);
+      return sizeof(sample_record);  // + sizeof(sample_record_callchain));
     case PERF_RECORD_THROTTLE:
     case PERF_RECORD_UNTHROTTLE:
       return sizeof(throttle_record);
@@ -178,6 +174,12 @@ bool serialize_delimited(const Message &msg) {
   }
 
   return true;
+}
+
+void write_warnings() {
+  for (auto &warning_message : warnings) {
+    serialize_delimited(warning_message);
+  }
 }
 
 /*
@@ -230,6 +232,7 @@ void setup_perf_events(pid_t target, perf_fd_info *info) {
   cpu_clock_attr.sample_period = global->period;
   cpu_clock_attr.wakeup_events = 1;
   cpu_clock_attr.sample_id_all = SAMPLE_ID_ALL;
+  // cpu_clock_attr.read_format = PERF_FORMAT_GROUP;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
   cpu_clock_attr.(SAMPLE_MAX_STACK + 2) = (SAMPLE_MAX_STACK + 2);
 #endif
@@ -424,9 +427,13 @@ int adjust_period(int record_type) {
   return 0;
 }
 
-void copy_record_to_stack(base_record *record, base_record *local,
-                          int record_type, int record_size,
-                          uintptr_t data_start, uintptr_t data_end) {
+/*
+ *It's possible that the perf memory holding the result overwrite the result
+ *while we process it, so we copy the result to our memory and change it
+ */
+void copy_record_to_stack(void *record, void *local, int record_type,
+                          int record_size, uintptr_t data_start,
+                          uintptr_t data_end) {
   DEBUG("copying record " << ptr_fmt(record) << " to stack " << ptr_fmt(local));
   auto record_ptr = reinterpret_cast<uintptr_t>(record),
        local_ptr = reinterpret_cast<uintptr_t>(local);
@@ -447,47 +454,57 @@ void copy_record_to_stack(base_record *record, base_record *local,
                    << ptr_fmt(local_ptr + first_part_bytes));
   memcpy(reinterpret_cast<void *>(local_ptr + first_part_bytes),
          reinterpret_cast<void *>(second_part_start),
-         record_size - first_part_bytes);
-  // special cases
-  if (record_type == PERF_RECORD_SAMPLE) {
-    uint64_t inst_ptrs_src = second_part_start - first_part_bytes +
-                             record_size -
-                             (sizeof(uint64_t) * (SAMPLE_MAX_STACK + 2)),
-             inst_ptrs_dst = local_ptr + record_size -
-                             (sizeof(uint64_t) * (SAMPLE_MAX_STACK + 2));
-    DEBUG("copying " << local->sample.num_instruction_pointers
-                     << " inst ptrs from " << ptr_fmt(inst_ptrs_src) << " to "
-                     << ptr_fmt(inst_ptrs_dst));
-    if (local->sample.num_instruction_pointers > (SAMPLE_MAX_STACK + 2)) {
-      PARENT_SHUTDOWN_MSG(INTERNAL_ERROR,
-                          "number of inst ptrs "
-                              << local->sample.num_instruction_pointers
-                              << " exceeds the max stack size "
-                              << (SAMPLE_MAX_STACK + 2)
-                              << ", something went "
-                                 "wrong copying! (period might be too low)");
-    }
-    memcpy(reinterpret_cast<void *>(inst_ptrs_dst),
-           reinterpret_cast<void *>(inst_ptrs_src),
-           sizeof(uint64_t) * local->sample.num_instruction_pointers);
-  }
+         record_size - first_part_bytes);  // the size is accurate and for
+                                           // future improvement, just copy the
+                                           // valid inst ptrs. special cases
 }
 
-void process_throttle_record(
-    const throttle_record &throttle, int record_type,
-    vector<tuple<int, base_record, int64_t>> *warnings) {
+/*
+ * Writes the information from the sample_id struct to the result file.
+ * Warning entries may end up having duplicate key-values, particularly time and
+ * stream_id, since the sample_id struct simply tries to provide the same
+ * information across all supported record types.
+ */
+void write_sample_id(SampleId *sample_id_message,
+                     const record_sample_id &sample_id) {
+  sample_id_message->set_pid(sample_id.pid);
+  sample_id_message->set_tid(sample_id.tid);
+  sample_id_message->set_time(sample_id.time);
+  sample_id_message->set_stream_id(sample_id.stream_id);
+  sample_id_message->set_id(sample_id.id);
+}
+
+void process_throttle_record(const throttle_record &throttle, int record_type,
+                             vector<Warning> *warnings) {
   if (adjust_period(record_type) == -1) {
     // should exit before this line anyway
     PARENT_SHUTDOWN_MSG(INTERNAL_ERROR, "failed to adjust period");
   }
-  warnings->emplace_back(make_tuple(
-      record_type, base_record{.throttle = throttle}, global->period));
+  Warning warning_message;
+  DEBUG("writing " << (record_type == PERF_RECORD_THROTTLE ? "throttle"
+                                                           : "unthrottle")
+                   << " warning");
+  auto *throttle_message = new Throttle;
+  warning_message.set_allocated_throttle(throttle_message);
+  throttle_message->set_type(record_type == PERF_RECORD_THROTTLE
+                                 ? Throttle_Type_THROTTLE
+                                 : Throttle_Type_UNTHROTTLE);
+  throttle_message->set_time(throttle.time);
+  throttle_message->set_period(global->period);
+  if (SAMPLE_ID_ALL) {
+    auto *sample_id_message = new SampleId;
+    write_sample_id(sample_id_message, throttle.sample_id);
+    warning_message.set_allocated_sample_id(sample_id_message);
+  }
+  throttle_message->set_id(throttle.id);
+  throttle_message->set_stream_id(throttle.stream_id);
+  warnings->emplace_back(warning_message);
 }
 
 bool process_sample_record(
-    const sample_record &sample, const perf_fd_info &info,
-    bg_reading *rapl_reading, bg_reading *wattsup_reading,
-    const map<uint64_t, kernel_sym> &kernel_syms,
+    const sample_record &sample,  // const sample_record_callchain &callchain,
+    const perf_fd_info &info, bg_reading *rapl_reading,
+    bg_reading *wattsup_reading, const map<uint64_t, kernel_sym> &kernel_syms,
     const map<interval, std::shared_ptr<line>, cmpByInterval> &ranges,
     const map<interval, string, cmpByInterval> &sym_map) {
   // note: kernel_syms needs to be passed by reference (a pointer would work
@@ -692,76 +709,18 @@ bool process_sample_record(
   return false;
 }
 
-void process_lost_record(const lost_record &lost,
-                         vector<tuple<int, base_record, int64_t>> *warnings) {
-  warnings->emplace_back(
-      make_tuple(PERF_RECORD_LOST, base_record{.lost = lost}, 0));
-}
-
-/*
- * Writes the information from the sample_id struct to the result file.
- * Warning entries may end up having duplicate key-values, particularly time and
- * stream_id, since the sample_id struct simply tries to provide the same
- * information across all supported record types.
- */
-void write_sample_id(SampleId *sample_id_message,
-                     const record_sample_id &sample_id) {
-  sample_id_message->set_pid(sample_id.pid);
-  sample_id_message->set_tid(sample_id.tid);
-  sample_id_message->set_time(sample_id.time);
-  sample_id_message->set_stream_id(sample_id.stream_id);
-  sample_id_message->set_id(sample_id.id);
-}
-
-void write_warnings() {
+void process_lost_record(const lost_record &lost, vector<Warning> *warnings) {
   Warning warning_message;
-  for (auto &t : warnings) {
-    int record_type;
-    base_record record{};
-    int64_t extra;
-    tie(record_type, record, extra) = t;
+  DEBUG("writing lost warning");
+  auto *lost_message = new Lost;
+  warning_message.set_allocated_lost(lost_message);
 
-    if (record_type == PERF_RECORD_THROTTLE ||
-        record_type == PERF_RECORD_UNTHROTTLE) {
-      DEBUG("writing " << (record_type == PERF_RECORD_THROTTLE ? "throttle"
-                                                               : "unthrottle")
-                       << " warning");
-      auto *throttle_message = new Throttle;
-      warning_message.set_allocated_throttle(throttle_message);
-      throttle_message->set_type(record_type == PERF_RECORD_THROTTLE
-                                     ? Throttle_Type_THROTTLE
-                                     : Throttle_Type_UNTHROTTLE);
-      auto throttle = record.throttle;
-
-      throttle_message->set_time(throttle.time);
-      throttle_message->set_period(extra);
-      if (SAMPLE_ID_ALL) {
-        auto *sample_id_message = new SampleId;
-        write_sample_id(sample_id_message, throttle.sample_id);
-        warning_message.set_allocated_sample_id(sample_id_message);
-      }
-      throttle_message->set_id(throttle.id);
-      throttle_message->set_stream_id(throttle.stream_id);
-    } else if (record_type == PERF_RECORD_LOST) {
-      DEBUG("writing lost warning");
-      auto *lost_message = new Lost;
-      warning_message.set_allocated_lost(lost_message);
-      auto lost = record.lost;
-
-      lost_message->set_lost(lost.lost);
-      lost_message->set_id(lost.id);
-      if (SAMPLE_ID_ALL) {
-        auto *sample_id_message = new SampleId;
-        write_sample_id(sample_id_message, lost.sample_id);
-        warning_message.set_allocated_sample_id(sample_id_message);
-      }
-    } else {
-      DEBUG_CRITICAL("couldn't determine type of warning for " << record_type
-                                                               << "!");
-    }
-
-    serialize_delimited(warning_message);
-    warning_message.Clear();
+  lost_message->set_lost(lost.lost);
+  lost_message->set_id(lost.id);
+  if (SAMPLE_ID_ALL) {
+    auto *sample_id_message = new SampleId;
+    write_sample_id(sample_id_message, lost.sample_id);
+    warning_message.set_allocated_sample_id(sample_id_message);
   }
 }
 
@@ -773,6 +732,7 @@ void serialize_footer() {
   coded.WriteLittleEndian32(0);
 
   coded.WriteLittleEndian32(warnings.size());
+
   write_warnings();
 }
 
@@ -946,10 +906,8 @@ int collect_perf_data(
                  i++) {
               DEBUG("getting next record");
               int record_type, record_size;
-              base_record *perf_result = reinterpret_cast<base_record *>(
-                              get_next_record(&info.sample_buf, &record_type,
-                                              &record_size)),
-                          local_result{};
+              void *perf_result = (get_next_record(&info.sample_buf,
+                                                   &record_type, &record_size));
 
               // record_size is not entirely accurate, since our version of the
               // structs generally have different contents
@@ -965,26 +923,32 @@ int collect_perf_data(
 
                 if (record_type == PERF_RECORD_THROTTLE ||
                     record_type == PERF_RECORD_UNTHROTTLE) {
-                  copy_record_to_stack(perf_result, &local_result, record_type,
-                                       record_size, data_start, data_end);
-                  process_throttle_record(local_result.throttle, record_type,
-                                          &warnings);
+                  throttle_record local_result{};
+                  copy_record_to_stack(perf_result, (void *)(&local_result),
+                                       record_type, record_size, data_start,
+                                       data_end);
+
+                  process_throttle_record(local_result, record_type, &warnings);
                 } else if (record_type == PERF_RECORD_SAMPLE) {
                   if (is_first_sample) {
-                    copy_record_to_stack(perf_result, &local_result,
+                    sample_record local_sample{};
+                    copy_record_to_stack(perf_result, (void *)&local_sample,
                                          record_type, record_size, data_start,
                                          data_end);
+
                     // is reset to true if the timeslice was skipped, else false
                     is_first_sample = process_sample_record(
-                        local_result.sample, info, rapl_reading,
-                        wattsup_reading, kernel_syms, ranges, sym_map);
+                        local_sample, info, rapl_reading, wattsup_reading,
+                        kernel_syms, ranges, sym_map);
                   } else {
                     DEBUG("not first sample, skipping");
                   }
                 } else if (record_type == PERF_RECORD_LOST) {
-                  copy_record_to_stack(perf_result, &local_result, record_type,
-                                       record_size, data_start, data_end);
-                  process_lost_record(local_result.lost, &warnings);
+                  lost_record local_result{};
+                  copy_record_to_stack(perf_result, (void *)&local_result,
+                                       record_type, record_size, data_start,
+                                       data_end);
+                  process_lost_record(local_result, &warnings);
                 } else {
                   DEBUG_CRITICAL("record type was not recognized ("
                                  << record_type_str(record_type) << " "
@@ -1010,6 +974,7 @@ int collect_perf_data(
   DEBUG("stopping wattsup reading thread");
   stop_reading(wattsup_reading);
 
+  DEBUG("writing warnings");
   serialize_footer();
 
   return 0;

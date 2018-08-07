@@ -18,8 +18,6 @@
 
 #define ARGV_SIZE 64
 
-#define WRAP_NAME(name) __wrap_##name
-
 /*
  *  Copy the execl() argument list of first_arg followed by arglist
  *  into an argv array, including the terminating nullptr.  If envp is
@@ -77,7 +75,7 @@ void close_fds() {
 
 void *__imposter(void *arg) {
   pid_t tid = gettid();
-  DEBUG(tid << ": in imposter, pid " << getpid());
+  DEBUG("tid " << tid << ": in imposter, pid " << getpid());
   auto *d = static_cast<disguise_t *>(arg);
   routine_fn_t routine = d->victim;
   void *arguments = d->args;

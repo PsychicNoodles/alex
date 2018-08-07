@@ -63,7 +63,7 @@ int main(void) {
 
   fprintf(stderr, "threadarray: starting threads\n");
   for (i = 0; i < NTHREADS; i++) {
-    thread_args[i] = i;
+    thread_args[i] = 7;
     fprintf(stderr, "threadarray: starting thread %d\n", i);
     pthread_create(&thread_id[i], NULL, calculate_sum, &thread_args[i]);
   }

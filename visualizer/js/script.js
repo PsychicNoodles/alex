@@ -6,12 +6,7 @@ const protobufStream = require("./protobuf-stream");
 const { Header, Timeslice, Warning } = protobufStream;
 const { promisify } = require("util");
 
-const {
-  processData,
-
-  getEventCount,
-  sdDomain
-} = require("./process-data");
+const { processData, getEventCount, sdDomain } = require("./process-data");
 const { analyze } = require("./analysis");
 const chart = require("./chart");
 const functionRuntimes = require("./function-runtimes");
@@ -24,8 +19,9 @@ const threadSelect = require("./thread-select");
 const tableSelect = require("./table-select");
 const chartsSelect = require("./charts-select");
 const warnings = require("./warnings");
-const stream = require("./stream");
 const progressBar = require("./progress-bar");
+const saveToPDF = require("./save-to-pdf");
+const stream = require("./stream");
 const { Store } = require("./store");
 
 const loadingProgressStore = new Store({
@@ -48,6 +44,8 @@ const progressBarHiddenPromise = new Promise(resolve =>
     if (!progressBarIsVisible) resolve();
   })
 );
+
+d3.select("#save-to-pdf").call(saveToPDF.render);
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", async (event, resultFile) => {
@@ -111,15 +109,19 @@ ipcRenderer.on("result", async (event, resultFile) => {
     }
   );
 
-  progressBarHiddenPromise.then(() =>
-    headerPromise.then(header =>
+  headerPromise.then(header => programInfo.store.dispatch(() => header));
+
+  progressBarHiddenPromise
+    .then(() => headerPromise)
+    .then(header =>
       d3.select("#program-info").call(programInfo.render, header)
-    )
-  );
+    );
+
   const processedData = await Promise.all([
     timeslicesPromise,
     headerPromise
   ]).then(([timeslices, header]) => processData(timeslices, header));
+
   const spectrum = d3.interpolateWarm;
   const sdRange = 3;
 

@@ -31,6 +31,8 @@ struct global_vars {
 
 extern const global_vars *global;
 
+extern vector<int> fds;
+
 void init_global_vars(uint64_t period, pid_t collector_pid,
                       const vector<string> &events, const set<string> &presets);
 

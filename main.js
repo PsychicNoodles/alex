@@ -7,6 +7,7 @@ const readline = require("readline");
 const tempFile = require("tempfile");
 const path = require("path");
 const prettyMS = require("pretty-ms");
+const moment = require("moment");
 
 process.on("unhandledRejection", err => {
   throw err;
@@ -54,18 +55,15 @@ yargs
         })
         .option("out", {
           description: "The file to pipe the stdout of <executable> into.",
-          type: "string",
-          default: "out-$timestamp.log"
+          default: path.join(__dirname, `/out-${moment().format()}.log`)
         })
         .option("err", {
           description: "The file to pipe the stderr of <executable> into.",
-          type: "string",
-          default: "err-$timestamp.log"
+          default: path.join(__dirname, `/err-${moment().format()}.log`)
         })
         .option("result", {
           description: "The file to pipe the performance results into.",
-          type: "string",
-          default: "result-$timestamp.bin"
+          default: path.join(__dirname, `/result-${moment().format()}.bin`)
         })
         .option("visualize", {
           description: "Where to visualize the results.",
