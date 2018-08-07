@@ -111,24 +111,35 @@ function analyze({
           /* Currently the best move is to loop through all timeslices a second
           time; this is because the implementation of js-regression requires
           that we know ahead of time all the independent variables (in this
-          case, each function). There's not much of a way out of this unless we
-          reimplement logistic regression very smartly to allow a non-array
-          input to it. */
+          case, each function) and their setting for each time slice. This might
+          be avoidable. */
           timeSlices.forEach(timeSlice => {
             const functionName = getFunctionName(timeSlice);
             const row = [];
-            /* Set independent variables */
-            functionsMap.forEach(func => {
+            // Set independent variables
+            functions.forEach(func => {
               row.push(func.name === functionName ? 1.0 : 0.0);
             });
-            /* Set dependent variable */
+            // Set dependent variable
             row.push(isBrushSelected(timeSlice) ? 1.0 : 0.0);
             trainingData.push(row);
           });
-          //console.log(trainingData);
           const model = logisticRegression.fit(trainingData);
-          console.log(model);
-          console.log(functionsMap);
+          // Convert from log-odds to probability... I think.
+          const odds = model.theta.map(
+            element => 1 / (1 + Math.pow(Math.E, -element))
+          );
+
+          let oddsIndex = 1;
+          functions.forEach(func => {
+            func.logisticRegressionProbability = odds[oddsIndex++];
+          });
+
+          // Testing
+          //console.log(trainingData);
+          //console.log(model);
+          //console.log(odds);
+          //console.log(functions);
 
           return stream
             .fromStreamables(
@@ -191,6 +202,7 @@ function analyze({
       stream.map(functions =>
         [...functions].sort(
           (a, b) =>
+            b.logisticRegressionProbability - a.logisticRegressionProbability ||
             b.fisherProbability - a.fisherProbability ||
             b.observed - a.observed ||
             b.time - a.time

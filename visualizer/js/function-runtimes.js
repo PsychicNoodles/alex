@@ -16,7 +16,8 @@ function render(root, { functions, functionsAreSelectable, onFunctionSelect }) {
     .attr("class", "function-runtimes__header-row");
   headerRowSelection.append("th").text("Function Name");
   headerRowSelection.append("th").text("Conclusion");
-  headerRowSelection.append("th").text("Probability");
+  headerRowSelection.append("th").text("Logistic Probability");
+  headerRowSelection.append("th").text("Fisher Probability");
   headerRowSelection.append("th").text("Expected");
   headerRowSelection.append("th").text("Observed");
   headerRowSelection.append("th").text("CPU Time");
@@ -35,6 +36,7 @@ function render(root, { functions, functionsAreSelectable, onFunctionSelect }) {
       name,
       displayNames,
       conclusion,
+      logisticRegressionProbability,
       fisherProbability,
       expected,
       observed,
@@ -46,6 +48,7 @@ function render(root, { functions, functionsAreSelectable, onFunctionSelect }) {
         .data([
           null,
           conclusion,
+          d3.format(".1%")(logisticRegressionProbability),
           d3.format(".1%")(fisherProbability),
           expected.toFixed(0),
           observed,
