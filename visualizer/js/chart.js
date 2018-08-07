@@ -144,7 +144,7 @@ function render(
       .text("Save As SVG")
       .call(saveToFile.render, {
         fileType: "svg",
-        filePrefix:
+        fileNameSuffix:
           "-" + yAxisLabelText.toLocaleLowerCase().replace(/\s+/g, "-"),
         generateFileData: async () => {
           const LEFT_MARGIN = 100;
