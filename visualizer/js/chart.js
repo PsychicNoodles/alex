@@ -4,6 +4,7 @@ const plot = require("./plot");
 const brushes = require("./brushes");
 const warnings = require("./warnings");
 const legend = require("./legend");
+const saveToFile = require("./save-to-file");
 const { computeRenderableData } = require("./process-data");
 const stream = require("./stream");
 
@@ -13,6 +14,8 @@ const HEIGHT = 250;
 /**
  * @param {d3.Selection} root
  * @param {Object} props
+ * @param {string} props.xAxisLabelText
+ * @param {string} props.yAxisLabelText
  */
 function render(
   root,
@@ -127,36 +130,42 @@ function render(
       .append("button")
       .attr("class", "chart__save")
       .text("Save As SVG")
-      .on("click", () => {
-        /** @type {SVGElement} */
-        const LEFT_MARGIN = 100;
-        const RIGHT_MARGIN = 100;
-        const TOP_MARGIN = 20;
-        const BOTTOM_MARGIN = 100;
+      .call(saveToFile.render, {
+        fileType: "svg",
+        filePrefix:
+          "-" + yAxisLabelText.toLocaleLowerCase().replace(/\s+/, "-"),
+        generateFileData: async () => {
+          const LEFT_MARGIN = 100;
+          const RIGHT_MARGIN = 100;
+          const TOP_MARGIN = 20;
+          const BOTTOM_MARGIN = 100;
 
-        const viewX = -LEFT_MARGIN;
-        const viewY = -TOP_MARGIN;
-        const viewW = WIDTH + LEFT_MARGIN + RIGHT_MARGIN;
-        const viewH = HEIGHT + TOP_MARGIN + BOTTOM_MARGIN;
+          const viewX = -LEFT_MARGIN;
+          const viewY = -TOP_MARGIN;
+          const viewW = WIDTH + LEFT_MARGIN + RIGHT_MARGIN;
+          const viewH = HEIGHT + TOP_MARGIN + BOTTOM_MARGIN;
 
-        const svgNode = root
-          .select(".chart__svg")
-          .node()
-          .cloneNode(true);
+          /** @type {SVGElement} */
+          const svgNode = root
+            .select(".chart__svg")
+            .node()
+            .cloneNode(true);
+          svgNode.setAttribute(
+            "viewBox",
+            `${viewX} ${viewY} ${viewW} ${viewH}`
+          );
 
-        svgNode.setAttribute("viewBox", `${viewX} ${viewY} ${viewW} ${viewH}`);
+          const background = document.createElement("rect");
+          background.setAttribute("fill", "#ffffff");
+          background.setAttribute("x", viewX);
+          background.setAttribute("y", viewY);
+          background.setAttribute("width", viewW);
+          background.setAttribute("height", viewH);
+          svgNode.insertBefore(background, svgNode.firstChild);
 
-        // White Background
-        const rect = document.createElement("rect");
-        rect.setAttribute("x", viewX);
-        rect.setAttribute("y", viewY);
-        rect.setAttribute("width", viewW);
-        rect.setAttribute("height", viewH);
-        rect.setAttribute("fill", "#FFFFFF");
-        svgNode.insertBefore(rect, svgNode.firstChild);
-
-        console.log(svgNode);
-        require("fs").writeFileSync("chart.svg", svgNode.outerHTML);
+          console.log(svgNode);
+          return svgNode.outerHTML;
+        }
       });
   }
 
