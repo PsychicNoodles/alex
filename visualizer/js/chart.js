@@ -55,6 +55,7 @@ function render(
   const svg = root.select("svg.chart__svg").empty()
     ? root
         .append("svg")
+        .attr("xmlns", "http://www.w3.org/2000/svg")
         .attr("class", "chart__svg")
         .attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`)
     : root.select("svg.chart__svg");
@@ -161,7 +162,6 @@ function render(
             .select(".chart__svg")
             .node()
             .cloneNode(true);
-          svgNode.setAttribute("xmlns", "http://www.w3.org/2000/svg");
           svgNode.setAttribute(
             "viewBox",
             `${viewX} ${viewY} ${viewW} ${viewH}`
