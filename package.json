@@ -24,22 +24,22 @@
     "ajv": "^6.5.2",
     "d3": "^5.5.0",
     "d3-svg-legend": "^2.25.6",
-    "electron": "^2.0.5",
+    "electron": "^2.0.6",
     "husky": "^0.14.3",
     "lint-staged": "^7.2.0",
     "lodash": "^4.17.10",
+    "moment": "^2.22.2",
     "prettier": "^1.14.0",
     "pretty-ms": "^3.2.0",
     "progress-stream": "^2.0.0",
     "protobufjs": "~6.8.8",
     "tempfile": "^2.0.0",
     "through2": "^2.0.3",
-    "yargs": "^12.0.1",
-    "moment": "^2.22.2"
+    "yargs": "^12.0.1"
   },
   "devDependencies": {
     "@types/yargs": "^11.1.1",
-    "eslint": "^5.2.0"
+    "eslint": "^5.3.0"
   },
   "eslintConfig": {
     "env": {
