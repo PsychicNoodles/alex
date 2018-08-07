@@ -756,8 +756,8 @@ void set_preset_events(Map<string, PresetEvents> *preset_map) {
 }
 
 void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
-                             ofstream *res_file, char *program_name,
-                             bg_reading *rapl_reading,
+                             ofstream *res_file, int argc, char **argv,
+                             string program_input, bg_reading *rapl_reading,
                              bg_reading *wattsup_reading) {
   result_file = res_file;
 
@@ -777,10 +777,16 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
   // write the header
   DEBUG("writing result header");
   Header header_message;
-  header_message.set_program_name(program_name);
+  header_message.set_program_name(argv[0]);
   header_message.set_program_version(VERSION);
+  header_message.set_program_input(program_input);
+  DEBUG("writing program_input: " << program_input);
   for (int i = 0; i < global->events_size; i++) {
     header_message.add_events(global->events[i]);
+  }
+
+  for (int i = 1; i < argc; i++) {
+    header_message.add_program_args(argv[i]);
   }
 
   set_preset_events(header_message.mutable_presets());
