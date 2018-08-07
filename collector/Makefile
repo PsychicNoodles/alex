@@ -1,7 +1,7 @@
 CXX := clang++
 TIDY_SCRIPT := ../tidy-check.sh
 
-GIT_VERSION := $(shell git describe --abbrev=4 --dirty --always --tags)
+GIT_VERSION := $(shell git rev-parse HEAD | cut -c -10)
 PERF_SAMPLE_MAX_STACK_MACRO := $(shell cat /proc/sys/kernel/perf_event_max_stack 2>/dev/null)
 ifneq ($(PERF_SAMPLE_MAX_STACK_MACRO),) # if the file was found
 PERF_SAMPLE_MAX_STACK_MACRO := -DSAMPLE_MAX_STACK="$(PERF_SAMPLE_MAX_STACK_MACRO)"

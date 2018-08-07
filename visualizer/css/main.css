@@ -153,6 +153,10 @@ button:disabled {
     display: block;
   }
 
+  button {
+    display: none;
+  }
+
   #info {
     flex-direction: row;
     border-bottom: 1px solid #999;

@@ -4,12 +4,19 @@ const plot = require("./plot");
 const brushes = require("./brushes");
 const warnings = require("./warnings");
 const legend = require("./legend");
+const saveToFile = require("./save-to-file");
 const { computeRenderableData } = require("./process-data");
 const stream = require("./stream");
 
 const WIDTH = 500;
 const HEIGHT = 250;
 
+/**
+ * @param {d3.Selection} root
+ * @param {Object} props
+ * @param {string} props.xAxisLabelText
+ * @param {string} props.yAxisLabelText
+ */
 function render(
   root,
   {
@@ -116,6 +123,51 @@ function render(
   //brushes
   if (root.select("g.brushes").empty()) {
     svg.append("g").call(brushes.render);
+  }
+
+  if (root.select(".chart__save").empty()) {
+    root
+      .append("button")
+      .attr("class", "chart__save")
+      .text("Save As SVG")
+      .call(saveToFile.render, {
+        fileType: "svg",
+        filePrefix:
+          "-" + yAxisLabelText.toLocaleLowerCase().replace(/\s+/g, "-"),
+        generateFileData: async () => {
+          const LEFT_MARGIN = 100;
+          const RIGHT_MARGIN = 100;
+          const TOP_MARGIN = 20;
+          const BOTTOM_MARGIN = 100;
+
+          const viewX = -LEFT_MARGIN;
+          const viewY = -TOP_MARGIN;
+          const viewW = WIDTH + LEFT_MARGIN + RIGHT_MARGIN;
+          const viewH = HEIGHT + TOP_MARGIN + BOTTOM_MARGIN;
+
+          /** @type {SVGElement} */
+          const svgNode = root
+            .select(".chart__svg")
+            .node()
+            .cloneNode(true);
+          svgNode.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+          svgNode.setAttribute(
+            "viewBox",
+            `${viewX} ${viewY} ${viewW} ${viewH}`
+          );
+
+          const background = document.createElement("rect");
+          background.setAttribute("fill", "#ffffff");
+          background.setAttribute("x", viewX);
+          background.setAttribute("y", viewY);
+          background.setAttribute("width", viewW);
+          background.setAttribute("height", viewH);
+          svgNode.insertBefore(background, svgNode.firstChild);
+
+          console.log(svgNode);
+          return svgNode.outerHTML;
+        }
+      });
   }
 
   const plotDataStream = currentYScaleStore.stream.pipe(
