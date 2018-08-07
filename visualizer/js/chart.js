@@ -11,6 +11,9 @@ const stream = require("./stream");
 const WIDTH = 500;
 const HEIGHT = 250;
 
+const yScaleSubscription = d3.local();
+const plotAndFunctionSubscription = d3.local();
+
 /**
  * @param {d3.Selection} root
  * @param {Object} props
@@ -185,7 +188,7 @@ function render(
   stream.fromStreamables([currentYScaleStore.stream, plotDataStream]).pipe(
     stream.subscribeUnique(
       root,
-      "currentYscaleStore",
+      yScaleSubscription,
       ([currentYScale, plotData]) => {
         const densityMax =
           Math.max(d3.max(plotData, d => d.densityAvg), 5) || 0;
@@ -289,7 +292,7 @@ function render(
   stream.fromStreamables([plotDataStream, selectedFunctionStream]).pipe(
     stream.subscribeUnique(
       root,
-      "plotAndFunction",
+      plotAndFunctionSubscription,
       ([plotData, selectedFunction]) => {
         chartPlot
           .selectAll("circle")
