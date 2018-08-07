@@ -19,24 +19,29 @@ void *malloc_shared(size_t size) {
 }
 
 void init_global_vars(uint64_t period, pid_t collector_pid,
-                      const vector<string> &events,
-                      const set<string> &presets) {
+                      const set<string> &events, const set<string> &presets) {
   char **events_tmp =
       static_cast<char **>(malloc_shared(sizeof(char *) * events.size()));
-  for (int i = 0; i < events.size(); i++) {
-    events_tmp[i] =
-        static_cast<char *>(malloc_shared(sizeof(char) * events.at(i).size()));
-    memcpy(static_cast<void *>(events_tmp[i]), events.at(i).c_str(),
-           events.at(i).size());
+  {
+    size_t i = 0;
+    for (const auto &event : events) {
+      events_tmp[i] =
+          static_cast<char *>(malloc_shared(sizeof(char) * event.size()));
+      memcpy(static_cast<void *>(events_tmp[i]), event.c_str(), event.size());
+      i++;
+    }
   }
+
   char **presets_tmp =
       static_cast<char **>(malloc_shared(sizeof(char *) * presets.size()));
-  size_t i = 0;
-  for (const auto &p : presets) {
-    presets_tmp[i] =
-        static_cast<char *>(malloc_shared(sizeof(char) * p.size()));
-    memcpy(static_cast<void *>(presets_tmp[i]), p.c_str(), p.size());
-    i++;
+  {
+    size_t i = 0;
+    for (const auto &p : presets) {
+      presets_tmp[i] =
+          static_cast<char *>(malloc_shared(sizeof(char) * p.size()));
+      memcpy(static_cast<void *>(presets_tmp[i]), p.c_str(), p.size());
+      i++;
+    }
   }
 
   global_vars global_tmp = {.period = period,
