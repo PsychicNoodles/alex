@@ -107,7 +107,7 @@ function render(
       .call(saveToFile.render, {
         fileType: "svg",
         fileNameSuffix:
-          "-" + yAxisLabelText.toLocaleLowerCase().replace(/[\W_]+/g, "-"),
+          "chart-" + yAxisLabelText.toLocaleLowerCase().replace(/[\W_]+/g, "-"),
         generateFileData: async () => {
           const LEFT_MARGIN = 100;
           const RIGHT_MARGIN = 100;
