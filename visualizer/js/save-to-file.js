@@ -10,46 +10,37 @@ const listenerSubscription = d3.local();
 
 /**
  * @param {d3.Selection} root
+ * @param {Object} props
+ * @param {string} props.fileType
+ * @param {string} props.filePrefix
+ * @param {() => Promise<string>} props.generateFileData
  */
-function render(root) {
+function render(root, { fileType, filePrefix = "", generateFileData }) {
   stream
     .fromDOMEvent(root.node(), "click")
     .pipe(
-      stream.debounceMap(() => {
-        const browserWindow = remote.getCurrentWindow();
-        const webContents = remote.getCurrentWebContents();
-        const printToPDF = promisify(webContents.printToPDF.bind(webContents));
-        const writeFile = promisify(fs.writeFile);
-
-        return stream
-          .fromAsyncThunk(async () => {
-            const dataPromise = printToPDF({
-              pageSize: "Letter",
-              printBackground: true
-            });
-
-            const fileNamePromise = new Promise(resolve => {
-              remote.dialog.showSaveDialog(
-                browserWindow,
-                {
-                  defaultPath: getDefaultFilename(),
-                  filters: [{ extensions: ["pdf"] }]
-                },
-                resolve
-              );
-            });
-
-            return {
-              data: await dataPromise,
-              fileName: await fileNamePromise
-            };
-          })
+      stream.debounceMap(() =>
+        stream
+          .fromAsyncThunk(
+            () =>
+              new Promise(resolve => {
+                remote.dialog.showSaveDialog(
+                  remote.getCurrentWindow(),
+                  {
+                    defaultPath: getDefaultFilename(filePrefix, fileType),
+                    filters: [{ extensions: [fileType] }]
+                  },
+                  resolve
+                );
+              })
+          )
           .pipe(
-            stream.mergeMap(({ data, fileName }) =>
+            stream.mergeMap(fileName =>
               stream.fromAsyncThunk(async () => {
                 if (fileName) {
                   try {
-                    await writeFile(fileName, data);
+                    const data = await generateFileData();
+                    await promisify(fs.writeFile)(fileName, data);
                     return {
                       isSaving: false,
                       message: { ok: true, text: "Saved", duration: 2000 }
@@ -87,8 +78,8 @@ function render(root) {
                 return stream.fromValue(state);
               }
             })
-          );
-      })
+          )
+      )
     )
     .pipe(stream.startWith({ isSaving: false, message: null }))
     .pipe(
@@ -97,16 +88,16 @@ function render(root) {
         listenerSubscription,
         ({ isSaving, message }) => {
           root
-            .classed("save-to-pdf", true)
+            .classed("save-to-file", true)
             .property("disabled", isSaving)
-            .classed("save-to-pdf--ok", message ? message.ok : true)
+            .classed("save-to-file--ok", message ? message.ok : true)
             .attr("data-message", message ? message.text : null);
         }
       )
     );
 }
 
-function getDefaultFilename() {
+function getDefaultFilename(prefix, fileType) {
   const { programName } = programInfo.store.getState();
   const programNamePrefix = programName
     ? "-" +
@@ -120,7 +111,7 @@ function getDefaultFilename() {
     .replace(":", "-")
     .replace(/\.\d{3}/, "");
 
-  return `alex${programNamePrefix}_${dateString}.pdf`;
+  return `alex${programNamePrefix}${prefix}_${dateString}.${fileType}`;
 }
 
 module.exports = { render };

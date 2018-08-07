@@ -122,11 +122,11 @@ function render(
     svg.append("g").call(brushes.render);
   }
 
-  if (root.select(".save-to-svg").empty()) {
+  if (root.select(".chart__save").empty()) {
     root
       .append("button")
-      .classed("save-to-svg", true)
-      .text("Save to SVG")
+      .attr("class", "chart__save")
+      .text("Save As SVG")
       .on("click", () => {
         /** @type {SVGElement} */
         const LEFT_MARGIN = 100;

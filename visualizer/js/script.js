@@ -1,4 +1,4 @@
-const { ipcRenderer } = require("electron");
+const { ipcRenderer, remote } = require("electron");
 const d3 = require("d3");
 const fs = require("fs");
 const progressStream = require("progress-stream");
@@ -20,7 +20,7 @@ const tableSelect = require("./table-select");
 const chartsSelect = require("./charts-select");
 const warnings = require("./warnings");
 const progressBar = require("./progress-bar");
-const saveToPDF = require("./save-to-pdf");
+const saveToFile = require("./save-to-file");
 const stream = require("./stream");
 const { Store } = require("./store");
 
@@ -45,7 +45,17 @@ const progressBarHiddenPromise = new Promise(resolve =>
   })
 );
 
-d3.select("#save-to-pdf").call(saveToPDF.render);
+d3.select("#save-to-pdf").call(saveToFile.render, {
+  fileType: "pdf",
+  generateFileData: () => {
+    const webContents = remote.getCurrentWebContents();
+    const printToPDF = promisify(webContents.printToPDF.bind(webContents));
+    return printToPDF({
+      pageSize: "Letter",
+      printBackground: true
+    });
+  }
+});
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", async (event, resultFile) => {
