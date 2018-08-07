@@ -419,6 +419,7 @@ run-alex.sh
 file-result*
 *.bin
 alex-*.pdf
+alex-*.svg
 
 # protoc build output
 collector/protos

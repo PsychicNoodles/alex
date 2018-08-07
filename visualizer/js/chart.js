@@ -1,15 +1,33 @@
 const d3 = require("d3");
+const fs = require("fs");
+const path = require("path");
+const { promisify } = require("util");
 
 const plot = require("./plot");
 const brushes = require("./brushes");
 const warnings = require("./warnings");
 const legend = require("./legend");
+const saveToFile = require("./save-to-file");
 const { computeRenderableData } = require("./process-data");
 const stream = require("./stream");
 
 const WIDTH = 500;
 const HEIGHT = 250;
 
+const yScaleSubscription = d3.local();
+const plotAndFunctionSubscription = d3.local();
+
+const stylesFileContents = promisify(fs.readFile)(
+  path.join(__dirname, "../css/chart-svg.css"),
+  { encoding: "utf8" }
+);
+
+/**
+ * @param {d3.Selection} root
+ * @param {Object} props
+ * @param {string} props.xAxisLabelText
+ * @param {string} props.yAxisLabelText
+ */
 function render(
   root,
   {
@@ -37,6 +55,7 @@ function render(
   const svg = root.select("svg.chart__svg").empty()
     ? root
         .append("svg")
+        .attr("xmlns", "http://www.w3.org/2000/svg")
         .attr("class", "chart__svg")
         .attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`)
     : root.select("svg.chart__svg");
@@ -118,6 +137,54 @@ function render(
     svg.append("g").call(brushes.render);
   }
 
+  if (root.select(".chart__save").empty()) {
+    root
+      .append("button")
+      .attr("class", "chart__save")
+      .text("Save As SVG")
+      .call(saveToFile.render, {
+        fileType: "svg",
+        fileNameSuffix:
+          "-" + yAxisLabelText.toLocaleLowerCase().replace(/\s+/g, "-"),
+        generateFileData: async () => {
+          const LEFT_MARGIN = 100;
+          const RIGHT_MARGIN = 100;
+          const TOP_MARGIN = 20;
+          const BOTTOM_MARGIN = 100;
+
+          const viewX = -LEFT_MARGIN;
+          const viewY = -TOP_MARGIN;
+          const viewW = WIDTH + LEFT_MARGIN + RIGHT_MARGIN;
+          const viewH = HEIGHT + TOP_MARGIN + BOTTOM_MARGIN;
+
+          /** @type {SVGElement} */
+          const svgNode = root
+            .select(".chart__svg")
+            .node()
+            .cloneNode(true);
+          svgNode.setAttribute(
+            "viewBox",
+            `${viewX} ${viewY} ${viewW} ${viewH}`
+          );
+
+          const background = document.createElement("rect");
+          background.setAttribute("id", "chart-background");
+          background.setAttribute("fill", "#ffffff");
+          background.setAttribute("x", viewX);
+          background.setAttribute("y", viewY);
+          background.setAttribute("width", viewW);
+          background.setAttribute("height", viewH);
+          svgNode.insertBefore(background, svgNode.firstChild);
+
+          const styles = document.createElement("style");
+          styles.innerHTML = await stylesFileContents;
+          svgNode.appendChild(styles);
+
+          return svgNode.outerHTML;
+        }
+      });
+  }
+
   const plotDataStream = currentYScaleStore.stream.pipe(
     stream.map(currentYScale =>
       computeRenderableData({
@@ -133,7 +200,7 @@ function render(
   stream.fromStreamables([currentYScaleStore.stream, plotDataStream]).pipe(
     stream.subscribeUnique(
       root,
-      "currentYscaleStore",
+      yScaleSubscription,
       ([currentYScale, plotData]) => {
         const densityMax =
           Math.max(d3.max(plotData, d => d.densityAvg), 5) || 0;
@@ -237,7 +304,7 @@ function render(
   stream.fromStreamables([plotDataStream, selectedFunctionStream]).pipe(
     stream.subscribeUnique(
       root,
-      "plotAndFunction",
+      plotAndFunctionSubscription,
       ([plotData, selectedFunction]) => {
         chartPlot
           .selectAll("circle")

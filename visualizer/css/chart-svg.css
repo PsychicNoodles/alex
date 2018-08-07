@@ -1,0 +1,38 @@
+/**
+ * Styles for the SVG element in each chart.
+ *
+ * These will be included in saved SVG files.
+ */
+
+.chart__svg text {
+  font-family: "Trebuchet MS", "Lucida Sans Unicode", "Lucida Grande",
+    "Lucida Sans", Arial, sans-serif;
+}
+
+.chart__axis path,
+.chart__axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: geometricPrecision;
+}
+
+.chart__axis text {
+  font-size: 12px;
+  fill: #000;
+}
+
+g.sideBar-brush {
+  stroke: #000;
+  stroke-width: 0.5px;
+}
+
+.sideBar-brush .selection {
+  stroke: #000;
+  stroke-width: 0.5px;
+}
+
+.brush .extent {
+  stroke: #fff;
+  fill-opacity: 0.125;
+  shape-rendering: crispEdges;
+}

@@ -1,8 +1,8 @@
-.save-to-pdf {
+.save-to-file {
   position: relative;
 }
 
-.save-to-pdf::after {
+.save-to-file::after {
   box-sizing: border-box;
   content: "";
   position: absolute;
@@ -23,15 +23,15 @@
   z-index: 1000;
 }
 
-.save-to-pdf--ok::after {
-  background: #5fd28d;
-}
-
-.save-to-pdf:not(.save-to-pdf--ok)::after {
+.save-to-file::after {
   background: #ffe66e;
 }
 
-.save-to-pdf[data-message]::after {
+.save-to-file--ok::after {
+  background: #5fd28d;
+}
+
+.save-to-file[data-message]::after {
   content: attr(data-message);
   display: block;
 }

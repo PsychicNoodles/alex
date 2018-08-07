@@ -1,6 +1,11 @@
 .chart {
+  position: relative;
   max-width: 650px;
   margin: 30px;
+}
+
+.chart--hidden {
+  display: none;
 }
 
 svg.chart__svg {
@@ -11,35 +16,14 @@ svg.chart__svg {
   margin-bottom: 12%;
 }
 
-.chart__axis path,
-.chart__axis line {
-  fill: none;
-  stroke: #000;
-  shape-rendering: geometricPrecision;
+.chart__save {
+  position: absolute !important;
+  bottom: 5%;
+  left: 0;
 }
 
-.chart__axis text {
-  font-family: sans-serif;
-  font-size: 12px;
-  fill: #000;
-}
-
-g.sideBar-brush {
-  stroke: #000;
-  stroke-width: 0.5px;
-}
-
-.sideBar-brush .selection {
-  stroke: #000;
-  stroke-width: 0.5px;
-}
-
-.brush .extent {
-  stroke: #fff;
-  fill-opacity: 0.125;
-  shape-rendering: crispEdges;
-}
-
-.chart--hidden {
-  display: none;
+@media screen and (max-width: 750px) {
+  .chart__save {
+    position: relative !important;
+  }
 }
