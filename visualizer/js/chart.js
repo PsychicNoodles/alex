@@ -45,7 +45,6 @@ function render(
     warningRecords,
     warningsDistinct,
     currentYScaleStore,
-    processedData,
     selectedFunctionStream
   }
 ) {
@@ -95,43 +94,6 @@ function render(
         .text(xAxisLabelText)
     : svg.select("chart__axis-label--x");
 
-  //still in progress still in progress still in progress
-  if (yAxisLabelText === "L3 Cache Miss Rate") {
-    const hitExtent = d3
-      .extent(processedData, d => d.events["MEM_LOAD_RETIRED.L3_HIT"])
-      .reverse();
-    const missExtent = d3
-      .extent(processedData, d => d.events["MEM_LOAD_RETIRED.L3_MISS"])
-      .reverse();
-    const hitScale = d3
-      .scaleLinear()
-      .domain(hitExtent)
-      .range([0, 125]);
-    const missScale = d3
-      .scaleLinear()
-      .domain(missExtent)
-      .range([250, 125]);
-
-    if (root.select("svg.bg").empty()) {
-      svg
-        .append("svg")
-        .classed("bg", true)
-        .selectAll(".line")
-        .data(processedData)
-        .enter()
-        .append("line")
-        .attr("class", "line")
-        .attr("x1", d => xScale(getIndependentVariable(d)))
-        .attr("x2", d => xScale(getIndependentVariable(d)))
-        .attr("y1", d => hitScale(d.events["MEM_LOAD_RETIRED.L3_HIT"]))
-        .attr("y2", d => missScale(d.events["MEM_LOAD_RETIRED.L3_MISS"]))
-        .style("stroke-width", 0.5)
-        .style("stroke", "green")
-        .style("stroke-opacity", 0.5);
-    }
-  }
-  //ignore this part if you are not xinya
-
   //brushes
   if (root.select("g.brushes").empty()) {
     svg.append("g").call(brushes.render);
@@ -145,7 +107,7 @@ function render(
       .call(saveToFile.render, {
         fileType: "svg",
         fileNameSuffix:
-          "-" + yAxisLabelText.toLocaleLowerCase().replace(/\s+/g, "-"),
+          "-" + yAxisLabelText.toLocaleLowerCase().replace(/[\W_]+/g, "-"),
         generateFileData: async () => {
           const LEFT_MARGIN = 100;
           const RIGHT_MARGIN = 100;

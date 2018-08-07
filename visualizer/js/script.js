@@ -85,6 +85,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     window.close();
   }
 
+  /** @type {Promise<{events: string[], presets: Object}} */
   const headerPromise = new Promise((resolve, reject) =>
     protobufMessageStream
       .once("data", d => {
@@ -220,18 +221,33 @@ ipcRenderer.on("result", async (event, resultFile) => {
     });
 
     //charts charts charts
-    const { presets } = await headerPromise;
+    const { presets, events } = await headerPromise;
+
+    const CPU_TIMER_TICKS_PER_SECOND = 1000000000;
+
     //make a array containing some information of each chart
     const charts = [
       {
         presetsRequired: ["cache"],
-        yAxisLabelText: "L3 Cache Miss Rate",
-        chartId: "l3-cache-miss-rate",
+        yAxisLabelText: "Cache Miss Rate",
+        chartId: "cache-miss-rate",
         yFormat: "%",
         getDependentVariable: d =>
           getEventCount(d, presets.cache.misses) /
             (getEventCount(d, presets.cache.hits) +
               getEventCount(d, presets.cache.misses)) || 0,
+        flattenThreads: false
+      },
+      {
+        presetsRequired: ["cache"],
+        yAxisLabelText: "Memory Accesses (per Sec)",
+        chartId: "memory-access-volume",
+        yFormat: "s",
+        getDependentVariable: d =>
+          ((getEventCount(d, presets.cache.hits) +
+            getEventCount(d, presets.cache.misses)) /
+            d.numCpuTimerTicks) *
+          CPU_TIMER_TICKS_PER_SECOND,
         flattenThreads: false
       },
       {
@@ -285,7 +301,15 @@ ipcRenderer.on("result", async (event, resultFile) => {
         yFormat: "",
         getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup),
         flattenThreads: true
-      }
+      },
+      ...events.map(eventName => ({
+        presetsRequired: [],
+        yAxisLabelText: `Event: ${eventName.toLowerCase()}`,
+        chartId: `event-${eventName.toLowerCase().replace(/\W+/g, "-")}`,
+        yFormat: "s",
+        getDependentVariable: d => d.events[eventName],
+        flattenThreads: false
+      }))
     ].filter(({ presetsRequired }) =>
       presetsRequired.every(presetName => presetName in presets)
     );
@@ -420,7 +444,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
                 warningRecords,
                 warningsDistinct,
                 currentYScaleStore: currentYScaleStores[chartId],
-                processedData,
                 selectedFunctionStream: currentSelectedFunctionStore.stream
               });
             });
