@@ -15,11 +15,7 @@ function render(root, { functions, functionsAreSelectable, onFunctionSelect }) {
     .insert("tr", "tr")
     .attr("class", "function-runtimes__header-row");
   headerRowSelection.append("th").text("Function Name");
-  headerRowSelection.append("th").text("Conclusion");
-  headerRowSelection.append("th").text("Logistic Probability");
-  headerRowSelection.append("th").text("Fisher Probability");
-  headerRowSelection.append("th").text("Expected");
-  headerRowSelection.append("th").text("Observed");
+  headerRowSelection.append("th").text("Probability");
   headerRowSelection.append("th").text("CPU Time");
 
   const MAX_NUM_FUNCTIONS = 100;
@@ -32,28 +28,11 @@ function render(root, { functions, functionsAreSelectable, onFunctionSelect }) {
     .append("tr")
     .attr("class", "function-runtimes__data-row")
     .merge(tableDataSelection)
-    .each(function({
-      name,
-      displayNames,
-      conclusion,
-      logisticRegressionProbability,
-      fisherProbability,
-      expected,
-      observed,
-      time
-    }) {
+    .each(function({ name, displayNames, probability, time }) {
       const row = d3
         .select(this)
         .selectAll(".function-runtimes__data-column")
-        .data([
-          null,
-          conclusion,
-          d3.format(".1%")(logisticRegressionProbability),
-          d3.format(".1%")(fisherProbability),
-          expected.toFixed(0),
-          observed,
-          d3.format(".4s")(time)
-        ]);
+        .data([null, d3.format(".1%")(probability), d3.format(".4s")(time)]);
 
       row
         .enter()
