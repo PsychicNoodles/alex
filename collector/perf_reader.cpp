@@ -781,8 +781,9 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
   header_message.set_program_version(VERSION);
   header_message.set_program_input(program_input);
   DEBUG("writing program_input: " << program_input);
-  for (int i = 0; i < global->events_size; i++) {
-    header_message.add_events(global->events[i]);
+  auto events = str_split_set(getenv_safe("COLLECTOR_EVENTS"), ",");
+  for (auto event : events) {
+    header_message.add_events(event);
   }
 
   for (int i = 1; i < argc; i++) {

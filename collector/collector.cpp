@@ -84,13 +84,13 @@ void setup_global_vars() {
 
   // set up events array, will be a set later though
   DEBUG("getting events from env var");
-  auto events = str_split_vec(getenv_safe("COLLECTOR_EVENTS"), ",");
+  auto events = str_split_set(getenv_safe("COLLECTOR_EVENTS"), ",");
   auto presets = str_split_set(getenv_safe("COLLECTOR_PRESETS"), ",");
   if (presets.find("cpu") != presets.end()) {
     map<string, vector<string>> cpu = build_preset("cpu");
     for (auto &it : cpu) {
       for (const auto &event : it.second) {
-        events.emplace_back(event.c_str());
+        events.insert(event);
       }
     }
   }
@@ -99,7 +99,7 @@ void setup_global_vars() {
     map<string, vector<string>> cache = build_preset("cache");
     for (auto &it : cache) {
       for (const auto &event : it.second) {
-        events.emplace_back(event.c_str());
+        events.insert(event);
       }
     }
   }
@@ -108,7 +108,7 @@ void setup_global_vars() {
     map<string, vector<string>> branches = build_preset("branches");
     for (auto &it : branches) {
       for (const auto &event : it.second) {
-        events.emplace_back(event.c_str());
+        events.insert(event);
       }
     }
   }

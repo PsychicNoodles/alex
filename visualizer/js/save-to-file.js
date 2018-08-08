@@ -111,7 +111,7 @@ function render(root, { fileType, fileNameSuffix = "", generateFileData }) {
 function getDefaultFilename(suffix, fileType) {
   const { programName } = programInfo.store.getState();
   const programNamePrefix = programName
-    ? "-" +
+    ? "_" +
       programName
         .split("/")
         .reverse()
@@ -119,7 +119,8 @@ function getDefaultFilename(suffix, fileType) {
     : "";
   const dateString = moment().format("YYYY-MM-DD" + "T" + "HH-mm-ss");
 
-  return `alex${programNamePrefix}${suffix}_${dateString}.${fileType}`;
+  const suffixString = suffix ? "_" + suffix : "";
+  return `alex${programNamePrefix}${suffixString}_${dateString}.${fileType}`;
 }
 
 module.exports = { render };

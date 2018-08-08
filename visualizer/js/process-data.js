@@ -51,6 +51,9 @@ function processData(data) {
     .filter(timeslice => timeslice.stackFrames.length);
 }
 
+/**
+ * @returns {number} Count of all events in `lowLevelNames` for given `timeslice`.
+ */
 function getEventCount(timeslice, lowLevelNames) {
   return lowLevelNames.reduce(
     (count, name) => count + timeslice.events[name],
