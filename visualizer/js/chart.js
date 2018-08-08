@@ -1,4 +1,5 @@
 const d3 = require("d3");
+const { legendColor } = require("d3-svg-legend");
 const fs = require("fs");
 const path = require("path");
 const { promisify } = require("util");
@@ -27,6 +28,7 @@ const stylesFileContents = promisify(fs.readFile)(
  * @param {Object} props
  * @param {string} props.xAxisLabelText
  * @param {string} props.yAxisLabelText
+ * @param {any[]} props.filteredData
  */
 function render(
   root,
@@ -45,7 +47,8 @@ function render(
     warningRecords,
     warningsDistinct,
     currentYScaleStore,
-    selectedFunctionStream
+    selectedFunctionStream,
+    overlayPlots
   }
 ) {
   root.classed("chart", true);
@@ -58,6 +61,66 @@ function render(
         .attr("class", "chart__svg")
         .attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`)
     : root.select("svg.chart__svg");
+
+  // Overlay Plots
+
+  console.log(chartId, overlayPlots);
+  const overlayPlotsSelection = svg
+    .selectAll(".chart__overlay-plot")
+    .data(overlayPlots);
+
+  overlayPlotsSelection
+    .enter()
+    .append("path")
+    .attr("class", "chart__overlay-plot")
+    .merge(overlayPlotsSelection)
+    .attr("fill", plot => plot.color)
+    .attr("fill-opacity", "0.5")
+    .attr("d", overlayPlot => {
+      const getX = timeslice => xScale(getIndependentVariable(timeslice));
+      const getY = timeslice =>
+        overlayPlot.yScale(overlayPlot.getDependentVariable(timeslice));
+
+      const startY = getY(filteredData[0]);
+      let pathDescriptor = `M 0,${HEIGHT} 0,${startY}`;
+
+      let currentMinX = 0;
+      for (const timeslice of filteredData) {
+        const x = getX(timeslice);
+        while (x >= currentMinX + 1) currentMinX++;
+        if (x >= currentMinX) {
+          const y = getY(timeslice);
+          console.log(overlayPlot.getDependentVariable(timeslice), y);
+          pathDescriptor += ` ${x},${y}`;
+          currentMinX++;
+        }
+      }
+
+      const endY = getY(filteredData[filteredData.length - 1]);
+      pathDescriptor += ` ${WIDTH},${endY} ${WIDTH},${HEIGHT} Z`;
+      return pathDescriptor;
+    });
+
+  overlayPlotsSelection.exit().remove();
+
+  if (svg.select(".chart__overlay-plot-legend").empty()) {
+    svg
+      .append("g")
+      .attr("class", "chart__overlay-plot-legend")
+      .attr("transform", `translate(${WIDTH * 0.2}, ${HEIGHT + 30})`);
+  }
+
+  svg.select(".chart__overlay-plot-legend").call(
+    legendColor()
+      .orient("horizontal")
+      .shapeWidth(30)
+      .scale(
+        d3
+          .scaleOrdinal()
+          .domain(overlayPlots.map(plot => plot.name))
+          .range(overlayPlots.map(plot => plot.color))
+      )
+  );
 
   //warnings
   if (root.select("g.warning-lines").empty()) {
@@ -252,7 +315,7 @@ function render(
           ? svg
               .append("g")
               .attr("class", "chart__legend")
-              .attr("transform", `translate(${WIDTH * 0.7}, ${HEIGHT + 1.1})`)
+              .attr("transform", `translate(${WIDTH * 0.7}, ${HEIGHT})`)
           : svg.select("g.chart__legend");
 
         chartLegend.call(legend.render, {

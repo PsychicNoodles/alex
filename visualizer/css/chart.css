@@ -22,7 +22,7 @@ svg.chart__svg {
   left: 0;
 }
 
-@media screen and (max-width: 750px) {
+@media screen and (max-width: 900px) {
   .chart__save {
     position: relative !important;
   }
