@@ -55,15 +55,15 @@ yargs
         })
         .option("out", {
           description: "The file to pipe the stdout of <executable> into.",
-          default: path.join(__dirname, "/out-$timestamp.log")
+          default: "alex_$executable_out_$timestamp.log"
         })
         .option("err", {
           description: "The file to pipe the stderr of <executable> into.",
-          default: path.join(__dirname, "/err-$timestamp.log")
+          default: "alex_$executable_err_$timestamp.log"
         })
         .option("result", {
           description: "The file to pipe the performance results into.",
-          default: path.join(__dirname, "/result-$timestamp.bin")
+          default: "alex_$executable_result_$timestamp.bin"
         })
         .option("visualize", {
           description: "Where to visualize the results.",
@@ -99,12 +99,19 @@ yargs
           "$0 collect --in my-input-file.in -p cache -- ./my-program --arg1 arg2"
         ),
     argv => {
+      const executableName = argv.executable
+        .split("/")
+        .filter(Boolean)
+        .reverse()[0]
+        .toLowerCase();
       const timestampString = moment().format("YYYY-MM-DD" + "T" + "HH-mm-ss");
       const normalizeFileName = fileName =>
         fileName
           ? path.resolve(
               process.cwd(),
-              fileName.replace("$timestamp", timestampString)
+              fileName
+                .replace("$executable", executableName)
+                .replace("$timestamp", timestampString)
             )
           : undefined;
 

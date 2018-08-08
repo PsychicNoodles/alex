@@ -85,6 +85,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
     window.close();
   }
 
+  /** @type {Promise<{events: string[], presets: Object}} */
   const headerPromise = new Promise((resolve, reject) =>
     protobufMessageStream
       .once("data", d => {
@@ -219,20 +220,29 @@ ipcRenderer.on("result", async (event, resultFile) => {
       warningRecords
     });
 
-    //charts charts charts
-    const { presets } = await headerPromise;
-    //make a array containing some information of each chart
+    const { presets, events } = await headerPromise;
+
     const charts = [
       {
         presetsRequired: ["cache"],
-        yAxisLabelText: "L3 Cache Miss Rate",
-        chartId: "l3-cache-miss-rate",
+        yAxisLabelText: "Cache Miss Rate",
+        chartId: "cache-miss-rate",
         yFormat: "%",
         getDependentVariable: d =>
           getEventCount(d, presets.cache.misses) /
             (getEventCount(d, presets.cache.hits) +
               getEventCount(d, presets.cache.misses)) || 0,
-        flattenThreads: false
+        flattenThreads: false,
+        overlayPlots: [
+          {
+            name: "Total Accesses",
+            color: "gray",
+            getDependentVariable: d =>
+              (getEventCount(d, presets.cache.hits) +
+                getEventCount(d, presets.cache.misses)) /
+              d.numCpuTimerTicks
+          }
+        ]
       },
       {
         presetsRequired: ["branches"],
@@ -242,7 +252,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
         getDependentVariable: d =>
           getEventCount(d, presets.branches.branchMisses) /
             getEventCount(d, presets.branches.branches) || 0,
-        flattenThreads: false
+        flattenThreads: false,
+        overlayPlots: []
       },
       {
         presetsRequired: ["cpu"],
@@ -252,7 +263,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
         getDependentVariable: d =>
           getEventCount(d, presets.cpu.instructions) /
             getEventCount(d, presets.cpu.cpuCycles) || 0,
-        flattenThreads: false
+        flattenThreads: false,
+        overlayPlots: []
       },
       {
         presetsRequired: ["rapl"],
@@ -260,7 +272,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
         chartId: "overall-power",
         yFormat: "s",
         getDependentVariable: d => d.events.periodOverall,
-        flattenThreads: true
+        flattenThreads: true,
+        overlayPlots: []
       },
       {
         presetsRequired: ["rapl"],
@@ -268,7 +281,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
         chartId: "cpu-power",
         yFormat: "s",
         getDependentVariable: d => d.events.periodCpu,
-        flattenThreads: true
+        flattenThreads: true,
+        overlayPlots: []
       },
       {
         presetsRequired: ["rapl"],
@@ -276,7 +290,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
         chartId: "memory-power",
         yFormat: "s",
         getDependentVariable: d => d.events.periodMemory,
-        flattenThreads: true
+        flattenThreads: true,
+        overlayPlots: []
       },
       {
         presetsRequired: ["wattsup"],
@@ -284,8 +299,18 @@ ipcRenderer.on("result", async (event, resultFile) => {
         chartId: "wattsup-power",
         yFormat: "",
         getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup),
-        flattenThreads: true
-      }
+        flattenThreads: true,
+        overlayPlots: []
+      },
+      ...events.map(eventName => ({
+        presetsRequired: [],
+        yAxisLabelText: `Event: ${eventName.toLowerCase()}`,
+        chartId: `event-${eventName.toLowerCase().replace(/\W+/g, "-")}`,
+        yFormat: "s",
+        getDependentVariable: d => d.events[eventName],
+        flattenThreads: false,
+        overlayPlots: []
+      }))
     ].filter(({ presetsRequired }) =>
       presetsRequired.every(presetName => presetName in presets)
     );
@@ -298,36 +323,35 @@ ipcRenderer.on("result", async (event, resultFile) => {
     //combine yScales (x2), brush and and a chart file ????? into a new var and make a array of them
     const chartsWithYScales = charts.map(chartParams => {
       const { getDependentVariable } = chartParams;
-      const normalData = processedData;
       const yScale = d3
         .scaleLinear()
-        .domain(d3.extent(normalData, getDependentVariable).reverse())
+        .domain(d3.extent(processedData, getDependentVariable).reverse())
         .range([0, chart.HEIGHT]);
 
       return {
         ...chartParams,
-        yScale
+        yScale,
+        currentYScaleStore: new Store(
+          d3
+            .scaleLinear()
+            .domain(
+              sdDomain(processedData, getDependentVariable, sdRange, yScale)
+            )
+            .range(yScale.range())
+        ),
+        overlayPlots: chartParams.overlayPlots.map(overlayPlot => ({
+          ...overlayPlot,
+          yScale: d3
+            .scaleLinear()
+            .domain(
+              d3
+                .extent(processedData, overlayPlot.getDependentVariable)
+                .reverse()
+            )
+            .range([chart.HEIGHT / 2, chart.HEIGHT])
+        }))
       };
     });
-
-    const currentYScaleStores = chartsWithYScales.reduce(
-      (currentYScales, chartParams) => {
-        const { chartId, yScale, getDependentVariable } = chartParams;
-
-        return {
-          ...currentYScales,
-          [chartId]: new Store(
-            d3
-              .scaleLinear()
-              .domain(
-                sdDomain(processedData, getDependentVariable, sdRange, yScale)
-              )
-              .range(yScale.range())
-          )
-        };
-      },
-      {}
-    );
 
     const currentSelectedFunctionStore = new Store(null);
 
@@ -396,31 +420,17 @@ ipcRenderer.on("result", async (event, resultFile) => {
             .enter()
             .append("div")
             .merge(chartsDataSelection)
-            .each(function({
+            .each(function(chartParams) {
               //seem like we need to seperate out the calculation of the plotdata and make plotdata a field of chartsWithFilteredData, we can create the div first, and then for each div(root), subscribeunique a storestream and inside the subscribefunc, we add plotdata as a field to charts, then return charts and do the next thing
-              getDependentVariable,
-              yAxisLabelText,
-              chartId,
-              yFormat,
-              yScale,
-              filteredData
-            }) {
               d3.select(this).call(chart.render, {
+                ...chartParams,
                 getIndependentVariable,
-                getDependentVariable,
                 xAxisLabelText,
-                yAxisLabelText,
-                chartId,
                 xScale,
-                yScale,
-                yFormat,
-                filteredData,
                 spectrum,
                 cpuTimeOffset,
                 warningRecords,
                 warningsDistinct,
-                currentYScaleStore: currentYScaleStores[chartId],
-                processedData,
                 selectedFunctionStream: currentSelectedFunctionStore.stream
               });
             });

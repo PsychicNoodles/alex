@@ -21,6 +21,11 @@
   fill: #000;
 }
 
+.chart__overlay-plot-legend text,
+.chart__legend text {
+  font-size: 12px;
+}
+
 g.sideBar-brush {
   stroke: #000;
   stroke-width: 0.5px;
