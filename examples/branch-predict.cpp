@@ -56,7 +56,7 @@ int main() {
   // Generate data
   const unsigned arraySize = ARRAY_SIZE;
   int data[arraySize];
-  fprintf(stderr, "branch-predict: where is my main thread\n");
+  fprintf(stderr, "branch-predict: main thread\n");
   for (unsigned c = 0; c < arraySize; ++c)
     data[c] = std::rand() % RAND_LIMIT;
 
@@ -75,8 +75,6 @@ int main() {
   int *sum2;
   fprintf(stderr, "branch-predict: join sort thread\n");
   pthread_join(sorted_thread, (void **)&sum2);
-
-  fprintf(stderr, "where is my main thread\n");
 
   for (int i = 0; i < 10000; i++) {
     float n = 20.1111111111;

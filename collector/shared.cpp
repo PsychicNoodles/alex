@@ -11,8 +11,6 @@ namespace alex {
 
 const global_vars *global;
 
-vector<int> fds;
-
 void *malloc_shared(size_t size) {
   return mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED,
               0, 0);
@@ -21,7 +19,7 @@ void *malloc_shared(size_t size) {
 void init_global_vars(uint64_t period, pid_t collector_pid,
                       const vector<string> &events,
                       const set<string> &presets) {
-  char **events_tmp =
+  auto **events_tmp =
       static_cast<char **>(malloc_shared(sizeof(char *) * events.size()));
   for (int i = 0; i < events.size(); i++) {
     events_tmp[i] =
@@ -29,7 +27,7 @@ void init_global_vars(uint64_t period, pid_t collector_pid,
     memcpy(static_cast<void *>(events_tmp[i]), events.at(i).c_str(),
            events.at(i).size());
   }
-  char **presets_tmp =
+  auto **presets_tmp =
       static_cast<char **>(malloc_shared(sizeof(char *) * presets.size()));
   size_t i = 0;
   for (const auto &p : presets) {
