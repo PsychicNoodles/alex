@@ -6,10 +6,19 @@ const store = new Store({
 });
 
 function render(root, header) {
-  const data = [
-    { title: "Program Name", value: header.programName },
-    { title: "Program Version", value: header.programVersion }
+  const firstPartData = [
+    { title: "Alex Version", value: header.programVersion },
+    { title: "Program Name", value: header.programName }
   ];
+
+  const dataWithInput = header.programInput
+    ? [...firstPartData, { title: "Program Input", value: header.programInput }]
+    : firstPartData;
+
+  const data =
+    header.programArgs.length === 0
+      ? dataWithInput
+      : [...dataWithInput, { title: "args", value: header.programArgs }];
 
   if (root.select("h3").empty()) {
     root.append("h3").text("Program Info");

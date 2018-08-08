@@ -11,8 +11,6 @@ namespace alex {
 
 const global_vars *global;
 
-vector<int> fds;
-
 void *malloc_shared(size_t size) {
   return mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED,
               0, 0);

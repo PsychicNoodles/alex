@@ -285,8 +285,9 @@ static int collector_main(int argc, char **argv, char **env) {
 
     DEBUG("setting up collector");
     bg_reading rapl_reading{nullptr}, wattsup_reading{nullptr};
-    setup_collect_perf_data(sigterm_fd, sockets[0], wu_fd, &result_file,
-                            argv[0], &rapl_reading, &wattsup_reading);
+    setup_collect_perf_data(sigterm_fd, sockets[0], wu_fd, &result_file, argc,
+                            argv, getenv_safe("COLLECTOR_INPUT"), &rapl_reading,
+                            &wattsup_reading);
 
     DEBUG("result file opened, sending ready (SIGUSR2) signal to child");
 
