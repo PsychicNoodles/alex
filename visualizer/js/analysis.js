@@ -21,18 +21,19 @@ function analyze({ timeSlices, isVisible, isBrushSelected, getFunctionName }) {
 
   const MAP_BUILD_CHUNK_SIZE = 1000;
   const mapBuildChunkStreams = [];
+  const timeSlicesLength = timeSlices.length;
 
   performance.mark("functions map build start");
   for (
     let i = 0;
-    i < timeSlices.length + MAP_BUILD_CHUNK_SIZE;
+    i < timeSlicesLength + MAP_BUILD_CHUNK_SIZE;
     i += MAP_BUILD_CHUNK_SIZE
   ) {
     mapBuildChunkStreams.push(
       createMicroJobStream(() => {
         for (
           let j = i;
-          j < i + MAP_BUILD_CHUNK_SIZE && j < timeSlices.length;
+          j < i + MAP_BUILD_CHUNK_SIZE && j < timeSlicesLength;
           j++
         ) {
           const timeSlice = timeSlices[j];
@@ -88,7 +89,9 @@ function analyze({ timeSlices, isVisible, isBrushSelected, getFunctionName }) {
         that we know ahead of time all the independent variables (in this
         case, each function) and their setting for each time slice. This might
         be avoidable. */
-        timeSlices.forEach(timeSlice => {
+        let timeSlice = {};
+        for (let i = 0; i < timeSlicesLength; i++) {
+          timeSlice = timeSlices[i];
           const functionName = getFunctionName(timeSlice);
           const row = [];
           // Set independent variables
@@ -98,7 +101,7 @@ function analyze({ timeSlices, isVisible, isBrushSelected, getFunctionName }) {
           // Set dependent variable
           row.push(isBrushSelected(timeSlice) ? 1.0 : 0.0);
           trainingData.push(row);
-        });
+        }
         const model = logisticRegression.fit(trainingData);
         // Convert from log-odds to probability... I think.
         const odds = model.theta.map(
