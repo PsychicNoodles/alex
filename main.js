@@ -55,15 +55,15 @@ yargs
         })
         .option("out", {
           description: "The file to pipe the stdout of <executable> into.",
-          default: path.join(__dirname, `/out-${moment().format()}.log`)
+          default: path.join(__dirname, "/out-$timestamp.log")
         })
         .option("err", {
           description: "The file to pipe the stderr of <executable> into.",
-          default: path.join(__dirname, `/err-${moment().format()}.log`)
+          default: path.join(__dirname, "/err-$timestamp.log")
         })
         .option("result", {
           description: "The file to pipe the performance results into.",
-          default: path.join(__dirname, `/result-${moment().format()}.bin`)
+          default: path.join(__dirname, "/result-$timestamp.bin")
         })
         .option("visualize", {
           description: "Where to visualize the results.",
@@ -91,17 +91,15 @@ yargs
         })
         .option("wattsup-device", {
           description:
-            'Use "dmesg" after plugging in the device to see what the USB serial port is detected at.',
+            "Use `dmesg` after plugging in the device to see what the USB " +
+            "serial port is detected at.",
           default: "ttyUSB0"
         })
         .example(
           "$0 collect --in my-input-file.in -p cache -- ./my-program --arg1 arg2"
         ),
     argv => {
-      const timestampString = new Date()
-        .toISOString()
-        .replace(/:/g, "-")
-        .replace(/\.\d{3}/, "");
+      const timestampString = moment().format("YYYY-MM-DD" + "T" + "HH-mm-ss");
       const normalizeFileName = fileName =>
         fileName
           ? path.resolve(
@@ -116,8 +114,8 @@ yargs
         outFile: normalizeFileName(argv.out),
         errFile: normalizeFileName(argv.err),
         resultOption: normalizeFileName(argv.result),
-        presets: argv.presets.filter(p => !!p),
-        events: argv.events.filter(e => !!e),
+        presets: argv.presets.filter(Boolean),
+        events: argv.events.filter(Boolean),
         visualizeOption: argv.visualize,
         // Manually parse this out, since positional args can't handle "--xxx" args
         executableArgs: process.argv.includes("--")
@@ -311,7 +309,8 @@ async function collect({
       COLLECTOR_RESULT_FILE: resultFile,
       COLLECTOR_WATTSUP_DEVICE: wattsupDevice,
       COLLECTOR_NOTIFY_START: "yes",
-      LD_PRELOAD: path.join(__dirname, "./collector/build/collector.so")
+      LD_PRELOAD: path.join(__dirname, "./collector/build/collector.so"),
+      COLLECTOR_INPUT: inFile ? inFile : ""
     }
   });
 
