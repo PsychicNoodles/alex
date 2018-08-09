@@ -7,8 +7,15 @@ const hiddenThreadsStore = new Store([]);
 
 const dropdownIsOpen = d3.local();
 
+/**
+ * @param {d3.Selection} root
+ * @param {Object} props
+ * @param {string[]} props.threads
+ */
 function render(root, { threads }) {
-  root.classed("thread-select dropdown", true);
+  root
+    .classed("thread-select dropdown", true)
+    .property("hidden", threads.length <= 1);
 
   if (root.property(dropdownIsOpen) === undefined) {
     root.property(dropdownIsOpen, false);
