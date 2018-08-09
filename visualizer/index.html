@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="./icons/material-icon-font/material-icons.css" />
 
   <link rel="stylesheet" href="./css/main.css" />
+  <link rel="stylesheet" href="./css/icon-button.css" />
   <link rel="stylesheet" href="./css/info.css" />
   <link rel="stylesheet" href="./css/charts-select.css" />
   <link rel="stylesheet" href="./css/function-runtimes.css" />
@@ -30,20 +31,27 @@
 
 <body>
   <div id="progress"></div>
+
   <aside id="info">
     <div id="program-info"></div>
     <div id="stats"></div>
     <div id="charts-select"></div>
   </aside>
+
   <div id="charts"></div>
+
   <aside id="table-bar">
     <header id="table-bar-header">
-      <button id="function-runtimes-back-button">◀</button>
+      <button class="icon-button" id="function-runtimes-back-button">
+        <i class="material-icons">arrow_back</i>
+      </button>
       <button id="clear-brushes-button">Clear Selections</button>
       <div id="source-select"></div>
       <div id="thread-select"></div>
       <div id="warnings"></div>
+
       <span style="flex: 1"></span>
+
       <div id="overflow-dropdown">
         <ul class="overflow-dropdown__items">
           <li class="overflow-dropdown__item">
@@ -59,11 +67,13 @@
         </ul>
       </div>
     </header>
+
     <div id="tables-wrapper">
       <table id="function-runtimes"></table>
       <table id="warning-list"></table>
     </div>
   </aside>
+
   <script>require("./js/script")</script>
 </body>
 

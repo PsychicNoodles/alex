@@ -17,9 +17,9 @@ function render(root) {
   if (root.select(".dropdown__button").empty()) {
     root
       .append("button")
-      .attr("class", "dropdown__button")
+      .attr("class", "dropdown__button icon-button")
       .append("i")
-      .attr("class", "overflow-dropdown__icon material-icons")
+      .attr("class", "material-icons")
       .text("more_vert");
   }
 

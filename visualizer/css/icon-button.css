@@ -1,0 +1,11 @@
+.icon-button {
+  padding: 0 5px;
+  height: 27px;
+}
+
+.icon-button > .material-icons {
+  font-size: 22px;
+
+  /* Hack to fix font alignment. */
+  transform: translateY(1px);
+}
