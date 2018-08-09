@@ -5,6 +5,7 @@
 
 .icon-button > .material-icons {
   font-size: 22px;
+  color: #333;
 
   /* Hack to fix font alignment. */
   transform: translateY(1px);

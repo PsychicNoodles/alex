@@ -168,8 +168,8 @@ function render(
   if (root.select(".chart__save").empty()) {
     root
       .append("button")
-      .attr("class", "chart__save")
-      .text("Save As SVG")
+      .attr("class", "chart__save icon-button")
+      .attr("title", "Save As SVG Image")
       .call(saveToFile.render, {
         fileType: "svg",
         fileNameSuffix:
@@ -210,7 +210,10 @@ function render(
 
           return svgNode.outerHTML;
         }
-      });
+      })
+      .append("i")
+      .attr("class", "material-icons")
+      .text("save");
   }
 
   const plotDataStream = currentYScaleStore.stream.pipe(
