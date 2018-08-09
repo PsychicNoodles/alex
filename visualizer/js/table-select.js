@@ -13,64 +13,62 @@ const selectedTableStore = new Store(tables[0]);
 const dropdownIsOpen = d3.local();
 
 function render(root) {
-  root.classed("table-select select", true);
+  root.classed("table-select dropdown", true);
 
   if (root.property(dropdownIsOpen) === undefined) {
     root.property(dropdownIsOpen, false);
   }
 
-  if (root.select(".select__button").empty()) {
-    root.append("button").attr("class", "select__button");
+  if (root.select(".dropdown__button").empty()) {
+    root.append("button").attr("class", "dropdown__button");
   }
 
-  if (root.select(".select__dropdown").empty()) {
-    root.append("fieldset").attr("class", "select__dropdown");
+  if (root.select(".dropdown__content").empty()) {
+    root.append("fieldset").attr("class", "dropdown__content");
   }
 
   const setDropdownIsOpen = isOpen => {
-    root
-      .property(dropdownIsOpen, isOpen)
-      .classed("select--dropdown-open", isOpen);
+    root.property(dropdownIsOpen, isOpen).classed("dropdown--open", isOpen);
   };
 
   setDropdownIsOpen(root.property(dropdownIsOpen));
 
-  root.select(".select__button").on("click", () => {
+  root.select(".dropdown__button").on("click", () => {
     setDropdownIsOpen(!root.property(dropdownIsOpen));
   });
 
   const dropdownItemsSelection = root
-    .select(".select__dropdown")
-    .selectAll(".select__dropdown-item")
+    .select(".dropdown__content")
+    .selectAll(".dropdown__item")
     .data(tables);
 
   const dropdownItemsEnterSelection = dropdownItemsSelection
     .enter()
     .append("label")
-    .attr("class", "select__dropdown-item");
+    .attr("class", "dropdown__item");
 
   dropdownItemsEnterSelection
     .append("input")
-    .attr("class", "select__radio")
+    .attr("class", "table-select__radio")
     .attr("type", "radio")
-    .attr("name", "select__radio");
+    .attr("name", "table-select__radio");
 
   dropdownItemsEnterSelection
     .append("span")
-    .attr("class", "select__name")
+    .attr("class", "table-select__name")
     .text(table => table.name);
 
   selectedTableStore.subscribeUnique(
     root,
     selectedTableSubscription,
     selectedTable => {
-      root.select(".select__button").text(selectedTable.name);
+      root.select(".dropdown__button").text(selectedTable.name);
 
       dropdownItemsSelection
         .merge(dropdownItemsEnterSelection)
         .each(function(table) {
           d3.select(this)
-            .select(".select__radio")
+            .select(".table-select__radio")
             .property("checked", selectedTable.id === table.id)
             .on("change", function() {
               // only need to update from the checked radio button

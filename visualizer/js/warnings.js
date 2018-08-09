@@ -14,38 +14,38 @@ const DEFAULT_WARNING_COLOR = "rgba(255, 0, 0, 0.8)";
  * @param {{warningCounts: Array, warningRecords: Array}} props
  */
 function render(root, { warningCounts, warningRecords }) {
-  root.classed("warnings-select select", true);
+  root.classed("warnings-select dropdown", true);
 
   if (root.property(dropdownIsOpen) === undefined) {
     root.property(dropdownIsOpen, false);
   }
 
-  if (root.select(".select__button").empty()) {
-    root.append("button").attr("class", "select__button");
+  if (root.select(".dropdown__button").empty()) {
+    root.append("button").attr("class", "dropdown__button");
   }
 
-  if (root.select(".select__dropdown").empty()) {
-    root.append("div").attr("class", "select__dropdown");
+  if (root.select(".dropdown").empty()) {
+    root.append("div").attr("class", "dropdown__content");
   }
 
   //class "open" if the warnings button is clicked
-  root.classed("select--dropdown-open", root.property(dropdownIsOpen));
+  root.classed("dropdown--open", root.property(dropdownIsOpen));
 
-  root.select(".select__button").on("click", () => {
+  root.select(".dropdown__button").on("click", () => {
     root
       .property(dropdownIsOpen, !root.property(dropdownIsOpen))
-      .classed("select--dropdown-open", root.property(dropdownIsOpen));
+      .classed("dropdown--open", root.property(dropdownIsOpen));
   });
 
   const dropdownItemsSelection = root
-    .select(".select__dropdown")
-    .selectAll(".select__dropdown-item")
+    .select(".dropdown__content")
+    .selectAll(".dropdown__item")
     .data(["All Warning Types", ...warningCounts.map(pair => pair[0])]);
 
   const dropdownItemsEnterSelection = dropdownItemsSelection
     .enter()
     .append("div")
-    .attr("class", "select__dropdown-item input-group colorpicker-component");
+    .attr("class", "dropdown__item input-group colorpicker-component");
 
   const dropdownItemsMergeSelection = dropdownItemsEnterSelection.merge(
     dropdownItemsSelection
@@ -57,17 +57,21 @@ function render(root, { warningCounts, warningRecords }) {
 
   checkboxLabelEnterSelection
     .append("input")
-    .attr("class", "select__checkbox")
+    .attr("class", "warnings-select__checkbox")
     .attr("type", "checkbox");
 
-  checkboxLabelEnterSelection.append("span").attr("class", "select__type");
+  checkboxLabelEnterSelection
+    .append("span")
+    .attr("class", "warnings-select__type");
 
-  dropdownItemsMergeSelection.select(".select__type").text(warning => warning);
+  dropdownItemsMergeSelection
+    .select(".warnings-select__type")
+    .text(warning => warning);
 
   // color picker input
   dropdownItemsEnterSelection
     .append("input")
-    .attr("class", "select__color-picker")
+    .attr("class", "warnings-select__color-picker")
     .attr("type", "hidden");
 
   // color picker image/popover
@@ -102,7 +106,7 @@ function render(root, { warningCounts, warningRecords }) {
         some => some
       );
       root
-        .select(".select__button")
+        .select(".dropdown__button")
         .property("disabled", !hasWarnings)
         .text(
           hasWarnings
@@ -120,7 +124,7 @@ function render(root, { warningCounts, warningRecords }) {
         if (i === 0) {
           // We are on the All checkbox
           d3.select(this)
-            .select(".select__checkbox")
+            .select(".warnings-select__checkbox")
             .property("checked", highlightedAllAllWarnings)
             .property(
               "indeterminate",
@@ -135,7 +139,7 @@ function render(root, { warningCounts, warningRecords }) {
             });
         } else {
           d3.select(this)
-            .select(".select__checkbox")
+            .select(".warnings-select__checkbox")
             .property("checked", highlightedAllWarnings[i - 1])
             .property(
               "indeterminate",

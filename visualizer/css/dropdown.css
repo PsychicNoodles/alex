@@ -1,12 +1,12 @@
-.select {
+.dropdown {
   position: relative;
 }
 
-.select--dropdown-open .select__button {
+.dropdown--open .dropdown__button {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) inset;
 }
 
-.select__dropdown {
+.dropdown__content {
   position: absolute;
   top: 100%;
   background: #fff;
@@ -21,13 +21,13 @@
   z-index: 1000;
 }
 
-.select--dropdown-open .select__dropdown {
+.dropdown--open .dropdown__content {
   opacity: 1;
   transform: none;
   pointer-events: all;
 }
 
-.select__dropdown-item {
+.dropdown__item {
   display: block;
   white-space: nowrap;
   max-width: 400px;

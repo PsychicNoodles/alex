@@ -1,7 +1,7 @@
-.source-select .select__dropdown-item:first-child {
+.source-select .dropdown__item:first-child {
   font-weight: bold;
 }
 
-.source-select .select__checkbox:not(:checked) ~ .source-select__file-name {
+.source-select__checkbox:not(:checked) ~ .source-select__file-name {
   text-decoration: line-through;
 }

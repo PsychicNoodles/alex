@@ -1,9 +1,9 @@
-.warnings-select .select__dropdown-item:first-child {
+.warnings-select .dropdown__item:first-child {
   font-weight: bold;
 }
 
 /* css styles that are supposed to be inherited from bootstrap */
-.colorpicker.dropdown-menu {
+.warnings-select .colorpicker.dropdown-menu {
   position: absolute;
   background-clip: "padding-box";
   background-color: #fff;
@@ -11,6 +11,6 @@
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
 }
 
-.colorpicker-component .input-group-addon {
+.warnings-select .colorpicker-component .input-group-addon {
   margin-left: 5px;
 }

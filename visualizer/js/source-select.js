@@ -8,41 +8,41 @@ const hiddenSourcesStore = new Store([]);
 const dropdownIsOpen = d3.local();
 
 function render(root, { sources }) {
-  root.classed("source-select select", true);
+  root.classed("source-select dropdown", true);
 
   if (root.property(dropdownIsOpen) === undefined) {
     root.property(dropdownIsOpen, false);
   }
 
-  if (root.select(".select__button").empty()) {
-    root.append("button").attr("class", "select__button");
+  if (root.select(".dropdown__button").empty()) {
+    root.append("button").attr("class", "dropdown__button");
   }
 
-  if (root.select(".select__dropdown").empty()) {
-    root.append("div").attr("class", "select__dropdown");
+  if (root.select(".dropdown__content").empty()) {
+    root.append("div").attr("class", "dropdown__content");
   }
 
-  root.classed("select--dropdown-open", root.property(dropdownIsOpen));
+  root.classed("dropdown--open", root.property(dropdownIsOpen));
 
-  root.select(".select__button").on("click", () => {
+  root.select(".dropdown__button").on("click", () => {
     root
       .property(dropdownIsOpen, !root.property(dropdownIsOpen))
-      .classed("select--dropdown-open", root.property(dropdownIsOpen));
+      .classed("dropdown--open", root.property(dropdownIsOpen));
   });
 
   const dropdownItemsSelection = root
-    .select(".select__dropdown")
-    .selectAll(".select__dropdown-item")
+    .select(".dropdown__content")
+    .selectAll(".dropdown__item")
     .data(["All Sources", ...sources]);
 
   const dropdownItemsEnterSelection = dropdownItemsSelection
     .enter()
     .append("label")
-    .attr("class", "select__dropdown-item");
+    .attr("class", "dropdown__item");
 
   dropdownItemsEnterSelection
     .append("input")
-    .attr("class", "select__checkbox")
+    .attr("class", "source-select__checkbox")
     .attr("type", "checkbox");
 
   dropdownItemsEnterSelection
@@ -59,7 +59,7 @@ function render(root, { sources }) {
         source => !hiddenSources.includes(source)
       );
       root
-        .select(".select__button")
+        .select(".dropdown__button")
         .text(
           `Showing ${
             showingAllSources ? "All" : showingSomeSources ? "Some" : "No"
@@ -72,7 +72,7 @@ function render(root, { sources }) {
           if (i === 0) {
             // We are on the All checkbox
             d3.select(this)
-              .select(".select__checkbox")
+              .select(".source-select__checkbox")
               .property("checked", showingAllSources)
               .property(
                 "indeterminate",
@@ -87,7 +87,7 @@ function render(root, { sources }) {
               });
           } else {
             d3.select(this)
-              .select(".select__checkbox")
+              .select(".source-select__checkbox")
               .property("checked", !hiddenSources.includes(source))
               .on("change", function() {
                 if (this.checked) {
