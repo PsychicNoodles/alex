@@ -34,16 +34,11 @@ loadingProgressStore.subscribe(({ percentage, progressBarIsVisible }) => {
   d3.select("#progress").call(progressBar.render, {
     percentage,
     roundedPercentage,
-    text: roundedPercentage === 100 ? "Parsing Data..." : "Reading Result File",
+    text:
+      roundedPercentage === 100 ? "Processing Data..." : "Reading Result File",
     isVisible: progressBarIsVisible
   });
 });
-
-const progressBarHiddenPromise = new Promise(resolve =>
-  loadingProgressStore.subscribe(({ progressBarIsVisible }) => {
-    if (!progressBarIsVisible) resolve();
-  })
-);
 
 d3.select("#save-to-pdf").call(saveToFile.render, {
   fileType: "pdf",
@@ -122,16 +117,27 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
   headerPromise.then(header => programInfo.store.dispatch(() => header));
 
-  progressBarHiddenPromise
-    .then(() => headerPromise)
-    .then(header =>
-      d3.select("#program-info").call(programInfo.render, header)
+  loadingProgressStore.stream
+    .pipe(stream.filter(state => !state.progressBarIsVisible))
+    .pipe(stream.take(1))
+    .pipe(stream.mergeMap(() => stream.fromPromise(headerPromise)))
+    .pipe(
+      stream.subscribe(header => {
+        d3.select("#program-info").call(programInfo.render, header);
+      })
     );
 
-  const processedData = await Promise.all([
+  const [timeslices, header] = await Promise.all([
     timeslicesPromise,
     headerPromise
-  ]).then(([timeslices, header]) => processData(timeslices, header));
+  ]);
+
+  const PROGRESS_BAR_TRANSITION_DURATION = 250;
+  await new Promise(resolve =>
+    setTimeout(resolve, PROGRESS_BAR_TRANSITION_DURATION)
+  );
+
+  const processedData = processData(timeslices, header);
 
   const spectrum = d3.interpolateWarm;
   const sdRange = 3;
