@@ -11,7 +11,7 @@
     "start": "node .",
     "precommit": "lint-staged",
     "eslint:fix": "eslint --fix .",
-    "clean:outfiles": "rm -f out-* err-* result-*",
+    "clean:outfiles": "rm -f alex_*",
     "example": "npm run clean:outfiles && node . collect --in examples/inputs/matrix-500x500.in -- examples/build/matrixmultiplier",
     "collect": "node . collect",
     "protobuf-print": "./collector/build/protobuf-print"
