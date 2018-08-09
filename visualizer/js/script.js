@@ -18,6 +18,7 @@ const sourceSelect = require("./source-select");
 const threadSelect = require("./thread-select");
 const tableSelect = require("./table-select");
 const chartsSelect = require("./charts-select");
+const overflowDropdown = require("./overflow-dropdown");
 const warnings = require("./warnings");
 const progressBar = require("./progress-bar");
 const saveToFile = require("./save-to-file");
@@ -51,6 +52,9 @@ d3.select("#save-to-pdf").call(saveToFile.render, {
     });
   }
 });
+
+d3.select("#overflow-dropdown").call(overflowDropdown.render);
+d3.select("#table-select").call(tableSelect.render);
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", async (event, resultFile) => {
@@ -178,8 +182,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
       processedData,
       originalLength: timeslicesLength
     });
-
-    d3.select("#table-select").call(tableSelect.render);
 
     //sources & thread
     const sourcesSet = new Set(),

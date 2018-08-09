@@ -10,42 +10,17 @@ const tables = [
 const selectedTableSubscription = d3.local();
 const selectedTableStore = new Store(tables[0]);
 
-const dropdownIsOpen = d3.local();
-
 function render(root) {
-  root.classed("table-select dropdown", true);
-
-  if (root.property(dropdownIsOpen) === undefined) {
-    root.property(dropdownIsOpen, false);
-  }
-
-  if (root.select(".dropdown__button").empty()) {
-    root.append("button").attr("class", "dropdown__button");
-  }
-
-  if (root.select(".dropdown__content").empty()) {
-    root.append("fieldset").attr("class", "dropdown__content");
-  }
-
-  const setDropdownIsOpen = isOpen => {
-    root.property(dropdownIsOpen, isOpen).classed("dropdown--open", isOpen);
-  };
-
-  setDropdownIsOpen(root.property(dropdownIsOpen));
-
-  root.select(".dropdown__button").on("click", () => {
-    setDropdownIsOpen(!root.property(dropdownIsOpen));
-  });
+  root.classed("table-select", true);
 
   const dropdownItemsSelection = root
-    .select(".dropdown__content")
-    .selectAll(".dropdown__item")
+    .selectAll(".table-select__option")
     .data(tables);
 
   const dropdownItemsEnterSelection = dropdownItemsSelection
     .enter()
     .append("label")
-    .attr("class", "dropdown__item");
+    .attr("class", "table-select__option");
 
   dropdownItemsEnterSelection
     .append("input")
@@ -62,8 +37,6 @@ function render(root) {
     root,
     selectedTableSubscription,
     selectedTable => {
-      root.select(".dropdown__button").text(selectedTable.name);
-
       dropdownItemsSelection
         .merge(dropdownItemsEnterSelection)
         .each(function(table) {
@@ -75,8 +48,6 @@ function render(root) {
               if (this.checked) {
                 selectedTableStore.dispatch(() => table);
               }
-
-              setDropdownIsOpen(false);
             });
         });
     }
