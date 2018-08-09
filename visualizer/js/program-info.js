@@ -30,7 +30,7 @@ function render(root, header) {
 
   const eachListElement = list
     .selectAll("li") // even if they're imaginary at this point
-    .data(data)
+    .data(data.map(d => ({ ...d, value: insertZeroWidthSpaces(d.value) })))
     .enter() // for each of these data
     .append("li");
 
@@ -43,6 +43,18 @@ function render(root, header) {
     .append("span")
     .attr("class", "value")
     .text(d => d.value);
+}
+
+/**
+ * Add zero with spaces behind all characters that are non-alphanumeric and
+ * non-whitespace.
+ *
+ * This ensures that long paths will have the appropriate line breaks.
+ *
+ * @param {string} string
+ */
+function insertZeroWidthSpaces(string) {
+  return string.replace(/(?=\S)[\W_]/g, "$&" + String.fromCharCode(0x200b));
 }
 
 module.exports = { render, store };
