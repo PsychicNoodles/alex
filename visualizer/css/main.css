@@ -110,7 +110,28 @@ button:disabled {
   }
 }
 
-@media screen and (max-width: 1500px) {
+@media screen and (max-width: 800px) {
+  body {
+    grid-template-rows: 2fr auto 1fr;
+    grid-template-columns: auto;
+    grid-template-areas:
+      "charts"
+      "info"
+      "table-bar";
+  }
+
+  #info {
+    flex-direction: row;
+    border-top: 1px solid #999;
+    max-height: 20vh;
+  }
+
+  #table-bar {
+    border-top: 1px solid #999;
+  }
+}
+
+@media screen and (min-width: 801px) and (max-width: 1500px) {
   body {
     grid-template-rows: 2fr 1fr;
     grid-template-columns: 1fr auto;
