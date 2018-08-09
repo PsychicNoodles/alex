@@ -110,29 +110,34 @@ function render(
     .merge(overlayPlotsSelection)
     .attr("fill", plot => plot.color)
     .attr("fill-opacity", "0.5")
-    .attr("d", overlayPlot => {
-      const getX = timeslice => xScale(getIndependentVariable(timeslice));
-      const getY = timeslice =>
-        overlayPlot.yScale(overlayPlot.getDependentVariable(timeslice));
+    .attr(
+      "d",
+      filteredData.length > 0
+        ? overlayPlot => {
+            const getX = timeslice => xScale(getIndependentVariable(timeslice));
+            const getY = timeslice =>
+              overlayPlot.yScale(overlayPlot.getDependentVariable(timeslice));
 
-      const startY = getY(filteredData[0]);
-      let pathDescriptor = `M 0,${HEIGHT} 0,${startY}`;
+            const startY = getY(filteredData[0]);
+            let pathDescriptor = `M 0,${HEIGHT} 0,${startY}`;
 
-      let currentMinX = 0;
-      for (const timeslice of filteredData) {
-        const x = getX(timeslice);
-        while (x >= currentMinX + 1) currentMinX++;
-        if (x >= currentMinX) {
-          const y = getY(timeslice);
-          pathDescriptor += ` ${x},${y}`;
-          currentMinX++;
-        }
-      }
+            let currentMinX = 0;
+            for (const timeslice of filteredData) {
+              const x = getX(timeslice);
+              while (x >= currentMinX + 1) currentMinX++;
+              if (x >= currentMinX) {
+                const y = getY(timeslice);
+                pathDescriptor += ` ${x},${y}`;
+                currentMinX++;
+              }
+            }
 
-      const endY = getY(filteredData[filteredData.length - 1]);
-      pathDescriptor += ` ${WIDTH},${endY} ${WIDTH},${HEIGHT} Z`;
-      return pathDescriptor;
-    });
+            const endY = getY(filteredData[filteredData.length - 1]);
+            pathDescriptor += ` ${WIDTH},${endY} ${WIDTH},${HEIGHT} Z`;
+            return pathDescriptor;
+          }
+        : ""
+    );
 
   overlayPlotsSelection.exit().remove();
 
