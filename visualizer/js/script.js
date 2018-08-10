@@ -84,15 +84,27 @@ ipcRenderer.on("result", async (event, resultFile) => {
     window.close();
   }
 
-  /** @type {Promise<{events: string[], presets: Object}} */
-  const headerPromise = new Promise((resolve, reject) =>
+  /** @type {Promise<{events: string[], presets: Object}>} */
+  const headerPromise = new Promise((resolve, reject) => {
+    let didReceiveData = false;
     protobufMessageStream
       .once("data", d => {
         // should always be a header, but verify anyway
-        if (d instanceof Header) resolve(d);
+        if (d instanceof Header) {
+          didReceiveData = true;
+          resolve(d);
+        } else {
+          reject(new Error("File must begin with a header."));
+        }
       })
-      .on("error", reject)
-  );
+      .on("end", () => {
+        if (!didReceiveData) {
+          reject(new Error("No header found in file."));
+        }
+      })
+      .on("error", reject);
+  });
+
   const timeslicesPromise = new Promise((resolve, reject) => {
     const timeslices = [];
     return protobufMessageStream
@@ -102,6 +114,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       .on("end", () => resolve(timeslices))
       .on("error", reject);
   });
+
   const warningsPromise = new Promise((resolve, reject) => {
     const warnings = [];
     protobufMessageStream
@@ -228,7 +241,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       warningRecords
     });
 
-    const { presets, events } = await headerPromise;
+    const { presets, events } = header;
 
     const charts = [
       {
