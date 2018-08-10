@@ -13,9 +13,7 @@ const dropdownIsOpen = d3.local();
  * @param {string[]} props.threads
  */
 function render(root, { threads }) {
-  root
-    .classed("thread-select dropdown", true)
-    .property("hidden", threads.length <= 1);
+  root.classed("thread-select dropdown", true);
 
   if (root.property(dropdownIsOpen) === undefined) {
     root.property(dropdownIsOpen, false);
@@ -31,11 +29,14 @@ function render(root, { threads }) {
 
   root.classed("dropdown--open", root.property(dropdownIsOpen));
 
-  root.select(".dropdown__button").on("click", () => {
-    root
-      .property(dropdownIsOpen, !root.property(dropdownIsOpen))
-      .classed("dropdown--open", root.property(dropdownIsOpen));
-  });
+  root
+    .select(".dropdown__button")
+    .property("disabled", threads.length <= 1)
+    .on("click", () => {
+      root
+        .property(dropdownIsOpen, !root.property(dropdownIsOpen))
+        .classed("dropdown--open", root.property(dropdownIsOpen));
+    });
 
   const dropdownItemsSelection = root
     .select(".dropdown__content")
@@ -68,9 +69,11 @@ function render(root, { threads }) {
       root
         .select(".dropdown__button")
         .text(
-          `Showing ${
-            showingAllThreads ? "All" : showingSomeThreads ? "Some" : "No"
-          } Threads`
+          threads.length > 1
+            ? `Showing ${
+                showingAllThreads ? "All" : showingSomeThreads ? "Some" : "No"
+              } Threads`
+            : "Single Threaded"
         );
 
       dropdownItemsSelection
