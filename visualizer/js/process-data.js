@@ -9,9 +9,11 @@ function processData(data) {
 
   data.map((d, i, arr) => {
     if (i > 0) {
+      // convert to microseconds
       d.cpuTimeElapsed = d.numCpuTimerTicks / 1000;
       const a = d.events.core - arr[i - 1].events.core;
       if (a >= 0) {
+        // convert to watts by dividing microjoules by microseconds
         d.events.periodCpu = a / d.cpuTimeElapsed;
       }
       const b = d.events.dram - arr[i - 1].events.dram;
