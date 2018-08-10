@@ -1,6 +1,9 @@
 CXX := clang++
 CXXFLAGS := -fPIC -g
 
+# Run make in parallel
+MAKEFLAGS := -j
+
 TIDY_SCRIPT := ../tidy-check.sh
 
 # Set the perf sample max stack if not already specified
@@ -78,11 +81,14 @@ obj:
 obj/protos:
 	mkdir -p obj/protos
 
-obj/%.o: %.cpp | obj
+obj/%.o: %.cpp | obj $(PROTOS_OBJS)
 	$(CXX) $(CXXFLAGS) -MMD -MP $(DEBUG) $(WARN) -o $@ -c $<
 
 obj/%.o: %.cc | obj/protos
 	$(CXX) $(CXXFLAGS) -MMD -MP $(DEBUG) $(WARN) -o $@ -c $<
+
+protos/%.pb.cc protos/%.pb.h: ../protos/%.proto
+	$(MAKE) -C ../protos cpp
 
 build/collector.$(SHLIB_SUFFIX): $(COLLECTOR_OBJS) $(PROTOS_OBJS) | build
 	$(CXXLIB) $(DEBUG) $(WARN) -o $@ $^ $(COLLECTOR_LDFLAGS)
