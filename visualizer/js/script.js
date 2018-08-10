@@ -289,7 +289,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
-        yAxisLabelText: "Overall Power",
+        yAxisLabelText: "Overall Power (Watts)",
         chartId: "overall-power",
         yFormat: "s",
         getDependentVariable: d => d.events.periodOverall,
@@ -298,7 +298,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
-        yAxisLabelText: "CPU Power",
+        yAxisLabelText: "CPU Power (Watts)",
         chartId: "cpu-power",
         yFormat: "s",
         getDependentVariable: d => d.events.periodCpu,
@@ -307,7 +307,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
-        yAxisLabelText: "Memory Power",
+        yAxisLabelText: "Memory Power (Watts)",
         chartId: "memory-power",
         yFormat: "s",
         getDependentVariable: d => d.events.periodMemory,
@@ -316,7 +316,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["wattsup"],
-        yAxisLabelText: "Wattsup Power",
+        yAxisLabelText: "Wattsup Power (Watts)",
         chartId: "wattsup-power",
         yFormat: "",
         getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup),
