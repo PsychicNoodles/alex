@@ -7,11 +7,11 @@ function calculateData({ processedData, originalLength }) {
     percentage = (numTimeslices / originalLength) * 100;
 
   return [
-    { name: "Timeslices", number: numTimeslices, isTime: false },
-    { name: "Percentage", number: percentage, isTime: false },
+    { name: "Samples", number: numTimeslices, isTime: false },
+    { name: "Percentage of samples shown", number: percentage, isTime: false },
     { name: "CPU Time Elapsed", number: endTime - startTime, isTime: true },
     {
-      name: "Average Timeslice Duration",
+      name: "Average time between samples",
       number: (endTime - startTime) / numTimeslices || 0,
       isTime: true
     }

@@ -148,17 +148,24 @@ function render(
       .attr("transform", `translate(${WIDTH * 0.2}, ${HEIGHT + 30})`);
   }
 
-  svg.select(".chart__overlay-plot-legend").call(
-    legendColor()
-      .orient("horizontal")
-      .shapeWidth(30)
-      .scale(
-        d3
-          .scaleOrdinal()
-          .domain(overlayPlots.map(plot => plot.name))
-          .range(overlayPlots.map(plot => plot.color))
-      )
-  );
+  svg
+    .select(".chart__overlay-plot-legend")
+    .call(
+      legendColor()
+        .orient("horizontal")
+        .shapeWidth(30)
+        .scale(
+          d3
+            .scaleOrdinal()
+            .domain(overlayPlots.map(plot => plot.name))
+            .range(overlayPlots.map(plot => plot.color))
+        )
+    )
+    .select(".legendCells")
+    .select(".cell")
+    .select(".swatch")
+    .attr("fill-opacity", "0.5")
+    .attr("stroke", "#000");
 
   //brushes
   if (root.select("g.brushes").empty()) {

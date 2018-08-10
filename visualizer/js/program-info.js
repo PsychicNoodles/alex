@@ -7,7 +7,7 @@ const store = new Store({
 
 function render(root, header) {
   const firstPartData = [
-    { title: "Alex Version", value: header.programVersion },
+    { title: "ALEX Version", value: header.programVersion },
     { title: "Program Name", value: header.programName }
   ];
 
