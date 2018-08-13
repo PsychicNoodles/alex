@@ -6,7 +6,11 @@
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-Qd0uiJ2KSbhEP4AkyK6udfUscZ6aVyRNBrLeiwPZ8Yg='; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <link rel="stylesheet" href="./icons/material-icon-font/material-icons.css" />
+
   <link rel="stylesheet" href="./css/main.css" />
+  <link rel="stylesheet" href="./css/icon-button.css" />
   <link rel="stylesheet" href="./css/info.css" />
   <link rel="stylesheet" href="./css/charts-select.css" />
   <link rel="stylesheet" href="./css/function-runtimes.css" />
@@ -15,8 +19,11 @@
   <link rel="stylesheet" href="./css/chart-svg.css" />
   <link rel="stylesheet" href="./css/legend.css" />
   <link rel="stylesheet" href="./css/brushes.css" />
-  <link rel="stylesheet" href="./css/select.css" />
+  <link rel="stylesheet" href="./css/dropdown.css" />
+  <link rel="stylesheet" href="./css/overflow-dropdown.css" />
   <link rel="stylesheet" href="./css/source-select.css" />
+  <link rel="stylesheet" href="./css/thread-select.css" />
+  <link rel="stylesheet" href="./css/table-select.css" />
   <link rel="stylesheet" href="./css/progress-bar.css" />
   <link rel="stylesheet" href="./css/warnings.css" />
   <link rel="stylesheet" href="./css/save-to-file.css" />
@@ -24,27 +31,49 @@
 
 <body>
   <div id="progress"></div>
+
   <aside id="info">
     <div id="program-info"></div>
     <div id="stats"></div>
     <div id="charts-select"></div>
   </aside>
+
   <div id="charts"></div>
+
   <aside id="table-bar">
     <header id="table-bar-header">
-      <button id="function-runtimes-back-button">◀</button>
+      <button class="icon-button" id="function-runtimes-back-button">
+        <i class="material-icons">arrow_back</i>
+      </button>
       <button id="clear-brushes-button">Clear Selections</button>
-      <button id="save-to-pdf">Save As PDF</button>
       <div id="source-select"></div>
       <div id="thread-select"></div>
       <div id="warnings"></div>
-      <div id="table-select"></div>
+
+      <span style="flex: 1"></span>
+
+      <div id="overflow-dropdown">
+        <ul class="overflow-dropdown__items">
+          <li class="overflow-dropdown__item">
+            <button id="save-to-pdf">Save As PDF</button>
+          </li>
+          <li class="overflow-dropdown__item" id="table-select"></li>
+          <li class="overflow-dropdown__item">
+            <label>
+              Confidence Threshold:
+              <input id="confidence-threshold-input" max="100" min="0" step="0.1" type="number" value="95">%
+            </label>
+          </li>
+        </ul>
+      </div>
     </header>
+
     <div id="tables-wrapper">
       <table id="function-runtimes"></table>
       <table id="warning-list"></table>
     </div>
   </aside>
+
   <script>require("./js/script")</script>
 </body>
 

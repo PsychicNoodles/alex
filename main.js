@@ -316,8 +316,8 @@ async function collect({
       COLLECTOR_RESULT_FILE: resultFile,
       COLLECTOR_WATTSUP_DEVICE: wattsupDevice,
       COLLECTOR_NOTIFY_START: "yes",
-      LD_PRELOAD: path.join(__dirname, "./collector/build/collector.so"),
-      COLLECTOR_INPUT: inFile ? inFile : ""
+      COLLECTOR_INPUT: inFile ? inFile : "",
+      LD_PRELOAD: path.join(__dirname, "./collector/build/collector.so")
     }
   });
 

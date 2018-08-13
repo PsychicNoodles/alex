@@ -48,7 +48,8 @@ ofstream* get_result_file();
 void setup_perf_events(pid_t target, perf_fd_info* info);
 void setup_collect_perf_data(int sigt_fd, int socket, const int& wu_fd,
                              ofstream* res_file, int argc, char** argv,
-                             string program_input, bg_reading* rapl_reading,
+                             const string& program_input,
+                             bg_reading* rapl_reading,
                              bg_reading* wattsup_reading);
 int collect_perf_data(
     const map<uint64_t, kernel_sym>& kernel_syms, int sigt_fd, int socket,

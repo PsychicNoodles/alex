@@ -418,6 +418,9 @@ matrix_file*
 run-alex.sh
 file-result*
 
+# Object files
+obj/
+
 # protoc build output
 collector/protos
 visualizer/js/protos.js

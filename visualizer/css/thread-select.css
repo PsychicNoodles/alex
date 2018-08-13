@@ -1,0 +1,7 @@
+.thread-select .dropdown__item:first-child {
+  font-weight: bold;
+}
+
+.thread-select__checkbox:not(:checked) ~ .thread-select__name {
+  text-decoration: line-through;
+}

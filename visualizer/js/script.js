@@ -18,6 +18,7 @@ const sourceSelect = require("./source-select");
 const threadSelect = require("./thread-select");
 const tableSelect = require("./table-select");
 const chartsSelect = require("./charts-select");
+const overflowDropdown = require("./overflow-dropdown");
 const warnings = require("./warnings");
 const progressBar = require("./progress-bar");
 const saveToFile = require("./save-to-file");
@@ -34,16 +35,11 @@ loadingProgressStore.subscribe(({ percentage, progressBarIsVisible }) => {
   d3.select("#progress").call(progressBar.render, {
     percentage,
     roundedPercentage,
-    text: roundedPercentage === 100 ? "Parsing Data..." : "Reading Result File",
+    text:
+      roundedPercentage === 100 ? "Processing Data..." : "Reading Result File",
     isVisible: progressBarIsVisible
   });
 });
-
-const progressBarHiddenPromise = new Promise(resolve =>
-  loadingProgressStore.subscribe(({ progressBarIsVisible }) => {
-    if (!progressBarIsVisible) resolve();
-  })
-);
 
 d3.select("#save-to-pdf").call(saveToFile.render, {
   fileType: "pdf",
@@ -56,6 +52,9 @@ d3.select("#save-to-pdf").call(saveToFile.render, {
     });
   }
 });
+
+d3.select("#overflow-dropdown").call(overflowDropdown.render);
+d3.select("#table-select").call(tableSelect.render);
 
 ipcRenderer.send("result-request");
 ipcRenderer.on("result", async (event, resultFile) => {
@@ -85,15 +84,27 @@ ipcRenderer.on("result", async (event, resultFile) => {
     window.close();
   }
 
-  /** @type {Promise<{events: string[], presets: Object}} */
-  const headerPromise = new Promise((resolve, reject) =>
+  /** @type {Promise<{events: string[], presets: Object}>} */
+  const headerPromise = new Promise((resolve, reject) => {
+    let didReceiveData = false;
     protobufMessageStream
       .once("data", d => {
         // should always be a header, but verify anyway
-        if (d instanceof Header) resolve(d);
+        if (d instanceof Header) {
+          didReceiveData = true;
+          resolve(d);
+        } else {
+          reject(new Error("File must begin with a header."));
+        }
       })
-      .on("error", reject)
-  );
+      .on("end", () => {
+        if (!didReceiveData) {
+          reject(new Error("No header found in file."));
+        }
+      })
+      .on("error", reject);
+  });
+
   const timeslicesPromise = new Promise((resolve, reject) => {
     const timeslices = [];
     return protobufMessageStream
@@ -103,6 +114,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       .on("end", () => resolve(timeslices))
       .on("error", reject);
   });
+
   const warningsPromise = new Promise((resolve, reject) => {
     const warnings = [];
     protobufMessageStream
@@ -122,16 +134,27 @@ ipcRenderer.on("result", async (event, resultFile) => {
 
   headerPromise.then(header => programInfo.store.dispatch(() => header));
 
-  progressBarHiddenPromise
-    .then(() => headerPromise)
-    .then(header =>
-      d3.select("#program-info").call(programInfo.render, header)
+  loadingProgressStore.stream
+    .pipe(stream.filter(state => !state.progressBarIsVisible))
+    .pipe(stream.take(1))
+    .pipe(stream.mergeMap(() => stream.fromPromise(headerPromise)))
+    .pipe(
+      stream.subscribe(header => {
+        d3.select("#program-info").call(programInfo.render, header);
+      })
     );
 
-  const processedData = await Promise.all([
+  const [timeslices, header] = await Promise.all([
     timeslicesPromise,
     headerPromise
-  ]).then(([timeslices, header]) => processData(timeslices, header));
+  ]);
+
+  const PROGRESS_BAR_TRANSITION_DURATION = 250;
+  await new Promise(resolve =>
+    setTimeout(resolve, PROGRESS_BAR_TRANSITION_DURATION)
+  );
+
+  const processedData = processData(timeslices, header);
 
   const spectrum = d3.interpolateWarm;
   const sdRange = 3;
@@ -172,8 +195,6 @@ ipcRenderer.on("result", async (event, resultFile) => {
       processedData,
       originalLength: timeslicesLength
     });
-
-    d3.select("#table-select").call(tableSelect.render);
 
     //sources & thread
     const sourcesSet = new Set(),
@@ -220,7 +241,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       warningRecords
     });
 
-    const { presets, events } = await headerPromise;
+    const { presets, events } = header;
 
     const charts = [
       {
@@ -268,7 +289,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
-        yAxisLabelText: "Overall Power",
+        yAxisLabelText: "Overall Power (Watts)",
         chartId: "overall-power",
         yFormat: "s",
         getDependentVariable: d => d.events.periodOverall,
@@ -277,7 +298,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
-        yAxisLabelText: "CPU Power",
+        yAxisLabelText: "CPU Power (Watts)",
         chartId: "cpu-power",
         yFormat: "s",
         getDependentVariable: d => d.events.periodCpu,
@@ -286,7 +307,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["rapl"],
-        yAxisLabelText: "Memory Power",
+        yAxisLabelText: "Memory Power (Watts)",
         chartId: "memory-power",
         yFormat: "s",
         getDependentVariable: d => d.events.periodMemory,
@@ -295,7 +316,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       },
       {
         presetsRequired: ["wattsup"],
-        yAxisLabelText: "Wattsup Power",
+        yAxisLabelText: "Wattsup Power (Watts)",
         chartId: "wattsup-power",
         yFormat: "",
         getDependentVariable: d => getEventCount(d, presets.wattsup.wattsup),

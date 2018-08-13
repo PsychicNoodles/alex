@@ -33,7 +33,7 @@ void loop_print(CodedInputStream* input, FileOutputStream* out,
                 "loop_print called with a non-Message");
   T msg;
   while (true) {
-    if (!input->ReadVarint32(&size)) {
+    if (!input->ReadLittleEndian32(&size)) {
       if (!input->ExpectAtEnd()) {
         exit(0);
       }
@@ -77,7 +77,7 @@ int main(int argc, char** argv) {
 
   uint32_t size;
   CodedInputStream::Limit limit;
-  if (!input.ReadVarint32(&size)) {
+  if (!input.ReadLittleEndian32(&size)) {
     cerr << "failed to parse header, couldn't read delimiter" << endl;
     return 2;
   }

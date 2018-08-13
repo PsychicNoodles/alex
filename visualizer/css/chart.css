@@ -21,9 +21,3 @@ svg.chart__svg {
   bottom: 5%;
   left: 0;
 }
-
-@media screen and (max-width: 900px) {
-  .chart__save {
-    position: relative !important;
-  }
-}

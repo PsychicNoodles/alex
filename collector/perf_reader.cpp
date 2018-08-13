@@ -53,12 +53,12 @@ using google::protobuf::Message;
 using google::protobuf::io::CodedOutputStream;
 using google::protobuf::io::OstreamOutputStream;
 using std::make_pair;
-using std::make_tuple;
+// using std::make_tuple;
 using std::map;
 using std::out_of_range;
 using std::string;
-using std::tie;
-using std::tuple;
+// using std::tie;
+// using std::tuple;
 using std::vector;
 
 // contents of buffer filled when PERF_RECORD_SAMPLE type is enabled plus
@@ -431,9 +431,8 @@ int adjust_period(int record_type) {
  *It's possible that the perf memory holding the result overwrite the result
  *while we process it, so we copy the result to our memory and change it
  */
-void copy_record_to_stack(void *record, void *local, int record_type,
-                          int record_size, uintptr_t data_start,
-                          uintptr_t data_end) {
+void copy_record_to_stack(void *record, void *local, int record_size,
+                          uintptr_t data_start, uintptr_t data_end) {
   DEBUG("copying record " << ptr_fmt(record) << " to stack " << ptr_fmt(local));
   auto record_ptr = reinterpret_cast<uintptr_t>(record),
        local_ptr = reinterpret_cast<uintptr_t>(local);
@@ -722,6 +721,7 @@ void process_lost_record(const lost_record &lost, vector<Warning> *warnings) {
     write_sample_id(sample_id_message, lost.sample_id);
     warning_message.set_allocated_sample_id(sample_id_message);
   }
+  warnings->emplace_back(warning_message);
 }
 
 void serialize_footer() {
@@ -731,7 +731,7 @@ void serialize_footer() {
   // mark end of timeslices
   coded.WriteLittleEndian32(0);
 
-  coded.WriteLittleEndian32(warnings.size());
+  // coded.WriteLittleEndian32(warnings.size());
 
   write_warnings();
 }
@@ -757,7 +757,8 @@ void set_preset_events(Map<string, PresetEvents> *preset_map) {
 
 void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
                              ofstream *res_file, int argc, char **argv,
-                             string program_input, bg_reading *rapl_reading,
+                             const string &program_input,
+                             bg_reading *rapl_reading,
                              bg_reading *wattsup_reading) {
   result_file = res_file;
 
@@ -782,7 +783,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
   header_message.set_program_input(program_input);
   DEBUG("writing program_input: " << program_input);
   auto events = str_split_set(getenv_safe("COLLECTOR_EVENTS"), ",");
-  for (auto event : events) {
+  for (const auto &event : events) {
     header_message.add_events(event);
   }
 
@@ -931,17 +932,17 @@ int collect_perf_data(
                 if (record_type == PERF_RECORD_THROTTLE ||
                     record_type == PERF_RECORD_UNTHROTTLE) {
                   throttle_record local_result{};
-                  copy_record_to_stack(perf_result, (void *)(&local_result),
-                                       record_type, record_size, data_start,
-                                       data_end);
+                  copy_record_to_stack(perf_result,
+                                       reinterpret_cast<void *>(&local_result),
+                                       record_size, data_start, data_end);
 
                   process_throttle_record(local_result, record_type, &warnings);
                 } else if (record_type == PERF_RECORD_SAMPLE) {
                   if (is_first_sample) {
                     sample_record local_sample{};
-                    copy_record_to_stack(perf_result, (void *)&local_sample,
-                                         record_type, record_size, data_start,
-                                         data_end);
+                    copy_record_to_stack(
+                        perf_result, reinterpret_cast<void *>(&local_sample),
+                        record_size, data_start, data_end);
 
                     // is reset to true if the timeslice was skipped, else false
                     is_first_sample = process_sample_record(
@@ -952,9 +953,9 @@ int collect_perf_data(
                   }
                 } else if (record_type == PERF_RECORD_LOST) {
                   lost_record local_result{};
-                  copy_record_to_stack(perf_result, (void *)&local_result,
-                                       record_type, record_size, data_start,
-                                       data_end);
+                  copy_record_to_stack(perf_result,
+                                       reinterpret_cast<void *>(&local_result),
+                                       record_size, data_start, data_end);
                   process_lost_record(local_result, &warnings);
                 } else {
                   DEBUG_CRITICAL("record type was not recognized ("

@@ -62,66 +62,6 @@ function render(
         .attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`)
     : root.select("svg.chart__svg");
 
-  // Overlay Plots
-
-  console.log(chartId, overlayPlots);
-  const overlayPlotsSelection = svg
-    .selectAll(".chart__overlay-plot")
-    .data(overlayPlots);
-
-  overlayPlotsSelection
-    .enter()
-    .append("path")
-    .attr("class", "chart__overlay-plot")
-    .merge(overlayPlotsSelection)
-    .attr("fill", plot => plot.color)
-    .attr("fill-opacity", "0.5")
-    .attr("d", overlayPlot => {
-      const getX = timeslice => xScale(getIndependentVariable(timeslice));
-      const getY = timeslice =>
-        overlayPlot.yScale(overlayPlot.getDependentVariable(timeslice));
-
-      const startY = getY(filteredData[0]);
-      let pathDescriptor = `M 0,${HEIGHT} 0,${startY}`;
-
-      let currentMinX = 0;
-      for (const timeslice of filteredData) {
-        const x = getX(timeslice);
-        while (x >= currentMinX + 1) currentMinX++;
-        if (x >= currentMinX) {
-          const y = getY(timeslice);
-          console.log(overlayPlot.getDependentVariable(timeslice), y);
-          pathDescriptor += ` ${x},${y}`;
-          currentMinX++;
-        }
-      }
-
-      const endY = getY(filteredData[filteredData.length - 1]);
-      pathDescriptor += ` ${WIDTH},${endY} ${WIDTH},${HEIGHT} Z`;
-      return pathDescriptor;
-    });
-
-  overlayPlotsSelection.exit().remove();
-
-  if (svg.select(".chart__overlay-plot-legend").empty()) {
-    svg
-      .append("g")
-      .attr("class", "chart__overlay-plot-legend")
-      .attr("transform", `translate(${WIDTH * 0.2}, ${HEIGHT + 30})`);
-  }
-
-  svg.select(".chart__overlay-plot-legend").call(
-    legendColor()
-      .orient("horizontal")
-      .shapeWidth(30)
-      .scale(
-        d3
-          .scaleOrdinal()
-          .domain(overlayPlots.map(plot => plot.name))
-          .range(overlayPlots.map(plot => plot.color))
-      )
-  );
-
   //warnings
   if (root.select("g.warning-lines").empty()) {
     svg.append("g").call(warnings.renderLines, {
@@ -157,6 +97,69 @@ function render(
         .text(xAxisLabelText)
     : svg.select("chart__axis-label--x");
 
+  // Overlay Plots
+
+  const overlayPlotsSelection = svg
+    .selectAll(".chart__overlay-plot")
+    .data(overlayPlots);
+
+  overlayPlotsSelection
+    .enter()
+    .append("path")
+    .attr("class", "chart__overlay-plot")
+    .merge(overlayPlotsSelection)
+    .attr("fill", plot => plot.color)
+    .attr("fill-opacity", "0.5")
+    .attr(
+      "d",
+      filteredData.length > 0
+        ? overlayPlot => {
+            const getX = timeslice => xScale(getIndependentVariable(timeslice));
+            const getY = timeslice =>
+              overlayPlot.yScale(overlayPlot.getDependentVariable(timeslice));
+
+            const startY = getY(filteredData[0]);
+            let pathDescriptor = `M 0,${HEIGHT} 0,${startY}`;
+
+            let currentMinX = 0;
+            for (const timeslice of filteredData) {
+              const x = getX(timeslice);
+              while (x >= currentMinX + 1) currentMinX++;
+              if (x >= currentMinX) {
+                const y = getY(timeslice);
+                pathDescriptor += ` ${x},${y}`;
+                currentMinX++;
+              }
+            }
+
+            const endY = getY(filteredData[filteredData.length - 1]);
+            pathDescriptor += ` ${WIDTH},${endY} ${WIDTH},${HEIGHT} Z`;
+            return pathDescriptor;
+          }
+        : ""
+    );
+
+  overlayPlotsSelection.exit().remove();
+
+  if (svg.select(".chart__overlay-plot-legend").empty()) {
+    svg
+      .append("g")
+      .attr("class", "chart__overlay-plot-legend")
+      .attr("transform", `translate(${WIDTH * 0.2}, ${HEIGHT + 30})`);
+  }
+
+  svg.select(".chart__overlay-plot-legend").call(
+    legendColor()
+      .orient("horizontal")
+      .shapeWidth(30)
+      .scale(
+        d3
+          .scaleOrdinal()
+          .domain(overlayPlots.map(plot => plot.name))
+          .range(overlayPlots.map(plot => plot.color))
+      )
+  );
+
   //brushes
   if (root.select("g.brushes").empty()) {
     svg.append("g").call(brushes.render);
@@ -165,12 +168,17 @@ function render(
   if (root.select(".chart__save").empty()) {
     root
       .append("button")
-      .attr("class", "chart__save")
-      .text("Save As SVG")
+      .attr("class", "chart__save icon-button")
+      .attr("title", "Save As SVG Image")
       .call(saveToFile.render, {
         fileType: "svg",
         fileNameSuffix:
-          "chart-" + yAxisLabelText.toLocaleLowerCase().replace(/[\W_]+/g, "-"),
+          "chart-" +
+          yAxisLabelText
+            .toLocaleLowerCase()
+            .replace(/\([\w]+\)/g, "")
+            .trim()
+            .replace(/[\W_]+/g, "-"),
         generateFileData: async () => {
           const LEFT_MARGIN = 100;
           const RIGHT_MARGIN = 100;
@@ -207,7 +215,10 @@ function render(
 
           return svgNode.outerHTML;
         }
-      });
+      })
+      .append("i")
+      .attr("class", "material-icons")
+      .text("save");
   }
 
   const plotDataStream = currentYScaleStore.stream.pipe(

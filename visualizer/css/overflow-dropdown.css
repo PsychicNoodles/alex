@@ -1,0 +1,21 @@
+.overflow-dropdown__items {
+  right: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.overflow-dropdown__item {
+  padding: 8px 0;
+}
+
+.overflow-dropdown__item:first-child {
+  padding-top: 4px;
+}
+
+.overflow-dropdown__item:last-child {
+  padding-bottom: 4px;
+}
+
+.overflow-dropdown__item:not(:last-child) {
+  border-bottom: 1px solid #999;
+}
