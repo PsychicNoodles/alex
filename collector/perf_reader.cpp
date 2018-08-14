@@ -188,7 +188,7 @@ void write_warnings() {
 void add_fd_to_epoll(int fd) {
   DEBUG("adding " << fd << " to epoll " << sample_epfd);
   // only listen for read events in non-edge mode
-  epoll_event evt = {EPOLLIN | EPOLLET, {.fd = fd}};
+  epoll_event evt = {EPOLLIN, {.fd = fd}};
   if (epoll_ctl(sample_epfd, EPOLL_CTL_ADD, fd, &evt) == -1) {
     PARENT_SHUTDOWN_PERROR(INTERNAL_ERROR, "error adding perf fd " << fd);
   }
@@ -217,8 +217,8 @@ void delete_fd_from_epoll(int fd) {
  * every other event as children in the group. Thus, when the cpu cycles event
  * is started all the others are as well simultaneously
  */
-void setup_perf_events(pid_t target, perf_fd_info *info) {
-  DEBUG("setting up perf events for target " << target);
+perf_fd_info setup_perf_events(pid_t target) {
+  DEBUG("setting up perf events for target (tid)" << target);
   // set up the cpu cycles perf buffer
   perf_event_attr cpu_clock_attr{};
   memset(&cpu_clock_attr, 0, sizeof(perf_event_attr));
@@ -242,15 +242,17 @@ void setup_perf_events(pid_t target, perf_fd_info *info) {
       SAMPLER_MONITOR_SUCCESS) {
     PARENT_SHUTDOWN_MSG(INTERNAL_ERROR, "error setting up the monitoring");
   }
-  info->cpu_clock_fd = cpu_clock_perf.fd;
-  info->sample_buf = cpu_clock_perf;
-  info->tid = target;
+
+  perf_fd_info info;
+  info.cpu_clock_fd = cpu_clock_perf.fd;
+  info.sample_buf = cpu_clock_perf;
+  info.tid = target;
 
   if (global->events_size != 0) {
     DEBUG("setting up events");
-    for (int i = 0; i < global->events_size; i++) {
-      DEBUG("event: " << global->events[i]);
-    }
+    // for (int i = 0; i < global->events_size; i++) {
+    //   DEBUG("event: " << global->events[i]);
+    // }
     for (int i = 0; i < global->events_size; i++) {
       const char *event = global->events[i];
       DEBUG("setting up event: " << event);
@@ -275,15 +277,18 @@ void setup_perf_events(pid_t target, perf_fd_info *info) {
                                "couldn't perf_event_open for event");
       }
 
-      info->event_fds[event] = event_fd;
+      info.event_fds[event] = event_fd;
     }
   }
 
   // all related events are ready, so time to start monitoring
   DEBUG("starting monitoring");
-  if (start_monitoring(info->cpu_clock_fd) != SAMPLER_MONITOR_SUCCESS) {
+  if (start_monitoring(info.cpu_clock_fd) != SAMPLER_MONITOR_SUCCESS) {
     PARENT_SHUTDOWN_MSG(INTERNAL_ERROR, "failed to start monitoring");
   }
+
+  DEBUG("finished setting up perf events (tid: " << target << ")");
+  return info;
 }
 
 /*
@@ -769,8 +774,7 @@ void setup_collect_perf_data(int sigt_fd, int socket, const int &wu_fd,
   add_fd_to_epoll(socket);
 
   DEBUG("setting up perf events for main thread in subject");
-  perf_fd_info subject_info;
-  setup_perf_events(global->subject_pid, &subject_info);
+  perf_fd_info subject_info = setup_perf_events(global->subject_pid);
   DEBUG("main thread registered with fd " << subject_info.cpu_clock_fd);
   setup_buffer(&subject_info);
   handle_perf_register(&subject_info);
