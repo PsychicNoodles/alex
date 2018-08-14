@@ -57,7 +57,7 @@ static void monitor_copy_va_args(char ***argv, char ***envp,
   }
 }
 
-alex::perf_fd_info info;
+// alex::perf_fd_info info;
 int perf_register_sock;
 
 namespace alex {
@@ -66,9 +66,11 @@ using std::string;
 
 void set_perf_register_sock(int sock) { perf_register_sock = sock; }
 
-void close_fds() {
+void close_fds(perf_fd_info info) {
+  DEBUG("closing leader fd: " << info.cpu_clock_fd);
   close(info.cpu_clock_fd);
   for (const auto &entry : info.event_fds) {
+    DEBUG("closing fd: " << entry.second);
     close(entry.second);
   }
 }
@@ -83,7 +85,7 @@ void *__imposter(void *arg) {
 
   DEBUG(tid << ": setting up perf events");
 
-  setup_perf_events(tid, &info);
+  perf_fd_info info = setup_perf_events(tid);
   DEBUG(tid << ": registering fd " << info.cpu_clock_fd
             << " with collector for bookkeeping");
   if (!register_perf_fds(perf_register_sock, &info)) {
@@ -96,7 +98,7 @@ void *__imposter(void *arg) {
 
   DEBUG_CRITICAL(tid << ": finished routine, unregistering fd "
                      << info.cpu_clock_fd);
-  close_fds();
+  close_fds(info);
   unregister_perf_fds(perf_register_sock);
   DEBUG(tid << ": exiting");
   return ret;
@@ -104,7 +106,6 @@ void *__imposter(void *arg) {
 }  // namespace alex
 
 using alex::__imposter;
-using alex::close_fds;
 using alex::disguise_t;
 using alex::gettid;
 using alex::INTERNAL_ERROR;
@@ -141,7 +142,7 @@ pid_t fork(void) {
     DEBUG("CHILD PROCESS");
     pid_t tid = gettid();
     DEBUG(tid << ": setting up PROCESS perf events with PID");
-    setup_perf_events(tid, &info);
+    alex::perf_fd_info info = setup_perf_events(tid);
     DEBUG_CRITICAL(tid << ": registering PROCESS fd " << info.cpu_clock_fd
                        << " with collector for bookkeeping");
     if (!register_perf_fds(perf_register_sock, &info)) {
@@ -155,7 +156,7 @@ pid_t fork(void) {
 
 // NOLINTNEXTLINE
 int execve(const char *filename, char *const argv[], char *const envp[]) {
-  close_fds();
+  // close_fds();
   unregister_perf_fds(perf_register_sock);
   if (unsetenv("LD_PRELOAD")) {
     perror("clone.cpp: couldn't unset env");
@@ -166,7 +167,7 @@ int execve(const char *filename, char *const argv[], char *const envp[]) {
 
 // NOLINTNEXTLINE
 int execvp(const char *file, char *const argv[]) {
-  close_fds();
+  // close_fds();
   unregister_perf_fds(perf_register_sock);
   if (unsetenv("LD_PRELOAD")) {
     perror("clone.cpp: couldn't unset env");
@@ -176,7 +177,7 @@ int execvp(const char *file, char *const argv[]) {
 
 // NOLINTNEXTLINE
 int execv(const char *path, char *const argv[]) {
-  close_fds();
+  // close_fds();
   unregister_perf_fds(perf_register_sock);
   if (unsetenv("LD_PRELOAD")) {
     perror("clone.cpp: couldn't unset env");
@@ -187,7 +188,7 @@ int execv(const char *path, char *const argv[]) {
 
 // NOLINTNEXTLINE
 int execvpe(const char *file, char *const argv[], char *const envp[]) {
-  close_fds();
+  // close_fds();
   unregister_perf_fds(perf_register_sock);
   if (unsetenv("LD_PRELOAD")) {
     perror("clone.cpp: couldn't unset env");
@@ -199,7 +200,7 @@ int execvpe(const char *file, char *const argv[], char *const envp[]) {
 // NOLINTNEXTLINE
 int execl(const char *path, const char *arg, ...) {
   DEBUG_CRITICAL("GET TO EXECL");
-  close_fds();
+  // close_fds();
   unregister_perf_fds(perf_register_sock);
   if (unsetenv("LD_PRELOAD")) {
     perror("clone.cpp: couldn't unset env");
@@ -220,7 +221,7 @@ int execl(const char *path, const char *arg, ...) {
 // NOLINTNEXTLINE
 int execle(const char *path, const char *arg, ...) {
   DEBUG_CRITICAL("GET TO EXECLE");
-  close_fds();
+  // close_fds();
   unregister_perf_fds(perf_register_sock);
   if (unsetenv("LD_PRELOAD")) {
     perror("clone.cpp: couldn't unset env");
@@ -240,7 +241,7 @@ int execle(const char *path, const char *arg, ...) {
 // NOLINTNEXTLINE
 int execlp(const char *file, const char *arg, ...) {
   DEBUG_CRITICAL("GET TO EXECLP");
-  close_fds();
+  // close_fds();
   unregister_perf_fds(perf_register_sock);
   if (unsetenv("LD_PRELOAD")) {
     perror("clone.cpp: couldn't unset env");

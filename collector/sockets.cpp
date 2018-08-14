@@ -83,8 +83,10 @@ bool register_perf_fds(int socket, perf_fd_info *info) {
   int ancil_fds[n_fds];
   // copy the locally used file descriptors
   ancil_fds[0] = info->cpu_clock_fd;
+  DEBUG("send ancil_fds[0] = " << info->cpu_clock_fd);
   for (int i = 0; i < global->events_size; i++) {
     ancil_fds[i + 1] = info->event_fds[global->events[i]];
+    DEBUG("send ancil_fds[" << (i + 1) << "] = " << ancil_fds[i + 1]);
   }
   pid_t tid = gettid();
   socket_cmd cmd = SOCKET_CMD_REGISTER;
