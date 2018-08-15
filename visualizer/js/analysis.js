@@ -79,17 +79,11 @@ function analyze({ timeSlices, isVisible, isBrushSelected, getFunctionName }) {
     .pipe(
       stream.mergeMap(({ functions }) => {
         const trainingData = [];
-        /* Currently the best move is to loop through all timeslices a second
-        time; this is because the implementation of js-regression requires
-        that we know ahead of time all the independent variables (in this
-        case, each function) and their setting for each time slice. This might
-        be avoidable. */
         let timeSlice = {};
-        shuffle(timeSlices);
         for (let i = 0; i < timeSlicesLength; i++) {
           timeSlice = timeSlices[i];
           const functionName = getFunctionName(timeSlice);
-          const row = [1]; // for intercept
+          const row = [1]; // For intercept multiplication
           // Set independent variables
           functions.forEach(func => {
             row.push(func.name === functionName ? 1.0 : 0.0);
@@ -98,11 +92,13 @@ function analyze({ timeSlices, isVisible, isBrushSelected, getFunctionName }) {
           row.push(isBrushSelected(timeSlice) ? 1.0 : 0.0);
           trainingData.push(row);
         }
-        const model = train(trainingData, 0.3, 1);
-        // Convert from log-odds to probability... I think.
-        const odds = model.map(element => 1 / (1 + Math.pow(Math.E, -element)));
+        const model = train(trainingData, 0.3, 5);
+        // Convert from log-odds to probability
+        const odds = model.θs.map(
+          element => 1 / (1 + Math.pow(Math.E, -element))
+        );
 
-        let oddsIndex = 1;
+        let oddsIndex = 1; // We ignore the first; it's the intercept.
         functions.forEach(func => {
           func.probability = odds[oddsIndex++];
         });
@@ -112,6 +108,7 @@ function analyze({ timeSlices, isVisible, isBrushSelected, getFunctionName }) {
         //console.log(model);
         //console.log(odds);
         //console.log(functions);
+        //console.log(model.cost);
         return stream.fromValue(functions);
       })
     )
@@ -168,14 +165,6 @@ function createMicroJobStream(job) {
       clearTimeout(timeout);
     };
   });
-}
-
-// via https://stackoverflow.com/a/12646864
-function shuffle(array) {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
-  }
 }
 
 module.exports = { analyze };
