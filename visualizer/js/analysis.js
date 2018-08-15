@@ -1,5 +1,5 @@
 const stream = require("./stream");
-const jsRegression = require("js-regression");
+const { train } = require("./logistic-regression");
 
 /**
  * Run analyses of data.
@@ -78,11 +78,6 @@ function analyze({ timeSlices, isVisible, isBrushSelected, getFunctionName }) {
     )
     .pipe(
       stream.mergeMap(({ functions }) => {
-        const logisticRegression = new jsRegression.LogisticRegression({
-          alpha: 0.005,
-          iterations: 1000,
-          lambda: 0.0
-        });
         const trainingData = [];
         /* Currently the best move is to loop through all timeslices a second
         time; this is because the implementation of js-regression requires
@@ -90,10 +85,11 @@ function analyze({ timeSlices, isVisible, isBrushSelected, getFunctionName }) {
         case, each function) and their setting for each time slice. This might
         be avoidable. */
         let timeSlice = {};
+        shuffle(timeSlices);
         for (let i = 0; i < timeSlicesLength; i++) {
           timeSlice = timeSlices[i];
           const functionName = getFunctionName(timeSlice);
-          const row = [];
+          const row = [1]; // for intercept
           // Set independent variables
           functions.forEach(func => {
             row.push(func.name === functionName ? 1.0 : 0.0);
@@ -102,11 +98,9 @@ function analyze({ timeSlices, isVisible, isBrushSelected, getFunctionName }) {
           row.push(isBrushSelected(timeSlice) ? 1.0 : 0.0);
           trainingData.push(row);
         }
-        const model = logisticRegression.fit(trainingData);
+        const model = train(trainingData, 0.3, 1);
         // Convert from log-odds to probability... I think.
-        const odds = model.theta.map(
-          element => 1 / (1 + Math.pow(Math.E, -element))
-        );
+        const odds = model.map(element => 1 / (1 + Math.pow(Math.E, -element)));
 
         let oddsIndex = 1;
         functions.forEach(func => {
@@ -174,6 +168,14 @@ function createMicroJobStream(job) {
       clearTimeout(timeout);
     };
   });
+}
+
+// via https://stackoverflow.com/a/12646864
+function shuffle(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
 }
 
 module.exports = { analyze };

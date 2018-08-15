@@ -1,8 +1,10 @@
-/**
- * @todo Possibly faster with a for loop.
- */
 function dotProduct(as, bs) {
-  return as.map((a, i) => a * bs[i]).reduce((m, n) => m + n);
+  const asLength = as.length;
+  let sum = 0;
+  for (let i = 0; i < asLength; i++) {
+    sum += as[i] * bs[i];
+  }
+  return sum;
 }
 
 function sigmoid(x) {
@@ -17,14 +19,13 @@ function sigmoid(x) {
  * @param {Number[]} θs The weights associated with each independent variable.
  */
 function predictProbability(xis, θs) {
-  return sigmoid(dotProduct(xis, θs));
+  return sigmoid(dotProduct(xis.slice(0, xis.length - 1), θs));
 }
 
 /**
- * A no-conditional form of cross-entropy (log-loss). When yis === 0, the
- * equation is -log(h(xis, θs)); when it's 1, the equation is
- * -log(1 - h(xis, θs)). The multiplying terms yis and 1 - yis conveniently
- * cancel out whichever side is not applicable.
+ * A conditional form of cross-entropy (log-loss). Traditionally, this is done
+ * through cancelling multiplication, but I suspect it could be slightly faster
+ * with branch prediction.
  * https://en.wikipedia.org/wiki/Cross_entropy
  * https://ml-cheatsheet.readthedocs.io/en/latest/logistic_regression.html
  * @param {Number[][]} xs An array of number arrays; each number array contains
@@ -33,38 +34,61 @@ function predictProbability(xis, θs) {
  * @param {Number[]} ys An array containing the value of the dependent variable
  *                      for each data point.
  * @param {Number[]} θs The weights associated with each independent variable.
- * @todo Could be faster with a conditional due to branch prediction, slowness
- *       of multiplication, etc. Also probably faster with a for loop.
  */
-function calculateCost(xs, ys, θs) {
+/* function calculateCost(xs, ys, θs) {
+  const xsLength = xs.length;
+  let xis = [];
   let yi = 0;
-  return (
-    -xs
-      .map((xis, i) => {
-        yi = ys[i];
-        return (
-          yi * Math.log(predictProbability(xis, θs)) +
-          (1 - yi) * Math.log(1 - predictProbability(xis, θs))
-        );
-      })
-      .reduce((m, n) => m + n) / xs.length
-  );
-}
-
-/* function gradientDescent(xs, ys, θs, learningRate) {
-  const numDataPoints = xs.length;
-  const numIndependent = xs[0].length;
-  let θ = 0;
-  const updatedθs = [].fill.call({ length: xs[0].length + 1 }, 0);
-  for (let i = 0; i < numIndependent; i++) {}
-  xs.map(xi => {});
-}
-
-function train(xs, ys, θs, learningRate, iterations) {
-  let updatedθs = [];
-  for (let i = 0; i < iterations; i++) {
-    updatedθs = gradientDescent(xs, ys, θs, learningRate);
+  let sum = 0;
+  for (let i = 0; i < xsLength; i++) {
+    xis = xs[i];
+    yi = ys[i];
+    sum +=
+      yi === 1
+        ? Math.log(predictProbability(xis, θs))
+        : Math.log(1 - predictProbability(xis, θs));
   }
-  const cost = calculateCost(xs, ys, updatedθs);
-  return { cost, updatedθs };
+  return sum;
 } */
+
+function stochasticGradientDescent(trainingData, learningRate, iterations) {
+  const numDataPoints = trainingData.length;
+  const numIndependentVariables = trainingData[0].length - 1;
+  console.log(numIndependentVariables);
+  /* Init the thetas; I've seen at least one claim that it can be either all 0s
+  or random */
+  const θs = [];
+  let i = numIndependentVariables;
+  while (i) {
+    θs[--i] = 0;
+  }
+
+  let squaredErrorSum = 0;
+  let row = [];
+  let predictedY = 0;
+  let error = 0;
+  for (i = 0; i < iterations; i++) {
+    squaredErrorSum = 0;
+    for (let j = 0; j < numDataPoints; j++) {
+      row = trainingData[j];
+      predictedY = predictProbability(row, θs);
+      error = row[numIndependentVariables] - predictedY;
+      squaredErrorSum += Math.pow(error, 2);
+      console.log(
+        `row is ${row}, predictedY is ${predictedY}, error is ${error}, squaredErrorSum is ${squaredErrorSum}`
+      );
+      for (let k = 0; k < numIndependentVariables; k++) {
+        θs[k] += learningRate * error * predictedY * (1 - predictedY) * row[k];
+      }
+    }
+  }
+  return θs;
+}
+
+function train(trainingData, learningRate, iterations) {
+  const θs = stochasticGradientDescent(trainingData, learningRate, iterations);
+  // const cost = calculateCost(xs, ys, θs);
+  return θs;
+}
+
+module.exports = { train };
