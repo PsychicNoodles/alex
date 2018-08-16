@@ -8,7 +8,11 @@ function calculateData({ processedData, originalLength }) {
 
   return [
     { name: "Samples", number: numTimeslices, isTime: false },
-    { name: "Percentage of samples shown", number: percentage, isTime: false },
+    {
+      name: "Percentage of samples shown",
+      number: percentage.toFixed(2) + "%",
+      isTime: false
+    },
     { name: "CPU Time Elapsed", number: endTime - startTime, isTime: true },
     {
       name: "Average time between samples",
