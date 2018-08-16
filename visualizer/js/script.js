@@ -469,33 +469,13 @@ ipcRenderer.on("result", async (event, resultFile) => {
       })
     );
 
-    const confidenceThresholdInput = document.getElementById(
-      "confidence-threshold-input"
-    );
-    const confidenceThresholdStream = stream
-      .fromDOMEvent(confidenceThresholdInput, "change")
-      .pipe(stream.map(event => event.currentTarget.value))
-      .pipe(stream.startWith(confidenceThresholdInput.value))
-      .pipe(stream.map(value => value / 100))
-      .pipe(
-        stream.tap(value => {
-          confidenceThresholdInput.classList.toggle(
-            "confidence-threshold-input--invalid",
-            value < 0 || value > 1
-          );
-        })
-      )
-      .pipe(stream.map(value => Math.max(0, Math.min(value, 1))))
-      .pipe(stream.dedup());
-
     stream
       .fromStreamables([
         sourceSelect.hiddenSourcesStore.stream,
         threadSelect.hiddenThreadsStore.stream,
         brushes.selectionStore.stream,
         currentSelectedFunctionStore.stream,
-        tableSelect.selectedTableStore.stream,
-        confidenceThresholdStream
+        tableSelect.selectedTableStore.stream
       ])
       .pipe(
         stream.map(
@@ -504,15 +484,13 @@ ipcRenderer.on("result", async (event, resultFile) => {
             hiddenThreads,
             { selections },
             selectedFunction,
-            selectedTable,
-            confidenceThreshold
+            selectedTable
           ]) => ({
             hiddenSources,
             hiddenThreads,
             selections,
             selectedFunction,
-            selectedTable,
-            confidenceThreshold
+            selectedTable
           })
         )
       )
@@ -524,13 +502,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
       )
       .pipe(
         stream.debounceMap(
-          ({
-            hiddenSources,
-            hiddenThreads,
-            selections,
-            selectedFunction,
-            confidenceThreshold
-          }) => {
+          ({ hiddenSources, hiddenThreads, selections, selectedFunction }) => {
             const FUNCTION_NAME_SEPARATOR = "//";
 
             performance.mark("analysis start");
@@ -602,8 +574,7 @@ ipcRenderer.on("result", async (event, resultFile) => {
                         return frame.symbol;
                       }
                     }
-                  },
-              confidenceThreshold
+                  }
             })
               .pipe(
                 stream.tap(() => {

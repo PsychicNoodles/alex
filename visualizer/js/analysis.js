@@ -1,4 +1,5 @@
 const stream = require("./stream");
+const { train } = require("./logistic-regression");
 
 /**
  * Run analyses of data.
@@ -13,36 +14,26 @@ const stream = require("./stream");
  * @param {(timeslice: any) => string} params.getFunctionName
  *    Get a unique name for a function. All timeslices that resolve to the same
  *    function name will be grouped together.
- * @param {number} params.confidenceThreshold
- *    A probability from 0 to 1. Any value above this will be considered
- *    significant enough to be highlighted in analysis.
  * @returns {stream.Stream} Results of the analysis.
  */
-function analyze({
-  timeSlices,
-  isVisible,
-  isBrushSelected,
-  getFunctionName,
-  confidenceThreshold
-}) {
+function analyze({ timeSlices, isVisible, isBrushSelected, getFunctionName }) {
   const functionsMap = new Map();
-  let selectedTotal = 0;
-  let unselectedTotal = 0;
 
   const MAP_BUILD_CHUNK_SIZE = 1000;
   const mapBuildChunkStreams = [];
+  const timeSlicesLength = timeSlices.length;
 
   performance.mark("functions map build start");
   for (
     let i = 0;
-    i < timeSlices.length + MAP_BUILD_CHUNK_SIZE;
+    i < timeSlicesLength + MAP_BUILD_CHUNK_SIZE;
     i += MAP_BUILD_CHUNK_SIZE
   ) {
     mapBuildChunkStreams.push(
       createMicroJobStream(() => {
         for (
           let j = i;
-          j < i + MAP_BUILD_CHUNK_SIZE && j < timeSlices.length;
+          j < i + MAP_BUILD_CHUNK_SIZE && j < timeSlicesLength;
           j++
         ) {
           const timeSlice = timeSlices[j];
@@ -52,22 +43,12 @@ function analyze({
               functionsMap.set(functionName, {
                 name: functionName,
                 time: 0,
-                observed: 0,
-                unselectedCount: 0,
-                expected: 0,
-                probability: 0,
-                conclusion: ""
+                probability: 0
               });
             }
 
-            const functionEntry = functionsMap.get(functionName);
             if (isBrushSelected(timeSlice)) {
-              selectedTotal++;
-              functionEntry.time += timeSlice.numCpuTimerTicks;
-              functionEntry.observed++;
-            } else {
-              unselectedTotal++;
-              functionEntry.unselectedCount++;
+              functionsMap.get(functionName).time += timeSlice.numCpuTimerTicks;
             }
           }
         }
@@ -80,8 +61,6 @@ function analyze({
     .pipe(stream.take(1))
     .pipe(
       stream.map(() => ({
-        selectedTotal,
-        unselectedTotal,
         functions: [...functionsMap.values()]
       }))
     )
@@ -98,51 +77,39 @@ function analyze({
       })
     )
     .pipe(
-      stream.mergeMap(({ selectedTotal, unselectedTotal, functions }) => {
-        if (selectedTotal !== 0 && unselectedTotal !== 0) {
-          return stream
-            .fromStreamables(
-              functions.map(func =>
-                createMicroJobStream(() => {
-                  const curTotal = func.observed + func.unselectedCount;
-                  const expected =
-                    (curTotal * selectedTotal) /
-                    (selectedTotal + unselectedTotal);
-
-                  const otherObserved = selectedTotal - func.observed;
-                  const otherUnselectedCount =
-                    unselectedTotal - func.unselectedCount;
-                  const probability =
-                    1 -
-                    fastExactTest(
-                      func.observed,
-                      otherObserved,
-                      func.unselectedCount,
-                      otherUnselectedCount
-                    );
-
-                  const conclusion =
-                    probability >= confidenceThreshold &&
-                    func.observed >= expected
-                      ? "Unusually prevalent"
-                      : probability >= confidenceThreshold &&
-                        func.observed < expected
-                        ? "Unusually absent"
-                        : "Insignificant";
-
-                  return {
-                    ...func,
-                    expected,
-                    probability,
-                    conclusion
-                  };
-                })
-              )
-            )
-            .pipe(stream.take(1));
-        } else {
-          return stream.fromValue(functions);
+      stream.mergeMap(({ functions }) => {
+        const trainingData = [];
+        let timeSlice = {};
+        for (let i = 0; i < timeSlicesLength; i++) {
+          timeSlice = timeSlices[i];
+          const functionName = getFunctionName(timeSlice);
+          const row = [1]; // For intercept multiplication
+          // Set independent variables
+          functions.forEach(func => {
+            row.push(func.name === functionName ? 1.0 : 0.0);
+          });
+          // Set dependent variable
+          row.push(isBrushSelected(timeSlice) ? 1.0 : 0.0);
+          trainingData.push(row);
         }
+        const model = train(trainingData, 0.3, 5);
+        // Convert from log-odds to probability
+        const odds = model.θs.map(
+          element => 1 / (1 + Math.pow(Math.E, -element))
+        );
+
+        let oddsIndex = 1; // We ignore the first; it's the intercept.
+        functions.forEach(func => {
+          func.probability = odds[oddsIndex++];
+        });
+
+        // Testing
+        //console.log(trainingData);
+        //console.log(model);
+        //console.log(odds);
+        //console.log(functions);
+        //console.log(model.cost);
+        return stream.fromValue(functions);
       })
     )
     .pipe(
@@ -160,10 +127,7 @@ function analyze({
     .pipe(
       stream.map(functions =>
         [...functions].sort(
-          (a, b) =>
-            b.probability - a.probability ||
-            b.observed - a.observed ||
-            b.time - a.time
+          (a, b) => b.probability - a.probability || b.time - a.time
         )
       )
     )
@@ -201,49 +165,6 @@ function createMicroJobStream(job) {
       clearTimeout(timeout);
     };
   });
-}
-
-/**
- * This is a fast implementation of Fisher's exact test. It cancels common
- * factors from the numerator and denominator, and alternates between division
- * and multiplication to prevent overflowing or underflowing.
- *
- * The Wikipedia page for Fisher's exact test shows the following expanded form:
- *   p = (a+b)! * (c+d)! * (a+c)! * (b+d)! /
- *       (a! * b! * c! * d! * (a + b + c + d)!)
- * However, additional cancellation is possible. The first factor in the
- * numerator shares the sub-product of b! with the b! term in the denominator.
- * Each numerator term can cancel one of the factorial terms in the denominator,
- * leaving:
- *   p = product(1+b to a+b) * product(c+1 to c+d)h * product(a+1 to a+c) *
- *       product(1+d to b+d) / (a + b + c + d)!
- * The loop in this function performs a multiplication step in one of the five
- * terms of this simplified expression. If the running tally is above 1, it
- * favors the denominator term.
- */
-function fastExactTest(a, b, c, d) {
-  let aPlusBFactPos = b + 1;
-  let cPlusDFactPos = c + 1;
-  let aPlusCFactPos = a + 1;
-  let bPlusDFactPos = d + 1;
-  let nFactPos = 1;
-
-  const n = a + b + c + d;
-
-  let result = 1;
-  let done = false;
-
-  while (!done) {
-    if (result > 1 && nFactPos <= n) result /= nFactPos++;
-    else if (aPlusBFactPos <= a + b) result *= aPlusBFactPos++;
-    else if (cPlusDFactPos <= c + d) result *= cPlusDFactPos++;
-    else if (aPlusCFactPos <= a + c) result *= aPlusCFactPos++;
-    else if (bPlusDFactPos <= b + d) result *= bPlusDFactPos++;
-    else if (nFactPos <= n) result /= nFactPos++;
-    else done = true;
-  }
-
-  return result;
 }
 
 module.exports = { analyze };

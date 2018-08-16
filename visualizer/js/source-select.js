@@ -48,6 +48,7 @@ function render(root, { sources }) {
   dropdownItemsEnterSelection
     .append("span")
     .attr("class", "source-select__file-name")
+    .attr("title", source => source)
     .text(source => source);
 
   hiddenSourcesStore.subscribeUnique(

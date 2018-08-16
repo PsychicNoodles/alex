@@ -45,7 +45,7 @@ ofstream* get_result_file();
 #define PARENT_SHUTDOWN_PERROR(code, title) \
   SHUTDOWN_PERROR(global->subject_pid, *get_result_file(), code, title)
 
-void setup_perf_events(pid_t target, perf_fd_info* info);
+perf_fd_info setup_perf_events(pid_t target);
 void setup_collect_perf_data(int sigt_fd, int socket, const int& wu_fd,
                              ofstream* res_file, int argc, char** argv,
                              const string& program_input,

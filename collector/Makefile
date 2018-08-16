@@ -15,7 +15,7 @@ CXXFLAGS := $(CXXFLAGS) $(PERF_SAMPLE_MAX_STACK_MACRO)
 
 # Get the current git version and add it to CXXFLAGS
 GIT_VERSION := $(shell git rev-parse HEAD | cut -c -10)
-CXXFLAGS := $(CXXFLAGS) -DVERSION=\"$(GIT_VERSION)\" -I../../include --std=c++11 -DDEBUG_FNAME -Wall
+CXXFLAGS := $(CXXFLAGS) -DVERSION=\"$(GIT_VERSION)\" -I../../include --std=c++11 -DDEBUG_FNAME  -DDEBUG_PID -DDEBUG_TID -Wall
 
 # List sources
 COLLECTOR_SOURCES := collector.cpp perf_reader.cpp const.cpp util.cpp debug.cpp perf_sampler.cpp clone.cpp rapl.cpp wattsup.cpp bg_readings.cpp ancillary.cpp find_events.cpp shared.cpp sockets.cpp inspect.cpp

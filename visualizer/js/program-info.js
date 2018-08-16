@@ -18,7 +18,10 @@ function render(root, header) {
   const data =
     header.programArgs.length === 0
       ? dataWithInput
-      : [...dataWithInput, { title: "args", value: header.programArgs }];
+      : [
+          ...dataWithInput,
+          { title: "args", value: header.programArgs.join(" ") }
+        ];
 
   if (root.select("h3").empty()) {
     root.append("h3").text("Program Info");
