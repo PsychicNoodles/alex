@@ -1,11 +1,7 @@
 {
-  "name": "alex",
-  "version": "0.0.1",
   "main": "main.js",
-  "description": "AnaLysis of EXecution",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/curtsinger-lab/alex"
+  "bin": {
+    "alex": "main.js"
   },
   "scripts": {
     "start": "node .",
@@ -16,10 +12,6 @@
     "collect": "node . collect",
     "protobuf-print": "./collector/build/protobuf-print"
   },
-  "bin": {
-    "alex": "main.js"
-  },
-  "license": "UNLICENSED",
   "dependencies": {
     "ajv": "^6.5.2",
     "d3": "^5.5.0",
