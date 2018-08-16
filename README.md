@@ -60,7 +60,6 @@ Alex's analysis is initiated when you select a region of the scatterplots. You m
   preserving program behavior.
 * `npm run checkpreset` checks for available preset options.
 * `npm run checkpreset:all` shows all available options for preset settings.
-* `dmesg` shows what USB serial port is detected after plugging in the watts up? device.
 * `npm run protobuf-print -- resultFile.bin` prints the result file in a human-friendly format.
 * `npm list -g --depth=0` prints only user-installed Node packages.
 * `npm update` updates any Node packages; `package.json` is set so that this will only install updates for [minor and patch updates](https://semver.org/).
