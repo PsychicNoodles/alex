@@ -18,11 +18,8 @@
     "d3": "^5.5.0",
     "d3-svg-legend": "^2.25.6",
     "electron": "^2.0.7",
-    "husky": "^0.14.3",
-    "lint-staged": "^7.2.2",
     "lodash": "^4.17.10",
     "moment": "^2.22.2",
-    "prettier": "^1.14.2",
     "pretty-ms": "^3.2.0",
     "progress-stream": "^2.0.0",
     "protobufjs": "~6.8.8",
@@ -32,7 +29,11 @@
   },
   "devDependencies": {
     "@types/yargs": "^11.1.1",
-    "eslint": "^5.3.0"
+    "eslint": "^5.3.0",
+    "eslint-config-prettier": "^3.0.1",
+    "husky": "^0.14.3",
+    "lint-staged": "^7.2.2",
+    "prettier": "^1.14.2"
   },
   "eslintConfig": {
     "env": {
@@ -40,7 +41,10 @@
       "es6": true,
       "node": true
     },
-    "extends": "eslint:recommended",
+    "extends": [
+      "prettier",
+      "eslint:recommended"
+    ],
     "parserOptions": {
       "ecmaVersion": 2018
     },
