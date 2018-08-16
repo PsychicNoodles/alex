@@ -45,25 +45,5 @@ Alex's analysis is initiated when you select a region of the scatterplots. You m
 * Overall power, CPU power, and memory power usage
 * And more, eventually!
 
-## Development
-### Useful documentation
-* [libpfm](http://man7.org/linux/man-pages/man3/libpfm.3.html)
-* [npm](https://docs.npmjs.com/)
-* [Electron](https://electronjs.org/docs)
-* [D3](https://github.com/d3/d3/wiki)
-* [HTML/CSS/JS/SVG, etc](https://developer.mozilla.org)
-
-### Handy scripts
-* `npm run clean:outfiles` deletes the spam of err-xxxx, out-xxxx and
-  result-xxxx files.
-* `npm run eslint:fix` fixes all JavaScript syntax violations that it can while
-  preserving program behavior.
-* `npm run checkpreset` checks for available preset options.
-* `npm run checkpreset:all` shows all available options for preset settings.
-* `npm run protobuf-print -- resultFile.bin` prints the result file in a human-friendly format.
-* `npm list -g --depth=0` prints only user-installed Node packages.
-* `npm update` updates any Node packages; `package.json` is set so that this will only install updates for [minor and patch updates](https://semver.org/).
-* `npm outdated` shows any remaining packages that are out of date. If they are major updates, you'll have to update the version number in `package.json` manually and test Alex to make sure it does not break.
-
 ## Credit
 This project is developed by [Grinnell College computer science](https://github.com/grinnell-cs) research students under the direction of [Charlie Curtsinger](https://github.com/ccurtsinger).
