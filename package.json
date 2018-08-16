@@ -3,6 +3,7 @@
   "bin": {
     "alex": "main.js"
   },
+  "private": true,
   "scripts": {
     "start": "node .",
     "precommit": "lint-staged",
