@@ -68,7 +68,7 @@
     ],
     "*.{c,h,cpp,hpp}": [
       "./tidy-check.sh",
-      "clang-format -i -style=file",
+      "clang-format -i -style=Google",
       "git add"
     ]
   }
