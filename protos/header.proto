@@ -8,14 +8,16 @@ message Header {
   // extra events
   repeated string events = 3;
   // map of presets to abstract events and low level event names
-  // unfortunately, protobuf doesn't support a map of a map, so we need to do some finagling
+  // unfortunately, protobuf doesn't support a map of a map, so we need to do
+  // some finagling
   map<string, PresetEvents> presets = 4;
 
   string program_input = 5;
   repeated string program_args = 6;
 }
 
-// a map of a preset's event name (ie. misses) to the low level event names (ie. "MEM_LOAD_RETIRED.L3_MISS")
+// a map of a preset's event name (ie. misses) to the low level event names (ie.
+// "MEM_LOAD_RETIRED.L3_MISS")
 message PresetEvents {
   map<string, EventList> events = 1;
 }
