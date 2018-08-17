@@ -1,4 +1,4 @@
-const { isEqual } = require("lodash");
+const isEqual = require("lodash.isequal");
 
 const stream = require("./stream");
 
