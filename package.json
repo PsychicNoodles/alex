@@ -65,7 +65,7 @@
       "prettier --write",
       "git add"
     ],
-    "*.{c,h,cpp,hpp}": [
+    "*.{c,h,cpp,hpp,proto}": [
       "./tidy-check.sh",
       "clang-format -i -style=file",
       "git add"
