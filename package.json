@@ -1,45 +1,36 @@
 {
-  "name": "alex",
-  "version": "0.0.1",
   "main": "main.js",
-  "description": "AnaLysis of EXecution",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/curtsinger-lab/alex"
-  },
-  "scripts": {
-    "start": "node .",
-    "precommit": "lint-staged",
-    "eslint:fix": "eslint --fix .",
-    "clean:outfiles": "rm -f alex_*",
-    "example": "npm run clean:outfiles && node . collect --in examples/inputs/matrix-500x500.in -- examples/build/matrixmultiplier",
-    "collect": "node . collect",
-    "protobuf-print": "./collector/build/protobuf-print"
-  },
   "bin": {
     "alex": "main.js"
   },
-  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "clean": "rm -f alex_*",
+    "example": "npm run clean && node . collect --in examples/inputs/matrix-500x500.in -- examples/build/matrixmultiplier",
+    "precommit": "lint-staged",
+    "print": "./collector/build/protobuf-print"
+  },
   "dependencies": {
-    "ajv": "^6.5.2",
     "d3": "^5.5.0",
     "d3-svg-legend": "^2.25.6",
     "electron": "^2.0.7",
-    "husky": "^0.14.3",
-    "lint-staged": "^7.2.2",
-    "lodash": "^4.17.10",
+    "lodash.isequal": "^4.5.0",
     "moment": "^2.22.2",
-    "prettier": "^1.14.2",
     "pretty-ms": "^3.2.0",
     "progress-stream": "^2.0.0",
-    "protobufjs": "~6.8.8",
-    "tempfile": "^2.0.0",
+    "protobufjs": "^6.8.8",
+    "tempy": "^0.2.1",
     "through2": "^2.0.3",
     "yargs": "^12.0.1"
   },
   "devDependencies": {
     "@types/yargs": "^11.1.1",
-    "eslint": "^5.3.0"
+    "clang-format": "^1.2.4",
+    "eslint": "^5.3.0",
+    "eslint-config-prettier": "^3.0.1",
+    "husky": "^0.14.3",
+    "lint-staged": "^7.2.2",
+    "prettier": "^1.14.2"
   },
   "eslintConfig": {
     "env": {
@@ -47,7 +38,10 @@
       "es6": true,
       "node": true
     },
-    "extends": "eslint:recommended",
+    "extends": [
+      "prettier",
+      "eslint:recommended"
+    ],
     "parserOptions": {
       "ecmaVersion": 2018
     },
