@@ -4,7 +4,7 @@ const yargs = require("yargs");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const readline = require("readline");
-const tempFile = require("tempfile");
+const tempy = require("tempy");
 const path = require("path");
 const prettyMS = require("pretty-ms");
 const moment = require("moment");
@@ -254,7 +254,7 @@ async function collect({
   showTimer,
   wattsupDevice
 }) {
-  const resultFile = resultOption || tempFile(".bin");
+  const resultFile = resultOption || tempy.file({ extension: "bin" });
 
   const allPresetInfo = await getAllPresetInfo();
   const presetsSet = new Set([
