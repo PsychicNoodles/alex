@@ -4,6 +4,12 @@ Alex is a software profiler for C and C++ programs on Linux. With it, you can lo
 
 ## Getting started
 
+### C and C++ dependencies
+
+- [clang](https://clang.llvm.org/)
+- [libpfm](http://perfmon2.sourceforge.net/)
+- [libelfin](https://github.com/aclements/libelfin)
+
 To install:
 
 ```
