@@ -34,13 +34,22 @@ set<string> get_all_presets() {
   return keys;
 }
 
-map<string, vector<string>> build_preset(const string& preset) {
+map<string, vector<string>> build_preset(const string &preset) {
   map<string, vector<string>> events;
   if (preset == "cache") {
+    // events.insert(
+    //     pair<string, vector<string>>("hits1", {"MEM_LOAD_RETIRED.L1_HIT"}));
+    // events.insert(
+    //     pair<string, vector<string>>("misses1",
+    //     {"MEM_LOAD_RETIRED.L1_MISS"}));
     events.insert(
         pair<string, vector<string>>("hits", {"MEM_LOAD_RETIRED.L3_HIT"}));
     events.insert(
         pair<string, vector<string>>("misses", {"MEM_LOAD_RETIRED.L3_MISS"}));
+    events.insert(
+        pair<string, vector<string>>("hits2", {"MEM_LOAD_RETIRED.L2_HIT"}));
+    events.insert(
+        pair<string, vector<string>>("misses2", {"MEM_LOAD_RETIRED.L2_MISS"}));
   } else if (preset == "cpu") {
     events.insert(pair<string, vector<string>>("cpuCycles", {"cpu-cycles"}));
     events.insert(
