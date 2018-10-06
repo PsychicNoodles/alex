@@ -1,25 +1,24 @@
 // adapted from
 // https://stackoverflow.com/questions/11227809/why-is-it-faster-to-process-a-sorted-array-than-an-unsorted-array
 
+#include <pthread.h>
 #include <algorithm>
+#include <cstring>
 #include <ctime>
 #include <iostream>
-#include <pthread.h>
-#include <string.h>
 
 #define ARRAY_SIZE 32786
 #define RAND_LIMIT 256
 
 void *sum_unsorted(void *data) {
-  int *real_data = (int *)malloc(sizeof(int) * ARRAY_SIZE);
+  auto *real_data = static_cast<int *>(malloc(sizeof(int) * ARRAY_SIZE));
   memcpy(real_data, data, ARRAY_SIZE * sizeof(int));
   int *sum = (int *)malloc(sizeof(int));
   *sum = 0;
   for (unsigned i = 0; i < 100000; ++i) {
     // Primary loop
     for (unsigned c = 0; c < ARRAY_SIZE; ++c) {
-      if (real_data[c] >= 128)
-        *sum += real_data[c];
+      if (real_data[c] >= 128) *sum += real_data[c];
     }
   }
   return sum;
@@ -28,7 +27,7 @@ void *sum_unsorted(void *data) {
 void *sum_sorted(void *data) {
   int *sum = (int *)malloc(sizeof(int));
   *sum = 0;
-  int *real_data = (int *)malloc(sizeof(int) * ARRAY_SIZE);
+  auto *real_data = static_cast<int *>(malloc(sizeof(int) * ARRAY_SIZE));
   // real_data = (int *) data;
   memcpy(real_data, data, ARRAY_SIZE * sizeof(int));
 
@@ -37,8 +36,7 @@ void *sum_sorted(void *data) {
   for (unsigned i = 0; i < 100000; ++i) {
     // Primary loop
     for (unsigned c = 0; c < ARRAY_SIZE; ++c) {
-      if (real_data[c] >= 128)
-        *sum += real_data[c];
+      if (real_data[c] >= 128) *sum += real_data[c];
     }
   }
   return sum;
@@ -57,8 +55,7 @@ int main() {
   const unsigned arraySize = ARRAY_SIZE;
   int data[arraySize];
   fprintf(stderr, "branch-predict: main thread\n");
-  for (unsigned c = 0; c < arraySize; ++c)
-    data[c] = std::rand() % RAND_LIMIT;
+  for (unsigned c = 0; c < arraySize; ++c) data[c] = std::rand() % RAND_LIMIT;
 
   // int sum1 = sum_unsorted(data);
   // int sum2 = sum_sorted(data);

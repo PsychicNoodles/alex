@@ -246,8 +246,8 @@ ipcRenderer.on("result", async (event, resultFile) => {
     const charts = [
       {
         presetsRequired: ["cache"],
-        yAxisLabelText: "Cache Miss Rate",
-        chartId: "cache-miss-rate",
+        yAxisLabelText: "L3 Cache Miss Rate",
+        chartId: "l3-cache-miss-rate",
         yFormat: "%",
         getDependentVariable: d =>
           getEventCount(d, presets.cache.misses) /
@@ -261,6 +261,27 @@ ipcRenderer.on("result", async (event, resultFile) => {
             getDependentVariable: d =>
               (getEventCount(d, presets.cache.hits) +
                 getEventCount(d, presets.cache.misses)) /
+              d.numCpuTimerTicks
+          }
+        ]
+      },
+      {
+        presetsRequired: ["cache"],
+        yAxisLabelText: "L2 Cache Miss Rate",
+        chartId: "l2-cache-miss-rate",
+        yFormat: "%",
+        getDependentVariable: d =>
+          getEventCount(d, presets.cache.misses) /
+            (getEventCount(d, presets.cache.hits2) +
+              getEventCount(d, presets.cache.misses2)) || 0,
+        flattenThreads: false,
+        overlayPlots: [
+          {
+            name: "Total Accesses",
+            color: "gray",
+            getDependentVariable: d =>
+              (getEventCount(d, presets.cache.hits2) +
+                getEventCount(d, presets.cache.misses2)) /
               d.numCpuTimerTicks
           }
         ]

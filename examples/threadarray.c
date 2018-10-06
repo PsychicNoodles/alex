@@ -19,14 +19,12 @@ void *calculate_sum(void *args) {
   long *loops = (long *)malloc(sizeof(long));
   *loops = 0;
   for (int i = 0; i <= N - 1; i++) {
-    if (i % NTHREADS != threadindex)
-      continue;
+    if (i % NTHREADS != threadindex) continue;
     for (int j = 0; j <= M - 1; j++) {
       int sum = 0;
       for (int k = i - 1; k <= i + 1; k++) {
         for (int h = j - 1; h <= j + 1; h++) {
-          if (k < 0 || h < 0)
-            continue;
+          if (k < 0 || h < 0) continue;
           sum += dimensional_array[h][j];
         }
       }
